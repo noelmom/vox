@@ -105,6 +105,16 @@ Ideas and improvements to revisit. Not bugs — these are enhancements queued fo
 
 ---
 
+## Dark Mode
+
+- [ ] **Dark theme** — the original sketch used a dark background and it looked great. Add a full dark mode using CSS custom properties already defined in `vox.css`.
+  - Add dark token overrides in a `[data-theme="dark"]` selector or via `@media (prefers-color-scheme: dark)`
+  - Key surfaces: sidebar, main content, panels, toolbar, player, table — all need dark equivalents
+  - Offer a manual toggle (moon/sun icon in the sidebar footer) that persists to `localStorage`, with system preference as the default
+  - Code blocks and the API snippet already look great dark — keep them as-is
+
+---
+
 ## History Table
 
 - [ ] **Column visibility toggle** — let users show/hide columns (e.g. hide RTF, Duration) via a "Columns" dropdown. Persist preference in localStorage.

@@ -36,8 +36,9 @@ async def _ingest_file(path: Path):
             name=name,
             wav_path=wav_dest,
             original_filename=path.name,
-            description=f"Auto-imported from input folder",
+            description="Auto-imported from input folder",
             params=VoiceParams(),
+            tags=["auto-import"],
         )
 
         dest = _PROCESSED_DIR / path.name

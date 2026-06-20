@@ -7,7 +7,7 @@ from api.core.audio import INGESTABLE_EXTENSIONS, convert_to_wav
 from api.core.config import settings
 from api.core.db import get_db
 from api.core.logger import get_logger
-from api.models.voice import VoiceOut, VoiceParams
+from api.models.voice import VoiceOut, VoiceParams, _parse_tags, _serialize_tags
 
 router = APIRouter(prefix="/voices", tags=["voices"])
 log = get_logger(__name__)
@@ -25,18 +25,21 @@ async def _register_voice(
     description: str | None,
     params: VoiceParams,
     rid: str = "-",
+    tags: list[str] | None = None,
 ) -> dict:
     voice_id = str(uuid.uuid4())
+    tags_str = _serialize_tags(tags or [])
     await db.execute(
         """INSERT INTO voices
-               (id, name, filename, original_filename, description,
+               (id, name, filename, original_filename, description, tags,
                 exaggeration, cfg_weight, temperature,
                 repetition_penalty, top_p, min_p)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
            ON CONFLICT(name) DO UPDATE SET
                filename=excluded.filename,
                original_filename=excluded.original_filename,
                description=COALESCE(excluded.description, description),
+               tags=CASE WHEN excluded.tags != '' THEN excluded.tags ELSE tags END,
                exaggeration=excluded.exaggeration,
                cfg_weight=excluded.cfg_weight,
                temperature=excluded.temperature,
@@ -44,7 +47,7 @@ async def _register_voice(
                top_p=excluded.top_p,
                min_p=excluded.min_p""",
         (
-            voice_id, name, wav_path.name, original_filename, description,
+            voice_id, name, wav_path.name, original_filename, description, tags_str,
             params.exaggeration, params.cfg_weight, params.temperature,
             params.repetition_penalty, params.top_p, params.min_p,
         ),
@@ -79,6 +82,7 @@ async def create_voice(
     request: Request,
     name: str = Form(...),
     description: str | None = Form(None),
+    tags: str = Form("uploaded"),
     file: UploadFile = File(...),
     # optional per-voice TTS defaults
     exaggeration: float | None = Form(None),
@@ -123,7 +127,7 @@ async def create_voice(
         min_p=min_p,
     )
     db = await get_db()
-    return await _register_voice(db, safe, wav_dest, original_filename, description, params, rid)
+    return await _register_voice(db, safe, wav_dest, original_filename, description, params, rid, tags=_parse_tags(tags))
 
 
 @router.patch("/{name}", response_model=VoiceOut)
@@ -131,6 +135,7 @@ async def update_voice_params(
     name: str,
     request: Request,
     description: str | None = Form(None),
+    tags: str | None = Form(None),
     exaggeration: float | None = Form(None),
     cfg_weight: float | None = Form(None),
     temperature: float | None = Form(None),
@@ -145,9 +150,11 @@ async def update_voice_params(
     if not row:
         raise HTTPException(status_code=404, detail=f"Voice '{name}' not found")
 
+    tags_str = _serialize_tags(_parse_tags(tags)) if tags is not None else None
     await db.execute(
         """UPDATE voices SET
                description=COALESCE(?, description),
+               tags=COALESCE(?, tags),
                exaggeration=COALESCE(?, exaggeration),
                cfg_weight=COALESCE(?, cfg_weight),
                temperature=COALESCE(?, temperature),
@@ -155,7 +162,7 @@ async def update_voice_params(
                top_p=COALESCE(?, top_p),
                min_p=COALESCE(?, min_p)
            WHERE name=?""",
-        (description, exaggeration, cfg_weight, temperature,
+        (description, tags_str, exaggeration, cfg_weight, temperature,
          repetition_penalty, top_p, min_p, name),
     )
     await db.commit()

@@ -75,6 +75,16 @@ async def _migrate(db: aiosqlite.Connection):
         CREATE INDEX IF NOT EXISTS jobs_status ON jobs(status);
         CREATE INDEX IF NOT EXISTS jobs_created ON jobs(created_at);
     """)
+    # Additive migrations for columns added after initial release
+    for col, ddl in [
+        ("tags", "ALTER TABLE voices ADD COLUMN tags TEXT NOT NULL DEFAULT ''"),
+    ]:
+        try:
+            await db.execute(ddl)
+            await db.commit()
+        except Exception:
+            pass  # column already exists
+
     await db.commit()
 
 

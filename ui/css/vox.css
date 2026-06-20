@@ -137,6 +137,7 @@ h1, h2, h3, h4 { letter-spacing: -0.02em; line-height: 1.2; }
 .dot-green  { background: var(--success); }
 .dot-red    { background: var(--error); }
 .dot-yellow { background: var(--warning); animation: pulse 1.5s ease-in-out infinite; }
+.dot-pulse  { animation: pulse 2.5s ease-in-out infinite; }
 
 @keyframes pulse {
   0%, 100% { opacity: 1; }

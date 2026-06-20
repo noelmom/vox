@@ -2,7 +2,7 @@
 
 A local, privacy-first text-to-speech (TTS) platform powered by [Chatterbox](https://github.com/resemble-ai/chatterbox) and optimised for Apple Silicon. Vox runs entirely on your machine — no cloud, no subscriptions, no data leaving your device.
 
-It exposes a clean REST API and (soon) a web UI for generating high-quality audio from named voice profiles. The long-term goal is a one-click macOS app with a native menu bar helper.
+It exposes a clean REST API and a web UI for generating high-quality audio from named voice profiles. The long-term goal is a one-click macOS app with a native menu bar helper.
 
 ---
 
@@ -17,6 +17,13 @@ It exposes a clean REST API and (soon) a web UI for generating high-quality audi
 - **Request ID tracing** — `X-Request-ID` on every request and response, tied to DB records and logs for easy HAR-file debugging
 - **Configurable cleanup** — generated output files are pruned on a TTL schedule
 - **Zero cloud dependency** — fully self-hosted
+- **Web UI** — single-page app for generating audio, managing voices, viewing history, and configuring settings
+- **In-browser voice recording** — capture microphone audio directly in the browser with live waveform visualisation
+- **Voice profile editing** — update description, tags, and TTS defaults without re-uploading audio
+- **Tag system** — tag voices (`uploaded`, `auto-import`, or custom) with filter pills on the Voices screen
+- **Custom tone** — "✦ Custom" pill opens a parameter panel with sliders for all 6 TTS params; persists via `localStorage`
+- **Generation ETA** — progress bar with elapsed/remaining time estimate while TTS is running
+- **Real upload progress** — live byte-count progress bar during voice file uploads
 
 ---
 
@@ -45,6 +52,12 @@ codename-vox/
 │   └── models/
 │       ├── voice.py             # VoiceOut, VoiceParams, VoiceCreate schemas
 │       └── job.py               # JobOut schema
+├── ui/
+│   ├── app.html                 # Single-page web UI (vanilla JS, ES modules)
+│   ├── css/
+│   │   └── vox.css              # Design tokens and component styles
+│   └── js/
+│       └── api.js               # Thin fetch/XHR wrappers for every API endpoint
 ├── working-poc/                 # Original proof-of-concept (reference only)
 ├── voices/                      # Stored voice profile WAV files
 ├── outputs/                     # Generated audio files (auto-cleaned by TTL)
@@ -53,6 +66,7 @@ codename-vox/
 ├── setup.sh                     # One-shot bootstrap script
 ├── run.sh                       # Start the server
 ├── requirements.txt             # Python dependencies
+├── CHANGELOG.md                 # Notable changes per version
 └── .env                         # Local config overrides (git-ignored)
 ```
 
@@ -347,7 +361,7 @@ sqlite3 vox.db
 | Audio conversion | ffmpeg |
 | Job queue | `asyncio.Lock` (single-device serialisation) |
 | Settings | [pydantic-settings](https://docs.pydantic.dev/latest/concepts/pydantic_settings/) |
-| Web UI | *(coming soon)* |
+| Web UI | Vanilla JS (ES modules), single `app.html` SPA |
 | Packaging | *(coming soon — PyInstaller or py2app)* |
 | Menu bar helper | *(coming soon — rumps or PyObjC)* |
 
@@ -369,10 +383,15 @@ sqlite3 vox.db
 - [x] TTL-based output file cleanup
 - [x] Environment-based configuration
 - [x] One-command setup script (`setup.sh`)
-- [ ] Web UI (voice upload, text input, job history, audio playback)
+- [x] Web UI — Generate, Voices, History, Settings screens
+- [x] Voice profile tagging and filter pills
+- [x] Voice profile editing modal
+- [x] In-browser microphone recording with waveform visualiser
+- [x] Custom tone panel (per-request TTS parameter overrides, localStorage persistence)
+- [x] Generation ETA progress bar
+- [x] Real upload progress (XHR byte-level)
 - [ ] Streaming audio response (chunked transfer)
 - [ ] Queue with concurrency support (multiple requests)
-- [ ] Voice profile tagging and search
 - [ ] macOS menu bar helper (start/stop server, view recent jobs)
 - [ ] One-click `.app` packaging (PyInstaller / py2app)
 - [ ] Auto-launch on login

@@ -99,6 +99,117 @@
       padding: 12px 20px; border-top: 0.5px solid var(--border);
       background: var(--bg-2);
       border-radius: 0 0 var(--r-xl) var(--r-xl);
+      flex-wrap: wrap;
+    }
+
+    /* ── Custom Tone Panel ───────────────────────────────────────────────── */
+    .custom-panel {
+      border: 0.5px solid var(--border-2); border-radius: var(--r-lg);
+      background: var(--bg); margin-top: 8px; overflow: hidden;
+    }
+    .custom-panel-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 10px 14px;
+      border-bottom: 0.5px solid var(--border);
+      background: var(--bg-2);
+    }
+    .custom-panel-title {
+      font-size: 12px; font-weight: 600; color: var(--text-2);
+      display: flex; align-items: center; gap: 6px;
+    }
+    .custom-panel-title-dot {
+      width: 6px; height: 6px; border-radius: 50%;
+      background: #534AB7;
+    }
+    .custom-panel-toggle {
+      font-size: 11px; color: var(--text-3); cursor: pointer;
+      background: none; border: none; padding: 2px 6px;
+      border-radius: 4px; transition: all 0.12s; font-family: var(--font);
+    }
+    .custom-panel-toggle:hover { background: var(--bg-3); color: var(--text); }
+    .custom-panel-body { padding: 16px; display: flex; flex-direction: column; gap: 14px; }
+    .param-row {
+      display: grid; grid-template-columns: 140px 1fr 52px;
+      align-items: center; gap: 12px;
+    }
+    .param-row-label { display: flex; flex-direction: column; gap: 2px; }
+    .param-row-name { font-size: 12px; font-weight: 500; color: var(--text); }
+    .param-row-hint { font-size: 10px; color: var(--text-3); line-height: 1.4; }
+    .param-row-slider {
+      -webkit-appearance: none; appearance: none;
+      width: 100%; height: 4px; border-radius: 2px;
+      background: var(--bg-3); outline: none; cursor: pointer;
+    }
+    .param-row-slider::-webkit-slider-thumb {
+      -webkit-appearance: none; width: 14px; height: 14px;
+      border-radius: 50%; background: #534AB7;
+      cursor: pointer; border: 2px solid var(--bg);
+      box-shadow: 0 0 0 1px #534AB7;
+      transition: transform 0.1s;
+    }
+    .param-row-slider::-webkit-slider-thumb:hover { transform: scale(1.2); }
+    .param-row-input {
+      width: 52px; text-align: right; font-size: 12px; font-weight: 500;
+      color: var(--text); background: var(--bg-2);
+      border: 0.5px solid var(--border-2); border-radius: var(--r-sm);
+      padding: 4px 6px;
+    }
+    .param-row-input.error { border-color: var(--error); color: var(--error); }
+    .param-row-input:focus { outline: none; border-color: #534AB7; }
+    .param-error-text { font-size: 10px; color: var(--error); margin-top: -8px; margin-left: 152px; }
+    .custom-panel-footer {
+      padding: 12px 16px; border-top: 0.5px solid var(--border);
+      background: var(--bg-2); display: flex; align-items: center; gap: 10px;
+    }
+    .custom-save-btn {
+      padding: 6px 16px; border-radius: var(--r-sm); font-size: 12px;
+      font-weight: 600; border: none; background: #534AB7; color: white;
+      cursor: pointer; font-family: var(--font); transition: all 0.12s;
+    }
+    .custom-save-btn:hover { background: #7F77DD; }
+    .custom-save-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .custom-reset-btn {
+      padding: 6px 12px; border-radius: var(--r-sm); font-size: 12px;
+      font-weight: 500; border: 0.5px solid var(--border-2);
+      background: none; color: var(--text-2);
+      cursor: pointer; font-family: var(--font); transition: all 0.12s;
+    }
+    .custom-reset-btn:hover { background: var(--bg-3); }
+    .custom-save-status { font-size: 11px; color: var(--text-3); margin-left: auto; }
+
+    /* ETA progress bar — generation */
+    .eta-bar-wrap {
+      width: 100%; display: flex; flex-direction: column; gap: 5px;
+      padding: 4px 0 2px; order: 10;
+    }
+    .eta-bar-track {
+      height: 3px; background: var(--border-2); border-radius: 99px; overflow: hidden;
+    }
+    .eta-bar-fill {
+      height: 100%; border-radius: 99px;
+      background: linear-gradient(90deg, #534AB7, #7F77DD);
+      transition: width 0.9s linear;
+    }
+    .eta-bar-label {
+      font-size: 11px; color: var(--text-3);
+      display: flex; justify-content: space-between;
+    }
+
+    /* Upload progress bar */
+    .upload-progress-wrap {
+      margin-top: 10px; display: flex; flex-direction: column; gap: 5px;
+    }
+    .upload-progress-track {
+      height: 4px; background: var(--border-2); border-radius: 99px; overflow: hidden;
+    }
+    .upload-progress-fill {
+      height: 100%; border-radius: 99px;
+      background: linear-gradient(90deg, #534AB7, #7F77DD);
+      transition: width 0.2s ease;
+    }
+    .upload-progress-label {
+      font-size: 11px; color: var(--text-3);
+      display: flex; justify-content: space-between;
     }
 
     /* Preset pills */
@@ -209,6 +320,91 @@
     .voice-desc { font-size: 12px; color: var(--text-2); line-height: 1.55; }
     .voice-actions { display: flex; gap: 6px; margin-top: 4px; }
 
+    /* Tag badges */
+    .tag-badge {
+      display: inline-flex; align-items: center; gap: 4px;
+      height: 18px; padding: 0 7px; border-radius: 9px;
+      font-size: 10px; font-weight: 500; letter-spacing: 0.03em;
+      border: 0.5px solid var(--border-2);
+      background: var(--bg-2); color: var(--text-2);
+    }
+    .tag-badge.tag-uploaded   { background: #E0EFFE; color: #003D87; border-color: #BAD5FC; }
+    .tag-badge.tag-auto-import{ background: #E4F7E6; color: #196329; border-color: #C0E7C4; }
+
+    /* Edit modal */
+    .modal-overlay {
+      position: fixed; inset: 0; z-index: 500;
+      background: rgba(0,0,0,0.35);
+      backdrop-filter: blur(4px);
+      display: flex; align-items: center; justify-content: center;
+      padding: 24px;
+    }
+    .modal {
+      background: var(--bg); border-radius: var(--r-xl);
+      box-shadow: var(--sh-lg);
+      width: 100%; max-width: 480px;
+      max-height: 90vh; overflow-y: auto;
+      border: 0.5px solid var(--border);
+    }
+    .modal-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 18px 20px 14px;
+      border-bottom: 0.5px solid var(--border);
+    }
+    .modal-title { font-size: 15px; font-weight: 500; }
+    .modal-close {
+      width: 28px; height: 28px; border-radius: var(--r-sm);
+      background: var(--bg-2); border: 0.5px solid var(--border);
+      color: var(--text-2); cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 14px;
+    }
+    .modal-body { padding: 20px; display: flex; flex-direction: column; gap: 16px; }
+    .modal-footer {
+      padding: 14px 20px;
+      border-top: 0.5px solid var(--border);
+      display: flex; justify-content: flex-end; gap: 8px;
+    }
+    .modal-section-title {
+      font-size: 11px; font-weight: 500; color: var(--text-3);
+      letter-spacing: 0.08em; text-transform: uppercase;
+      margin-bottom: 10px;
+    }
+
+    /* Tag editor */
+    .tag-editor { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+    .tag-chip {
+      display: inline-flex; align-items: center; gap: 5px;
+      height: 24px; padding: 0 8px; border-radius: 12px;
+      font-size: 11px; font-weight: 500;
+      background: var(--bg-2); border: 0.5px solid var(--border-2);
+      color: var(--text);
+    }
+    .tag-chip-remove {
+      background: none; border: none; cursor: pointer;
+      color: var(--text-3); font-size: 12px; padding: 0; line-height: 1;
+    }
+    .tag-chip-remove:hover { color: var(--error); }
+    .tag-add-input {
+      height: 24px; padding: 0 8px; border-radius: 12px;
+      border: 0.5px dashed var(--border-2); background: transparent;
+      font-family: var(--font); font-size: 11px; color: var(--text);
+      outline: none; width: 100px;
+    }
+    .tag-add-input:focus { border-color: var(--text); }
+
+    /* Advanced params toggle */
+    .advanced-toggle {
+      display: flex; align-items: center; gap: 7px;
+      font-size: 12px; color: var(--text-2); cursor: pointer;
+      background: none; border: none; padding: 0; font-family: var(--font);
+    }
+    .advanced-toggle:hover { color: var(--text); }
+    .params-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; }
+    .param-field label { display: block; font-size: 11px; color: var(--text-3); margin-bottom: 4px; }
+    .param-field input { width: 100%; height: 32px; padding: 0 10px; border: 0.5px solid var(--border-2); border-radius: var(--r-sm); font-family: var(--font); font-size: 13px; background: var(--bg); color: var(--text); outline: none; }
+    .param-field input:focus { border-color: var(--text); }
+
     /* Upload zone */
     .upload-zone {
       border: 1.5px dashed var(--border-2); border-radius: var(--r-xl);
@@ -226,6 +422,59 @@
     /* Voice upload form */
     .voice-form { max-width: 480px; }
     .voice-form-file { display: none; }
+
+    /* Add-voice tabs */
+    .add-voice-tabs {
+      display: flex; gap: 0; border-bottom: 0.5px solid var(--border); margin-bottom: 20px;
+    }
+    .add-voice-tab {
+      padding: 8px 16px; font-size: 13px; font-weight: 500; cursor: pointer;
+      border: none; background: none; color: var(--text-3);
+      border-bottom: 2px solid transparent; margin-bottom: -1px;
+      transition: color 0.12s, border-color 0.12s;
+    }
+    .add-voice-tab.active { color: var(--text); border-bottom-color: var(--text); }
+
+    /* Recorder */
+    .recorder-zone {
+      border: 1.5px dashed var(--border-2); border-radius: var(--r-xl);
+      padding: 32px; text-align: center; max-width: 480px;
+      display: flex; flex-direction: column; align-items: center; gap: 16px;
+    }
+    .rec-btn {
+      width: 64px; height: 64px; border-radius: 50%;
+      background: var(--error); border: none; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      transition: transform 0.12s, box-shadow 0.12s;
+      box-shadow: 0 0 0 0 rgba(239,68,68,0.4);
+    }
+    .rec-btn:hover { transform: scale(1.06); }
+    .rec-btn.recording {
+      animation: rec-pulse 1.4s ease-in-out infinite;
+      background: var(--error);
+    }
+    .rec-btn.has-audio { background: var(--bg-2); border: 1.5px solid var(--border-2); }
+    @keyframes rec-pulse {
+      0%,100% { box-shadow: 0 0 0 0 rgba(239,68,68,0.5); }
+      50%      { box-shadow: 0 0 0 14px rgba(239,68,68,0); }
+    }
+    .rec-icon { font-size: 22px; line-height: 1; }
+    .rec-timer {
+      font-size: 28px; font-weight: 600; font-variant-numeric: tabular-nums;
+      color: var(--text); letter-spacing: 0.04em;
+    }
+    .rec-status { font-size: 13px; color: var(--text-3); }
+    .rec-waveform {
+      width: 100%; max-width: 340px; height: 48px;
+      display: flex; align-items: center; justify-content: center; gap: 2px;
+    }
+    .rec-waveform canvas { width: 100%; height: 100%; }
+    .rec-preview {
+      width: 100%; max-width: 340px;
+      display: flex; flex-direction: column; gap: 8px;
+    }
+    .rec-preview audio { width: 100%; height: 36px; }
+    .rec-controls { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
 
     /* ── Screen: History ───────────────────────────────────────────────── */
     .history-filters {
@@ -390,7 +639,7 @@
     <div class="sidebar-footer">
       <div class="status-row" id="server-status">
         <span class="dot dot-yellow"></span>
-        <span>Connecting…</span>
+        <span>Starting up…</span>
       </div>
       <a href="/" class="nav-item" style="font-size:12px; height:28px; color:var(--text-3)">
         <span class="nav-icon" style="font-size:12px">←</span>
@@ -440,10 +689,27 @@
 </script>
 
 <script type="module">
-import { healthCheck, listVoices, listJobs, listPresets, generateTTS, uploadVoice, deleteVoice } from '/ui/js/api.js';
+import { healthCheck, listVoices, listJobs, listPresets, generateTTS, uploadVoice, uploadVoiceWithProgress, deleteVoice, patchVoice } from '/ui/js/api.js';
 import { toast, toastError, toastSuccess } from '/ui/js/toast.js';
 
 // ── State ────────────────────────────────────────────────────────────────────
+
+// Default values seeded from the server-side "default" preset
+const CUSTOM_DEFAULTS = {
+  exaggeration:      0.5,
+  cfg_weight:        0.5,
+  temperature:       0.8,
+  repetition_penalty:1.2,
+  top_p:             1.0,
+  min_p:             0.05,
+};
+
+function loadCustomParams() {
+  try {
+    const saved = localStorage.getItem('vox_custom_params');
+    return saved ? { ...CUSTOM_DEFAULTS, ...JSON.parse(saved) } : { ...CUSTOM_DEFAULTS };
+  } catch { return { ...CUSTOM_DEFAULTS }; }
+}
 
 const state = {
   screen: 'generate',
@@ -458,6 +724,8 @@ const state = {
     format: 'mp3',
     result: null,   // { blob, headers, url }
     loading: false,
+    customParams: loadCustomParams(),
+    customPanelOpen: false,
   },
   upload: { file: null, name: '', description: '' },
 };
@@ -493,6 +761,147 @@ function render() {
 
 // ── Screen: Generate ──────────────────────────────────────────────────────────
 
+const CUSTOM_PARAMS_META = [
+  { key: 'exaggeration',       label: 'Exaggeration',        hint: 'Delivery drama & pace. Higher = more expressive.',  min: 0,   max: 2,   step: 0.05 },
+  { key: 'cfg_weight',         label: 'CFG Weight',          hint: 'How closely the model follows the voice prompt.',   min: 0,   max: 1,   step: 0.05 },
+  { key: 'temperature',        label: 'Temperature',         hint: 'Randomness. Higher = more varied, natural delivery.',min: 0,   max: 1,   step: 0.05 },
+  { key: 'repetition_penalty', label: 'Repetition Penalty',  hint: 'Discourages repeated sounds. Keep near 1.2.',        min: 1,   max: 2,   step: 0.05 },
+  { key: 'top_p',              label: 'Top P',               hint: 'Nucleus sampling threshold.',                       min: 0,   max: 1,   step: 0.05 },
+  { key: 'min_p',              label: 'Min P',               hint: 'Minimum token probability floor.',                  min: 0,   max: 0.5, step: 0.01 },
+];
+
+function renderCustomPanel(g) {
+  const p = g.customParams;
+  const open = g.customPanelOpen;
+  return `
+    <div class="custom-panel" id="custom-panel">
+      <div class="custom-panel-header">
+        <div class="custom-panel-title">
+          <span class="custom-panel-title-dot"></span>
+          Custom Tone Parameters
+        </div>
+        <button class="custom-panel-toggle" id="custom-panel-toggle">
+          ${open ? '▲ Collapse' : '▼ Expand'}
+        </button>
+      </div>
+      ${open ? `
+      <div class="custom-panel-body" id="custom-panel-body">
+        ${CUSTOM_PARAMS_META.map(m => `
+          <div>
+            <div class="param-row">
+              <div class="param-row-label">
+                <span class="param-row-name">${m.label}</span>
+                <span class="param-row-hint">${m.hint}</span>
+              </div>
+              <input type="range" class="param-row-slider" id="slider-${m.key}"
+                min="${m.min}" max="${m.max}" step="${m.step}"
+                value="${p[m.key] ?? m.min}">
+              <input type="number" class="param-row-input" id="input-${m.key}"
+                min="${m.min}" max="${m.max}" step="${m.step}"
+                value="${p[m.key] ?? ''}">
+            </div>
+            <div class="param-error-text" id="err-${m.key}" style="display:none"></div>
+          </div>
+        `).join('')}
+      </div>
+      <div class="custom-panel-footer">
+        <button class="custom-save-btn" id="custom-save-btn">Save</button>
+        <button class="custom-reset-btn" id="custom-reset-btn">Reset to defaults</button>
+        <span class="custom-save-status" id="custom-save-status"></span>
+      </div>` : ''}
+    </div>`;
+}
+
+function wireCustomPanel(el) {
+  const g = state.generate;
+
+  const toggleBtn = el.querySelector('#custom-panel-toggle');
+  if (toggleBtn) {
+    toggleBtn.addEventListener('click', () => {
+      g.customPanelOpen = !g.customPanelOpen;
+      // re-render just the panel in-place
+      const existing = el.querySelector('#custom-panel');
+      if (existing) existing.outerHTML = renderCustomPanel(g);
+      wireCustomPanel(el);
+    });
+  }
+
+  if (!g.customPanelOpen) return;
+
+  // Sync slider ↔ number input
+  CUSTOM_PARAMS_META.forEach(m => {
+    const slider = el.querySelector(`#slider-${m.key}`);
+    const input  = el.querySelector(`#input-${m.key}`);
+    const errEl  = el.querySelector(`#err-${m.key}`);
+    if (!slider || !input) return;
+
+    function syncFromSlider() {
+      input.value = slider.value;
+      input.classList.remove('error');
+      errEl.style.display = 'none';
+    }
+    function syncFromInput() {
+      const v = parseFloat(input.value);
+      if (isNaN(v) || v < m.min || v > m.max) {
+        input.classList.add('error');
+        errEl.textContent = `Must be between ${m.min} and ${m.max}`;
+        errEl.style.display = 'block';
+      } else {
+        input.classList.remove('error');
+        errEl.style.display = 'none';
+        slider.value = v;
+      }
+    }
+    slider.addEventListener('input', syncFromSlider);
+    input.addEventListener('input', syncFromInput);
+    input.addEventListener('change', syncFromInput);
+  });
+
+  // Reset
+  el.querySelector('#custom-reset-btn')?.addEventListener('click', () => {
+    CUSTOM_PARAMS_META.forEach(m => {
+      const s = el.querySelector(`#slider-${m.key}`);
+      const i = el.querySelector(`#input-${m.key}`);
+      const e = el.querySelector(`#err-${m.key}`);
+      if (s) s.value = CUSTOM_DEFAULTS[m.key];
+      if (i) { i.value = CUSTOM_DEFAULTS[m.key]; i.classList.remove('error'); }
+      if (e) e.style.display = 'none';
+    });
+    el.querySelector('#custom-save-status').textContent = '';
+  });
+
+  // Save
+  el.querySelector('#custom-save-btn')?.addEventListener('click', () => {
+    let hasError = false;
+    const newParams = {};
+
+    CUSTOM_PARAMS_META.forEach(m => {
+      const input = el.querySelector(`#input-${m.key}`);
+      const errEl = el.querySelector(`#err-${m.key}`);
+      const v = parseFloat(input?.value);
+      if (input && (isNaN(v) || v < m.min || v > m.max || input.value.trim() === '')) {
+        input.classList.add('error');
+        errEl.textContent = input.value.trim() === ''
+          ? 'Required — cannot be empty'
+          : `Must be between ${m.min} and ${m.max}`;
+        errEl.style.display = 'block';
+        hasError = true;
+      } else {
+        newParams[m.key] = v;
+      }
+    });
+
+    if (hasError) return;
+
+    g.customParams = newParams;
+    try { localStorage.setItem('vox_custom_params', JSON.stringify(newParams)); } catch {}
+
+    const status = el.querySelector('#custom-save-status');
+    status.textContent = '✓ Saved';
+    setTimeout(() => { if (status) status.textContent = ''; }, 2000);
+  });
+}
+
 function renderGenerate(el, actions) {
   const g = state.generate;
   const MAX = 3000;
@@ -517,18 +926,29 @@ function renderGenerate(el, actions) {
             <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
               <span style="font-size:11px;font-weight:500;color:var(--text-3);letter-spacing:.07em;text-transform:uppercase;white-space:nowrap;display:inline-flex;align-items:center;gap:4px;">
                 Tone
-                <span class="tip-icon" data-tip="Controls the speaking style. Default is neutral. YouTube is expressive and engaging. Hype is high-energy. News is calm and measured.">?</span>
+                <span class="tip-icon" data-tip="Controls the speaking style. Default is neutral. YouTube is expressive and engaging. Hype is high-energy. News is calm and measured. Custom lets you dial in your own parameters.">?</span>
               </span>
               <div class="preset-pills" role="group" aria-label="Tone">
                 ${Object.keys(state.presets).map(p => `
                   <button class="preset-pill ${p === g.preset ? 'active' : ''}" data-preset="${p}">${p}</button>
                 `).join('')}
+                <button class="preset-pill ${g.preset === 'custom' ? 'active' : ''}" data-preset="custom" style="${g.preset === 'custom' ? 'border-color:#534AB7;color:#534AB7;background:rgba(83,74,183,0.1);' : ''}">✦ Custom</button>
               </div>
             </div>
             <button id="gen-btn" class="btn btn-primary ${g.loading ? 'loading' : ''}" ${g.loading || isOver ? 'disabled' : ''}>
               ${g.loading ? '<span class="spinner"></span> Generating…' : '✦ Generate'}
             </button>
+            ${g.loading ? `
+            <div class="eta-bar-wrap" id="eta-bar-wrap">
+              <div class="eta-bar-track"><div class="eta-bar-fill" id="eta-bar-fill" style="width:0%"></div></div>
+              <div class="eta-bar-label">
+                <span id="eta-elapsed">0s elapsed</span>
+                <span id="eta-remaining">Estimating…</span>
+              </div>
+            </div>` : ''}
           </div>
+
+          ${g.preset === 'custom' ? renderCustomPanel(g) : ''}
         </div>
 
         <!-- Audio player -->
@@ -584,8 +1004,28 @@ function renderGenerate(el, actions) {
 
   el.querySelectorAll('[data-preset]').forEach(btn => {
     btn.addEventListener('click', () => {
-      state.generate.preset = btn.dataset.preset;
-      el.querySelectorAll('[data-preset]').forEach(b => b.classList.toggle('active', b.dataset.preset === btn.dataset.preset));
+      const picked = btn.dataset.preset;
+      if (picked === 'custom') {
+        if (state.generate.preset === 'custom') {
+          // already on custom — toggle panel open/closed
+          state.generate.customPanelOpen = !state.generate.customPanelOpen;
+          const panel = el.querySelector('#custom-panel');
+          if (panel) { panel.outerHTML = renderCustomPanel(state.generate); wireCustomPanel(el); }
+        } else {
+          // switching to custom — open panel
+          state.generate.preset = 'custom';
+          state.generate.customPanelOpen = true;
+          render();
+        }
+      } else {
+        // switching away from custom
+        state.generate.preset = picked;
+        state.generate.customPanelOpen = false;
+        el.querySelectorAll('[data-preset]').forEach(b =>
+          b.classList.toggle('active', b.dataset.preset === picked));
+        const panel = el.querySelector('#custom-panel');
+        if (panel) panel.remove();
+      }
     });
   });
 
@@ -601,6 +1041,9 @@ function renderGenerate(el, actions) {
   });
 
   el.querySelector('#gen-btn').addEventListener('click', runGenerate);
+
+  // Wire custom panel if visible
+  if (g.preset === 'custom') wireCustomPanel(el);
 
   // Wire up audio player if result exists
   if (g.result) wirePlayer(el);
@@ -696,99 +1139,221 @@ function wirePlayer(el) {
   });
 }
 
+function _fmtDuration(sec) {
+  const m = Math.floor(sec / 60);
+  const s = Math.floor(sec % 60);
+  return m > 0 ? `${m}m ${s}s` : `${s}s`;
+}
+
+function _avgRtf() {
+  // Derive average RTF from recent completed jobs; fall back to 0.3
+  const completed = state.jobs.filter(j => j.status === 'done' && j.rtf != null);
+  if (!completed.length) return 0.3;
+  const avg = completed.slice(0, 10).reduce((s, j) => s + j.rtf, 0) / Math.min(completed.length, 10);
+  return avg > 0 ? avg : 0.3;
+}
+
 async function runGenerate() {
   const text = state.generate.text.trim();
   if (!text) { toastError('Please enter some text first.'); return; }
 
-  // Revoke old blob URL
   if (state.generate.result?.url) URL.revokeObjectURL(state.generate.result.url);
   state.generate.result = null;
   state.generate.loading = true;
   if (_audio) { _audio.pause(); _audio = null; }
   render();
 
+  // ── ETA estimation ──────────────────────────────────────────────────────
+  // Estimate: ~140 chars/sec of speech × avg RTF = expected generation time
+  const charsPerSec = 140;
+  const estimatedAudioSec = text.length / charsPerSec;
+  const estimatedGenSec   = Math.max(2, estimatedAudioSec * _avgRtf());
+
+  let elapsed   = 0;
+  let etaTimer  = null;
+
+  function updateEta() {
+    elapsed++;
+    const fill     = document.getElementById('eta-bar-fill');
+    const elapsedEl  = document.getElementById('eta-elapsed');
+    const remainEl   = document.getElementById('eta-remaining');
+    if (!fill) return;
+
+    const pct       = Math.min(96, (elapsed / estimatedGenSec) * 100);
+    const remaining = Math.max(0, Math.round(estimatedGenSec - elapsed));
+    fill.style.width = pct + '%';
+    elapsedEl.textContent = `${_fmtDuration(elapsed)} elapsed`;
+    remainEl.textContent  = elapsed < estimatedGenSec
+      ? `~${_fmtDuration(remaining)} remaining`
+      : 'Almost done…';
+  }
+
+  etaTimer = setInterval(updateEta, 1000);
+
   try {
+    const isCustom = state.generate.preset === 'custom';
     const { blob, headers } = await generateTTS({
       text,
-      preset: state.generate.preset,
-      voice_name: state.generate.voice_name || undefined,
+      preset:        isCustom ? 'default' : state.generate.preset,
+      voice_name:    state.generate.voice_name || undefined,
       output_format: state.generate.format,
+      ...(isCustom ? state.generate.customParams : {}),
     });
+
+    // Snap bar to 100%
+    const fill = document.getElementById('eta-bar-fill');
+    if (fill) fill.style.width = '100%';
+
     const url = URL.createObjectURL(blob);
     state.generate.result = { blob, headers, url };
     toastSuccess('Audio generated!');
   } catch (err) {
     toastError(err.message);
   } finally {
+    clearInterval(etaTimer);
     state.generate.loading = false;
     render();
-    if (state.generate.result) wirePlayer(document.getElementById('screen-content'));
   }
 }
 
 // ── Screen: Voices ────────────────────────────────────────────────────────────
 
 let _uploadFile = null;
+let _voiceTagFilter = 'all';
+let _addVoiceTab = 'upload';
+
+function allTags() {
+  const set = new Set();
+  state.voices.forEach(v => (v.tags || []).forEach(t => set.add(t)));
+  return [...set].sort();
+}
 
 function renderVoices(el, actions) {
-  const addBtn = document.createElement('button');
-  addBtn.className = 'btn btn-primary btn-sm';
-  addBtn.textContent = '+ Add Voice';
-  addBtn.addEventListener('click', () => {
-    const zone = el.querySelector('#upload-section');
-    zone?.scrollIntoView({ behavior: 'smooth' });
-  });
-  actions.appendChild(addBtn);
+
+  const tags = allTags();
+  const filtered = _voiceTagFilter === 'all'
+    ? state.voices
+    : state.voices.filter(v => (v.tags || []).includes(_voiceTagFilter));
 
   el.innerHTML = `
     <div style="max-width:1100px;display:flex;flex-direction:column;gap:24px;">
 
+      <!-- Tag filters -->
+      <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+        ${['all', ...tags].map(t => `
+          <button class="filter-pill ${_voiceTagFilter === t ? 'active' : ''}" data-tag-filter="${escAttr(t)}">
+            ${t === 'all' ? `All (${state.voices.length})` : escHtml(t)}
+          </button>
+        `).join('')}
+      </div>
+
       <!-- Voice grid -->
       <div>
-        <div style="font-size:12px;font-weight:500;color:var(--text-3);letter-spacing:.07em;text-transform:uppercase;margin-bottom:12px;">
-          ${state.voices.length} Voice${state.voices.length !== 1 ? 's' : ''}
-        </div>
-        ${state.voices.length === 0
+        ${filtered.length === 0
           ? `<div class="empty-state"><div class="empty-icon">🎤</div><div class="empty-title">No voices yet</div><div class="empty-sub">Upload a voice profile below to get started.</div></div>`
-          : `<div class="voices-grid">${state.voices.map(v => renderVoiceCard(v)).join('')}</div>`
+          : `<div class="voices-grid">${filtered.map(v => renderVoiceCard(v)).join('')}</div>`
         }
       </div>
 
-      <!-- Upload form -->
+      <!-- Add New Voice (tabbed: Upload / Record) -->
       <div id="upload-section" style="border-top:0.5px solid var(--border);padding-top:24px;">
         <div style="font-size:12px;font-weight:500;color:var(--text-3);letter-spacing:.07em;text-transform:uppercase;margin-bottom:16px;">Add New Voice</div>
 
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;max-width:800px;">
-          <!-- Drop zone -->
-          <div>
-            <div class="upload-zone" id="drop-zone" role="button" tabindex="0" aria-label="Upload voice file">
-              <div class="upload-icon" id="drop-icon">📂</div>
-              <div class="upload-title" id="drop-title">Drop an audio file here</div>
-              <div class="upload-sub">WAV, M4A, MP3, AIFF, FLAC, OGG<br>iPhone Voice Memos work great</div>
-            </div>
-            <input type="file" id="voice-file-input" class="voice-form-file" accept=".wav,.m4a,.mp3,.aiff,.aif,.flac,.ogg">
-          </div>
+        <div class="add-voice-tabs">
+          <button class="add-voice-tab ${_addVoiceTab === 'upload' ? 'active' : ''}" data-voice-tab="upload">Upload File</button>
+          <button class="add-voice-tab ${_addVoiceTab === 'record' ? 'active' : ''}" data-voice-tab="record">Record</button>
+        </div>
 
-          <!-- Form fields -->
-          <div class="voice-form">
-            <div class="field">
-              <label class="label" for="voice-name-input">Profile Name</label>
-              <input id="voice-name-input" class="input" type="text" placeholder="e.g. noelmo-normal">
+        <!-- Upload tab -->
+        <div id="tab-upload" style="display:${_addVoiceTab === 'upload' ? 'block' : 'none'}">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;max-width:800px;">
+            <div>
+              <div class="upload-zone" id="drop-zone" role="button" tabindex="0" aria-label="Upload voice file">
+                <div class="upload-icon" id="drop-icon">📂</div>
+                <div class="upload-title" id="drop-title">Drop an audio file here</div>
+                <div class="upload-sub">WAV, M4A, MP3, AIFF, FLAC, OGG<br>iPhone Voice Memos work great</div>
+              </div>
+              <input type="file" id="voice-file-input" class="voice-form-file" accept=".wav,.m4a,.mp3,.aiff,.aif,.flac,.ogg">
             </div>
-            <div class="field">
-              <label class="label" for="voice-desc-input">Description <span style="font-weight:400;">(optional)</span></label>
-              <input id="voice-desc-input" class="input" type="text" placeholder="Short description">
-            </div>
-            <div style="margin-top:20px;">
-              <button id="upload-btn" class="btn btn-primary" disabled>Upload Voice</button>
+            <div class="voice-form">
+              <div class="field">
+                <label class="label" for="voice-name-input">Profile Name</label>
+                <input id="voice-name-input" class="input" type="text" placeholder="e.g. noelmo-normal">
+              </div>
+              <div class="field">
+                <label class="label" for="voice-desc-input">Description <span style="font-weight:400;">(optional)</span></label>
+                <input id="voice-desc-input" class="input" type="text" placeholder="Short description">
+              </div>
+              <div style="margin-top:20px;">
+                <button id="upload-btn" class="btn btn-primary" disabled>Upload Voice</button>
+              </div>
             </div>
           </div>
         </div>
+
+        <!-- Record tab -->
+        <div id="tab-record" style="display:${_addVoiceTab === 'record' ? 'block' : 'none'}">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;max-width:800px;">
+            <div>
+              <div class="recorder-zone" id="recorder-zone">
+                <div class="rec-btn" id="rec-btn" title="Start recording">
+                  <span class="rec-icon" id="rec-icon">⏺</span>
+                </div>
+                <div class="rec-timer" id="rec-timer">0:00</div>
+                <div class="rec-status" id="rec-status">Press to start recording</div>
+                <div class="rec-waveform" id="rec-waveform" style="display:none">
+                  <canvas id="rec-canvas"></canvas>
+                </div>
+                <div class="rec-preview" id="rec-preview" style="display:none">
+                  <audio id="rec-audio" controls></audio>
+                  <div class="rec-controls">
+                    <button class="btn btn-ghost btn-sm" id="rec-discard">Discard</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="voice-form">
+              <div class="field">
+                <label class="label" for="rec-name-input">Profile Name</label>
+                <input id="rec-name-input" class="input" type="text" placeholder="e.g. noelmo-normal">
+              </div>
+              <div class="field">
+                <label class="label" for="rec-desc-input">Description <span style="font-weight:400;">(optional)</span></label>
+                <input id="rec-desc-input" class="input" type="text" placeholder="Short description">
+              </div>
+              <div style="margin-top:20px;">
+                <button id="rec-upload-btn" class="btn btn-primary" disabled>Save Recording</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
       </div>
     </div>
   `;
 
-  // Voice card delete buttons
+  // Tag filter pills
+  el.querySelectorAll('[data-tag-filter]').forEach(btn => {
+    btn.addEventListener('click', () => { _voiceTagFilter = btn.dataset.tagFilter; render(); });
+  });
+
+  // Use / Edit / Delete buttons
+  el.querySelectorAll('[data-use-voice]').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      state.generate.voice_name = btn.dataset.useVoice;
+      toastSuccess(`Voice set to "${btn.dataset.useVoice}". Switch to Generate.`);
+    });
+  });
+
+  el.querySelectorAll('[data-edit-voice]').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const voice = state.voices.find(v => v.name === btn.dataset.editVoice);
+      if (voice) openEditModal(voice);
+    });
+  });
+
   el.querySelectorAll('[data-delete-voice]').forEach(btn => {
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
@@ -803,89 +1368,458 @@ function renderVoices(el, actions) {
     });
   });
 
-  // Use as voice buttons
-  el.querySelectorAll('[data-use-voice]').forEach(btn => {
-    btn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      state.generate.voice_name = btn.dataset.useVoice;
-      toastSuccess(`Voice set to "${btn.dataset.useVoice}". Switch to Generate.`);
-    });
+  // Tab switching
+  el.querySelectorAll('[data-voice-tab]').forEach(btn => {
+    btn.addEventListener('click', () => { _addVoiceTab = btn.dataset.voiceTab; render(); });
   });
 
-  // Drop zone
+  // ── Upload tab wiring ──────────────────────────────────────────────────────
   const dropZone = el.querySelector('#drop-zone');
   const fileInput = el.querySelector('#voice-file-input');
   const uploadBtn = el.querySelector('#upload-btn');
   const nameInput = el.querySelector('#voice-name-input');
   const descInput = el.querySelector('#voice-desc-input');
 
-  function setFile(file) {
-    _uploadFile = file;
-    el.querySelector('#drop-icon').textContent = '✓';
-    el.querySelector('#drop-title').textContent = file.name;
-    if (!nameInput.value) {
-      nameInput.value = file.name.replace(/\.[^.]+$/, '').toLowerCase().replace(/\s+/g, '-');
+  if (dropZone) {
+    function setFile(file) {
+      _uploadFile = file;
+      el.querySelector('#drop-icon').textContent = '✓';
+      el.querySelector('#drop-title').textContent = file.name;
+      if (!nameInput.value)
+        nameInput.value = file.name.replace(/\.[^.]+$/, '').toLowerCase().replace(/\s+/g, '-');
+      checkReady();
     }
-    checkUploadReady();
+    function checkReady() { uploadBtn.disabled = !_uploadFile || !nameInput.value.trim(); }
+
+    dropZone.addEventListener('click', () => fileInput.click());
+    dropZone.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') fileInput.click(); });
+    fileInput.addEventListener('change', (e) => { if (e.target.files[0]) setFile(e.target.files[0]); });
+    nameInput.addEventListener('input', checkReady);
+    dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+    dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+    dropZone.addEventListener('drop', (e) => {
+      e.preventDefault(); dropZone.classList.remove('drag-over');
+      const file = e.dataTransfer.files[0];
+      if (file) { fileInput.files = e.dataTransfer.files; setFile(file); }
+    });
+
+    uploadBtn.addEventListener('click', async () => {
+      if (!_uploadFile || !nameInput.value.trim()) return;
+      uploadBtn.disabled = true;
+
+      // Inject progress UI below the button
+      let progressWrap = el.querySelector('#upload-progress-wrap');
+      if (!progressWrap) {
+        progressWrap = document.createElement('div');
+        progressWrap.id = 'upload-progress-wrap';
+        progressWrap.className = 'upload-progress-wrap';
+        progressWrap.innerHTML = `
+          <div class="upload-progress-track"><div class="upload-progress-fill" id="upload-progress-fill" style="width:0%"></div></div>
+          <div class="upload-progress-label">
+            <span id="upload-progress-pct">0%</span>
+            <span id="upload-progress-eta">Calculating…</span>
+          </div>`;
+        uploadBtn.insertAdjacentElement('afterend', progressWrap);
+      }
+
+      const fd = new FormData();
+      fd.append('name', nameInput.value.trim());
+      fd.append('file', _uploadFile);
+      fd.append('tags', 'uploaded');
+      if (descInput.value.trim()) fd.append('description', descInput.value.trim());
+
+      function fmtBytes(b) {
+        return b > 1048576 ? `${(b/1048576).toFixed(1)} MB` : `${Math.round(b/1024)} KB`;
+      }
+
+      try {
+        const voice = await uploadVoiceWithProgress(fd, ({ percent, bytesLoaded, bytesTotal, speedBps, etaSec }) => {
+          el.querySelector('#upload-progress-fill').style.width = percent + '%';
+          el.querySelector('#upload-progress-pct').textContent  = `${percent}% · ${fmtBytes(bytesLoaded)} of ${fmtBytes(bytesTotal)}`;
+          el.querySelector('#upload-progress-eta').textContent  = etaSec != null
+            ? etaSec > 1 ? `~${Math.ceil(etaSec)}s remaining` : 'Almost done…'
+            : `${fmtBytes(speedBps)}/s`;
+        });
+        // Snap to 100%
+        el.querySelector('#upload-progress-fill').style.width = '100%';
+        el.querySelector('#upload-progress-pct').textContent  = '100%';
+        el.querySelector('#upload-progress-eta').textContent  = 'Done!';
+
+        state.voices = await listVoices();
+        _uploadFile = null;
+        toastSuccess(`Voice "${voice.name}" registered.`);
+        render();
+      } catch (err) {
+        toastError(err.message);
+        uploadBtn.disabled = false;
+        uploadBtn.textContent = 'Upload Voice';
+        progressWrap?.remove();
+      }
+    });
   }
 
-  function checkUploadReady() {
-    uploadBtn.disabled = !_uploadFile || !nameInput.value.trim();
-  }
+  // ── Record tab wiring ──────────────────────────────────────────────────────
+  const recBtn        = el.querySelector('#rec-btn');
+  const recIcon       = el.querySelector('#rec-icon');
+  const recTimer      = el.querySelector('#rec-timer');
+  const recStatus     = el.querySelector('#rec-status');
+  const recWaveform   = el.querySelector('#rec-waveform');
+  const recCanvas     = el.querySelector('#rec-canvas');
+  const recPreview    = el.querySelector('#rec-preview');
+  const recAudio      = el.querySelector('#rec-audio');
+  const recDiscard    = el.querySelector('#rec-discard');
+  const recNameInput  = el.querySelector('#rec-name-input');
+  const recDescInput  = el.querySelector('#rec-desc-input');
+  const recUploadBtn  = el.querySelector('#rec-upload-btn');
 
-  dropZone.addEventListener('click', () => fileInput.click());
-  dropZone.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') fileInput.click(); });
-  fileInput.addEventListener('change', (e) => { if (e.target.files[0]) setFile(e.target.files[0]); });
-  nameInput.addEventListener('input', checkUploadReady);
+  if (recBtn) {
+    let mediaRecorder = null;
+    let audioChunks   = [];
+    let recordedBlob  = null;
+    let timerInterval = null;
+    let animFrame     = null;
+    let audioCtx      = null;
+    let analyser      = null;
+    let elapsed       = 0;
 
-  dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('drag-over'); });
-  dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
-  dropZone.addEventListener('drop', (e) => {
-    e.preventDefault(); dropZone.classList.remove('drag-over');
-    const file = e.dataTransfer.files[0];
-    if (file) { fileInput.files = e.dataTransfer.files; setFile(file); }
-  });
-
-  uploadBtn.addEventListener('click', async () => {
-    if (!_uploadFile || !nameInput.value.trim()) return;
-    uploadBtn.disabled = true;
-    uploadBtn.innerHTML = '<span class="spinner"></span> Uploading…';
-
-    const fd = new FormData();
-    fd.append('name', nameInput.value.trim());
-    fd.append('file', _uploadFile);
-    if (descInput.value.trim()) fd.append('description', descInput.value.trim());
-
-    try {
-      const voice = await uploadVoice(fd);
-      state.voices = await listVoices();
-      _uploadFile = null;
-      toastSuccess(`Voice "${voice.name}" registered.`);
-      render();
-    } catch (err) {
-      toastError(err.message);
-      uploadBtn.disabled = false;
-      uploadBtn.textContent = 'Upload Voice';
+    function fmtTime(s) {
+      return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
     }
-  });
+
+    function drawWaveform() {
+      if (!analyser || !recCanvas) return;
+      const W = recCanvas.width  = recCanvas.offsetWidth  || 340;
+      const H = recCanvas.height = recCanvas.offsetHeight || 48;
+      const ctx = recCanvas.getContext('2d');
+      const data = new Uint8Array(analyser.frequencyBinCount);
+      analyser.getByteTimeDomainData(data);
+
+      ctx.clearRect(0, 0, W, H);
+      ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--text').trim() || '#fff';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      const step = W / data.length;
+      data.forEach((v, i) => {
+        const x = i * step;
+        const y = (v / 128) * (H / 2);
+        i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+      });
+      ctx.stroke();
+      animFrame = requestAnimationFrame(drawWaveform);
+    }
+
+    async function startRecording() {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+
+        audioCtx  = new AudioContext();
+        analyser  = audioCtx.createAnalyser();
+        analyser.fftSize = 1024;
+        audioCtx.createMediaStreamSource(stream).connect(analyser);
+
+        const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+          ? 'audio/webm;codecs=opus'
+          : MediaRecorder.isTypeSupported('audio/mp4') ? 'audio/mp4' : '';
+
+        mediaRecorder = new MediaRecorder(stream, mimeType ? { mimeType } : {});
+        audioChunks   = [];
+        mediaRecorder.ondataavailable = e => { if (e.data.size > 0) audioChunks.push(e.data); };
+        mediaRecorder.onstop = () => {
+          stream.getTracks().forEach(t => t.stop());
+          audioCtx?.close();
+          cancelAnimationFrame(animFrame);
+          recordedBlob = new Blob(audioChunks, { type: mediaRecorder.mimeType || 'audio/webm' });
+          recAudio.src = URL.createObjectURL(recordedBlob);
+          recWaveform.style.display = 'none';
+          recPreview.style.display  = 'flex';
+          recIcon.textContent = '⏺';
+          recBtn.classList.remove('recording');
+          recBtn.title = 'Start new recording';
+          recStatus.textContent = 'Recording ready — preview below';
+          recUploadBtn.disabled = !recNameInput.value.trim();
+        };
+
+        mediaRecorder.start(100);
+        elapsed = 0;
+        recTimer.textContent = fmtTime(0);
+        timerInterval = setInterval(() => { elapsed++; recTimer.textContent = fmtTime(elapsed); }, 1000);
+
+        recBtn.classList.add('recording');
+        recBtn.classList.remove('has-audio');
+        recIcon.textContent = '⏹';
+        recBtn.title = 'Stop recording';
+        recStatus.textContent = 'Recording…';
+        recPreview.style.display  = 'none';
+        recWaveform.style.display = 'flex';
+        recUploadBtn.disabled = true;
+        drawWaveform();
+
+      } catch (err) {
+        recStatus.textContent = err.name === 'NotAllowedError'
+          ? 'Microphone access denied — check browser permissions'
+          : `Error: ${err.message}`;
+      }
+    }
+
+    function stopRecording() {
+      clearInterval(timerInterval);
+      if (mediaRecorder && mediaRecorder.state !== 'inactive') mediaRecorder.stop();
+    }
+
+    recBtn.addEventListener('click', () => {
+      if (mediaRecorder && mediaRecorder.state === 'recording') {
+        stopRecording();
+      } else {
+        startRecording();
+      }
+    });
+
+    recDiscard.addEventListener('click', () => {
+      recordedBlob = null;
+      recAudio.src = '';
+      recPreview.style.display  = 'none';
+      recWaveform.style.display = 'none';
+      recTimer.textContent      = '0:00';
+      recStatus.textContent     = 'Press to start recording';
+      recBtn.classList.remove('recording', 'has-audio');
+      recIcon.textContent       = '⏺';
+      recBtn.title              = 'Start recording';
+      recUploadBtn.disabled     = true;
+    });
+
+    recNameInput.addEventListener('input', () => {
+      recUploadBtn.disabled = !recNameInput.value.trim() || !recordedBlob;
+    });
+
+    recUploadBtn.addEventListener('click', async () => {
+      if (!recordedBlob || !recNameInput.value.trim()) return;
+      recUploadBtn.disabled = true;
+      recUploadBtn.innerHTML = '<span class="spinner"></span> Saving…';
+
+      // Inject progress UI below the button
+      let progressWrap = el.querySelector('#rec-progress-wrap');
+      if (!progressWrap) {
+        progressWrap = document.createElement('div');
+        progressWrap.id = 'rec-progress-wrap';
+        progressWrap.className = 'upload-progress-wrap';
+        progressWrap.innerHTML = `
+          <div class="upload-progress-track"><div class="upload-progress-fill" id="rec-progress-fill" style="width:0%"></div></div>
+          <div class="upload-progress-label">
+            <span id="rec-progress-pct">0%</span>
+            <span id="rec-progress-eta">Calculating…</span>
+          </div>`;
+        recUploadBtn.insertAdjacentElement('afterend', progressWrap);
+      }
+
+      const ext  = recordedBlob.type.includes('mp4') ? 'mp4' : 'webm';
+      const file = new File([recordedBlob], `recording.${ext}`, { type: recordedBlob.type });
+      const fd   = new FormData();
+      fd.append('name', recNameInput.value.trim());
+      fd.append('file', file);
+      fd.append('tags', 'recorded');
+      if (recDescInput.value.trim()) fd.append('description', recDescInput.value.trim());
+
+      function fmtBytes(b) {
+        return b > 1048576 ? `${(b/1048576).toFixed(1)} MB` : `${Math.round(b/1024)} KB`;
+      }
+
+      try {
+        const voice = await uploadVoiceWithProgress(fd, ({ percent, bytesLoaded, bytesTotal, etaSec, speedBps }) => {
+          el.querySelector('#rec-progress-fill').style.width = percent + '%';
+          el.querySelector('#rec-progress-pct').textContent  = `${percent}% · ${fmtBytes(bytesLoaded)} of ${fmtBytes(bytesTotal)}`;
+          el.querySelector('#rec-progress-eta').textContent  = etaSec != null
+            ? etaSec > 1 ? `~${Math.ceil(etaSec)}s remaining` : 'Almost done…'
+            : `${fmtBytes(speedBps)}/s`;
+        });
+        el.querySelector('#rec-progress-fill').style.width = '100%';
+        el.querySelector('#rec-progress-pct').textContent  = '100%';
+        el.querySelector('#rec-progress-eta').textContent  = 'Done!';
+
+        state.voices = await listVoices();
+        toastSuccess(`Voice "${voice.name}" saved from recording.`);
+        render();
+      } catch (err) {
+        toastError(err.message);
+        recUploadBtn.disabled = false;
+        recUploadBtn.textContent = 'Save Recording';
+        progressWrap?.remove();
+      }
+    });
+  }
 }
 
 function renderVoiceCard(v) {
+  const tagBadges = (v.tags || []).map(t => {
+    const cls = t === 'uploaded' ? 'tag-uploaded' : t === 'auto-import' ? 'tag-auto-import' : '';
+    return `<span class="tag-badge ${cls}">${escHtml(t)}</span>`;
+  }).join('');
+
   return `
     <div class="voice-card" data-voice="${escAttr(v.name)}">
       <div style="display:flex;align-items:center;gap:12px;">
         <div class="voice-avatar">🎙</div>
-        <div>
+        <div style="min-width:0;">
           <div class="voice-name">${escHtml(v.name)}</div>
           ${v.description ? `<div class="voice-desc">${escHtml(v.description)}</div>` : ''}
         </div>
       </div>
+      ${tagBadges ? `<div style="display:flex;flex-wrap:wrap;gap:4px;">${tagBadges}</div>` : ''}
       <div class="voice-actions">
         <button class="btn btn-secondary btn-sm" data-use-voice="${escAttr(v.name)}">Use</button>
+        <button class="btn btn-ghost btn-sm" data-edit-voice="${escAttr(v.name)}">Edit</button>
         <button class="btn btn-ghost btn-sm" data-delete-voice="${escAttr(v.name)}" style="color:var(--error);">Delete</button>
       </div>
     </div>
   `;
+}
+
+// ── Edit modal ────────────────────────────────────────────────────────────────
+
+function openEditModal(voice) {
+  let editTags = [...(voice.tags || [])];
+  let showAdvanced = false;
+
+  function buildModal() {
+    const existing = document.getElementById('edit-modal-overlay');
+    if (existing) existing.remove();
+
+    const overlay = document.createElement('div');
+    overlay.className = 'modal-overlay';
+    overlay.id = 'edit-modal-overlay';
+
+    overlay.innerHTML = `
+      <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+        <div class="modal-header">
+          <span class="modal-title" id="modal-title">Edit — ${escHtml(voice.name)}</span>
+          <button class="modal-close" id="modal-close">✕</button>
+        </div>
+        <div class="modal-body">
+
+          <div class="field">
+            <label class="label" for="edit-desc">Description</label>
+            <input id="edit-desc" class="input" type="text" value="${escAttr(voice.description || '')}" placeholder="Short description">
+          </div>
+
+          <div>
+            <div class="modal-section-title">Tags</div>
+            <div class="tag-editor" id="tag-editor">
+              ${editTags.map(t => `
+                <span class="tag-chip">
+                  ${escHtml(t)}
+                  <button class="tag-chip-remove" data-remove-tag="${escAttr(t)}" aria-label="Remove tag ${escHtml(t)}">✕</button>
+                </span>
+              `).join('')}
+              <input id="tag-add-input" class="tag-add-input" type="text" placeholder="+ add tag" autocomplete="off">
+            </div>
+          </div>
+
+          <div>
+            <button class="advanced-toggle" id="advanced-toggle">
+              <span id="advanced-arrow">${showAdvanced ? '▾' : '▸'}</span>
+              Advanced TTS parameters
+            </button>
+            <div id="advanced-params" style="display:${showAdvanced ? 'block' : 'none'}">
+              <div class="params-grid">
+                ${[
+                  ['exaggeration', 'Exaggeration', voice.exaggeration],
+                  ['cfg_weight',   'CFG Weight',   voice.cfg_weight],
+                  ['temperature',  'Temperature',  voice.temperature],
+                  ['repetition_penalty', 'Repetition Penalty', voice.repetition_penalty],
+                  ['top_p', 'Top P', voice.top_p],
+                  ['min_p', 'Min P', voice.min_p],
+                ].map(([key, label, val]) => `
+                  <div class="param-field">
+                    <label for="param-${key}">${label}</label>
+                    <input id="param-${key}" type="number" step="0.01" min="0" max="2"
+                      value="${val != null ? val : ''}" placeholder="inherit from tone">
+                  </div>
+                `).join('')}
+              </div>
+            </div>
+          </div>
+
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-ghost" id="modal-cancel">Cancel</button>
+          <button class="btn btn-primary" id="modal-save">Save changes</button>
+        </div>
+      </div>
+    `;
+
+    document.body.appendChild(overlay);
+
+    // Close
+    const close = () => overlay.remove();
+    overlay.querySelector('#modal-close').addEventListener('click', close);
+    overlay.querySelector('#modal-cancel').addEventListener('click', close);
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
+    document.addEventListener('keydown', function esc(e) {
+      if (e.key === 'Escape') { close(); document.removeEventListener('keydown', esc); }
+    });
+
+    // Remove tag chips
+    overlay.querySelectorAll('[data-remove-tag]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        editTags = editTags.filter(t => t !== btn.dataset.removeTag);
+        buildModal();
+      });
+    });
+
+    // Add tag on Enter or comma
+    const tagInput = overlay.querySelector('#tag-add-input');
+    tagInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ',') {
+        e.preventDefault();
+        const val = tagInput.value.replace(/,/g, '').trim().toLowerCase();
+        if (val && !editTags.includes(val)) { editTags.push(val); buildModal(); }
+        else tagInput.value = '';
+      }
+    });
+
+    // Advanced toggle
+    overlay.querySelector('#advanced-toggle').addEventListener('click', () => {
+      showAdvanced = !showAdvanced;
+      overlay.querySelector('#advanced-params').style.display = showAdvanced ? 'block' : 'none';
+      overlay.querySelector('#advanced-arrow').textContent = showAdvanced ? '▾' : '▸';
+    });
+
+    // Save
+    overlay.querySelector('#modal-save').addEventListener('click', async () => {
+      const saveBtn = overlay.querySelector('#modal-save');
+      saveBtn.disabled = true;
+      saveBtn.innerHTML = '<span class="spinner"></span>';
+
+      const getParam = (id) => {
+        const v = overlay.querySelector(`#param-${id}`)?.value.trim();
+        return v !== '' && v != null ? parseFloat(v) : null;
+      };
+
+      try {
+        const updated = await patchVoice(voice.name, {
+          description: overlay.querySelector('#edit-desc').value.trim() || null,
+          tags: editTags,
+          exaggeration:       getParam('exaggeration'),
+          cfg_weight:         getParam('cfg_weight'),
+          temperature:        getParam('temperature'),
+          repetition_penalty: getParam('repetition_penalty'),
+          top_p:              getParam('top_p'),
+          min_p:              getParam('min_p'),
+        });
+        // Update in-memory state
+        const idx = state.voices.findIndex(v => v.name === voice.name);
+        if (idx !== -1) state.voices[idx] = updated;
+        toastSuccess(`"${voice.name}" updated.`);
+        close();
+        render();
+      } catch (err) {
+        toastError(err.message);
+        saveBtn.disabled = false;
+        saveBtn.textContent = 'Save changes';
+      }
+    });
+  }
+
+  buildModal();
 }
 
 // ── Screen: History ───────────────────────────────────────────────────────────
@@ -1068,10 +2002,11 @@ async function boot() {
     state.jobs    = jobs;
 
     const statusEl = document.getElementById('server-status');
-    statusEl.innerHTML = `<span class="dot dot-green"></span><span>${health.device ?? 'ok'}</span>`;
+    const deviceLabel = { mps: 'Ready · Apple MPS', cpu: 'Ready · CPU', cuda: 'Ready · CUDA' }[health.device] ?? `Ready · ${health.device ?? 'ok'}`;
+    statusEl.innerHTML = `<span class="dot dot-green dot-pulse"></span><span>${deviceLabel}</span>`;
   } catch (err) {
     const statusEl = document.getElementById('server-status');
-    statusEl.innerHTML = `<span class="dot dot-red"></span><span>Offline</span>`;
+    statusEl.innerHTML = `<span class="dot dot-red"></span><span>Server offline</span>`;
     toastError('Cannot reach Vox server. Is it running?');
   }
 

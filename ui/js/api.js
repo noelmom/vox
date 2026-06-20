@@ -28,6 +28,65 @@ export async function uploadVoice(formData) {
   return r.json();
 }
 
+/**
+ * Same as uploadVoice but fires onProgress({ percent, bytesLoaded, bytesTotal, speedBps, etaSec })
+ * while the upload is in flight. Uses XHR so the browser can report real byte counts.
+ */
+export function uploadVoiceWithProgress(formData, onProgress) {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    const startTime = Date.now();
+
+    xhr.upload.addEventListener('progress', e => {
+      if (!e.lengthComputable) return;
+      const elapsedSec = (Date.now() - startTime) / 1000 || 0.001;
+      const speedBps   = e.loaded / elapsedSec;
+      const etaSec     = speedBps > 0 ? (e.total - e.loaded) / speedBps : null;
+      onProgress({
+        percent:     Math.round((e.loaded / e.total) * 100),
+        bytesLoaded: e.loaded,
+        bytesTotal:  e.total,
+        speedBps,
+        etaSec,
+      });
+    });
+
+    xhr.addEventListener('load', () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        try { resolve(JSON.parse(xhr.responseText)); }
+        catch { reject(new Error('Invalid server response')); }
+      } else {
+        try { reject(new Error(JSON.parse(xhr.responseText).detail || xhr.statusText)); }
+        catch { reject(new Error(xhr.statusText)); }
+      }
+    });
+
+    xhr.addEventListener('error', () => reject(new Error('Upload failed — network error')));
+    xhr.addEventListener('abort', () => reject(new Error('Upload cancelled')));
+
+    xhr.open('POST', `${BASE}/voices`);
+    xhr.send(formData);
+  });
+}
+
+export async function patchVoice(name, { description, tags, exaggeration, cfg_weight, temperature, repetition_penalty, top_p, min_p } = {}) {
+  const fd = new FormData();
+  if (description  != null) fd.append('description', description);
+  if (tags         != null) fd.append('tags', tags.join(','));
+  if (exaggeration != null) fd.append('exaggeration', exaggeration);
+  if (cfg_weight   != null) fd.append('cfg_weight', cfg_weight);
+  if (temperature  != null) fd.append('temperature', temperature);
+  if (repetition_penalty != null) fd.append('repetition_penalty', repetition_penalty);
+  if (top_p        != null) fd.append('top_p', top_p);
+  if (min_p        != null) fd.append('min_p', min_p);
+  const r = await fetch(`${BASE}/voices/${encodeURIComponent(name)}`, { method: 'PATCH', body: fd });
+  if (!r.ok) {
+    const err = await r.json().catch(() => ({ detail: r.statusText }));
+    throw new Error(err.detail || r.statusText);
+  }
+  return r.json();
+}
+
 export async function deleteVoice(name) {
   const r = await fetch(`${BASE}/voices/${encodeURIComponent(name)}`, { method: 'DELETE' });
   if (!r.ok) throw new Error(await r.text());
