@@ -1,0 +1,1084 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Vox</title>
+  <link rel="stylesheet" href="/ui/css/vox.css">
+  <style>
+    html, body { height: 100%; overflow: hidden; }
+
+    /* ── App shell layout ──────────────────────────────────────────────── */
+    .app-shell {
+      display: flex; height: 100vh; overflow: hidden;
+    }
+
+    /* ── Sidebar ───────────────────────────────────────────────────────── */
+    .sidebar {
+      width: 220px; flex-shrink: 0;
+      display: flex; flex-direction: column;
+      border-right: 0.5px solid var(--border);
+      background: var(--bg);
+      padding: 0;
+      overflow: hidden;
+    }
+    .sidebar-header {
+      display: flex; align-items: center; gap: 9px;
+      padding: 16px 18px 14px;
+      border-bottom: 0.5px solid var(--border);
+    }
+    .sidebar-wordmark { font-size: 16px; font-weight: 500; letter-spacing: -0.03em; }
+
+    .sidebar-nav { flex: 1; padding: 10px 8px; overflow-y: auto; }
+    .nav-item {
+      display: flex; align-items: center; gap: 10px;
+      height: 36px; padding: 0 10px; border-radius: var(--r-md);
+      font-size: 13.5px; font-weight: 500; color: var(--text-2);
+      cursor: pointer; text-decoration: none; border: none;
+      background: none; width: 100%; text-align: left;
+      transition: background 0.1s, color 0.1s;
+      user-select: none;
+    }
+    .nav-item:hover { background: var(--bg-2); color: var(--text); }
+    .nav-item.active { background: var(--bg-2); color: var(--text); }
+    .nav-icon { font-size: 15px; width: 20px; text-align: center; flex-shrink: 0; }
+
+    .sidebar-footer {
+      padding: 12px 16px 16px;
+      border-top: 0.5px solid var(--border);
+      display: flex; flex-direction: column; gap: 10px;
+    }
+    .status-row {
+      display: flex; align-items: center; gap: 7px;
+      font-size: 11.5px; color: var(--text-3);
+    }
+
+    /* ── Main content ──────────────────────────────────────────────────── */
+    .main {
+      flex: 1; overflow-y: auto;
+      display: flex; flex-direction: column;
+    }
+    .topbar {
+      display: flex; align-items: center; gap: 0;
+      height: 52px; padding: 0 24px;
+      border-bottom: 0.5px solid var(--border);
+      flex-shrink: 0;
+    }
+    .topbar-title { font-size: 15px; font-weight: 500; }
+    .topbar-actions { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+
+    .content { flex: 1; padding: 28px 32px; }
+
+    /* ── Screen: Generate ──────────────────────────────────────────────── */
+    .generate-layout {
+      display: grid; grid-template-columns: 1fr 320px; gap: 20px;
+      max-width: 1100px;
+    }
+
+    .gen-panel {
+      border: 0.5px solid var(--border); border-radius: var(--r-xl);
+    }
+    .gen-textarea-wrap { padding: 20px 20px 0; }
+    #gen-text {
+      width: 100%; min-height: 200px; max-height: 400px;
+      border: none; outline: none; resize: none;
+      font-family: var(--font); font-size: 15px; line-height: 1.65;
+      color: var(--text); background: transparent;
+    }
+    #gen-text::placeholder { color: var(--text-3); }
+    .gen-char-count {
+      padding: 6px 20px 14px;
+      font-size: 11px; color: var(--text-3);
+      text-align: right;
+    }
+    .gen-char-count.warn { color: var(--warning); }
+    .gen-char-count.over { color: var(--error); }
+
+    .gen-toolbar {
+      display: flex; align-items: center; gap: 8px;
+      padding: 12px 20px; border-top: 0.5px solid var(--border);
+      background: var(--bg-2);
+      border-radius: 0 0 var(--r-xl) var(--r-xl);
+    }
+
+    /* Preset pills */
+    .preset-pills { display: flex; gap: 5px; flex-wrap: wrap; }
+    .preset-pill {
+      height: 28px; padding: 0 12px; border-radius: 14px;
+      font-size: 12px; font-weight: 500; cursor: pointer;
+      border: 0.5px solid var(--border-2);
+      background: var(--bg); color: var(--text-2);
+      transition: all 0.12s;
+    }
+    .preset-pill.active {
+      background: var(--text); color: var(--bg); border-color: var(--text);
+    }
+    .preset-pill:hover:not(.active) { background: var(--bg-3); color: var(--text); }
+
+    /* Generate button states */
+    #gen-btn { min-width: 120px; margin-left: auto; }
+    #gen-btn.loading { pointer-events: none; }
+
+    /* ── Audio player ──────────────────────────────────────────────────── */
+    .audio-player {
+      border: 0.5px solid var(--border); border-radius: var(--r-xl);
+      background: var(--bg);
+    }
+    .player-header {
+      padding: 16px 20px 0;
+      font-size: 12px; font-weight: 500; color: var(--text-2);
+      letter-spacing: 0.06em; text-transform: uppercase;
+    }
+    .player-empty {
+      padding: 40px 20px;
+      text-align: center; color: var(--text-3); font-size: 13px;
+    }
+    .player-waveform {
+      display: flex; align-items: center; gap: 2px;
+      padding: 16px 20px 8px; height: 64px; overflow: hidden;
+    }
+    .pw-bar {
+      flex: 1; border-radius: 2px; background: var(--bg-3);
+      min-width: 2px; transition: height 0.3s ease;
+    }
+    .pw-bar.played { background: var(--text); }
+    .player-controls {
+      display: flex; align-items: center; gap: 10px;
+      padding: 12px 20px 16px;
+    }
+    .play-btn {
+      width: 36px; height: 36px; border-radius: 50%;
+      background: var(--text); color: var(--bg);
+      border: none; cursor: pointer; display: flex; align-items: center; justify-content: center;
+      font-size: 14px; flex-shrink: 0; transition: opacity 0.15s;
+    }
+    .play-btn:hover { opacity: 0.8; }
+    .player-time { font-size: 11px; color: var(--text-3); font-variant-numeric: tabular-nums; min-width: 70px; }
+    .player-seek {
+      flex: 1; -webkit-appearance: none; appearance: none;
+      height: 3px; border-radius: 2px; background: var(--bg-3); cursor: pointer; outline: none;
+    }
+    .player-seek::-webkit-slider-thumb {
+      -webkit-appearance: none; width: 12px; height: 12px;
+      border-radius: 50%; background: var(--text); cursor: pointer;
+      box-shadow: var(--sh-sm);
+    }
+
+    /* ── Settings panel (right sidebar) ──────────────────────────────── */
+    .settings-panel {
+      border: 0.5px solid var(--border); border-radius: var(--r-xl);
+      background: var(--bg);
+    }
+    .settings-section { padding: 16px 18px; }
+    .settings-section + .settings-section { border-top: 0.5px solid var(--border); }
+    .settings-section-title {
+      font-size: 11px; font-weight: 500; color: var(--text-3);
+      letter-spacing: 0.07em; text-transform: uppercase;
+      margin-bottom: 12px;
+    }
+
+    /* Stats card after generation */
+    .stats-grid {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
+    }
+    .stat-item { padding: 10px 12px; background: var(--bg-2); border-radius: var(--r-md); }
+    .stat-label { font-size: 10px; color: var(--text-3); margin-bottom: 3px; letter-spacing: 0.04em; text-transform: uppercase; }
+    .stat-value { font-size: 15px; font-weight: 500; color: var(--text); font-variant-numeric: tabular-nums; }
+
+    /* ── Screen: Voices ────────────────────────────────────────────────── */
+    .voices-grid {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+      gap: 12px; max-width: 1100px;
+    }
+    .voice-card {
+      border: 0.5px solid var(--border); border-radius: var(--r-lg);
+      padding: 18px 20px; background: var(--bg);
+      display: flex; flex-direction: column; gap: 10px;
+      cursor: pointer; transition: border-color 0.12s, box-shadow 0.12s;
+    }
+    .voice-card:hover { border-color: var(--border-2); box-shadow: var(--sh-sm); }
+    .voice-card.selected { border-color: var(--text); box-shadow: 0 0 0 1px var(--text); }
+
+    .voice-avatar {
+      width: 44px; height: 44px; border-radius: 50%;
+      background: var(--bg-2); border: 0.5px solid var(--border);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 20px;
+    }
+    .voice-name { font-size: 14px; font-weight: 500; color: var(--text); }
+    .voice-desc { font-size: 12px; color: var(--text-2); line-height: 1.55; }
+    .voice-actions { display: flex; gap: 6px; margin-top: 4px; }
+
+    /* Upload zone */
+    .upload-zone {
+      border: 1.5px dashed var(--border-2); border-radius: var(--r-xl);
+      padding: 40px 32px; text-align: center; cursor: pointer;
+      transition: border-color 0.15s, background 0.15s;
+      max-width: 480px;
+    }
+    .upload-zone:hover, .upload-zone.drag-over {
+      border-color: var(--text); background: var(--bg-2);
+    }
+    .upload-icon { font-size: 32px; margin-bottom: 12px; }
+    .upload-title { font-size: 15px; font-weight: 500; color: var(--text); margin-bottom: 6px; }
+    .upload-sub { font-size: 12px; color: var(--text-3); line-height: 1.6; }
+
+    /* Voice upload form */
+    .voice-form { max-width: 480px; }
+    .voice-form-file { display: none; }
+
+    /* ── Screen: History ───────────────────────────────────────────────── */
+    .history-filters {
+      display: flex; align-items: center; gap: 8px;
+      margin-bottom: 16px; flex-wrap: wrap;
+    }
+    .filter-pill {
+      height: 28px; padding: 0 12px; border-radius: 14px;
+      font-size: 12px; font-weight: 500; cursor: pointer;
+      border: 0.5px solid var(--border-2);
+      background: var(--bg); color: var(--text-2);
+      transition: all 0.12s;
+    }
+    .filter-pill.active {
+      background: var(--text); color: var(--bg); border-color: var(--text);
+    }
+
+    .history-scroll {
+      overflow-x: auto; border: 0.5px solid var(--border);
+      border-radius: var(--r-lg); max-width: 1100px;
+    }
+    .history-table {
+      width: 100%; border-collapse: collapse; min-width: 700px;
+    }
+    .history-table th {
+      padding: 10px 16px; text-align: left;
+      font-size: 11px; font-weight: 500; color: var(--text-3);
+      letter-spacing: 0.06em; text-transform: uppercase;
+      background: var(--bg-2); border-bottom: 0.5px solid var(--border);
+      white-space: nowrap;
+    }
+    .history-table td {
+      padding: 10px 16px; font-size: 13px; color: var(--text);
+      border-bottom: 0.5px solid var(--border);
+      vertical-align: middle;
+    }
+    .history-table tr:last-child td { border-bottom: none; }
+    .history-table tr:hover td { background: var(--bg-2); }
+    .history-table .text-cell {
+      max-width: 260px; overflow: hidden;
+      text-overflow: ellipsis; white-space: nowrap;
+      color: var(--text-2);
+    }
+    .rid-cell {
+      font-family: var(--font-mono); font-size: 11px; color: var(--text-3);
+      white-space: nowrap;
+    }
+    .copy-cell {
+      display: flex; align-items: center; gap: 6px; white-space: nowrap;
+    }
+    .copy-btn {
+      width: 20px; height: 20px; border-radius: 5px; flex-shrink: 0;
+      background: transparent; border: 0.5px solid transparent;
+      color: var(--text-3); cursor: pointer; font-size: 11px;
+      display: inline-flex; align-items: center; justify-content: center;
+      transition: background 0.1s, color 0.1s, border-color 0.1s;
+      padding: 0;
+    }
+    .copy-btn:hover { background: var(--bg-3); border-color: var(--border-2); color: var(--text); }
+    .copy-btn.copied { color: #196329; border-color: #C0E7C4; background: #E4F7E6; }
+
+    /* ── Screen: Settings ──────────────────────────────────────────────── */
+    .settings-page { max-width: 560px; }
+    .settings-group { margin-bottom: 32px; }
+    .settings-group-title {
+      font-size: 12px; font-weight: 500; color: var(--text-3);
+      letter-spacing: 0.08em; text-transform: uppercase;
+      margin-bottom: 16px; padding-bottom: 8px;
+      border-bottom: 0.5px solid var(--border);
+    }
+    .settings-row {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 10px 0; border-bottom: 0.5px solid var(--border);
+    }
+    .settings-row:last-child { border-bottom: none; }
+    .settings-row-label { font-size: 13px; color: var(--text); }
+    .settings-row-value { font-size: 13px; color: var(--text-2); font-family: var(--font-mono); }
+
+    /* ── Tooltip ───────────────────────────────────────────────────────── */
+    .tip-icon {
+      width: 14px; height: 14px; border-radius: 50%;
+      background: var(--bg-3); color: var(--text-3);
+      font-size: 9px; font-weight: 600; line-height: 14px; text-align: center;
+      cursor: default; user-select: none; flex-shrink: 0;
+      border: 0.5px solid var(--border-2); display: inline-block;
+    }
+    #global-tip {
+      position: fixed; display: none; z-index: 9999;
+      max-width: 220px; padding: 9px 11px;
+      background: var(--text); color: var(--bg);
+      border-radius: 9px; font-size: 11.5px; line-height: 1.6;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.18);
+      pointer-events: none;
+    }
+
+    /* ── Loading state ─────────────────────────────────────────────────── */
+    .skeleton {
+      background: linear-gradient(90deg, var(--bg-2) 25%, var(--bg-3) 50%, var(--bg-2) 75%);
+      background-size: 200% 100%;
+      animation: shimmer 1.4s infinite;
+      border-radius: var(--r-sm);
+    }
+    @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+
+    /* ── Empty state ───────────────────────────────────────────────────── */
+    .empty-state {
+      display: flex; flex-direction: column; align-items: center;
+      justify-content: center; padding: 64px 32px; text-align: center;
+    }
+    .empty-icon { font-size: 40px; margin-bottom: 14px; opacity: 0.4; }
+    .empty-title { font-size: 15px; font-weight: 500; color: var(--text); margin-bottom: 6px; }
+    .empty-sub { font-size: 13px; color: var(--text-2); }
+
+    /* Responsive: collapse sidebar */
+    @media (max-width: 700px) {
+      .sidebar { width: 60px; }
+      .sidebar-wordmark, .nav-item span:not(.nav-icon) { display: none; }
+      .sidebar-footer { padding: 10px 8px; }
+      .status-row span:not(.dot) { display: none; }
+      .generate-layout { grid-template-columns: 1fr; }
+      .content { padding: 16px; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="app-shell">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar" role="navigation" aria-label="App navigation">
+    <div class="sidebar-header">
+      <svg width="20" height="20" viewBox="0 0 28 28" fill="none" aria-hidden="true">
+        <rect width="2.5" height="6"  x="0"    y="11" rx="1.25" fill="currentColor" opacity=".18"/>
+        <rect width="2.5" height="11" x="5"    y="8.5" rx="1.25" fill="currentColor" opacity=".35"/>
+        <rect width="2.5" height="18" x="10"   y="5"  rx="1.25" fill="currentColor" opacity=".6"/>
+        <rect width="3"   height="28" x="14.5" y="0"  rx="1.5"  fill="currentColor"/>
+        <rect width="2.5" height="18" x="19"   y="5"  rx="1.25" fill="currentColor" opacity=".55"/>
+        <rect width="2.5" height="11" x="23.5" y="8.5" rx="1.25" fill="currentColor" opacity=".3"/>
+      </svg>
+      <span class="sidebar-wordmark">vox</span>
+    </div>
+
+    <nav class="sidebar-nav">
+      <button class="nav-item active" data-screen="generate">
+        <span class="nav-icon">✦</span>
+        <span>Generate</span>
+      </button>
+      <button class="nav-item" data-screen="voices">
+        <span class="nav-icon">🎤</span>
+        <span>Voices</span>
+      </button>
+      <button class="nav-item" data-screen="history">
+        <span class="nav-icon">📋</span>
+        <span>History</span>
+      </button>
+      <button class="nav-item" data-screen="settings">
+        <span class="nav-icon">⚙</span>
+        <span>Settings</span>
+      </button>
+    </nav>
+
+    <div class="sidebar-footer">
+      <div class="status-row" id="server-status">
+        <span class="dot dot-yellow"></span>
+        <span>Connecting…</span>
+      </div>
+      <a href="/" class="nav-item" style="font-size:12px; height:28px; color:var(--text-3)">
+        <span class="nav-icon" style="font-size:12px">←</span>
+        <span>Landing</span>
+      </a>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <div class="main">
+    <div class="topbar">
+      <h1 class="topbar-title" id="screen-title">Generate</h1>
+      <div class="topbar-actions" id="topbar-actions"></div>
+    </div>
+
+    <div class="content" id="screen-content">
+      <!-- screens rendered by JS -->
+    </div>
+  </div>
+</div>
+
+<div id="toast-container" role="alert" aria-live="polite"></div>
+<div id="global-tip"></div>
+
+<script>
+(function() {
+  const tip = document.getElementById('global-tip');
+  document.addEventListener('mouseover', (e) => {
+    const icon = e.target.closest('[data-tip]');
+    if (!icon) return;
+    tip.textContent = icon.dataset.tip;
+    tip.style.display = 'block';
+    const r = icon.getBoundingClientRect();
+    const tw = tip.offsetWidth, th = tip.offsetHeight;
+    // prefer right of icon; fall back to left if no room
+    let left = r.right + 10;
+    if (left + tw > window.innerWidth - 8) left = r.left - tw - 10;
+    let top = r.top + r.height / 2 - th / 2;
+    top = Math.max(8, Math.min(top, window.innerHeight - th - 8));
+    tip.style.left = left + 'px';
+    tip.style.top  = top  + 'px';
+  });
+  document.addEventListener('mouseout', (e) => {
+    if (e.target.closest('[data-tip]')) tip.style.display = 'none';
+  });
+})();
+</script>
+
+<script type="module">
+import { healthCheck, listVoices, listJobs, listPresets, generateTTS, uploadVoice, deleteVoice } from '/ui/js/api.js';
+import { toast, toastError, toastSuccess } from '/ui/js/toast.js';
+
+// ── State ────────────────────────────────────────────────────────────────────
+
+const state = {
+  screen: 'generate',
+  voices: [],
+  presets: {},
+  health: null,
+  jobs: [],
+  generate: {
+    text: '',
+    preset: 'default',
+    voice_name: null,
+    format: 'mp3',
+    result: null,   // { blob, headers, url }
+    loading: false,
+  },
+  upload: { file: null, name: '', description: '' },
+};
+
+// ── Router ───────────────────────────────────────────────────────────────────
+
+function navigate(screen) {
+  state.screen = screen;
+  document.querySelectorAll('.nav-item').forEach(el => {
+    el.classList.toggle('active', el.dataset.screen === screen);
+  });
+  document.getElementById('screen-title').textContent =
+    { generate: 'Generate', voices: 'Voices', history: 'History', settings: 'Settings' }[screen] ?? screen;
+  render();
+}
+
+document.querySelectorAll('.nav-item[data-screen]').forEach(btn => {
+  btn.addEventListener('click', () => navigate(btn.dataset.screen));
+});
+
+// ── Render dispatcher ─────────────────────────────────────────────────────────
+
+function render() {
+  const el = document.getElementById('screen-content');
+  const actions = document.getElementById('topbar-actions');
+  actions.innerHTML = '';
+
+  if (state.screen === 'generate') { renderGenerate(el, actions); }
+  else if (state.screen === 'voices')   { renderVoices(el, actions); }
+  else if (state.screen === 'history')  { renderHistory(el, actions); }
+  else if (state.screen === 'settings') { renderSettings(el, actions); }
+}
+
+// ── Screen: Generate ──────────────────────────────────────────────────────────
+
+function renderGenerate(el, actions) {
+  const g = state.generate;
+  const MAX = 3000;
+  const len = g.text.length;
+  const isOver = len > MAX;
+  const isWarn = len > 2700;
+
+  el.innerHTML = `
+    <div class="generate-layout">
+      <!-- LEFT: text + toolbar -->
+      <div style="display:flex;flex-direction:column;gap:14px;">
+        <div class="gen-panel">
+          <div class="gen-textarea-wrap">
+            <textarea id="gen-text" class="input" style="border:none;padding:0;border-radius:0;font-size:15px;min-height:220px;background:transparent;"
+              placeholder="Type or paste your script here…" maxlength="${MAX + 200}">${escHtml(g.text)}</textarea>
+          </div>
+          <div class="gen-char-count ${isOver ? 'over' : isWarn ? 'warn' : ''}">
+            ${len.toLocaleString()} / ${MAX.toLocaleString()} chars
+          </div>
+
+          <div class="gen-toolbar">
+            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+              <span style="font-size:11px;font-weight:500;color:var(--text-3);letter-spacing:.07em;text-transform:uppercase;white-space:nowrap;display:inline-flex;align-items:center;gap:4px;">
+                Tone
+                <span class="tip-icon" data-tip="Controls the speaking style. Default is neutral. YouTube is expressive and engaging. Hype is high-energy. News is calm and measured.">?</span>
+              </span>
+              <div class="preset-pills" role="group" aria-label="Tone">
+                ${Object.keys(state.presets).map(p => `
+                  <button class="preset-pill ${p === g.preset ? 'active' : ''}" data-preset="${p}">${p}</button>
+                `).join('')}
+              </div>
+            </div>
+            <button id="gen-btn" class="btn btn-primary ${g.loading ? 'loading' : ''}" ${g.loading || isOver ? 'disabled' : ''}>
+              ${g.loading ? '<span class="spinner"></span> Generating…' : '✦ Generate'}
+            </button>
+          </div>
+        </div>
+
+        <!-- Audio player -->
+        ${renderPlayer(g.result)}
+      </div>
+
+      <!-- RIGHT: settings panel -->
+      <div class="settings-panel">
+        <div class="settings-section">
+          <div class="settings-section-title" style="display:flex;align-items:center;gap:5px;">
+            Voice Profile
+            <span class="tip-icon" data-tip="Select a saved voice to clone. Each profile is a short audio sample Vox uses to match the speaker's tone and style. Choose Generic to use the model's built-in voice.">?</span>
+          </div>
+          <select id="voice-select" class="select">
+            <option value="">Generic</option>
+            ${state.voices.map(v => `<option value="${escAttr(v.name)}" ${g.voice_name === v.name ? 'selected' : ''}>${escHtml(v.name)}</option>`).join('')}
+          </select>
+        </div>
+
+        <div class="settings-section">
+          <div class="settings-section-title" style="display:flex;align-items:center;gap:5px;">
+            Output Format
+            <span class="tip-icon" data-tip="MP3 is smaller and works everywhere. WAV is uncompressed and ideal for editing or post-production. Both are generated locally on your device.">?</span>
+          </div>
+          <div style="display:flex;gap:6px;">
+            ${['mp3','wav'].map(f => `
+              <button class="preset-pill ${g.format === f ? 'active' : ''}" data-format="${f}" style="flex:1;justify-content:center;">
+                ${f.toUpperCase()}
+              </button>
+            `).join('')}
+          </div>
+        </div>
+
+        <div class="settings-section">
+          <div class="settings-section-title">Stats</div>
+          ${g.result ? renderStats(g.result.headers) : '<p style="font-size:12px;color:var(--text-3);">Run a generation to see timing.</p>'}
+        </div>
+      </div>
+    </div>
+  `;
+
+  // Wire up events
+  const textarea = el.querySelector('#gen-text');
+  textarea.addEventListener('input', () => {
+    state.generate.text = textarea.value;
+    // update char count only
+    const l = textarea.value.length;
+    const cc = el.querySelector('.gen-char-count');
+    cc.textContent = `${l.toLocaleString()} / ${MAX.toLocaleString()} chars`;
+    cc.className = `gen-char-count ${l > MAX ? 'over' : l > 2700 ? 'warn' : ''}`;
+    el.querySelector('#gen-btn').disabled = l > MAX || state.generate.loading;
+  });
+
+  el.querySelectorAll('[data-preset]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      state.generate.preset = btn.dataset.preset;
+      el.querySelectorAll('[data-preset]').forEach(b => b.classList.toggle('active', b.dataset.preset === btn.dataset.preset));
+    });
+  });
+
+  el.querySelectorAll('[data-format]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      state.generate.format = btn.dataset.format;
+      el.querySelectorAll('[data-format]').forEach(b => b.classList.toggle('active', b.dataset.format === btn.dataset.format));
+    });
+  });
+
+  el.querySelector('#voice-select').addEventListener('change', (e) => {
+    state.generate.voice_name = e.target.value || null;
+  });
+
+  el.querySelector('#gen-btn').addEventListener('click', runGenerate);
+
+  // Wire up audio player if result exists
+  if (g.result) wirePlayer(el);
+}
+
+function renderPlayer(result) {
+  if (!result) return `
+    <div class="audio-player">
+      <div class="player-header">Output</div>
+      <div class="player-empty">
+        <div style="font-size:32px;margin-bottom:8px;opacity:0.3;">🎵</div>
+        Your audio will appear here after generation.
+      </div>
+    </div>
+  `;
+
+  return `
+    <div class="audio-player">
+      <div class="player-header" style="display:flex;align-items:center;justify-content:space-between;padding:16px 20px 0;">
+        <span>Output</span>
+        <a id="player-dl" href="${result.url}" download="${(state.generate.voice_name || 'generic')}-${new Date().toISOString().slice(0,19).replace('T','-').replace(/:/g,'')}.${state.generate.format}" class="btn btn-secondary btn-sm">↓ Download</a>
+      </div>
+      <div class="player-waveform" id="player-waveform">
+        ${Array.from({length: 40}, (_, i) => {
+          const h = 10 + Math.random() * 30;
+          return `<div class="pw-bar" style="height:${h}px" data-idx="${i}"></div>`;
+        }).join('')}
+      </div>
+      <div class="player-controls">
+        <button class="play-btn" id="play-btn" aria-label="Play/Pause">▶</button>
+        <span class="player-time" id="player-time">0:00 / 0:00</span>
+        <input type="range" class="player-seek" id="player-seek" min="0" max="100" value="0">
+      </div>
+    </div>
+  `;
+}
+
+function renderStats(headers) {
+  const dur  = parseFloat(headers['x-audio-duration-seconds'] || 0).toFixed(2);
+  const gen  = parseFloat(headers['x-generation-seconds'] || 0).toFixed(2);
+  const rtf  = parseFloat(headers['x-rtf'] || 0).toFixed(2);
+  const enc  = headers['x-mp3-encode-seconds'] ? parseFloat(headers['x-mp3-encode-seconds']).toFixed(2) : null;
+  const chunks = headers['x-chunks'] || '—';
+  const device = headers['x-device'] || '—';
+  return `
+    <div class="stats-grid">
+      <div class="stat-item"><div class="stat-label">Duration</div><div class="stat-value">${dur}s</div></div>
+      <div class="stat-item"><div class="stat-label">Generation</div><div class="stat-value">${gen}s</div></div>
+      <div class="stat-item"><div class="stat-label">RTF</div><div class="stat-value">${rtf}×</div></div>
+      <div class="stat-item"><div class="stat-label">Chunks</div><div class="stat-value">${chunks}</div></div>
+      ${enc ? `<div class="stat-item"><div class="stat-label">Encode</div><div class="stat-value">${enc}s</div></div>` : ''}
+      <div class="stat-item"><div class="stat-label">Device</div><div class="stat-value" style="font-size:12px;">${device}</div></div>
+    </div>
+  `;
+}
+
+let _audio = null;
+
+function wirePlayer(el) {
+  if (!state.generate.result) return;
+  const url = state.generate.result.url;
+
+  if (_audio) { _audio.pause(); _audio = null; }
+  _audio = new Audio(url);
+
+  const playBtn  = el.querySelector('#play-btn');
+  const seekEl   = el.querySelector('#player-seek');
+  const timeEl   = el.querySelector('#player-time');
+  const bars     = el.querySelectorAll('.pw-bar');
+
+  function fmt(s) {
+    const m = Math.floor(s / 60);
+    return `${m}:${String(Math.floor(s % 60)).padStart(2,'0')}`;
+  }
+
+  _audio.addEventListener('timeupdate', () => {
+    const pct = _audio.duration ? (_audio.currentTime / _audio.duration) * 100 : 0;
+    seekEl.value = pct;
+    timeEl.textContent = `${fmt(_audio.currentTime)} / ${fmt(_audio.duration || 0)}`;
+    const playedCount = Math.floor((pct / 100) * bars.length);
+    bars.forEach((b, i) => b.classList.toggle('played', i < playedCount));
+  });
+
+  _audio.addEventListener('ended', () => { playBtn.textContent = '▶'; bars.forEach(b => b.classList.remove('played')); });
+
+  playBtn.addEventListener('click', () => {
+    if (_audio.paused) { _audio.play(); playBtn.textContent = '⏸'; }
+    else               { _audio.pause(); playBtn.textContent = '▶'; }
+  });
+
+  seekEl.addEventListener('input', () => {
+    if (_audio.duration) _audio.currentTime = (_audio.duration * seekEl.value) / 100;
+  });
+}
+
+async function runGenerate() {
+  const text = state.generate.text.trim();
+  if (!text) { toastError('Please enter some text first.'); return; }
+
+  // Revoke old blob URL
+  if (state.generate.result?.url) URL.revokeObjectURL(state.generate.result.url);
+  state.generate.result = null;
+  state.generate.loading = true;
+  if (_audio) { _audio.pause(); _audio = null; }
+  render();
+
+  try {
+    const { blob, headers } = await generateTTS({
+      text,
+      preset: state.generate.preset,
+      voice_name: state.generate.voice_name || undefined,
+      output_format: state.generate.format,
+    });
+    const url = URL.createObjectURL(blob);
+    state.generate.result = { blob, headers, url };
+    toastSuccess('Audio generated!');
+  } catch (err) {
+    toastError(err.message);
+  } finally {
+    state.generate.loading = false;
+    render();
+    if (state.generate.result) wirePlayer(document.getElementById('screen-content'));
+  }
+}
+
+// ── Screen: Voices ────────────────────────────────────────────────────────────
+
+let _uploadFile = null;
+
+function renderVoices(el, actions) {
+  const addBtn = document.createElement('button');
+  addBtn.className = 'btn btn-primary btn-sm';
+  addBtn.textContent = '+ Add Voice';
+  addBtn.addEventListener('click', () => {
+    const zone = el.querySelector('#upload-section');
+    zone?.scrollIntoView({ behavior: 'smooth' });
+  });
+  actions.appendChild(addBtn);
+
+  el.innerHTML = `
+    <div style="max-width:1100px;display:flex;flex-direction:column;gap:24px;">
+
+      <!-- Voice grid -->
+      <div>
+        <div style="font-size:12px;font-weight:500;color:var(--text-3);letter-spacing:.07em;text-transform:uppercase;margin-bottom:12px;">
+          ${state.voices.length} Voice${state.voices.length !== 1 ? 's' : ''}
+        </div>
+        ${state.voices.length === 0
+          ? `<div class="empty-state"><div class="empty-icon">🎤</div><div class="empty-title">No voices yet</div><div class="empty-sub">Upload a voice profile below to get started.</div></div>`
+          : `<div class="voices-grid">${state.voices.map(v => renderVoiceCard(v)).join('')}</div>`
+        }
+      </div>
+
+      <!-- Upload form -->
+      <div id="upload-section" style="border-top:0.5px solid var(--border);padding-top:24px;">
+        <div style="font-size:12px;font-weight:500;color:var(--text-3);letter-spacing:.07em;text-transform:uppercase;margin-bottom:16px;">Add New Voice</div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;max-width:800px;">
+          <!-- Drop zone -->
+          <div>
+            <div class="upload-zone" id="drop-zone" role="button" tabindex="0" aria-label="Upload voice file">
+              <div class="upload-icon" id="drop-icon">📂</div>
+              <div class="upload-title" id="drop-title">Drop an audio file here</div>
+              <div class="upload-sub">WAV, M4A, MP3, AIFF, FLAC, OGG<br>iPhone Voice Memos work great</div>
+            </div>
+            <input type="file" id="voice-file-input" class="voice-form-file" accept=".wav,.m4a,.mp3,.aiff,.aif,.flac,.ogg">
+          </div>
+
+          <!-- Form fields -->
+          <div class="voice-form">
+            <div class="field">
+              <label class="label" for="voice-name-input">Profile Name</label>
+              <input id="voice-name-input" class="input" type="text" placeholder="e.g. noelmo-normal">
+            </div>
+            <div class="field">
+              <label class="label" for="voice-desc-input">Description <span style="font-weight:400;">(optional)</span></label>
+              <input id="voice-desc-input" class="input" type="text" placeholder="Short description">
+            </div>
+            <div style="margin-top:20px;">
+              <button id="upload-btn" class="btn btn-primary" disabled>Upload Voice</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+
+  // Voice card delete buttons
+  el.querySelectorAll('[data-delete-voice]').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const name = btn.dataset.deleteVoice;
+      if (confirm(`Delete voice "${name}"? This cannot be undone.`)) {
+        deleteVoice(name).then(() => {
+          state.voices = state.voices.filter(v => v.name !== name);
+          toastSuccess(`Voice "${name}" deleted.`);
+          render();
+        }).catch(err => toastError(err.message));
+      }
+    });
+  });
+
+  // Use as voice buttons
+  el.querySelectorAll('[data-use-voice]').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      state.generate.voice_name = btn.dataset.useVoice;
+      toastSuccess(`Voice set to "${btn.dataset.useVoice}". Switch to Generate.`);
+    });
+  });
+
+  // Drop zone
+  const dropZone = el.querySelector('#drop-zone');
+  const fileInput = el.querySelector('#voice-file-input');
+  const uploadBtn = el.querySelector('#upload-btn');
+  const nameInput = el.querySelector('#voice-name-input');
+  const descInput = el.querySelector('#voice-desc-input');
+
+  function setFile(file) {
+    _uploadFile = file;
+    el.querySelector('#drop-icon').textContent = '✓';
+    el.querySelector('#drop-title').textContent = file.name;
+    if (!nameInput.value) {
+      nameInput.value = file.name.replace(/\.[^.]+$/, '').toLowerCase().replace(/\s+/g, '-');
+    }
+    checkUploadReady();
+  }
+
+  function checkUploadReady() {
+    uploadBtn.disabled = !_uploadFile || !nameInput.value.trim();
+  }
+
+  dropZone.addEventListener('click', () => fileInput.click());
+  dropZone.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') fileInput.click(); });
+  fileInput.addEventListener('change', (e) => { if (e.target.files[0]) setFile(e.target.files[0]); });
+  nameInput.addEventListener('input', checkUploadReady);
+
+  dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+  dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+  dropZone.addEventListener('drop', (e) => {
+    e.preventDefault(); dropZone.classList.remove('drag-over');
+    const file = e.dataTransfer.files[0];
+    if (file) { fileInput.files = e.dataTransfer.files; setFile(file); }
+  });
+
+  uploadBtn.addEventListener('click', async () => {
+    if (!_uploadFile || !nameInput.value.trim()) return;
+    uploadBtn.disabled = true;
+    uploadBtn.innerHTML = '<span class="spinner"></span> Uploading…';
+
+    const fd = new FormData();
+    fd.append('name', nameInput.value.trim());
+    fd.append('file', _uploadFile);
+    if (descInput.value.trim()) fd.append('description', descInput.value.trim());
+
+    try {
+      const voice = await uploadVoice(fd);
+      state.voices = await listVoices();
+      _uploadFile = null;
+      toastSuccess(`Voice "${voice.name}" registered.`);
+      render();
+    } catch (err) {
+      toastError(err.message);
+      uploadBtn.disabled = false;
+      uploadBtn.textContent = 'Upload Voice';
+    }
+  });
+}
+
+function renderVoiceCard(v) {
+  return `
+    <div class="voice-card" data-voice="${escAttr(v.name)}">
+      <div style="display:flex;align-items:center;gap:12px;">
+        <div class="voice-avatar">🎙</div>
+        <div>
+          <div class="voice-name">${escHtml(v.name)}</div>
+          ${v.description ? `<div class="voice-desc">${escHtml(v.description)}</div>` : ''}
+        </div>
+      </div>
+      <div class="voice-actions">
+        <button class="btn btn-secondary btn-sm" data-use-voice="${escAttr(v.name)}">Use</button>
+        <button class="btn btn-ghost btn-sm" data-delete-voice="${escAttr(v.name)}" style="color:var(--error);">Delete</button>
+      </div>
+    </div>
+  `;
+}
+
+// ── Screen: History ───────────────────────────────────────────────────────────
+
+let _histFilter = 'all';
+
+function renderHistory(el, actions) {
+  const refresh = document.createElement('button');
+  refresh.className = 'btn btn-secondary btn-sm';
+  refresh.textContent = '↺ Refresh';
+  refresh.addEventListener('click', async () => {
+    refresh.disabled = true;
+    state.jobs = await listJobs({ limit: 100 });
+    render();
+  });
+  actions.appendChild(refresh);
+
+  const filtered = _histFilter === 'all' ? state.jobs : state.jobs.filter(j => j.status === _histFilter);
+
+  el.innerHTML = `
+    <div>
+      <div class="history-filters">
+        ${['all','completed','failed','processing'].map(s => `
+          <button class="filter-pill ${_histFilter === s ? 'active' : ''}" data-filter="${s}">
+            ${s.charAt(0).toUpperCase() + s.slice(1)}
+            ${s === 'all' ? `(${state.jobs.length})` : `(${state.jobs.filter(j => j.status === s).length})`}
+          </button>
+        `).join('')}
+      </div>
+
+      ${filtered.length === 0
+        ? `<div class="empty-state"><div class="empty-icon">📋</div><div class="empty-title">No jobs yet</div><div class="empty-sub">Your generation history will appear here.</div></div>`
+        : `<div class="history-scroll">
+          <table class="history-table">
+            <thead><tr>
+              <th>Status</th>
+              <th>Voice</th>
+              <th>Tone</th>
+              <th>Text</th>
+              <th>Duration</th>
+              <th>RTF</th>
+              <th>Time</th>
+              <th>Request ID</th>
+            </tr></thead>
+            <tbody>
+              ${filtered.map(j => `
+                <tr>
+                  <td>${statusBadge(j.status)}</td>
+                  <td style="font-size:12px;color:var(--text-2);">${escHtml(j.voice_name || '—')}</td>
+                  <td style="font-size:12px;color:var(--text-2);">${escHtml(j.preset || '—')}</td>
+                  <td class="text-cell">
+                    <div class="copy-cell">
+                      <span title="${escAttr(j.text)}">${escHtml(j.text?.slice(0,80) ?? '—')}${(j.text?.length ?? 0) > 80 ? '…' : ''}</span>
+                      <button class="copy-btn" data-copy="${escAttr(j.text ?? '')}" title="Copy text">⎘</button>
+                    </div>
+                  </td>
+                  <td style="font-size:12px;">${j.audio_duration_s ? j.audio_duration_s.toFixed(1) + 's' : '—'}</td>
+                  <td style="font-size:12px;">${j.rtf ? j.rtf.toFixed(2) + '×' : '—'}</td>
+                  <td style="font-size:12px;color:var(--text-2);white-space:nowrap;">${fmtDate(j.created_at)}</td>
+                  <td class="rid-cell">
+                    <div class="copy-cell">
+                      <span title="${escAttr(j.request_id)}">${(j.request_id || '').slice(0, 8)}…</span>
+                      <button class="copy-btn" data-copy="${escAttr(j.request_id ?? '')}" title="Copy request ID">⎘</button>
+                    </div>
+                  </td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>`
+      }
+    </div>
+  `;
+
+  el.querySelectorAll('[data-filter]').forEach(btn => {
+    btn.addEventListener('click', () => { _histFilter = btn.dataset.filter; render(); });
+  });
+
+  el.querySelectorAll('.copy-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      try {
+        await navigator.clipboard.writeText(btn.dataset.copy);
+        btn.classList.add('copied');
+        btn.textContent = '✓';
+        setTimeout(() => { btn.classList.remove('copied'); btn.textContent = '⎘'; }, 1500);
+      } catch { toastError('Copy failed'); }
+    });
+  });
+}
+
+function statusBadge(status) {
+  const map = { completed: 'badge-green', failed: 'badge-red', processing: 'badge-yellow' };
+  return `<span class="badge ${map[status] ?? ''}">${status}</span>`;
+}
+
+function fmtDate(iso) {
+  if (!iso) return '—';
+  const d = new Date(iso + (iso.endsWith('Z') ? '' : 'Z'));
+  return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + ' ' +
+         d.toLocaleDateString([], { month: 'short', day: 'numeric' });
+}
+
+// ── Screen: Settings ──────────────────────────────────────────────────────────
+
+function renderSettings(el) {
+  const h = state.health || {};
+  el.innerHTML = `
+    <div class="settings-page">
+      <div class="settings-group">
+        <div class="settings-group-title">Server</div>
+        <div class="settings-row">
+          <span class="settings-row-label">Status</span>
+          <span class="settings-row-value">${h.status ?? '—'}</span>
+        </div>
+        <div class="settings-row">
+          <span class="settings-row-label">Device</span>
+          <span class="settings-row-value">${h.device ?? '—'}</span>
+        </div>
+        <div class="settings-row">
+          <span class="settings-row-label">Output TTL</span>
+          <span class="settings-row-value">${h.output_ttl_hours ?? '—'}h</span>
+        </div>
+        <div class="settings-row">
+          <span class="settings-row-label">Input folder</span>
+          <span class="settings-row-value" style="font-size:11px;">${h.input_dir ?? '—'}</span>
+        </div>
+      </div>
+
+      <div class="settings-group">
+        <div class="settings-group-title">Presets</div>
+        ${Object.entries(state.presets).map(([name, params]) => `
+          <div class="settings-row">
+            <span class="settings-row-label">${name}</span>
+            <span class="settings-row-value" style="font-size:11px;text-align:right;">
+              exag ${params.exaggeration ?? '—'} · cfg ${params.cfg_weight ?? '—'} · temp ${params.temperature ?? '—'}
+            </span>
+          </div>
+        `).join('')}
+      </div>
+
+      <div class="settings-group">
+        <div class="settings-group-title">API</div>
+        <div class="settings-row">
+          <span class="settings-row-label">Base URL</span>
+          <span class="settings-row-value">${window.location.origin}</span>
+        </div>
+        <div class="settings-row">
+          <span class="settings-row-label">OpenAPI docs</span>
+          <a href="/docs" target="_blank" class="settings-row-value" style="color:var(--blue);text-decoration:none;">/docs →</a>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+// ── Utilities ─────────────────────────────────────────────────────────────────
+
+function escHtml(s) {
+  return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function escAttr(s) { return escHtml(s); }
+
+// ── Bootstrap ─────────────────────────────────────────────────────────────────
+
+async function boot() {
+  // Render skeleton immediately
+  render();
+
+  try {
+    const [health, voices, presets, jobs] = await Promise.all([
+      healthCheck(),
+      listVoices(),
+      listPresets(),
+      listJobs({ limit: 100 }),
+    ]);
+
+    state.health  = health;
+    state.voices  = voices;
+    state.presets = presets;
+    state.jobs    = jobs;
+
+    const statusEl = document.getElementById('server-status');
+    statusEl.innerHTML = `<span class="dot dot-green"></span><span>${health.device ?? 'ok'}</span>`;
+  } catch (err) {
+    const statusEl = document.getElementById('server-status');
+    statusEl.innerHTML = `<span class="dot dot-red"></span><span>Offline</span>`;
+    toastError('Cannot reach Vox server. Is it running?');
+  }
+
+  render();
+}
+
+boot();
+</script>
+</body>
+</html>

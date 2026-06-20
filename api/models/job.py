@@ -15,5 +15,6 @@ class JobOut(BaseModel):
     total_s: float | None
     rtf: float | None
     error: str | None
+    voice_name: str | None = None
     created_at: str
     completed_at: str | None

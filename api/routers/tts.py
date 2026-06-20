@@ -1,5 +1,6 @@
 import time
 import uuid
+from datetime import datetime
 from pathlib import Path
 
 import numpy as np
@@ -242,18 +243,22 @@ async def generate_tts(
         if encode_s is not None:
             headers["X-MP3-Encode-Seconds"] = f"{encode_s:.2f}"
 
+        voice_slug = voice_name or "generic"
+        timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+        dl_name = f"{voice_slug}-{timestamp}"
+
         if output_format_name == "mp3":
             return FileResponse(
                 output_path,
                 media_type="audio/mpeg",
-                filename=f"{preset_name}.mp3",
+                filename=f"{dl_name}.mp3",
                 headers=headers,
             )
 
         return FileResponse(
             output_path,
             media_type="audio/wav",
-            filename=f"{preset_name}.wav",
+            filename=f"{dl_name}.wav",
             headers=headers,
         )
 

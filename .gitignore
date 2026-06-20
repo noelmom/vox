@@ -11,3 +11,6 @@ data/
 # Voice profiles — only the default ships with the repo
 voices/*
 !voices/noelmo-normal.wav
+
+# UI sketches — local design references only
+sketches/
