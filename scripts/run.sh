@@ -3,7 +3,7 @@
 # Run setup.sh first if .venv does not exist.
 set -e
 
-ROOT="$(cd "$(dirname "$0")" && pwd)"
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 VENV="$ROOT/.venv"
 
 if [[ ! -d "$VENV" ]]; then
