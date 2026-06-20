@@ -1,0 +1,13 @@
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+outputs/
+input/
+data/
+.env
+.DS_Store
+
+# Voice profiles — only the default ships with the repo
+voices/*
+!voices/noelmo-normal.wav

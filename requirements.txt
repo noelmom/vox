@@ -1,0 +1,12 @@
+# setuptools<80 required — perth uses pkg_resources which was removed in setuptools 80+
+setuptools<80
+fastapi>=0.110.0
+uvicorn[standard]>=0.29.0
+pydantic>=2.0.0
+pydantic-settings>=2.0.0
+aiosqlite>=0.20.0
+soundfile>=0.12.0
+numpy>=1.26.0
+torch>=2.2.0
+torchaudio>=2.2.0
+chatterbox-tts>=0.1.0

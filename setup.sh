@@ -1,0 +1,135 @@
+#!/bin/bash
+# Vox — one-shot setup script for macOS Apple Silicon
+# Run once after cloning: bash setup.sh
+set -e
+
+BOLD="\033[1m"
+GREEN="\033[0;32m"
+YELLOW="\033[0;33m"
+RED="\033[0;31m"
+RESET="\033[0m"
+
+info()    { echo -e "${BOLD}[vox]${RESET} $*"; }
+success() { echo -e "${GREEN}[vox] ✓ $*${RESET}"; }
+warn()    { echo -e "${YELLOW}[vox] ⚠ $*${RESET}"; }
+fail()    { echo -e "${RED}[vox] ✗ $*${RESET}"; exit 1; }
+
+# ── Platform check ────────────────────────────────────────────────────────────
+if [[ "$(uname)" != "Darwin" ]]; then
+    fail "This script is for macOS only."
+fi
+
+ARCH=$(uname -m)
+if [[ "$ARCH" != "arm64" ]]; then
+    warn "This project is optimised for Apple Silicon (arm64). Detected: $ARCH"
+    warn "CPU-only mode will be used. MPS acceleration unavailable."
+fi
+
+# ── Homebrew ──────────────────────────────────────────────────────────────────
+info "Checking Homebrew..."
+if ! command -v brew &>/dev/null; then
+    info "Installing Homebrew..."
+    /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+    # Add brew to PATH for the rest of this script (Apple Silicon path)
+    eval "$(/opt/homebrew/bin/brew shellenv)"
+fi
+success "Homebrew $(brew --version | head -1)"
+
+# ── ffmpeg ────────────────────────────────────────────────────────────────────
+info "Checking ffmpeg..."
+if ! brew list ffmpeg &>/dev/null; then
+    info "Installing ffmpeg via Homebrew..."
+    brew install ffmpeg
+fi
+success "ffmpeg $(ffmpeg -version 2>&1 | head -1 | awk '{print $3}')"
+
+# ── Python 3.11 ───────────────────────────────────────────────────────────────
+info "Checking Python..."
+PYTHON=""
+
+# Prefer brew python 3.11 for stability with torch/chatterbox on Apple Silicon
+if brew list python@3.11 &>/dev/null; then
+    PYTHON="$(brew --prefix python@3.11)/bin/python3.11"
+elif command -v python3.11 &>/dev/null; then
+    PYTHON="$(command -v python3.11)"
+else
+    info "Installing Python 3.11 via Homebrew..."
+    brew install python@3.11
+    PYTHON="$(brew --prefix python@3.11)/bin/python3.11"
+fi
+
+PYTHON_VERSION=$("$PYTHON" --version 2>&1)
+success "$PYTHON_VERSION at $PYTHON"
+
+# ── Virtual environment ───────────────────────────────────────────────────────
+VENV_DIR="$(dirname "$0")/.venv"
+
+if [[ ! -d "$VENV_DIR" ]]; then
+    info "Creating virtual environment at .venv..."
+    "$PYTHON" -m venv "$VENV_DIR"
+fi
+
+VENV_PYTHON="$VENV_DIR/bin/python"
+VENV_PIP="$VENV_DIR/bin/pip"
+success "Virtual environment ready"
+
+# ── pip ───────────────────────────────────────────────────────────────────────
+info "Upgrading pip..."
+"$VENV_PIP" install --upgrade pip --quiet
+success "pip $("$VENV_PIP" --version | awk '{print $2}')"
+
+# ── Python dependencies ───────────────────────────────────────────────────────
+info "Installing Python dependencies (this may take a few minutes on first run)..."
+"$VENV_PIP" install -r "$(dirname "$0")/requirements.txt"
+success "All Python dependencies installed"
+
+# ── Runtime directories ───────────────────────────────────────────────────────
+info "Creating runtime directories..."
+mkdir -p voices outputs input/processed data
+success "Directories: voices/ outputs/ input/ input/processed/ data/"
+
+# ── .env scaffold ─────────────────────────────────────────────────────────────
+ENV_FILE="$(dirname "$0")/.env"
+if [[ ! -f "$ENV_FILE" ]]; then
+    info "Creating default .env..."
+    cat > "$ENV_FILE" <<'EOF'
+# Vox environment configuration
+# All variables use the VOX_ prefix unless noted.
+
+# Network
+# VOX_HOST=0.0.0.0    # default — reachable from any device on the network
+# VOX_PORT=8000
+
+# Inference device: auto | mps | cpu
+# VOX_DEVICE=auto
+
+# ffmpeg (brew default for Apple Silicon)
+# VOX_FFMPEG_PATH=/opt/homebrew/bin/ffmpeg
+
+# Output file cleanup — how many hours to keep generated audio (0 = keep forever)
+# VOX_OUTPUT_TTL_HOURS=24
+
+# Text chunking limits
+# VOX_DEFAULT_MAX_CHARS=450
+# VOX_MIN_MAX_CHARS=100
+# VOX_MAX_MAX_CHARS=3000
+
+# Hugging Face token (optional, no VOX_ prefix — standard HF convention)
+# Enables authenticated downloads: faster transfer rates and access to gated models.
+# Generate a read-only token at https://huggingface.co/settings/tokens
+# NEVER commit this value to git — this file is git-ignored for that reason.
+# HF_TOKEN=hf_your_token_here
+EOF
+    success ".env created (all values commented — defaults apply)"
+else
+    warn ".env already exists, skipping"
+fi
+
+# ── Done ──────────────────────────────────────────────────────────────────────
+echo ""
+echo -e "${GREEN}${BOLD}Vox is ready.${RESET}"
+echo ""
+echo "  Start the server:  bash run.sh"
+echo "  Health check:      curl http://localhost:8000/"
+echo "  API docs:          http://localhost:8000/docs"
+echo ""

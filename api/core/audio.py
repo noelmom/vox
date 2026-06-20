@@ -1,0 +1,46 @@
+import subprocess
+from pathlib import Path
+
+from fastapi import HTTPException
+
+from api.core.config import settings
+
+# Formats we accept for voice upload / input folder
+INGESTABLE_EXTENSIONS = {".wav", ".m4a", ".mp3", ".aiff", ".aif", ".flac", ".ogg"}
+
+
+def _run_ffmpeg(*args: str):
+    try:
+        subprocess.run(
+            [settings.ffmpeg_path, "-y", *args],
+            check=True,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+    except FileNotFoundError:
+        raise HTTPException(
+            status_code=500,
+            detail=f"ffmpeg not found at {settings.ffmpeg_path}. Run: brew install ffmpeg",
+        )
+    except subprocess.CalledProcessError as exc:
+        raise HTTPException(status_code=500, detail=f"ffmpeg conversion failed: {exc}")
+
+
+def convert_to_wav(src: Path, dest: Path):
+    """Convert any audio format to a 16-bit 44.1 kHz mono WAV."""
+    _run_ffmpeg(
+        "-i", str(src),
+        "-ar", "44100",
+        "-ac", "1",
+        "-sample_fmt", "s16",
+        str(dest),
+    )
+
+
+def export_mp3(wav_path: Path, mp3_path: Path):
+    _run_ffmpeg(
+        "-i", str(wav_path),
+        "-codec:a", "libmp3lame",
+        "-qscale:a", "2",
+        str(mp3_path),
+    )
