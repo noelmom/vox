@@ -107,11 +107,40 @@ This single command:
 
 ### 3. Start the server
 
+**Option A — direct (simplest):**
+
 ```bash
 bash run.sh
 ```
 
-The server starts on `http://0.0.0.0:8000` by default — reachable from any device on your local network. Open `http://localhost:8000/docs` for the interactive API docs.
+**Option B — macOS LaunchAgent (recommended for daily use):**
+
+Install once after setup:
+
+```bash
+bash scripts/install-agent.sh
+```
+
+Then control the server with `launchctl`:
+
+```bash
+launchctl start  com.melolabdev.vox                          # start
+launchctl stop   com.melolabdev.vox                          # stop
+launchctl kickstart -k gui/$(id -u)/com.melolabdev.vox       # restart
+tail -f ~/Library/Logs/VoxForge/vox.log                      # live logs
+```
+
+The LaunchAgent:
+- Registers the server with macOS launchd
+- Restarts automatically on crash
+- Captures stdout + stderr to `~/Library/Logs/VoxForge/`
+- Does **not** start on login by default (manual start only)
+
+> **Shipping note:** When Vox ships as a one-click `.app`, set `RunAtLoad` to `true` in `launchagent/com.melolabdev.vox.plist` and re-run `scripts/install-agent.sh`. That single change enables auto-start on login. See `BACKLOG.md` for details.
+
+To uninstall: `bash scripts/uninstall-agent.sh`
+
+The server starts on `http://0.0.0.0:8000` by default — reachable from any device on your local network. Open `http://localhost:8000/docs` for the interactive API docs or `http://localhost:8000/app` for the web UI.
 
 > **Note for future packaging:** When Vox ships as a macOS `.app`, `VOX_HOST` should default to `127.0.0.1` (localhost only). Change the default in `api/core/config.py` and `run.sh` at that point. For now, `0.0.0.0` is intentional so you can test from phones, tablets, and other machines without extra config.
 

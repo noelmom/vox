@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+
+  <!-- Unique reverse-DNS label — must match the filename -->
+  <key>Label</key>
+  <string>com.melolabdev.vox</string>
+
+  <!-- The wrapper script loads .env and then execs uvicorn.
+       install-agent.sh rewrites ProgramArguments with the real path. -->
+  <key>ProgramArguments</key>
+  <array>
+    <string>/usr/bin/env</string>
+    <string>bash</string>
+    <string>VOX_PROJECT_ROOT/run.sh</string>
+  </array>
+
+  <!-- Working directory — install-agent.sh rewrites this too -->
+  <key>WorkingDirectory</key>
+  <string>VOX_PROJECT_ROOT</string>
+
+  <!-- Stdout / stderr captured to ~/Library/Logs/VoxForge/ -->
+  <key>StandardOutPath</key>
+  <string>VOX_LOG_DIR/vox.log</string>
+  <key>StandardErrorPath</key>
+  <string>VOX_LOG_DIR/vox-error.log</string>
+
+  <!--
+    RunAtLoad = false  →  server does NOT start automatically on login.
+
+    SHIPPING NOTE: when the one-click .app is ready, change this to <true/>
+    so the server starts as soon as the user logs in. This is the only plist
+    change required for auto-start behaviour — everything else stays the same.
+    See: https://developer.apple.com/library/archive/documentation/MacOSX/Conceptual/BPSystemStartup/Chapters/CreatingLaunchdJobs.html
+  -->
+  <key>RunAtLoad</key>
+  <false/>
+
+  <!-- Restart automatically if the process exits unexpectedly -->
+  <key>KeepAlive</key>
+  <dict>
+    <key>SuccessfulExit</key>
+    <false/>
+  </dict>
+
+  <!-- Throttle restarts to once per 10 seconds after a crash -->
+  <key>ThrottleInterval</key>
+  <integer>10</integer>
+
+  <!-- Give the model loader time to finish before launchd decides it hung -->
+  <key>TimeOut</key>
+  <integer>120</integer>
+
+  <!-- Environment variables available to the process.
+       .env is sourced by run.sh; these are fallback defaults only. -->
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>VOX_HOST</key>
+    <string>0.0.0.0</string>
+    <key>VOX_PORT</key>
+    <string>8000</string>
+    <key>VOX_DEVICE</key>
+    <string>auto</string>
+  </dict>
+
+</dict>
+</plist>

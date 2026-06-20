@@ -1082,19 +1082,19 @@ function renderPlayer(result) {
 }
 
 function renderStats(headers) {
-  const dur  = parseFloat(headers['x-audio-duration-seconds'] || 0).toFixed(2);
-  const gen  = parseFloat(headers['x-generation-seconds'] || 0).toFixed(2);
+  const durSec = parseFloat(headers['x-audio-duration-seconds'] || 0);
+  const genSec = parseFloat(headers['x-generation-seconds'] || 0);
   const rtf  = parseFloat(headers['x-rtf'] || 0).toFixed(2);
-  const enc  = headers['x-mp3-encode-seconds'] ? parseFloat(headers['x-mp3-encode-seconds']).toFixed(2) : null;
+  const enc  = headers['x-mp3-encode-seconds'] ? parseFloat(headers['x-mp3-encode-seconds']) : null;
   const chunks = headers['x-chunks'] || '—';
   const device = headers['x-device'] || '—';
   return `
     <div class="stats-grid">
-      <div class="stat-item"><div class="stat-label">Duration</div><div class="stat-value">${dur}s</div></div>
-      <div class="stat-item"><div class="stat-label">Generation</div><div class="stat-value">${gen}s</div></div>
+      <div class="stat-item"><div class="stat-label">Duration</div><div class="stat-value">${_fmtDuration(durSec)}</div></div>
+      <div class="stat-item"><div class="stat-label">Generation</div><div class="stat-value">${_fmtDuration(genSec)}</div></div>
       <div class="stat-item"><div class="stat-label">RTF</div><div class="stat-value">${rtf}×</div></div>
       <div class="stat-item"><div class="stat-label">Chunks</div><div class="stat-value">${chunks}</div></div>
-      ${enc ? `<div class="stat-item"><div class="stat-label">Encode</div><div class="stat-value">${enc}s</div></div>` : ''}
+      ${enc != null ? `<div class="stat-item"><div class="stat-label">Encode</div><div class="stat-value">${_fmtDuration(enc)}</div></div>` : ''}
       <div class="stat-item"><div class="stat-label">Device</div><div class="stat-value" style="font-size:12px;">${device}</div></div>
     </div>
   `;
@@ -1868,7 +1868,7 @@ function renderHistory(el, actions) {
               ${filtered.map(j => `
                 <tr>
                   <td>${statusBadge(j.status)}</td>
-                  <td style="font-size:12px;color:var(--text-2);">${escHtml(j.voice_name || '—')}</td>
+                  <td style="font-size:12px;color:var(--text-2);">${escHtml(j.voice_name || 'Generic')}</td>
                   <td style="font-size:12px;color:var(--text-2);">${escHtml(j.preset || '—')}</td>
                   <td class="text-cell">
                     <div class="copy-cell">
@@ -1876,7 +1876,7 @@ function renderHistory(el, actions) {
                       <button class="copy-btn" data-copy="${escAttr(j.text ?? '')}" title="Copy text">⎘</button>
                     </div>
                   </td>
-                  <td style="font-size:12px;">${j.audio_duration_s ? j.audio_duration_s.toFixed(1) + 's' : '—'}</td>
+                  <td style="font-size:12px;">${j.audio_duration_s ? _fmtDuration(j.audio_duration_s) : '—'}</td>
                   <td style="font-size:12px;">${j.rtf ? j.rtf.toFixed(2) + '×' : '—'}</td>
                   <td style="font-size:12px;color:var(--text-2);white-space:nowrap;">${fmtDate(j.created_at)}</td>
                   <td class="rid-cell">
@@ -1918,8 +1918,11 @@ function statusBadge(status) {
 function fmtDate(iso) {
   if (!iso) return '—';
   const d = new Date(iso + (iso.endsWith('Z') ? '' : 'Z'));
-  return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + ' ' +
-         d.toLocaleDateString([], { month: 'short', day: 'numeric' });
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  const yyyy = d.getFullYear();
+  const time = d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true });
+  return `${mm}/${dd}/${yyyy} at ${time}`;
 }
 
 // ── Screen: Settings ──────────────────────────────────────────────────────────
