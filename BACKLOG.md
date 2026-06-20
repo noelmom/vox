@@ -63,6 +63,14 @@ Ideas and improvements to revisit. Not bugs — these are enhancements queued fo
 - [ ] One-click `.app` packaging (PyInstaller or py2app)
 - [ ] Default `VOX_HOST` to `127.0.0.1` once packaged as a macOS app
 
+- [ ] **Code signing & notarization** — Apple Developer certificate required before public release.
+  - Sign the `.app` bundle with `codesign` using a Developer ID Application certificate
+  - Sign the LaunchAgent plist / helper binary separately if distributed outside the app bundle
+  - Submit to Apple for notarization with `notarytool` (replaces the deprecated `altool`)
+  - Staple the notarization ticket with `stapler` so the app passes Gatekeeper offline
+  - **Why it matters:** without signing, every user sees "unidentified developer" and must manually allow the app in System Settings. Without notarization, macOS Sequoia and later may block the app entirely on first launch.
+  - **Prerequisite:** enroll in the Apple Developer Program ($99/year) and generate a Developer ID Application certificate in Xcode → Settings → Accounts.
+
 ---
 
 ## Non-Verbal Cues
