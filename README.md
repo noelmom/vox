@@ -63,8 +63,12 @@ codename-vox/
 ├── outputs/                     # Generated audio files (auto-cleaned by TTL)
 ├── input/                       # Drop audio files here for auto-ingest
 │   └── processed/               # Files moved here after successful ingest
+├── scripts/
+│   ├── run.sh                   # Manual foreground start (troubleshooting / dev)
+│   ├── install-agent.sh         # Register LaunchAgent with macOS launchd
+│   ├── uninstall-agent.sh       # Unload and remove the LaunchAgent
+│   └── README.md                # Script reference + manual start guide
 ├── setup.sh                     # One-shot bootstrap script
-├── run.sh                       # Start the server
 ├── requirements.txt             # Python dependencies
 ├── CHANGELOG.md                 # Notable changes per version
 └── .env                         # Local config overrides (git-ignored)
@@ -107,13 +111,7 @@ This single command:
 
 ### 3. Start the server
 
-**Option A — direct (simplest):**
-
-```bash
-bash run.sh
-```
-
-**Option B — macOS LaunchAgent (recommended for daily use):**
+**Option A — macOS LaunchAgent (recommended for daily use):**
 
 Install once after setup:
 
@@ -139,6 +137,21 @@ The LaunchAgent:
 > **Shipping note:** When Vox ships as a one-click `.app`, set `RunAtLoad` to `true` in `launchagent/com.melolabdev.vox.plist` and re-run `scripts/install-agent.sh`. That single change enables auto-start on login. See `BACKLOG.md` for details.
 
 To uninstall: `bash scripts/uninstall-agent.sh`
+
+**Option B — manual start (troubleshooting / development):**
+
+```bash
+bash scripts/run.sh
+```
+
+Use this when the LaunchAgent isn't installed, you're debugging a startup crash and want live terminal output, or `launchctl` isn't responding and you need to rule out the agent itself. If the LaunchAgent is already running, stop it first to avoid a port conflict:
+
+```bash
+launchctl stop com.melolabdev.vox
+bash scripts/run.sh
+```
+
+See [`scripts/README.md`](scripts/README.md) for a full reference of all scripts.
 
 The server starts on `http://0.0.0.0:8000` by default — reachable from any device on your local network. Open `http://localhost:8000/docs` for the interactive API docs or `http://localhost:8000/app` for the web UI.
 

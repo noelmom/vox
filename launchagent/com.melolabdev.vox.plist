@@ -13,7 +13,7 @@
   <array>
     <string>/usr/bin/env</string>
     <string>bash</string>
-    <string>VOX_PROJECT_ROOT/run.sh</string>
+    <string>VOX_PROJECT_ROOT/scripts/run.sh</string>
   </array>
 
   <!-- Working directory — install-agent.sh rewrites this too -->
@@ -53,7 +53,7 @@
   <integer>120</integer>
 
   <!-- Environment variables available to the process.
-       .env is sourced by run.sh; these are fallback defaults only. -->
+       .env is sourced by scripts/run.sh; these are fallback defaults only. -->
   <key>EnvironmentVariables</key>
   <dict>
     <key>VOX_HOST</key>
