@@ -57,6 +57,8 @@ Ideas and improvements to revisit. Not bugs — these are enhancements queued fo
 
 - [ ] **Auto-launch on login** — when the one-click `.app` is ready to ship, change `RunAtLoad` from `<false/>` to `<true/>` in `launchagent/com.melolabdev.vox.plist` and re-run `scripts/install-agent.sh`. That single line change is the only thing needed for login auto-start.
 
+- [ ] **Fix LaunchAgent display name ("env")** — macOS Login Items / System Settings shows `env` as the agent name because `ProgramArguments` starts with `/usr/bin/env`. The fix is to replace `/usr/bin/env bash scripts/run.sh` with `/bin/bash scripts/run.sh` directly (or point to the venv Python binary for the packaged app) so macOS reads a recognisable name instead of the env shim. Should be done before public release so users don't see "Item from unidentified developer — env" in System Settings.
+
 - [ ] macOS menu bar helper (start/stop server, view recent jobs, open UI)
 - [ ] One-click `.app` packaging (PyInstaller or py2app)
 - [ ] Default `VOX_HOST` to `127.0.0.1` once packaged as a macOS app
