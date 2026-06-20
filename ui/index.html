@@ -300,7 +300,7 @@
       <div class="step-num" aria-hidden="true">2</div>
       <div class="step-icon" aria-hidden="true">✍️</div>
       <h3 class="step-title">Write your script</h3>
-      <p class="step-body">Paste any text into the UI or send via API. Choose a preset — default, YouTube, hype, or news — and fine-tune any parameter.</p>
+      <p class="step-body">Paste any text into the UI or send via API. Choose a built-in tone or open the Custom panel to dial in every parameter exactly how you want it.</p>
     </div>
     <div class="step">
       <div class="step-num" aria-hidden="true">3</div>
@@ -328,22 +328,36 @@
     <div class="feat-card">
       <div class="feat-icon" aria-hidden="true">🎤</div>
       <div>
-        <div class="feat-title">Voice profiles</div>
-        <div class="feat-body">Store named voices with per-profile TTS defaults. One flag in your API call to switch between them.</div>
+        <div class="feat-title">Voice profiles &amp; tags</div>
+        <div class="feat-body">Store named voices with per-profile TTS defaults. Tag them, filter by tag, and edit settings without re-uploading.</div>
       </div>
     </div>
     <div class="feat-card">
       <div class="feat-icon" aria-hidden="true">🎛</div>
       <div>
-        <div class="feat-title">Presets &amp; fine control</div>
-        <div class="feat-body">Four built-in presets for common use cases. Override exaggeration, CFG weight, and temperature per request.</div>
+        <div class="feat-title">Tones &amp; custom parameters</div>
+        <div class="feat-body">Four built-in tones plus a Custom panel — dial in exaggeration, CFG weight, temperature, and more. Saved between sessions.</div>
+      </div>
+    </div>
+    <div class="feat-card">
+      <div class="feat-icon" aria-hidden="true">🎙</div>
+      <div>
+        <div class="feat-title">In-browser recording</div>
+        <div class="feat-body">Capture your voice directly in the browser. Live waveform, playback preview, and one-click upload — no external app needed.</div>
       </div>
     </div>
     <div class="feat-card">
       <div class="feat-icon" aria-hidden="true">📁</div>
       <div>
         <div class="feat-title">Multi-format ingest</div>
-        <div class="feat-body">Upload WAV, M4A, MP3, AIFF, FLAC, or OGG. Vox converts everything to a clean WAV automatically.</div>
+        <div class="feat-body">Upload WAV, M4A, MP3, AIFF, FLAC, or OGG — or drop files into input/ for auto-registration. Everything converts to WAV.</div>
+      </div>
+    </div>
+    <div class="feat-card">
+      <div class="feat-icon" aria-hidden="true">📊</div>
+      <div>
+        <div class="feat-title">Live progress &amp; history</div>
+        <div class="feat-body">Generation ETA bar, real upload progress, and a full job history with timing, RTF, and per-request tracing.</div>
       </div>
     </div>
     <div class="feat-card">
@@ -354,10 +368,17 @@
       </div>
     </div>
     <div class="feat-card">
-      <div class="feat-icon" aria-hidden="true">📂</div>
+      <div class="feat-icon" aria-hidden="true">🖥</div>
       <div>
-        <div class="feat-title">Drop-folder watcher</div>
-        <div class="feat-body">Drop any audio file into the input/ folder and it auto-registers as a voice profile within seconds.</div>
+        <div class="feat-title">Web UI included</div>
+        <div class="feat-body">Full browser interface for generating, managing voices, and browsing history — no separate frontend server required.</div>
+      </div>
+    </div>
+    <div class="feat-card">
+      <div class="feat-icon" aria-hidden="true">📴</div>
+      <div>
+        <div class="feat-title">100% offline</div>
+        <div class="feat-body">No account, no cloud sync, no telemetry. Pull the ethernet cable — Vox still works. Air-gap friendly by design.</div>
       </div>
     </div>
   </div>
@@ -423,7 +444,7 @@
       <rect width="2.5" height="18" x="19"   y="5"  rx="1.25" fill="currentColor" opacity=".55"/>
       <rect width="2.5" height="11" x="23.5" y="8.5" rx="1.25" fill="currentColor" opacity=".3"/>
     </svg>
-    <span class="footer-copy">vox · MeloLabDev · v0.1.0-beta</span>
+    <span class="footer-copy">vox · MeloLabDev · v0.2.0-beta</span>
   </a>
   <nav class="footer-links" aria-label="Footer">
     <a href="http://localhost:8000/docs" class="footer-link" target="_blank" rel="noopener">API Docs</a>
