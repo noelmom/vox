@@ -25,12 +25,6 @@ class VoxHelper(rumps.App):
     def __init__(self):
         super().__init__("Vox", quit_button=None)
 
-        # Hide from Dock and Cmd+Tab — must be called after super().__init__()
-        # which is when NSApp is actually initialised by rumps
-        NSApplication.sharedApplication().setActivationPolicy_(
-            NSApplicationActivationPolicyAccessory
-        )
-
         # Read host/port from .env so the helper stays in sync with the server
         self._host, self._port = self._read_env()
 
@@ -70,7 +64,18 @@ class VoxHelper(rumps.App):
         self._running = False
         self._poll()
 
+        # Hide from Dock and Cmd+Tab after the run loop starts
+        threading.Timer(0.5, self._hide_dock_icon).start()
+
     # ── Helpers ───────────────────────────────────────────────────────────
+
+    def _hide_dock_icon(self):
+        try:
+            NSApplication.sharedApplication().setActivationPolicy_(
+                NSApplicationActivationPolicyAccessory
+            )
+        except Exception:
+            pass
 
     def _read_env(self):
         host, port = "0.0.0.0", "8000"
