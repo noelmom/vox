@@ -1525,14 +1525,19 @@ function renderVoices(el, actions) {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
 
-        audioCtx  = new AudioContext();
-        analyser  = audioCtx.createAnalyser();
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        analyser = audioCtx.createAnalyser();
         analyser.fftSize = 1024;
         audioCtx.createMediaStreamSource(stream).connect(analyser);
 
-        const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
-          ? 'audio/webm;codecs=opus'
-          : MediaRecorder.isTypeSupported('audio/mp4') ? 'audio/mp4' : '';
+        const preferredTypes = [
+          'audio/webm;codecs=opus',
+          'audio/webm',
+          'audio/mp4',
+          'audio/ogg;codecs=opus',
+          '',
+        ];
+        const mimeType = preferredTypes.find(t => !t || MediaRecorder.isTypeSupported(t)) ?? '';
 
         mediaRecorder = new MediaRecorder(stream, mimeType ? { mimeType } : {});
         audioChunks   = [];
@@ -1570,7 +1575,10 @@ function renderVoices(el, actions) {
       } catch (err) {
         recStatus.textContent = err.name === 'NotAllowedError'
           ? 'Microphone access denied — check browser permissions'
-          : `Error: ${err.message}`;
+          : err.name === 'NotFoundError'
+          ? 'No microphone found — check your device settings'
+          : `Error (${err.name}): ${err.message}`;
+        console.error('Recording error:', err);
       }
     }
 
