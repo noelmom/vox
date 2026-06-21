@@ -65,6 +65,11 @@ Ideas and improvements to revisit. Not bugs — these are enhancements queued fo
 
 - [x] **CPU and RAM stats** — live metrics shown in the menu, polled every 5s via psutil.
 
+- [ ] **Version number and support link in helper menu**
+  - Show current version (git tag or short SHA, read at startup) as a non-clickable label near the top of the menu — e.g. `v0.2.0 · build a1b2c3`.
+  - Add a `🌐  Visit Support Page` item that opens the landing page or a dedicated support URL in the default browser.
+  - Decide on a permanent support URL before implementing (landing page, GitHub repo, or a separate support site).
+
 - [ ] **"Check for Updates" menu item** — before public release, add an ↑ Update option to the helper menu.
   - Runs `scripts/update.sh` in a subprocess (already built — does `git pull` + pip sync + re-registers agents).
   - While running: show "Updating…" status, disable the menu item to prevent double-tap.
