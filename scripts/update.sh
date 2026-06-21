@@ -63,9 +63,14 @@ else
 fi
 
 # ── Python dependencies ───────────────────────────────────────────────────────
-info "Syncing Python dependencies…"
-"$VENV/bin/pip" install --quiet -r "$ROOT/requirements.txt"
-success "Dependencies up to date"
+if [[ ! -f "$VENV/bin/pip" ]]; then
+  warn "Virtual environment not found — running setup.sh first…"
+  bash "$ROOT/setup.sh"
+else
+  info "Syncing Python dependencies…"
+  "$VENV/bin/pip" install --quiet -r "$ROOT/requirements.txt"
+  success "Dependencies up to date"
+fi
 
 # ── Re-register agents ────────────────────────────────────────────────────────
 info "Reinstalling server LaunchAgent…"
