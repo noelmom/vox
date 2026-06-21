@@ -14,6 +14,26 @@ success() { echo -e "${GREEN}[vox] ✓ $*${RESET}"; }
 warn()    { echo -e "${YELLOW}[vox] ⚠ $*${RESET}"; }
 fail()    { echo -e "${RED}[vox] ✗ $*${RESET}"; exit 1; }
 
+# ── Already installed check ───────────────────────────────────────────────────
+AGENT_PLIST="$HOME/Library/LaunchAgents/com.melolabdev.vox.plist"
+HELPER_PLIST="$HOME/Library/LaunchAgents/com.melolabdev.vox-helper.plist"
+
+if [[ -f "$AGENT_PLIST" ]] || [[ -f "$HELPER_PLIST" ]]; then
+    echo ""
+    echo -e "${YELLOW}${BOLD}Vox is already installed on this machine.${RESET}"
+    echo ""
+    echo "  setup.sh is a one-time operation. To update an existing install, run:"
+    echo ""
+    echo "    bash scripts/update.sh"
+    echo ""
+    echo "  If you intended a clean reinstall, uninstall first:"
+    echo ""
+    echo "    bash scripts/uninstall-agent.sh"
+    echo "    bash scripts/uninstall-helper.sh"
+    echo ""
+    exit 1
+fi
+
 # ── Platform check ────────────────────────────────────────────────────────────
 if [[ "$(uname)" != "Darwin" ]]; then
     fail "This script is for macOS only."
