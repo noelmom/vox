@@ -44,6 +44,7 @@ OPT_AGENT_ONLY=false
 OPT_HELPER_ONLY=false
 OPT_PURGE=false
 OPT_ZIP=""
+OPT_BRANCH=""
 
 # ── Help ──────────────────────────────────────────────────────────────────────
 show_help() {
@@ -66,19 +67,25 @@ cat <<'EOF'
     --helper-only     Target menu bar helper only
     --purge           (uninstall) Also delete voices, outputs, data, logs, venv
     --zip /path       (update) Use extracted zip folder instead of git pull
+    --devbranch       Switch to the development branch before running command
+    --branch NAME     Switch to a specific branch before running command
     --help            Show this help
 
   Examples:
-    bash vox.sh                          # interactive menu
-    bash vox.sh install                  # install with prompts
-    bash vox.sh install --yes            # install, no prompts, skip token
-    bash vox.sh install --token hf_xxx  # install with HF token, no prompt
+    bash vox.sh                              # interactive menu
+    bash vox.sh install                      # install with prompts
+    bash vox.sh install --yes                # install, no prompts, skip token
+    bash vox.sh install --token hf_xxx      # install with HF token, no prompt
     bash vox.sh install --yes --token hf_xxx
-    bash vox.sh update
+    bash vox.sh install --devbranch          # install from development branch
+    bash vox.sh update                       # pull current branch
+    bash vox.sh update --devbranch           # switch to development and pull
+    bash vox.sh update --branch main         # switch back to main and pull
     bash vox.sh update --zip ~/Downloads/codename-vox-main
     bash vox.sh uninstall
-    bash vox.sh uninstall --purge        # remove everything including data
-    bash vox.sh uninstall --yes --purge  # no confirmation
+    bash vox.sh uninstall --devbranch        # uninstall using development scripts
+    bash vox.sh uninstall --purge            # remove everything including data
+    bash vox.sh uninstall --yes --purge      # no confirmation
 
 EOF
 }
@@ -93,6 +100,8 @@ while [[ $# -gt 0 ]]; do
         --helper-only)     OPT_HELPER_ONLY=true ;;
         --purge)           OPT_PURGE=true ;;
         --zip)             shift; OPT_ZIP="${1:-}" ;;
+        --branch)          shift; OPT_BRANCH="${1:-}" ;;
+        --devbranch)       OPT_BRANCH="development" ;;
         --help|-h)         show_help; exit 0 ;;
         *) warn "Unknown argument: $1 (run with --help to see usage)"; exit 1 ;;
     esac
@@ -108,6 +117,19 @@ confirm() {
     read -r reply
     [[ "$reply" =~ ^[Yy]$ ]]
 }
+
+# ── Branch switch (applies to all commands) ───────────────────────────────────
+if [[ -n "$OPT_BRANCH" ]]; then
+    if git -C "$ROOT" rev-parse --git-dir &>/dev/null; then
+        info "Switching to branch: $OPT_BRANCH…"
+        git -C "$ROOT" fetch origin
+        git -C "$ROOT" checkout "$OPT_BRANCH" || fail "Branch '$OPT_BRANCH' not found."
+        success "Now on branch: $OPT_BRANCH"
+        echo ""
+    else
+        warn "--branch / --devbranch has no effect — not a git repository."
+    fi
+fi
 
 # ── Interactive menu (no command given) ───────────────────────────────────────
 if [[ -z "$CMD" ]]; then
