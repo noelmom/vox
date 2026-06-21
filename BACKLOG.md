@@ -126,7 +126,20 @@ Ideas and improvements to revisit. Not bugs — these are enhancements queued fo
 
 - [ ] **Auto-launch on login (server)** — flip `RunAtLoad` from `<false/>` to `<true/>` in `launchagent/com.melolabdev.vox.plist` when shipping the `.app`. Helper already auto-starts.
 
-- [ ] **Login item toggles in the helper menu** — add "Start Helper at Login" and "Start Server at Login" checkable menu items to VoxHelper. Each reads the current `RunAtLoad` value from the installed plist, reflects it as a checkmark, and toggles it by rewriting the plist + calling `launchctl unload` / `launchctl load`. Useful for users who want to control what runs on startup without touching the terminal.
+- [ ] **Login item toggles in the helper menu**
+
+  Add "Start Helper at Login" and "Start Server at Login" as checkable `NSMenuItem`s in a new Settings section above Quit (separated by a divider).
+
+  **Behavior:** toggling only changes whether the agent auto-starts at next login — the currently running process is unaffected. No warning dialog needed; the toggle is reversible and self-explanatory.
+
+  **Implementation (all in `StatusBarController.swift`):**
+  - Two new menu items with `.state` (`.on`/`.off`) for the checkmark
+  - **Read state:** `NSDictionary(contentsOfFile: plistPath)` → read `RunAtLoad` bool → set checkmark on menu open (or on `apply()` each poll cycle)
+  - **Toggle:** flip `RunAtLoad` in the dict, write back with `NSDictionary.write(to:atomically:)`, then `monitor.launchctl("unload", plistPath)` + `monitor.launchctl("load", plistPath)` to apply
+  - Plist paths:
+    - Helper: `~/Library/LaunchAgents/com.melolabdev.vox-helper.plist`
+    - Server: `~/Library/LaunchAgents/com.melolabdev.vox.plist`
+  - No changes needed to `ServerMonitor.swift`
 
 - [ ] **Mac App Store distribution** — requires sandboxing: replace `launchctl` calls with `SMAppService` + XPC, replace LaunchAgent plists with `SMAppService.register()`. Helper is already native Swift so this is the natural next step for public distribution.
 
