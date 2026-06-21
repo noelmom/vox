@@ -192,12 +192,14 @@
     footer {
       padding: 24px 32px;
       display: flex; align-items: center; justify-content: space-between;
+      flex-wrap: wrap; gap: 16px;
     }
     .footer-logo { display: flex; align-items: center; gap: 8px; text-decoration: none; }
     .footer-copy { font-size: 12px; color: var(--text-3); }
     .footer-links { display: flex; gap: 20px; }
     .footer-link { font-size: 12px; color: var(--text-3); text-decoration: none; }
     .footer-link:hover { color: var(--text-2); }
+    .footer-coffee img { display: block; height: 28px; width: auto; }
 
     @media (max-width: 768px) {
       .nav-links { display: none; }
@@ -469,10 +471,10 @@
     </svg>
     <span class="footer-copy">vox · MeloLabDev · v0.2.0-beta</span>
   </a>
-  <a href="https://www.buymeacoffee.com/noelmo" target="_blank" rel="noopener" aria-label="Buy Me a Coffee">
-    <img src="https://cdn.buymeacoffee.com/buttons/v2/default-red.png" alt="Buy Me a Coffee" style="height:32px;width:auto;display:block;">
-  </a>
-  <nav class="footer-links" aria-label="Footer">
+  <nav class="footer-links" aria-label="Footer" style="align-items:center;">
+    <a href="https://www.buymeacoffee.com/noelmo" target="_blank" rel="noopener" aria-label="Buy Me a Coffee" class="footer-coffee">
+      <img src="https://cdn.buymeacoffee.com/buttons/v2/default-red.png" alt="Buy Me a Coffee">
+    </a>
     <a href="http://localhost:8000/docs" class="footer-link" target="_blank" rel="noopener">API Docs</a>
     <a href="https://github.com/MeloLabDev/codename-vox" class="footer-link" target="_blank" rel="noopener">GitHub</a>
     <a href="/app" class="footer-link">Open App</a>
