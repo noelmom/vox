@@ -65,6 +65,13 @@ Ideas and improvements to revisit. Not bugs — these are enhancements queued fo
 
 - [x] **CPU and RAM stats** — live metrics shown in the menu, polled every 5s via psutil.
 
+- [ ] **"Check for Updates" menu item** — before public release, add an ↑ Update option to the helper menu.
+  - Runs `scripts/update.sh` in a subprocess (already built — does `git pull` + pip sync + re-registers agents).
+  - While running: show "Updating…" status, disable the menu item to prevent double-tap.
+  - On success: macOS notification "Vox updated — restarting…" then restart the helper itself.
+  - On failure: notification "Update failed — check logs" with no restart.
+  - Consider showing current version (git tag or short SHA) in the menu so the user knows what they're on.
+
 - [x] **Update `setup.sh` post-install instructions** — now prints the correct install-agent → install-helper → start flow. Also creates `~/Library/LaunchAgents` and `~/Library/Logs/VoxForge` so install scripts never fail on a clean macOS install.
 
 - [ ] **Restart transition state — "🟡 Restarting…"**
