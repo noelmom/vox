@@ -39,9 +39,10 @@ mkdir -p "$APP_SUPPORT/outputs"
 mkdir -p "$APP_SUPPORT/data"
 mkdir -p "$APP_SUPPORT/input/processed"
 
-# 2. Sync server code to permanent location
+# 2. Sync server code and UI to permanent location
 echo "[vox] Syncing server code to Application Support…"
 rsync -a --delete "$ROOT/api/" "$APP_SUPPORT/api/"
+rsync -a --delete "$ROOT/ui/"  "$APP_SUPPORT/ui/"
 
 # 3. Write the production run.sh into Application Support
 cat > "$APP_SUPPORT/scripts/run.sh" <<'RUNSCRIPT'

@@ -123,6 +123,7 @@ success "All Python dependencies installed"
 # ── Copy server code to permanent location ────────────────────────────────────
 info "Installing server code to Application Support..."
 rsync -a --delete "$ROOT/api/"           "$APP_SUPPORT/api/"
+rsync -a --delete "$ROOT/ui/"            "$APP_SUPPORT/ui/"
 rsync -a          "$ROOT/menubar/vox_helper.py" "$APP_SUPPORT/menubar/vox_helper.py"
 success "Server code installed"
 
