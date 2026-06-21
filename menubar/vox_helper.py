@@ -217,7 +217,8 @@ class VoxHelper(rumps.App):
 
     def _quit(self, _):
         self._stop_event.set()
-        os._exit(0)
+        threading.Timer(0.5, lambda: os._exit(0)).start()
+        rumps.quit_application()
 
 
 def _acquire_instance_lock():
