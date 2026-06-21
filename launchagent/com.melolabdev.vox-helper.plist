@@ -6,12 +6,13 @@
   <key>Label</key>
   <string>com.melolabdev.vox-helper</string>
 
-  <!-- TEMPORARY: runs python3 directly from the permanent venv until VoxHelper.app
-       is code-signed with a Developer ID certificate. Once signed, revert to the
-       .app bundle approach — see BACKLOG.md "Revert helper to signed VoxHelper.app". -->
+  <!-- Executable lives inside /Applications/VoxHelper.app — signed with
+       Developer ID Application: Noelmo Melo (S65X5KY399).
+       The helper script is copied to Application Support on install so it
+       survives the project folder being moved or deleted. -->
   <key>ProgramArguments</key>
   <array>
-    <string>VOX_APP_SUPPORT/venv/bin/python3</string>
+    <string>/Applications/VoxHelper.app/Contents/MacOS/vox-helper</string>
     <string>VOX_APP_SUPPORT/menubar/vox_helper.py</string>
   </array>
 

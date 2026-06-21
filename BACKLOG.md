@@ -102,7 +102,7 @@ Ideas and improvements to revisit. Not bugs — these are enhancements queued fo
 - [x] **Branding icons — temporary** — `install-helper.sh` builds `VoxHelper.app` at `/Applications/` (permanent — survives project folder deletion) with `Info.plist`, VoxForge icon, and a symlink to the permanent venv. `assets/VoxForge.icns` committed to repo.
 - [x] **Permanent runtime layout** — everything runtime lives at `~/Library/Application Support/VoxForge/`: venv, api code, config/presets, helper script, voices, outputs, data, input, .env. Project folder is source-only. Server and helper both survive the project folder being moved or deleted.
 
-- [ ] **Revert helper to signed VoxHelper.app bundle**
+- [x] **Revert helper to signed VoxHelper.app bundle**
 
   Currently the helper LaunchAgent runs `python3` directly from the permanent venv. This works but shows `Python3` in Login Items with no icon. The `.app` bundle approach (already built, see below) fixes both — but requires a signed binary to work on Sequoia without the `?` icon and auto-launch failure.
 
