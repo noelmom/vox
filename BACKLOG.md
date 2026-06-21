@@ -126,6 +126,20 @@ Ideas and improvements to revisit. Not bugs — these are enhancements queued fo
 
 ---
 
+## Configuration UI
+
+- [ ] **Decide where to surface settings editing — web UI or menu bar helper**
+
+  The Settings screen in the web app is currently read-only. Two options:
+
+  **Option A — Web app Settings tab:** Add editable fields for TTL, max chars, device, host/port. A `PATCH /settings` endpoint writes back to `.env` and reloads in-memory config. Settings that require a restart (host, port, device) show a "Restart required" banner with a Restart button that calls `launchctl kickstart` on the server agent. Fits naturally where users already look for settings.
+
+  **Option B — Menu bar helper:** Add a Settings submenu or panel to the rumps helper. Closer to how native macOS utilities expose preferences. Could eventually become a proper Preferences window if we rewrite in Swift. Less discoverable for new users who find the web UI first.
+
+  **Recommendation when deciding:** if the Swift rewrite is happening, hold off and do it natively there. If staying with rumps long-term, the web UI is the better surface — it already has the layout and the user is already looking at a settings screen.
+
+---
+
 ## Dark Mode
 
 - [ ] **Dark theme** — the original sketch used a dark background and it looked great. Add a full dark mode using CSS custom properties already defined in `vox.css`.
