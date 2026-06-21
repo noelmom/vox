@@ -29,13 +29,16 @@ class VoxHelper(rumps.App):
         self._host, self._port = self._read_env()
 
         # ── Menu items ────────────────────────────────────────────────────
-        self._status_item  = rumps.MenuItem("🔴  Stopped")
-        self._addr_item    = rumps.MenuItem(self._addr_label())
-        self._copy_item    = rumps.MenuItem("⎘  Copy Address", callback=self._copy_address)
+        # no-op keeps items "enabled" so macOS renders them in full label color
+        _noop = lambda _: None
+
+        self._status_item  = rumps.MenuItem("🔴  Stopped",       callback=_noop)
+        self._addr_item    = rumps.MenuItem(self._addr_label(),   callback=_noop)
+        self._copy_item    = rumps.MenuItem("⎘  Copy Address",   callback=self._copy_address)
         self._open_item    = rumps.MenuItem("↗  Open in Browser", callback=self._open_browser)
 
-        self._cpu_item     = rumps.MenuItem("􀣌  CPU   —")
-        self._ram_item     = rumps.MenuItem("􀝍  RAM   —")
+        self._cpu_item     = rumps.MenuItem("⚡  CPU   —",        callback=_noop)
+        self._ram_item     = rumps.MenuItem("🧠  RAM   —",        callback=_noop)
 
         self._start_item   = rumps.MenuItem("▶  Start Server",    callback=self._start)
         self._stop_item    = rumps.MenuItem("■  Stop Server",     callback=self._stop)
@@ -162,8 +165,8 @@ class VoxHelper(rumps.App):
         mem = psutil.virtual_memory()
         used_gb  = mem.used  / (1024 ** 3)
         total_gb = mem.total / (1024 ** 3)
-        self._cpu_item.title = f"CPU   {cpu:.0f}%"
-        self._ram_item.title = f"RAM   {used_gb:.1f} / {total_gb:.0f} GB"
+        self._cpu_item.title = f"⚡  CPU   {cpu:.0f}%"
+        self._ram_item.title = f"🧠  RAM   {used_gb:.1f} / {total_gb:.0f} GB"
 
         # Schedule next poll
         threading.Timer(POLL_INTERVAL, self._poll).start()
