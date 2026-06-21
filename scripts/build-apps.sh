@@ -64,14 +64,18 @@ cat > /tmp/vox-helper-$$.c <<'CSRC'
 #include <stdlib.h>
 #include <string.h>
 int main(int argc, char *argv[]) {
-    const char *home = getenv("HOME");
-    if (!home) { fprintf(stderr, "HOME not set\n"); return 1; }
-    char python[1024], script[1024];
-    snprintf(python, sizeof(python), "%s/Library/Application Support/Vox/venv/bin/python3", home);
-    snprintf(script, sizeof(script), "%s/Library/Application Support/Vox/menubar/vox_helper.py", home);
-    char *args[] = {python, script, NULL};
-    execv(python, args);
-    perror("execv failed");
+    /* Route through launchctl kickstart so the helper process runs in the
+       correct launchd session context — required for NSSceneStatusItem
+       (macOS Sequoia's scene-based menu bar) to register successfully.
+       Launching Python directly via NSWorkspace/Finder gives a different
+       session context where the status item scene connection always fails. */
+    uid_t uid = getuid();
+    char label[256];
+    snprintf(label, sizeof(label), "gui/%u/com.melolabdev.vox-helper", uid);
+    char *launchctl = "/bin/launchctl";
+    char *args[] = {launchctl, "kickstart", label, NULL};
+    execv(launchctl, args);
+    perror("execv launchctl failed");
     return 1;
 }
 CSRC
