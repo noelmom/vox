@@ -8,6 +8,22 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Added
+- **macOS menu bar helper** — `menubar/vox_helper.py` (rumps-based). Shows ●/○ server status, LAN IP or localhost depending on `VOX_HOST` config, CPU %, RAM used/total, Start/Stop/Restart server via launchctl, Open in Browser, View Logs. Auto-starts on login via its own LaunchAgent. No Dock icon — menu bar only.
+- **LaunchAgent for helper** — `launchagent/com.melolabdev.vox-helper.plist`. `RunAtLoad=true` so the icon always appears on login.
+- **install-helper.sh / uninstall-helper.sh** — one-command install and removal of the helper agent.
+- **Smart address display** — helper shows `192.168.x.x:PORT · network accessible` when `VOX_HOST=0.0.0.0`, or `localhost:PORT · local only` when restricted to `127.0.0.1`.
+
+### Changed
+- `run.sh` moved to `scripts/run.sh` — all scripts now live in `scripts/`.
+- `scripts/README.md` added with full reference for all scripts and when to use manual start vs LaunchAgent.
+- Landing page CTA updated to reflect full install flow (setup → install-agent → install-helper).
+- httpx / httpcore log level set to WARNING — suppresses noisy 302 redirect lines from HuggingFace model checks on startup.
+- History date format changed to `MM/DD/YYYY at H:MM AM/PM`.
+- History duration uses M:SS format instead of raw seconds.
+- History voice shows `Generic` instead of `—` when no profile is selected.
+- Generate stats (Duration, Generation) use M:SS format.
+
+### Added
 - **Custom Tone** — a "✦ Custom" pill added to the Tone row on the Generate screen. Clicking it opens a panel with sliders + number inputs for all 6 TTS parameters (Exaggeration, CFG Weight, Temperature, Repetition Penalty, Top P, Min P). Each param shows a short hint. Clicking the pill again collapses/expands the panel without losing the selection. Values are validated on Save (empty or out-of-range fields show inline errors). Settings persist to `localStorage` and survive page reloads. Seeded with `default` preset values on first use. When Custom is active, generation passes `preset=default` plus the saved custom params as individual overrides — no backend changes required.
 - **Generation ETA** — while TTS is running, a progress bar appears below the Generate button showing elapsed time and estimated time remaining. Estimate is derived from character count (~140 chars/sec of speech) × the average RTF from recent completed jobs (falls back to 0.3× if no history).
 - **Real upload progress** — voice file uploads (both file picker and in-browser recordings) now use XHR instead of fetch, showing a live progress bar with percentage, bytes transferred, and ETA in seconds.
