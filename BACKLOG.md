@@ -156,7 +156,14 @@ Ideas and improvements to revisit. Not bugs — these are enhancements queued fo
 
 - [ ] **Auto-launch on login (server)** — flip `RunAtLoad` from `<false/>` to `<true/>` in `launchagent/com.melolabdev.vox.plist` when shipping the `.app`. Helper already auto-starts.
 
-- [ ] **Investigate rewrite in Swift (native macOS)** — rumps works well for v1 but Swift would give: NSPopover with richer UI, SF Symbols, real IOKit GPU stats, tighter macOS integration, single signed binary. Key decision: macOS-only forever (go Swift) or cross-platform later (keep Python). Not a production blocker.
+- [ ] **Investigate rewrite in Swift (native macOS)**
+  - If Swift rewrite is pursued, also evaluate **Mac App Store distribution**:
+    - Requires sandboxing — replace `launchctl` calls with `SMAppService` + XPC
+    - Replace `ProgramArguments`-based LaunchAgents with `SMAppService.register()`
+    - Submit through App Store Connect, subject to Apple review
+    - Discoverability and one-click install for non-technical users
+    - App is free so the 30% revenue cut is irrelevant
+    - Only worth pursuing if the Swift rewrite happens — do not attempt with the current Python/rumps architecture — rumps works well for v1 but Swift would give: NSPopover with richer UI, SF Symbols, real IOKit GPU stats, tighter macOS integration, single signed binary. Key decision: macOS-only forever (go Swift) or cross-platform later (keep Python). Not a production blocker.
 
 - [ ] **One-click `.app` packaging** — PyInstaller or py2app. Bundle Python, venv, and the server into a single distributable app.
 
