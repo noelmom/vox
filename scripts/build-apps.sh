@@ -58,30 +58,17 @@ mkdir -p "$HELPER_APP/Contents/MacOS" "$HELPER_APP/Contents/Resources"
 
 cp "$ROOT/assets/Vox.icns" "$HELPER_APP/Contents/Resources/Vox.icns"
 
-cat > /tmp/vox-helper-$$.c <<'CSRC'
-#include <unistd.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-int main(int argc, char *argv[]) {
-    /* Route through launchctl kickstart so the helper process runs in the
-       correct launchd session context — required for NSSceneStatusItem
-       (macOS Sequoia's scene-based menu bar) to register successfully.
-       Launching Python directly via NSWorkspace/Finder gives a different
-       session context where the status item scene connection always fails. */
-    uid_t uid = getuid();
-    char label[256];
-    snprintf(label, sizeof(label), "gui/%u/com.melolabdev.vox-helper", uid);
-    char *launchctl = "/bin/launchctl";
-    char *args[] = {launchctl, "kickstart", label, NULL};
-    execv(launchctl, args);
-    perror("execv launchctl failed");
-    return 1;
-}
-CSRC
-clang -arch arm64 -O2 -o "$HELPER_APP/Contents/MacOS/vox-helper" /tmp/vox-helper-$$.c \
-    || fail "Failed to compile vox-helper launcher"
-rm -f /tmp/vox-helper-$$.c
+info "Compiling Swift VoxHelper…"
+swiftc \
+    -target arm64-apple-macos13.0 \
+    -framework AppKit \
+    -framework Foundation \
+    "$ROOT/voxhelper/main.swift" \
+    "$ROOT/voxhelper/AppDelegate.swift" \
+    "$ROOT/voxhelper/StatusBarController.swift" \
+    "$ROOT/voxhelper/ServerMonitor.swift" \
+    -o "$HELPER_APP/Contents/MacOS/VoxHelper" \
+    || fail "Failed to compile VoxHelper"
 
 cat > "$HELPER_APP/Contents/Info.plist" <<EOF
 <?xml version="1.0" encoding="UTF-8"?>
@@ -90,12 +77,12 @@ cat > "$HELPER_APP/Contents/Info.plist" <<EOF
   <key>CFBundleIdentifier</key><string>com.melolabdev.vox-helper</string>
   <key>CFBundleName</key><string>Vox Helper</string>
   <key>CFBundleDisplayName</key><string>Vox Helper</string>
-  <key>CFBundleExecutable</key><string>vox-helper</string>
+  <key>CFBundleExecutable</key><string>VoxHelper</string>
   <key>CFBundleIconFile</key><string>Vox</string>
   <key>CFBundleVersion</key><string>1</string>
   <key>CFBundleShortVersionString</key><string>0.3.1</string>
   <key>LSUIElement</key><true/>
-  <key>LSMinimumSystemVersion</key><string>12.0</string>
+  <key>LSMinimumSystemVersion</key><string>13.0</string>
 </dict></plist>
 EOF
 success "VoxHelper.app built"

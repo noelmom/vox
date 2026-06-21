@@ -20,13 +20,6 @@ echo "[vox-helper] Installing menu bar helper..."
 
 mkdir -p "$AGENTS_DIR" "$LOG_DIR" "$APP_SUPPORT/menubar"
 
-# ── Python dependencies ───────────────────────────────────────────────────────
-echo "[vox-helper] Installing Python dependencies..."
-"$VENV/bin/pip" install --quiet rumps psutil pyobjc-framework-Cocoa
-
-# ── Sync helper script ────────────────────────────────────────────────────────
-cp "$ROOT/menubar/vox_helper.py" "$APP_SUPPORT/menubar/vox_helper.py"
-
 # ── Install VoxHelper.app from DMG ───────────────────────────────────────────
 echo "[vox-helper] Installing VoxHelper.app from Vox.dmg..."
 mkdir -p "$MOUNT_POINT"
@@ -44,8 +37,7 @@ cat > "$PLIST_DST" <<EOF
   <key>Label</key><string>$LABEL</string>
   <key>ProgramArguments</key>
   <array>
-    <string>$VENV/bin/python3</string>
-    <string>$APP_SUPPORT/menubar/vox_helper.py</string>
+    <string>/Applications/VoxHelper.app/Contents/MacOS/VoxHelper</string>
   </array>
   <key>WorkingDirectory</key><string>$APP_SUPPORT</string>
   <key>StandardOutPath</key><string>$LOG_DIR/vox-helper.log</string>
