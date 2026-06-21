@@ -37,6 +37,20 @@ if [[ -f "$APP_SUPPORT/.env" ]]; then
 fi
 HOST="${VOX_HOST:-0.0.0.0}"
 PORT="${VOX_PORT:-8000}"
+
+# Exit cleanly if another instance is already listening on the port
+if "$VENV/bin/python3" -c "
+import socket, sys
+s = socket.socket()
+s.settimeout(1)
+r = s.connect_ex(('127.0.0.1', int('$PORT')))
+s.close()
+sys.exit(0 if r == 0 else 1)
+" 2>/dev/null; then
+    echo "[vox] Server already running on port $PORT — exiting." >&2
+    exit 0
+fi
+
 cd "$APP_SUPPORT"
 exec "$VENV/bin/uvicorn" api.main:app --host "$HOST" --port "$PORT"
 RUNSCRIPT

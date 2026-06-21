@@ -219,5 +219,22 @@ class VoxHelper(rumps.App):
         rumps.quit_application()
 
 
+def _already_running():
+    current_pid = os.getpid()
+    for proc in psutil.process_iter(['pid', 'cmdline']):
+        try:
+            if proc.pid == current_pid:
+                continue
+            cmdline = proc.info['cmdline'] or []
+            if any('vox_helper.py' in arg for arg in cmdline):
+                return True
+        except (psutil.NoSuchProcess, psutil.AccessDenied):
+            pass
+    return False
+
+
 if __name__ == "__main__":
+    if _already_running():
+        import sys
+        sys.exit(0)
     VoxHelper().run()
