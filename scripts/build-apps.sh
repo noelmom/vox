@@ -80,7 +80,7 @@ cat > "$HELPER_APP/Contents/Info.plist" <<EOF
   <key>CFBundleExecutable</key><string>VoxHelper</string>
   <key>CFBundleIconFile</key><string>Vox</string>
   <key>CFBundleVersion</key><string>1</string>
-  <key>CFBundleShortVersionString</key><string>0.3.1</string>
+  <key>CFBundleShortVersionString</key><string>0.4.0</string>
   <key>LSUIElement</key><true/>
   <key>LSMinimumSystemVersion</key><string>13.0</string>
 </dict></plist>
@@ -125,7 +125,7 @@ cat > "$SERVER_APP/Contents/Info.plist" <<EOF
   <key>CFBundleExecutable</key><string>vox-server</string>
   <key>CFBundleIconFile</key><string>Vox</string>
   <key>CFBundleVersion</key><string>1</string>
-  <key>CFBundleShortVersionString</key><string>0.3.1</string>
+  <key>CFBundleShortVersionString</key><string>0.4.0</string>
   <key>LSUIElement</key><true/>
   <key>LSMinimumSystemVersion</key><string>12.0</string>
 </dict></plist>
