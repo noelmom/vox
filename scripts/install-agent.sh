@@ -17,7 +17,8 @@ LABEL="com.melolabdev.vox"
 
 echo "[vox] Installing LaunchAgent…"
 
-# 1. Create the log directory
+# 1. Create required directories
+mkdir -p "$AGENTS_DIR"
 mkdir -p "$LOG_DIR"
 
 # 2. Write the final plist, substituting real paths into the template

@@ -20,7 +20,8 @@ echo "[vox-helper] Installing menu bar helper…"
 echo "[vox-helper] Installing Python dependencies (rumps, psutil)…"
 "$VENV/bin/pip" install --quiet rumps psutil
 
-# 2. Create log directory (shared with server agent)
+# 2. Create required directories
+mkdir -p "$AGENTS_DIR"
 mkdir -p "$LOG_DIR"
 
 # 3. Write the final plist with real paths substituted
