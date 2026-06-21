@@ -165,9 +165,17 @@ Ideas and improvements to revisit. Not bugs — these are enhancements queued fo
     - App is free so the 30% revenue cut is irrelevant
     - Only worth pursuing if the Swift rewrite happens — do not attempt with the current Python/rumps architecture — rumps works well for v1 but Swift would give: NSPopover with richer UI, SF Symbols, real IOKit GPU stats, tighter macOS integration, single signed binary. Key decision: macOS-only forever (go Swift) or cross-platform later (keep Python). Not a production blocker.
 
+- [ ] **Single-instance enforcement** — prevent multiple server or helper processes from running simultaneously.
+  - **Server (`run.sh` / `VoxServer.app`):** write a PID file to `$APP_SUPPORT/vox-server.pid` on start; on startup check if PID exists and process is alive — if so, print "Vox Server is already running (PID $pid). Stop it first: launchctl stop com.melolabdev.vox" and exit 1. Clean up PID file on exit via trap.
+  - **Helper (`vox_helper.py`):** on startup check for another instance via `psutil.process_iter` matching the script path — if found, show a `rumps.alert` "Vox Helper is already running. Only one instance can run at a time." and `sys.exit(1)`.
+  - **VoxServer.app / VoxHelper.app launchers:** the Swift binary can't show UI, but the underlying process will exit with code 1 and launchd will respect `KeepAlive: SuccessfulExit: false` so it won't loop.
+  - Already partially covered by launchd (only one LaunchAgent per label), but direct double-launch of the `.app` bundles is not guarded.
+
 - [ ] **One-click `.app` packaging** — PyInstaller or py2app. Bundle Python, venv, and the server into a single distributable app.
 
 - [ ] **Default `VOX_HOST` to `127.0.0.1`** once packaged as a macOS app.
+
+- [ ] **Streamline /Applications install once signed & notarized** — current workaround unzips to `/tmp` then `sudo mv` into `/Applications` to avoid TCC blocking `ditto` directly. Once the app is properly signed and notarized, replace this with a standard `ditto` directly into `/Applications` (no sudo needed for signed apps, or package as a `.dmg` with a drag-to-Applications installer). Blocked by: Fix Developer ID codesign below.
 
 - [ ] **Fix Developer ID codesign (`errSecInternalComponent`)** — signing currently fails even with cert installed.
   - Cert is present and chain is valid (`F8:3A:0C:69` AKID matches intermediate SKID)
