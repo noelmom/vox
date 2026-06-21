@@ -501,12 +501,29 @@
     }, 2000);
   }
 
-  document.addEventListener('click', e => {
+  async function copyText(text) {
+    if (navigator.clipboard && window.isSecureContext) {
+      try { await navigator.clipboard.writeText(text); return true; } catch {}
+    }
+    try {
+      const ta = Object.assign(document.createElement('textarea'), {
+        value: text, style: 'position:fixed;opacity:0',
+      });
+      document.body.appendChild(ta);
+      ta.select();
+      const ok = document.execCommand('copy');
+      ta.remove();
+      return ok;
+    } catch { return false; }
+  }
+
+  document.addEventListener('click', async e => {
     const btn = e.target.closest('[data-copy-target]');
     if (!btn) return;
     const target = document.getElementById(btn.dataset.copyTarget);
     if (!target) return;
-    navigator.clipboard.writeText(target.innerText.trim()).then(() => {
+    const ok = await copyText(target.innerText.trim());
+    if (ok) {
       btn.textContent = '✓ Copied';
       btn.classList.add('copied');
       showCopyToast('Copied to clipboard');
@@ -514,7 +531,7 @@
         btn.textContent = '⎘ Copy';
         btn.classList.remove('copied');
       }, 2000);
-    });
+    }
   });
 </script>
 

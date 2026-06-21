@@ -526,9 +526,9 @@
       display: flex; align-items: center; gap: 6px; white-space: nowrap;
     }
     .copy-btn {
-      width: 20px; height: 20px; border-radius: 5px; flex-shrink: 0;
-      background: transparent; border: 0.5px solid transparent;
-      color: var(--text-3); cursor: pointer; font-size: 11px;
+      width: 22px; height: 22px; border-radius: 5px; flex-shrink: 0;
+      background: var(--bg-2); border: 0.5px solid var(--border);
+      color: var(--text-2); cursor: pointer; font-size: 11px;
       display: inline-flex; align-items: center; justify-content: center;
       transition: background 0.1s, color 0.1s, border-color 0.1s;
       padding: 0;
@@ -1900,13 +1900,16 @@ function renderHistory(el, actions) {
 
   el.querySelectorAll('.copy-btn').forEach(btn => {
     btn.addEventListener('click', async () => {
-      try {
-        await navigator.clipboard.writeText(btn.dataset.copy);
+      const text = btn.dataset.copy ?? '';
+      const ok = await _copyText(text);
+      if (ok) {
         btn.classList.add('copied');
         btn.textContent = '✓';
         setTimeout(() => { btn.classList.remove('copied'); btn.textContent = '⎘'; }, 1500);
         toastSuccess('Copied to clipboard');
-      } catch { toastError('Copy failed'); }
+      } else {
+        toastError('Copy failed');
+      }
     });
   });
 }
@@ -1980,6 +1983,24 @@ function renderSettings(el) {
 }
 
 // ── Utilities ─────────────────────────────────────────────────────────────────
+
+// Clipboard helper — falls back to execCommand for http:// contexts
+async function _copyText(text) {
+  if (navigator.clipboard && window.isSecureContext) {
+    try { await navigator.clipboard.writeText(text); return true; } catch {}
+  }
+  // execCommand fallback (works on http://localhost)
+  try {
+    const ta = Object.assign(document.createElement('textarea'), {
+      value: text, style: 'position:fixed;opacity:0',
+    });
+    document.body.appendChild(ta);
+    ta.select();
+    const ok = document.execCommand('copy');
+    ta.remove();
+    return ok;
+  } catch { return false; }
+}
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
