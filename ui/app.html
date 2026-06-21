@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>Vox</title>
   <link rel="stylesheet" href="/ui/css/vox.css">
   <style>
@@ -10,7 +10,7 @@
 
     /* ── App shell layout ──────────────────────────────────────────────── */
     .app-shell {
-      display: flex; height: 100vh; overflow: hidden;
+      display: flex; height: 100vh; height: 100dvh; overflow: hidden;
     }
 
     /* ── Sidebar ───────────────────────────────────────────────────────── */
@@ -595,7 +595,7 @@
       .sidebar-footer { padding: 10px 8px; }
       .status-row span:not(.dot) { display: none; }
       .generate-layout { grid-template-columns: 1fr; }
-      .content { padding: 16px; }
+      .content { padding: 16px 16px calc(32px + env(safe-area-inset-bottom, 0px)); }
     }
   </style>
 </head>
