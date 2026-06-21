@@ -24,6 +24,8 @@ It exposes a clean REST API and a web UI for generating high-quality audio from 
 - **Custom tone** — "✦ Custom" pill opens a parameter panel with sliders for all 6 TTS params; persists via `localStorage`
 - **Generation ETA** — progress bar with elapsed/remaining time estimate while TTS is running
 - **Real upload progress** — live byte-count progress bar during voice file uploads
+- **macOS menu bar helper** — 🟢/🔴 status, CPU %, RAM, Start/Stop/Restart, Open in Browser, Copy Address — auto-starts on login
+- **LaunchAgent management** — server and helper managed by macOS launchd; crash-restart, structured logs to `~/Library/Logs/VoxForge/`
 
 ---
 
@@ -63,10 +65,17 @@ codename-vox/
 ├── outputs/                     # Generated audio files (auto-cleaned by TTL)
 ├── input/                       # Drop audio files here for auto-ingest
 │   └── processed/               # Files moved here after successful ingest
+├── menubar/
+│   └── vox_helper.py            # rumps menu bar helper (status, stats, server control)
+├── launchagent/
+│   ├── com.melolabdev.vox.plist         # Server LaunchAgent template (manual start)
+│   └── com.melolabdev.vox-helper.plist  # Helper LaunchAgent template (auto on login)
 ├── scripts/
 │   ├── run.sh                   # Manual foreground start (troubleshooting / dev)
-│   ├── install-agent.sh         # Register LaunchAgent with macOS launchd
-│   ├── uninstall-agent.sh       # Unload and remove the LaunchAgent
+│   ├── install-agent.sh         # Register server LaunchAgent with macOS launchd
+│   ├── uninstall-agent.sh       # Unload and remove the server LaunchAgent
+│   ├── install-helper.sh        # Register menu bar helper LaunchAgent
+│   ├── uninstall-helper.sh      # Unload and remove the helper LaunchAgent
 │   └── README.md                # Script reference + manual start guide
 ├── setup.sh                     # One-shot bootstrap script
 ├── requirements.txt             # Python dependencies
@@ -409,8 +418,9 @@ sqlite3 vox.db
 | Job queue | `asyncio.Lock` (single-device serialisation) |
 | Settings | [pydantic-settings](https://docs.pydantic.dev/latest/concepts/pydantic_settings/) |
 | Web UI | Vanilla JS (ES modules), single `app.html` SPA |
+| Menu bar helper | [rumps](https://github.com/jaredks/rumps) + psutil — macOS only |
+| Process management | macOS launchd via LaunchAgent plists |
 | Packaging | *(coming soon — PyInstaller or py2app)* |
-| Menu bar helper | *(coming soon — rumps or PyObjC)* |
 
 ---
 
@@ -437,11 +447,15 @@ sqlite3 vox.db
 - [x] Custom tone panel (per-request TTS parameter overrides, localStorage persistence)
 - [x] Generation ETA progress bar
 - [x] Real upload progress (XHR byte-level)
+- [x] macOS menu bar helper (rumps) — status, CPU/RAM, server control, copy address
+- [x] LaunchAgent for server (manual start, crash-restart, structured logs)
+- [x] LaunchAgent for helper (auto-starts on login)
 - [ ] Streaming audio response (chunked transfer)
 - [ ] Queue with concurrency support (multiple requests)
-- [ ] macOS menu bar helper (start/stop server, view recent jobs)
 - [ ] One-click `.app` packaging (PyInstaller / py2app)
-- [ ] Auto-launch on login
+- [ ] Code signing and notarization (Apple Developer ID)
+- [ ] Auto-launch on login (server — helper already auto-starts)
+- [ ] Swift menu bar rewrite investigation (native macOS alternative to rumps)
 - [ ] Public release polish (installer, docs site, demo)
 
 ---

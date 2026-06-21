@@ -18,10 +18,19 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - `scripts/README.md` added with full reference for all scripts and when to use manual start vs LaunchAgent.
 - Landing page CTA updated to reflect full install flow (setup → install-agent → install-helper).
 - httpx / httpcore log level set to WARNING — suppresses noisy 302 redirect lines from HuggingFace model checks on startup.
+- `GET /health 200` access log lines filtered out — menu bar helper polls every 5s which would produce ~17k noise lines/day.
 - History date format changed to `MM/DD/YYYY at H:MM AM/PM`.
 - History duration uses M:SS format instead of raw seconds.
 - History voice shows `Generic` instead of `—` when no profile is selected.
 - Generate stats (Duration, Generation) use M:SS format.
+- Menu bar helper polling switched from `threading.Timer` churn to a single persistent daemon thread — eliminates OS thread allocation on every poll tick.
+- Menu bar status item simplified to plain `Running…` / `Stopped…` (grey, non-interactive); coloured emoji reserved for the menu bar title only.
+- Copy buttons in history table made visible (solid background + border instead of transparent).
+
+### Fixed
+- Copy buttons in `app.html` history failing on `http://localhost` — clipboard API requires secure context; added `execCommand('copy')` fallback.
+- Landing page copy buttons not showing toast — handler was synchronous; made `async` so toast fires after copy resolves.
+- Copy confirmation added everywhere: history copy buttons show `toastSuccess`, landing page shows pill toast, menu bar shows macOS notification.
 
 ### Added
 - **Custom Tone** — a "✦ Custom" pill added to the Tone row on the Generate screen. Clicking it opens a panel with sliders + number inputs for all 6 TTS parameters (Exaggeration, CFG Weight, Temperature, Repetition Penalty, Top P, Min P). Each param shows a short hint. Clicking the pill again collapses/expands the panel without losing the selection. Values are validated on Save (empty or out-of-range fields show inline errors). Settings persist to `localStorage` and survive page reloads. Seeded with `default` preset values on first use. When Custom is active, generation passes `preset=default` plus the saved custom params as individual overrides — no backend changes required.
