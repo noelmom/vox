@@ -29,23 +29,25 @@ class VoxHelper(rumps.App):
         self._host, self._port = self._read_env()
 
         # ── Menu items ────────────────────────────────────────────────────
-        self._status_item  = rumps.MenuItem("○  Stopped")
+        self._status_item  = rumps.MenuItem("🔴  Stopped")
         self._addr_item    = rumps.MenuItem(self._addr_label())
-        self._open_item    = rumps.MenuItem("Open in Browser", callback=self._open_browser)
+        self._copy_item    = rumps.MenuItem("⎘  Copy Address", callback=self._copy_address)
+        self._open_item    = rumps.MenuItem("↗  Open in Browser", callback=self._open_browser)
 
-        self._cpu_item     = rumps.MenuItem("CPU  —")
-        self._ram_item     = rumps.MenuItem("RAM  —")
+        self._cpu_item     = rumps.MenuItem("􀣌  CPU   —")
+        self._ram_item     = rumps.MenuItem("􀝍  RAM   —")
 
-        self._start_item   = rumps.MenuItem("Start Server",    callback=self._start)
-        self._stop_item    = rumps.MenuItem("Stop Server",     callback=self._stop)
-        self._restart_item = rumps.MenuItem("Restart Server",  callback=self._restart)
+        self._start_item   = rumps.MenuItem("▶  Start Server",    callback=self._start)
+        self._stop_item    = rumps.MenuItem("■  Stop Server",     callback=self._stop)
+        self._restart_item = rumps.MenuItem("↺  Restart Server",  callback=self._restart)
 
-        self._logs_item    = rumps.MenuItem("View Logs",       callback=self._view_logs)
-        self._quit_item    = rumps.MenuItem("Quit Helper",     callback=self._quit)
+        self._logs_item    = rumps.MenuItem("📋  View Logs",      callback=self._view_logs)
+        self._quit_item    = rumps.MenuItem("Quit Helper",        callback=self._quit)
 
         self.menu = [
             self._status_item,
             self._addr_item,
+            self._copy_item,
             self._open_item,
             None,
             self._cpu_item,
@@ -138,13 +140,16 @@ class VoxHelper(rumps.App):
         self._running = running
 
         # Menu bar title
-        self.title = "● Vox" if running else "○ Vox"
+        self.title = "Vox"
 
-        # Status + address
-        self._status_item.title  = "●  Running" if running else "○  Stopped"
-        self._addr_item.title    = self._addr_label()
+        # Status — green circle when up, red when down
+        self._status_item.title = "🟢  Running" if running else "🔴  Stopped"
 
-        # Open in Browser only makes sense when server is up
+        # Address row — always current
+        self._addr_item.title = self._addr_label()
+
+        # Copy + Open only useful when server is up
+        self._copy_item.set_callback(self._copy_address if running else None)
         self._open_item.set_callback(self._open_browser if running else None)
 
         # Start / Stop / Restart — grey out actions that don't apply
@@ -152,13 +157,13 @@ class VoxHelper(rumps.App):
         self._stop_item.set_callback(self._stop if running else None)
         self._restart_item.set_callback(self._restart if running else None)
 
-        # System stats
+        # System stats — always visible regardless of server state
         cpu = psutil.cpu_percent(interval=None)
         mem = psutil.virtual_memory()
         used_gb  = mem.used  / (1024 ** 3)
         total_gb = mem.total / (1024 ** 3)
-        self._cpu_item.title = f"CPU  {cpu:.0f}%"
-        self._ram_item.title = f"RAM  {used_gb:.1f} / {total_gb:.0f} GB"
+        self._cpu_item.title = f"CPU   {cpu:.0f}%"
+        self._ram_item.title = f"RAM   {used_gb:.1f} / {total_gb:.0f} GB"
 
         # Schedule next poll
         threading.Timer(POLL_INTERVAL, self._poll).start()
@@ -174,6 +179,10 @@ class VoxHelper(rumps.App):
     def _restart(self, _):
         uid = os.getuid()
         self._launchctl("kickstart", "-k", f"gui/{uid}/{SERVER_LABEL}")
+
+    def _copy_address(self, _):
+        addr = self._base_url() + "/app"
+        subprocess.run("pbcopy", input=addr.encode(), check=True)
 
     def _open_browser(self, _):
         webbrowser.open(self._base_url() + "/app")
