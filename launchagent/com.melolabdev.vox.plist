@@ -11,8 +11,7 @@
        install-agent.sh rewrites ProgramArguments with the real path. -->
   <key>ProgramArguments</key>
   <array>
-    <string>/usr/bin/env</string>
-    <string>bash</string>
+    <string>/bin/bash</string>
     <string>VOX_PROJECT_ROOT/scripts/run.sh</string>
   </array>
 

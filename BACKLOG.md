@@ -84,12 +84,13 @@ Ideas and improvements to revisit. Not bugs — these are enhancements queued fo
 - [x] **LaunchAgent — menu bar helper** — `launchagent/com.melolabdev.vox-helper.plist`. Auto-starts on login.
 - [x] **macOS menu bar helper (rumps)** — status dot, CPU/RAM, server control, copy address, open browser, view logs.
 
-- [ ] **Fix LaunchAgent branding in macOS Login Items & Activity Monitor**
-  - Login Items currently shows `env` (server agent) and `Python3` (menu bar helper) — both are the raw executable names, not the app name.
-  - Fix `env` label: replace `/usr/bin/env bash` in `ProgramArguments` with `/bin/bash` directly so launchd doesn't surface the wrapper.
-  - Fix `Python3` label: add `LSUIElement`, `CFBundleName`, and `CFBundleDisplayName` to the helper plist, or wrap the helper in a minimal `.app` bundle so macOS shows "Vox Helper" instead.
-  - Update icons: both agents should show the Vox branding icon in Login Items and Activity Monitor rather than the generic shell/Python icon. Requires an `.icns` file and a proper bundle structure.
-  - Do all of the above before public release.
+- [x] **Fix `env` label** — server plist now uses `/bin/bash` directly; Login Items shows `bash` instead of `env`.
+- [x] **Fix `Python3` label** — `install-helper.sh` creates a `vox-helper → python3` symlink in the venv; helper plist references it by that name so Login Items and Activity Monitor show `vox-helper`.
+
+- [ ] **Branding icons in Login Items & Activity Monitor**
+  - Both agents still show generic icons (shell/Python).
+  - Requires a `.icns` file (Vox logo at 16/32/64/128/256/512px) and wrapping the helper in a minimal `.app` bundle with an `Info.plist` containing `CFBundleDisplayName` and `CFBundleIconFile`.
+  - Defer to the one-click `.app` packaging phase — icon and bundle work naturally happen together.
 
 - [ ] **Auto-launch on login (server)** — flip `RunAtLoad` from `<false/>` to `<true/>` in `launchagent/com.melolabdev.vox.plist` when shipping the `.app`. Helper already auto-starts.
 

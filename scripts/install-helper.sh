@@ -20,6 +20,10 @@ echo "[vox-helper] Installing menu bar helper…"
 echo "[vox-helper] Installing Python dependencies (rumps, psutil)…"
 "$VENV/bin/pip" install --quiet rumps psutil
 
+# Create a named symlink so macOS shows 'vox-helper' in Login Items / Activity Monitor
+# instead of the generic 'Python3' label.
+ln -sf "$VENV/bin/python3" "$VENV/bin/vox-helper"
+
 # 2. Create required directories
 mkdir -p "$AGENTS_DIR"
 mkdir -p "$LOG_DIR"
