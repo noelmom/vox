@@ -24,7 +24,7 @@ info()    { echo -e "${BOLD}[notarize]${RESET} $*"; }
 success() { echo -e "${GREEN}[notarize] ✓ $*${RESET}"; }
 fail()    { echo -e "${RED}[notarize] ✗ $*${RESET}"; exit 1; }
 
-APP_BUNDLE="/Applications/VoxHelper.app"
+APP_BUNDLE="$HOME/Applications/VoxHelper.app"
 APPLE_ID="noelmormelo@gmail.com"
 TEAM_ID="S65X5KY399"
 SIGN_IDENTITY="Developer ID Application: Noelmo Melo (S65X5KY399)"

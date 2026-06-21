@@ -2,11 +2,11 @@
 # Build and zip both .app bundles for distribution.
 # Run on your dev machine before committing to git.
 #
-# Builds entirely in a temp directory — never touches /Applications
+# Builds entirely in a temp directory — never touches ~/Applications
 # or ~/Library/Application Support/Vox so existing installs are safe.
 #
 # Output:
-#   assets/VoxHelper.app.zip   — placed in /Applications by install-helper.sh
+#   assets/VoxHelper.app.zip   — placed in ~/Applications by install-helper.sh
 #   assets/VoxServer.app.zip   — placed in ~/Library/Application Support/Vox/ by install-agent.sh
 #
 # NOTE: Signing is skipped until the Developer ID cert issue is resolved.

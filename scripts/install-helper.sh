@@ -14,7 +14,7 @@ AGENTS_DIR="$HOME/Library/LaunchAgents"
 PLIST_DST="$AGENTS_DIR/com.melolabdev.vox-helper.plist"
 LOG_DIR="$HOME/Library/Logs/Vox"
 LABEL="com.melolabdev.vox-helper"
-APP_BUNDLE="/Applications/VoxHelper.app"
+APP_BUNDLE="$HOME/Applications/VoxHelper.app"
 SIGN_IDENTITY="Developer ID Application: Noelmo Melo (S65X5KY399)"
 PREBUILT_ZIP="$ROOT/assets/VoxHelper.app.zip"
 
@@ -35,6 +35,7 @@ echo "[vox-helper] Installing Python dependencies (rumps, psutil)…"
 mkdir -p "$AGENTS_DIR"
 mkdir -p "$LOG_DIR"
 mkdir -p "$APP_SUPPORT/menubar"
+mkdir -p "$HOME/Applications"
 
 # 4. Copy helper script to permanent location
 echo "[vox-helper] Copying helper script to $APP_SUPPORT/menubar/…"
@@ -43,12 +44,11 @@ cp "$ROOT/menubar/vox_helper.py" "$APP_SUPPORT/menubar/vox_helper.py"
 # 5. Build or install VoxHelper.app
 if [[ -f "$PREBUILT_ZIP" ]]; then
     # Use pre-signed bundle from assets/
-    echo "[vox-helper] Installing pre-signed VoxHelper.app from assets/…"
-    echo "[vox-helper] sudo required to install into /Applications — you may be prompted for your password."
-    sudo rm -rf "$APP_BUNDLE"
-    sudo ditto -x -k "$PREBUILT_ZIP" /Applications/
-    sudo xattr -rd com.apple.quarantine "$APP_BUNDLE" 2>/dev/null || true
-    echo "[vox-helper] ✓ VoxHelper.app installed from pre-signed zip"
+    echo "[vox-helper] Installing VoxHelper.app to ~/Applications/…"
+    rm -rf "$APP_BUNDLE"
+    ditto -x -k "$PREBUILT_ZIP" "$HOME/Applications/"
+    xattr -rd com.apple.quarantine "$APP_BUNDLE" 2>/dev/null || true
+    echo "[vox-helper] ✓ VoxHelper.app installed"
 else
     # Compile Swift launcher at install time (dev machine only)
     echo "[vox-helper] No pre-signed zip found — compiling VoxHelper.app with swiftc…"
@@ -118,6 +118,7 @@ fi
 
 # 7. Write the final plist with real paths substituted
 sed \
+  -e "s|VOX_HOME|$HOME|g" \
   -e "s|VOX_APP_SUPPORT|$APP_SUPPORT|g" \
   -e "s|VOX_LOG_DIR|$LOG_DIR|g" \
   "$PLIST_SRC" > "$PLIST_DST"

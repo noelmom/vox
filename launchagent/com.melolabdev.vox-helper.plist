@@ -6,13 +6,12 @@
   <key>Label</key>
   <string>com.melolabdev.vox-helper</string>
 
-  <!-- Executable lives inside /Applications/VoxHelper.app — signed with
-       Developer ID Application: Noelmo Melo (S65X5KY399).
-       The helper script is copied to Application Support on install so it
-       survives the project folder being moved or deleted. -->
+  <!-- Executable lives inside ~/Applications/VoxHelper.app — no admin
+       privileges required. The helper script is copied to Application
+       Support on install so it survives the project folder being deleted. -->
   <key>ProgramArguments</key>
   <array>
-    <string>/Applications/VoxHelper.app/Contents/MacOS/vox-helper</string>
+    <string>VOX_HOME/Applications/VoxHelper.app/Contents/MacOS/vox-helper</string>
     <string>VOX_APP_SUPPORT/menubar/vox_helper.py</string>
   </array>
 
