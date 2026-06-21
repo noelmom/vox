@@ -125,13 +125,19 @@ class VoxHelper(rumps.App):
         ip = self._lan_ip()
         return f"{ip}:{self._port}  ·  network accessible"
 
-    def _base_url(self):
-        host = "localhost" if self._host in ("0.0.0.0", "") else self._host
+    def _base_url(self, prefer_lan=False):
+        if prefer_lan or self._host in ("0.0.0.0", ""):
+            host = self._lan_ip()
+        else:
+            host = self._host
         return f"http://{host}:{self._port}"
+
+    def _local_url(self):
+        return f"http://localhost:{self._port}"
 
     def _check_server(self):
         try:
-            url = self._base_url() + HEALTH_PATH
+            url = self._local_url() + HEALTH_PATH
             with urllib.request.urlopen(url, timeout=2) as r:
                 return r.status == 200
         except Exception:
@@ -180,22 +186,24 @@ class VoxHelper(rumps.App):
     # ── Callbacks ─────────────────────────────────────────────────────────
 
     def _start(self, _):
-        self._launchctl("start", SERVER_LABEL)
+        uid = os.getuid()
+        self._launchctl("kickstart", f"gui/{uid}/{SERVER_LABEL}")
 
     def _stop(self, _):
-        self._launchctl("stop", SERVER_LABEL)
+        uid = os.getuid()
+        self._launchctl("kill", "SIGTERM", f"gui/{uid}/{SERVER_LABEL}")
 
     def _restart(self, _):
         uid = os.getuid()
         self._launchctl("kickstart", "-k", f"gui/{uid}/{SERVER_LABEL}")
 
     def _copy_address(self, _):
-        addr = self._base_url() + "/app"
+        addr = self._base_url(prefer_lan=True) + "/app"
         subprocess.run("pbcopy", input=addr.encode(), check=True)
         rumps.notification("Vox", "Copied to clipboard", addr, sound=False)
 
     def _open_browser(self, _):
-        webbrowser.open(self._base_url() + "/app")
+        webbrowser.open(self._base_url(prefer_lan=True) + "/app")
 
     def _open_input(self, _):
         input_dir = os.path.expanduser("~/Library/Application Support/Vox/input")
