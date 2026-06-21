@@ -332,7 +332,9 @@ Ideas and improvements to revisit. Not bugs — these are enhancements queued fo
   - A `VERSION` file at repo root that `build-apps.sh`, the landing page build step, and the API all read from.
   - Or a release script (`scripts/release.sh`) that takes the version as an argument, updates all five locations atomically, commits, tags, and pushes — so a release is one command with no manual file editing.
 
-  Whichever approach, the release checklist should be: update `VERSION` (or run release script) → build DMG → notarize → push tag. No hunting for hardcoded strings.
+  **Preferred approach:** a top-level `vox.yaml` (or `vox.config.yaml`) that is the single source of truth for version and other project-wide constants (bundle IDs, team ID, minimum OS versions, default port, app name, etc.). Every script, build step, and the API reads from this file — nothing hardcodes these values inline. A release is then: edit `version` in `vox.yaml` → run `bash scripts/release.sh` → done.
+
+  Whichever approach, the release checklist should be: update `vox.yaml` → build DMG → notarize → push tag. No hunting for hardcoded strings.
 
 - [ ] **Track installed version and prevent redundant installs/updates**
   - Write the current git SHA (or version tag) to `~/Library/Application Support/Vox/version` at the end of install and update.
