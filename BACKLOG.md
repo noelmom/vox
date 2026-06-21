@@ -319,6 +319,21 @@ Ideas and improvements to revisit. Not bugs — these are enhancements queued fo
 
 ## Version Tracking
 
+- [ ] **Unified release workflow — eliminate version number discrepancies before v1.0.0**
+
+  Currently version numbers live in at least five separate places and must be updated manually:
+  - `scripts/build-apps.sh` — `CFBundleShortVersionString` for VoxHelper.app (×1) and VoxServer.app (×1)
+  - `ui/index.html` — hardcoded footer string (e.g. `v0.3.1-beta`)
+  - `api/main.py` — if a `/health` or `/version` endpoint is added, it should report the same version
+  - `CHANGELOG.md` — version header
+  - Git tag on `main`
+
+  **Goal:** single source of truth. Options:
+  - A `VERSION` file at repo root that `build-apps.sh`, the landing page build step, and the API all read from.
+  - Or a release script (`scripts/release.sh`) that takes the version as an argument, updates all five locations atomically, commits, tags, and pushes — so a release is one command with no manual file editing.
+
+  Whichever approach, the release checklist should be: update `VERSION` (or run release script) → build DMG → notarize → push tag. No hunting for hardcoded strings.
+
 - [ ] **Track installed version and prevent redundant installs/updates**
   - Write the current git SHA (or version tag) to `~/Library/Application Support/Vox/version` at the end of install and update.
   - On `vox.sh install`: if a version file exists, compare against the current source — warn if already on the same version and ask to reinstall or skip.
