@@ -251,6 +251,16 @@ Ideas and improvements to revisit. Not bugs — these are enhancements queued fo
 
 ---
 
+## Backup & Restore
+
+- [ ] **Backup and restore** — explore options for backing up and restoring user data.
+  - Scope: voices, outputs, SQLite DB, `.env`, custom tones, presets — everything under `~/Library/Application Support/Vox/` except the venv and synced code.
+  - Options to evaluate: export to a single `.zip` archive, iCloud Drive sync, Time Machine exclusion/inclusion guidance, manual rsync to external drive.
+  - Restore flow: import archive, verify integrity, restart server.
+  - Surface in the web UI (Settings tab) or via a `vox.sh backup` / `vox.sh restore` command.
+
+---
+
 ## Maintenance & Memory
 
 - [ ] **Prune old job rows from SQLite** — cleanup task deletes output files but DB rows accumulate forever. Add `DELETE FROM jobs WHERE created_at < datetime('now', '-30 days')` to the cleanup loop, configurable via `VOX_JOB_RETENTION_DAYS` (default 30).
