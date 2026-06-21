@@ -35,7 +35,8 @@ class VoxHelper(rumps.App):
         self._status_item  = rumps.MenuItem("Stopped…")
         self._addr_item    = rumps.MenuItem(self._addr_label(),   callback=_noop)
         self._copy_item    = rumps.MenuItem("⎘  Copy Address",   callback=self._copy_address)
-        self._open_item    = rumps.MenuItem("↗  Open in Browser", callback=self._open_browser)
+        self._open_item    = rumps.MenuItem("↗  Open in Browser",  callback=self._open_browser)
+        self._input_item   = rumps.MenuItem("📁  Open Input Folder", callback=self._open_input)
 
         self._cpu_item     = rumps.MenuItem("⚡  CPU   —",        callback=_noop)
         self._ram_item     = rumps.MenuItem("🧠  RAM   —",        callback=_noop)
@@ -52,6 +53,7 @@ class VoxHelper(rumps.App):
             self._addr_item,
             self._copy_item,
             self._open_item,
+            self._input_item,
             None,
             self._cpu_item,
             self._ram_item,
@@ -194,6 +196,11 @@ class VoxHelper(rumps.App):
 
     def _open_browser(self, _):
         webbrowser.open(self._base_url() + "/app")
+
+    def _open_input(self, _):
+        input_dir = os.path.expanduser("~/Library/Application Support/VoxForge/input")
+        os.makedirs(input_dir, exist_ok=True)
+        subprocess.run(["open", input_dir])
 
     def _view_logs(self, _):
         log = os.path.expanduser("~/Library/Logs/VoxForge/vox.log")
