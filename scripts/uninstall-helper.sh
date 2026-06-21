@@ -4,7 +4,7 @@
 set -euo pipefail
 
 PLIST_DST="$HOME/Library/LaunchAgents/com.melolabdev.vox-helper.plist"
-APP_BUNDLE="$HOME/Applications/VoxHelper.app"
+APP_BUNDLE="/Applications/VoxHelper.app"
 APP_SUPPORT="$HOME/Library/Application Support/Vox"
 
 if [[ ! -f "$PLIST_DST" ]]; then
