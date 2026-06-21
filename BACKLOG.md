@@ -143,6 +143,12 @@ Ideas and improvements to revisit. Not bugs — these are enhancements queued fo
 
 ---
 
+## Maintenance & Memory
+
+- [ ] **Prune old job rows from SQLite** — the cleanup task deletes output *files* after the TTL but leaves DB rows forever. After months of heavy use the `jobs` table could grow into tens of thousands of rows causing query slowdown. Add a `DELETE FROM jobs WHERE created_at < datetime('now', '-30 days')` step to the existing cleanup loop, configurable via `VOX_JOB_RETENTION_DAYS` (default 30). Not urgent until the table exceeds ~100k rows but worth doing before public release.
+
+---
+
 ## API & Performance
 
 - [ ] Streaming audio response (chunked transfer encoding)

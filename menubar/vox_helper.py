@@ -65,9 +65,11 @@ class VoxHelper(rumps.App):
             self._quit_item,
         ]
 
-        # Kick off the polling loop
+        # Kick off the polling loop on a single persistent daemon thread
         self._running = False
-        self._poll()
+        self._stop_event = threading.Event()
+        self._poll_thread = threading.Thread(target=self._poll_loop, daemon=True)
+        self._poll_thread.start()
 
         # Hide from Dock and Cmd+Tab — must fire on the main run loop,
         # so use rumps.Timer (not threading.Timer which is a background thread)
@@ -138,6 +140,11 @@ class VoxHelper(rumps.App):
 
     # ── Polling loop ──────────────────────────────────────────────────────
 
+    def _poll_loop(self):
+        """Single persistent daemon thread — polls forever, no allocation churn."""
+        while not self._stop_event.wait(POLL_INTERVAL):
+            self._poll()
+
     def _poll(self):
         running = self._check_server()
         self._running = running
@@ -168,9 +175,6 @@ class VoxHelper(rumps.App):
         self._cpu_item.title = f"⚡  CPU   {cpu:.0f}%"
         self._ram_item.title = f"🧠  RAM   {used_gb:.1f} / {total_gb:.0f} GB"
 
-        # Schedule next poll
-        threading.Timer(POLL_INTERVAL, self._poll).start()
-
     # ── Callbacks ─────────────────────────────────────────────────────────
 
     def _start(self, _):
@@ -195,6 +199,7 @@ class VoxHelper(rumps.App):
         subprocess.run(["open", "-a", "Console", log])
 
     def _quit(self, _):
+        self._stop_event.set()
         rumps.quit_application()
 
 
