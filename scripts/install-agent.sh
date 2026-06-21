@@ -30,7 +30,6 @@ fi
 mkdir -p "$AGENTS_DIR"
 mkdir -p "$LOG_DIR"
 mkdir -p "$APP_SUPPORT/api"
-mkdir -p "$APP_SUPPORT/config/presets"
 mkdir -p "$APP_SUPPORT/scripts"
 mkdir -p "$APP_SUPPORT/voices"
 mkdir -p "$APP_SUPPORT/outputs"
@@ -39,8 +38,7 @@ mkdir -p "$APP_SUPPORT/input/processed"
 
 # 2. Sync server code to permanent location
 echo "[vox] Syncing server code to Application Support…"
-rsync -a --delete "$ROOT/api/"    "$APP_SUPPORT/api/"
-rsync -a --delete "$ROOT/config/" "$APP_SUPPORT/config/"
+rsync -a --delete "$ROOT/api/" "$APP_SUPPORT/api/"
 
 # 3. Write the production run.sh into Application Support
 # This script is self-contained — references APP_SUPPORT by its own location.
