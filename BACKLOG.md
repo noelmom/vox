@@ -84,7 +84,12 @@ Ideas and improvements to revisit. Not bugs — these are enhancements queued fo
 - [x] **LaunchAgent — menu bar helper** — `launchagent/com.melolabdev.vox-helper.plist`. Auto-starts on login.
 - [x] **macOS menu bar helper (rumps)** — status dot, CPU/RAM, server control, copy address, open browser, view logs.
 
-- [ ] **Fix LaunchAgent display name ("env")** — macOS Login Items shows `env` because `ProgramArguments` starts with `/usr/bin/env`. Fix: replace with `/bin/bash scripts/run.sh` directly. Do before public release.
+- [ ] **Fix LaunchAgent branding in macOS Login Items & Activity Monitor**
+  - Login Items currently shows `env` (server agent) and `Python3` (menu bar helper) — both are the raw executable names, not the app name.
+  - Fix `env` label: replace `/usr/bin/env bash` in `ProgramArguments` with `/bin/bash` directly so launchd doesn't surface the wrapper.
+  - Fix `Python3` label: add `LSUIElement`, `CFBundleName`, and `CFBundleDisplayName` to the helper plist, or wrap the helper in a minimal `.app` bundle so macOS shows "Vox Helper" instead.
+  - Update icons: both agents should show the Vox branding icon in Login Items and Activity Monitor rather than the generic shell/Python icon. Requires an `.icns` file and a proper bundle structure.
+  - Do all of the above before public release.
 
 - [ ] **Auto-launch on login (server)** — flip `RunAtLoad` from `<false/>` to `<true/>` in `launchagent/com.melolabdev.vox.plist` when shipping the `.app`. Helper already auto-starts.
 
