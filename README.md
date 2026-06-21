@@ -119,7 +119,24 @@ This single command:
 | Runtime directories | Creates `voices/`, `outputs/`, `input/`, `input/processed/` |
 | `.env` scaffold | Writes a commented config file with all available options |
 
-### 3. Install the LaunchAgents
+### 3. Add your Hugging Face token (recommended)
+
+Vox downloads the Chatterbox model weights from Hugging Face on first run. Without a token the download still works, but adding one gives you faster transfer rates and access to any gated models.
+
+1. Generate a **read-only** token at [huggingface.co/settings/tokens](https://huggingface.co/settings/tokens)
+2. Open `.env` in your project folder (created by `setup.sh`):
+   ```bash
+   nano .env
+   ```
+3. Uncomment and fill in the `HF_TOKEN` line:
+   ```
+   HF_TOKEN=hf_your_token_here
+   ```
+4. Save and close — no restart needed until first launch.
+
+> `.env` is git-ignored and never committed. Keep your token out of any other files.
+
+### 5. Install the LaunchAgents
 
 Two agents run independently — one for the server, one for the menu bar helper. Install both once after `setup.sh`:
 
@@ -130,7 +147,7 @@ bash scripts/install-helper.sh      # menu bar helper (auto-starts on login)
 
 The **Vox icon** appears in your menu bar within a few seconds. Use it to start, stop, and restart the server, open the web UI, and monitor CPU/RAM.
 
-### 4. Start the server
+### 6. Start the server
 
 **Via the menu bar (recommended):** click the Vox icon → **Start Server**.
 
@@ -153,7 +170,7 @@ bash scripts/uninstall-agent.sh     # remove server agent
 bash scripts/uninstall-helper.sh    # remove menu bar helper
 ```
 
-### 4. Updating
+### 7. Updating
 
 **If you cloned via git:**
 ```bash
