@@ -484,6 +484,23 @@
 <div id="toast-container" role="alert" aria-live="polite"></div>
 
 <script>
+  function showCopyToast(msg) {
+    const t = document.createElement('div');
+    t.textContent = msg;
+    Object.assign(t.style, {
+      position: 'fixed', bottom: '28px', left: '50%', transform: 'translateX(-50%)',
+      background: '#1D1D1F', color: '#fff', fontSize: '13px', fontFamily: 'inherit',
+      padding: '9px 18px', borderRadius: '20px', boxShadow: '0 4px 16px rgba(0,0,0,0.18)',
+      opacity: '0', transition: 'opacity 0.2s', zIndex: '9999', whiteSpace: 'nowrap',
+    });
+    document.body.appendChild(t);
+    requestAnimationFrame(() => { t.style.opacity = '1'; });
+    setTimeout(() => {
+      t.style.opacity = '0';
+      t.addEventListener('transitionend', () => t.remove());
+    }, 2000);
+  }
+
   document.addEventListener('click', e => {
     const btn = e.target.closest('[data-copy-target]');
     if (!btn) return;
@@ -492,6 +509,7 @@
     navigator.clipboard.writeText(target.innerText.trim()).then(() => {
       btn.textContent = '✓ Copied';
       btn.classList.add('copied');
+      showCopyToast('Copied to clipboard');
       setTimeout(() => {
         btn.textContent = '⎘ Copy';
         btn.classList.remove('copied');

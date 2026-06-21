@@ -1905,6 +1905,7 @@ function renderHistory(el, actions) {
         btn.classList.add('copied');
         btn.textContent = '✓';
         setTimeout(() => { btn.classList.remove('copied'); btn.textContent = '⎘'; }, 1500);
+        toastSuccess('Copied to clipboard');
       } catch { toastError('Copy failed'); }
     });
   });

@@ -190,6 +190,7 @@ class VoxHelper(rumps.App):
     def _copy_address(self, _):
         addr = self._base_url() + "/app"
         subprocess.run("pbcopy", input=addr.encode(), check=True)
+        rumps.notification("Vox", "Copied to clipboard", addr, sound=False)
 
     def _open_browser(self, _):
         webbrowser.open(self._base_url() + "/app")
