@@ -76,6 +76,7 @@ codename-vox/
 │   ├── uninstall-agent.sh       # Unload and remove the server LaunchAgent
 │   ├── install-helper.sh        # Register menu bar helper LaunchAgent
 │   ├── uninstall-helper.sh      # Unload and remove the helper LaunchAgent
+│   └── update.sh                # Pull latest + sync deps + re-register agents
 │   └── README.md                # Script reference + manual start guide
 ├── setup.sh                     # One-shot bootstrap script
 ├── requirements.txt             # Python dependencies
@@ -151,6 +152,26 @@ To uninstall agents:
 bash scripts/uninstall-agent.sh     # remove server agent
 bash scripts/uninstall-helper.sh    # remove menu bar helper
 ```
+
+### 4. Updating
+
+**If you cloned via git:**
+```bash
+bash scripts/update.sh
+```
+Pulls the latest from your current branch, syncs pip dependencies, and re-registers both LaunchAgents in one step.
+
+**If you downloaded a zip:**
+1. Download and extract the new release zip
+2. Run:
+```bash
+bash scripts/update.sh /path/to/extracted-vox-folder
+```
+Your `.env`, `voices/`, `data/`, and `outputs/` are preserved — only the app files are replaced.
+
+> The update script stops both agents before touching any files and restarts them cleanly when done. Safe to re-run.
+
+---
 
 **Option B — manual start (troubleshooting / development):**
 

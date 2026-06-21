@@ -56,3 +56,4 @@ The server prints its address and API docs URL on startup. Logs stream directly 
 | `install-helper.sh` | Install the **menu bar helper** LaunchAgent. Installs rumps + psutil, then loads the helper (auto-starts on login). |
 | `uninstall-helper.sh` | Unload and remove the helper LaunchAgent. Icon disappears from menu bar. |
 | `run.sh` | Start the server manually in the foreground. Bypasses launchd entirely. |
+| `update.sh` | Pull latest changes + sync deps + re-register both agents. Works with git repos (`bash scripts/update.sh`) or zip installs (`bash scripts/update.sh /path/to/new-folder`). |
