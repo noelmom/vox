@@ -71,8 +71,30 @@ cat > "$APP_BUNDLE/Contents/Info.plist" <<INFOPLIST
 </plist>
 INFOPLIST
 
-# Executable: symlink to permanent venv python3
-ln -sf "$VENV/bin/python3" "$APP_BUNDLE/Contents/MacOS/vox-helper"
+# Executable: compile a real Mach-O launcher binary using swiftc.
+# A symlink won't satisfy codesign — macOS requires a real binary as the
+# main executable in a signed .app bundle.
+LAUNCHER_SRC="$(mktemp /tmp/vox-launcher-XXXXXX.swift)"
+cat > "$LAUNCHER_SRC" <<SWIFT
+import Foundation
+
+let home = FileManager.default.homeDirectoryForCurrentUser.path
+let python = "\(home)/Library/Application Support/VoxForge/venv/bin/python3"
+let script = "\(home)/Library/Application Support/VoxForge/menubar/vox_helper.py"
+
+let args = CommandLine.arguments.dropFirst()
+var fullArgs = [script] + args
+
+let process = Process()
+process.executableURL = URL(fileURLWithPath: python)
+process.arguments = fullArgs
+try? process.run()
+process.waitUntilExit()
+SWIFT
+
+echo "[vox-helper] Compiling launcher binary…"
+swiftc -O -o "$APP_BUNDLE/Contents/MacOS/vox-helper" "$LAUNCHER_SRC"
+rm -f "$LAUNCHER_SRC"
 
 echo "[vox-helper] VoxHelper.app built at: $APP_BUNDLE"
 
