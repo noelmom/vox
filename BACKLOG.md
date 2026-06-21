@@ -240,6 +240,41 @@ Ideas and improvements to revisit. Not bugs — these are enhancements queued fo
 
 ---
 
+## Installer UX
+
+- [ ] **Interactive installer — unify setup.sh into a single guided script**
+
+  Replace the current multi-script workflow with a single interactive `install.sh` that presents a menu:
+
+  ```
+  Vox Installer
+  ─────────────
+  1) Install
+  2) Update
+  3) Uninstall
+  4) Quit
+  ```
+
+  **Install flow:**
+  - Run all current `setup.sh` steps
+  - Prompt: "Enter your Hugging Face token (optional, press Enter to skip):" → writes to `.env`
+  - Prompt: "Install server LaunchAgent? [Y/n]" → runs `install-agent.sh` if yes
+  - Prompt: "Install menu bar helper? [Y/n]" → runs `install-helper.sh` if yes
+  - Print summary of what was installed and next steps
+
+  **Update flow:**
+  - Runs current `update.sh` logic
+
+  **Uninstall flow:**
+  - Prompt: "Remove server agent? [Y/n]"
+  - Prompt: "Remove menu bar helper? [Y/n]"
+  - Prompt: "Remove application data (voices, outputs, database)? [Y/n]" — destructive, default N
+  - Runs relevant uninstall scripts
+
+  Keep existing individual scripts (`install-agent.sh`, `install-helper.sh`, `update.sh`, etc.) working as-is — `install.sh` is a convenience wrapper, not a replacement. Power users and CI can still call scripts directly.
+
+---
+
 ## Installation & Diagnostics
 
 - [ ] **Write install log to `~/Library/Logs/VoxForge/install.log`**
