@@ -91,7 +91,7 @@ codename-vox/
 ### Requirements
 
 - macOS 13 Ventura or later
-- Apple Silicon (M1 / M2 / M3 / M4) — x86 will fall back to CPU mode
+- Apple Silicon (M1 or later) — Intel Macs are not supported
 - Internet connection for first-time setup (Homebrew, Python, model weights)
 
 ### 1. Clone

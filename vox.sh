@@ -108,6 +108,9 @@ while [[ $# -gt 0 ]]; do
     shift
 done
 
+# ── Architecture check ────────────────────────────────────────────────────────
+[[ "$(uname -m)" == "arm64" ]] || { echo -e "${RED}[vox] ✗ Vox requires Apple Silicon (M1 or later). Intel Macs are not supported.${RESET}"; exit 1; }
+
 # ── Confirm helper ────────────────────────────────────────────────────────────
 confirm() {
     # confirm "message" → returns 0 (yes) or 1 (no)

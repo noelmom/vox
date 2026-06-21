@@ -33,6 +33,7 @@ DMG_STAGING="/tmp/vox-dmg-$$"
 OUTPUT_DMG="$ROOT/assets/Vox.dmg"
 
 # ── Preflight ─────────────────────────────────────────────────────────────────
+[[ "$(uname -m)" == "arm64" ]] || fail "Vox requires Apple Silicon (M1 or later). Intel Macs are not supported."
 [[ -n "$KEYCHAIN_PASSWORD" ]]  || fail "KEYCHAIN_PASSWORD is not set."
 [[ -n "$APP_SIGN_PASSWORD" ]]  || fail "APP_SIGN_PASSWORD is not set."
 [[ -f "$ROOT/assets/Vox.icns" ]] || fail "assets/Vox.icns not found."
@@ -57,13 +58,26 @@ mkdir -p "$HELPER_APP/Contents/MacOS" "$HELPER_APP/Contents/Resources"
 
 cp "$ROOT/assets/Vox.icns" "$HELPER_APP/Contents/Resources/Vox.icns"
 
-cat > "$HELPER_APP/Contents/MacOS/vox-helper" <<EOF
-#!/bin/bash
-VENV="\$HOME/Library/Application Support/Vox/venv"
-SCRIPT="\$HOME/Library/Application Support/Vox/menubar/vox_helper.py"
-exec "\$VENV/bin/python3" "\$SCRIPT" "\$@"
-EOF
-chmod +x "$HELPER_APP/Contents/MacOS/vox-helper"
+cat > /tmp/vox-helper-$$.c <<'CSRC'
+#include <unistd.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+int main(int argc, char *argv[]) {
+    const char *home = getenv("HOME");
+    if (!home) { fprintf(stderr, "HOME not set\n"); return 1; }
+    char python[1024], script[1024];
+    snprintf(python, sizeof(python), "%s/Library/Application Support/Vox/venv/bin/python3", home);
+    snprintf(script, sizeof(script), "%s/Library/Application Support/Vox/menubar/vox_helper.py", home);
+    char *args[] = {python, script, NULL};
+    execv(python, args);
+    perror("execv failed");
+    return 1;
+}
+CSRC
+clang -arch arm64 -O2 -o "$HELPER_APP/Contents/MacOS/vox-helper" /tmp/vox-helper-$$.c \
+    || fail "Failed to compile vox-helper launcher"
+rm -f /tmp/vox-helper-$$.c
 
 cat > "$HELPER_APP/Contents/Info.plist" <<EOF
 <?xml version="1.0" encoding="UTF-8"?>
@@ -89,12 +103,26 @@ mkdir -p "$SERVER_APP/Contents/MacOS" "$SERVER_APP/Contents/Resources"
 
 cp "$ROOT/assets/Vox.icns" "$SERVER_APP/Contents/Resources/Vox.icns"
 
-cat > "$SERVER_APP/Contents/MacOS/vox-server" <<EOF
-#!/bin/bash
-APP_SUPPORT="\$HOME/Library/Application Support/Vox"
-exec "\$APP_SUPPORT/scripts/run.sh"
-EOF
-chmod +x "$SERVER_APP/Contents/MacOS/vox-server"
+cat > /tmp/vox-server-$$.c <<'CSRC'
+#include <unistd.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+int main(int argc, char *argv[]) {
+    const char *home = getenv("HOME");
+    if (!home) { fprintf(stderr, "HOME not set\n"); return 1; }
+    char run_sh[1024];
+    snprintf(run_sh, sizeof(run_sh), "%s/Library/Application Support/Vox/scripts/run.sh", home);
+    char *bash = "/bin/bash";
+    char *args[] = {bash, run_sh, NULL};
+    execv(bash, args);
+    perror("execv failed");
+    return 1;
+}
+CSRC
+clang -arch arm64 -O2 -o "$SERVER_APP/Contents/MacOS/vox-server" /tmp/vox-server-$$.c \
+    || fail "Failed to compile vox-server launcher"
+rm -f /tmp/vox-server-$$.c
 
 cat > "$SERVER_APP/Contents/Info.plist" <<EOF
 <?xml version="1.0" encoding="UTF-8"?>
