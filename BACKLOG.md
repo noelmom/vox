@@ -322,6 +322,17 @@ Ideas and improvements to revisit. Not bugs — these are enhancements queued fo
 
 ---
 
+## Version Tracking
+
+- [ ] **Track installed version and prevent redundant installs/updates**
+  - Write the current git SHA (or version tag) to `~/Library/Application Support/Vox/version` at the end of install and update.
+  - On `vox.sh install`: if a version file exists, compare against the current source — warn if already on the same version and ask to reinstall or skip.
+  - On `vox.sh update`: compare installed version against latest available (git `HEAD` for clones, or a `version` file in the source folder for zip updates) — if already up to date, print "Already on latest version (abc1234)" and exit cleanly without restarting agents.
+  - On `vox.sh` interactive menu: display the currently installed version.
+  - For zip-based installs where there's no git: include a `version` file in the zip at build time so the comparison still works.
+
+---
+
 ## Installation & Diagnostics
 
 - [ ] **Write install log to `~/Library/Logs/Vox/install.log`**
