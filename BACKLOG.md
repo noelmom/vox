@@ -118,6 +118,12 @@ Ideas and improvements to revisit. Not bugs — these are enhancements queued fo
 
 ---
 
+## Landing Page
+
+- [ ] **Smooth scroll navigation** — when clicking nav links (Security, How it works, API, Features) the page should animate smoothly to each section instead of jumping. Add `scroll-behavior: smooth` as a baseline and layer a JS-driven scroll with a custom easing curve (ease-in-out cubic) for a premium feel. Consider adding a subtle progress indicator or active link highlight that updates as the user scrolls past each section.
+
+---
+
 ## Dark Mode
 
 - [ ] **Dark theme** — the original sketch used a dark background and it looked great. Add a full dark mode using CSS custom properties already defined in `vox.css`.
