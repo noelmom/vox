@@ -6,7 +6,7 @@ from fastapi import HTTPException
 from api.core.config import settings
 
 # Formats we accept for voice upload / input folder
-INGESTABLE_EXTENSIONS = {".wav", ".m4a", ".mp3", ".aiff", ".aif", ".flac", ".ogg"}
+INGESTABLE_EXTENSIONS = {".wav", ".m4a", ".mp3", ".aiff", ".aif", ".flac", ".ogg", ".webm"}
 
 
 def _run_ffmpeg(*args: str):
@@ -27,12 +27,12 @@ def _run_ffmpeg(*args: str):
 
 
 def convert_to_wav(src: Path, dest: Path):
-    """Convert any audio format to a 16-bit 44.1 kHz mono WAV."""
+    """Convert any audio format to a normalized 16-bit 24 kHz mono WAV."""
     _run_ffmpeg(
         "-i", str(src),
-        "-ar", "44100",
         "-ac", "1",
-        "-sample_fmt", "s16",
+        "-ar", "24000",
+        "-c:a", "pcm_s16le",
         str(dest),
     )
 
