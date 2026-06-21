@@ -102,6 +102,52 @@ Ideas and improvements to revisit. Not bugs — these are enhancements queued fo
 - [x] **Branding icons — temporary** — `install-helper.sh` builds `VoxHelper.app` at `/Applications/` (permanent — survives project folder deletion) with `Info.plist`, VoxForge icon, and a symlink to the permanent venv. `assets/VoxForge.icns` committed to repo.
 - [x] **Permanent runtime layout** — everything runtime lives at `~/Library/Application Support/VoxForge/`: venv, api code, config/presets, helper script, voices, outputs, data, input, .env. Project folder is source-only. Server and helper both survive the project folder being moved or deleted.
 
+- [ ] **Revert helper to signed VoxHelper.app bundle**
+
+  Currently the helper LaunchAgent runs `python3` directly from the permanent venv. This works but shows `Python3` in Login Items with no icon. The `.app` bundle approach (already built, see below) fixes both — but requires a signed binary to work on Sequoia without the `?` icon and auto-launch failure.
+
+  **Prerequisites:**
+  - Apple Developer ID Application certificate installed in Keychain
+  - Team ID from developer.apple.com
+  - App-specific password from appleid.apple.com (for notarytool)
+  - Xcode (full app) for `notarytool` and `stapler`
+
+  **All assets are already in the repo:**
+  - `assets/VoxForge.icns` — icon (temporary logo, replace before release)
+  - `install-helper.sh` — bundle build logic is preserved in git history (commit `cd1077d`)
+  - `launchagent/com.melolabdev.vox-helper.plist` — just needs ProgramArguments swapped back
+
+  **Steps to revert when certificate is ready:**
+
+  1. Restore bundle build in `install-helper.sh` — re-add the `VoxHelper.app` build block from commit `cd1077d`:
+     ```bash
+     APP_BUNDLE="/Applications/VoxHelper.app"
+     mkdir -p "$APP_BUNDLE/Contents/MacOS" "$APP_BUNDLE/Contents/Resources"
+     cp "$ROOT/assets/VoxForge.icns" "$APP_BUNDLE/Contents/Resources/VoxForge.icns"
+     # write Info.plist (CFBundleIdentifier, CFBundleDisplayName, CFBundleIconFile, LSUIElement)
+     ln -sf "$VENV/bin/python3" "$APP_BUNDLE/Contents/MacOS/vox-helper"
+     ```
+
+  2. Update helper plist `ProgramArguments` back to:
+     ```xml
+     <string>/Applications/VoxHelper.app/Contents/MacOS/vox-helper</string>
+     <string>VOX_APP_SUPPORT/menubar/vox_helper.py</string>
+     ```
+
+  3. Sign the bundle:
+     ```bash
+     codesign --deep --force --sign "Developer ID Application: NAME (TEAMID)" /Applications/VoxHelper.app
+     ```
+
+  4. Zip, notarize, and staple:
+     ```bash
+     ditto -c -k --keepParent /Applications/VoxHelper.app VoxHelper.zip
+     xcrun notarytool submit VoxHelper.zip --apple-id EMAIL --team-id TEAMID --password APP_PASSWORD --wait
+     xcrun stapler staple /Applications/VoxHelper.app
+     ```
+
+  5. Re-run `bash scripts/install-helper.sh` — Login Items will show "Vox Helper" with the VoxForge icon.
+
 - [ ] **Replace temporary logo before public release**
   - `assets/VoxForge.icns` is a placeholder. The app name "VoxForge" / "Vox" is not finalised.
   - Once the permanent app name and logo are decided, replace `assets/VoxForge.icns` with the final `.icns` and update `CFBundleDisplayName` / `CFBundleIdentifier` in `install-helper.sh` to match.
