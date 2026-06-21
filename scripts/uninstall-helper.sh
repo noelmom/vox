@@ -14,12 +14,20 @@ fi
 
 echo "[vox-helper] Uninstalling menu bar helper…"
 
-# Stop the running process (suppresses KeepAlive restart), then unload
+# Stop and unload the LaunchAgent (suppresses KeepAlive restart)
 UID_VAL=$(id -u)
 launchctl stop "gui/$UID_VAL/$LABEL" 2>/dev/null || true
-sleep 1
 launchctl unload "$PLIST_DST" 2>/dev/null || true
 rm -f "$PLIST_DST"
+
+# Kill any remaining VoxHelper process and wait for it to exit
+if pgrep -x "VoxHelper" &>/dev/null; then
+    pkill -x "VoxHelper" 2>/dev/null || true
+    for i in {1..10}; do
+        pgrep -x "VoxHelper" &>/dev/null || break
+        sleep 0.3
+    done
+fi
 
 # Remove VoxHelper.app from /Applications
 if [[ -d "/Applications/VoxHelper.app" ]]; then
