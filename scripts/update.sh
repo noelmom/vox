@@ -22,7 +22,15 @@ fail()    { echo -e "${RED}[vox] ✗ $*${RESET}"; exit 1; }
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 APP_SUPPORT="$HOME/Library/Application Support/Vox"
 VENV="$APP_SUPPORT/venv"
-ZIP_SRC="${1:-}"
+ZIP_SRC=""
+SWITCH_BRANCH=""
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --branch) shift; SWITCH_BRANCH="${1:-}" ;;
+        *)        ZIP_SRC="$1" ;;
+    esac
+    shift
+done
 
 cd "$ROOT"
 
@@ -53,6 +61,11 @@ if [[ -n "$ZIP_SRC" ]]; then
         "$ZIP_SRC/" "$ROOT/"
     success "Source files updated from zip"
 elif git -C "$ROOT" rev-parse --git-dir &>/dev/null; then
+    if [[ -n "$SWITCH_BRANCH" ]]; then
+        info "Switching to branch: $SWITCH_BRANCH…"
+        git -C "$ROOT" fetch origin
+        git -C "$ROOT" checkout "$SWITCH_BRANCH" || fail "Branch '$SWITCH_BRANCH' not found."
+    fi
     BRANCH="$(git -C "$ROOT" rev-parse --abbrev-ref HEAD 2>/dev/null || echo "")"
     if [[ -z "$BRANCH" ]]; then
         warn "Could not determine git branch — skipping pull."

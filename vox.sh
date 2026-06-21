@@ -44,6 +44,7 @@ OPT_AGENT_ONLY=false
 OPT_HELPER_ONLY=false
 OPT_PURGE=false
 OPT_ZIP=""
+OPT_BRANCH=""
 
 # ── Help ──────────────────────────────────────────────────────────────────────
 show_help() {
@@ -66,6 +67,8 @@ cat <<'EOF'
     --helper-only     Target menu bar helper only
     --purge           (uninstall) Also delete voices, outputs, data, logs, venv
     --zip /path       (update) Use extracted zip folder instead of git pull
+    --devbranch       (update) Switch to and pull from the development branch
+    --branch NAME     (update) Switch to and pull from a specific branch
     --help            Show this help
 
   Examples:
@@ -74,7 +77,9 @@ cat <<'EOF'
     bash vox.sh install --yes            # install, no prompts, skip token
     bash vox.sh install --token hf_xxx  # install with HF token, no prompt
     bash vox.sh install --yes --token hf_xxx
-    bash vox.sh update
+    bash vox.sh update                   # pull current branch
+    bash vox.sh update --devbranch       # switch to development branch and pull
+    bash vox.sh update --branch main     # switch back to main
     bash vox.sh update --zip ~/Downloads/codename-vox-main
     bash vox.sh uninstall
     bash vox.sh uninstall --purge        # remove everything including data
@@ -93,6 +98,8 @@ while [[ $# -gt 0 ]]; do
         --helper-only)     OPT_HELPER_ONLY=true ;;
         --purge)           OPT_PURGE=true ;;
         --zip)             shift; OPT_ZIP="${1:-}" ;;
+        --branch)          shift; OPT_BRANCH="${1:-}" ;;
+        --devbranch)       OPT_BRANCH="development" ;;
         --help|-h)         show_help; exit 0 ;;
         *) warn "Unknown argument: $1 (run with --help to see usage)"; exit 1 ;;
     esac
@@ -204,6 +211,8 @@ do_update() {
 
     if [[ -n "$OPT_ZIP" ]]; then
         bash "$ROOT/scripts/update.sh" "$OPT_ZIP"
+    elif [[ -n "$OPT_BRANCH" ]]; then
+        bash "$ROOT/scripts/update.sh" --branch "$OPT_BRANCH"
     else
         bash "$ROOT/scripts/update.sh"
     fi
