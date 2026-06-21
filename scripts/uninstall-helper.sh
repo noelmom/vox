@@ -5,7 +5,6 @@ set -euo pipefail
 
 LABEL="com.melolabdev.vox-helper"
 PLIST_DST="$HOME/Library/LaunchAgents/$LABEL.plist"
-APP_BUNDLE="/Applications/VoxHelper.app"
 APP_SUPPORT="$HOME/Library/Application Support/Vox"
 
 if [[ ! -f "$PLIST_DST" ]]; then
@@ -21,12 +20,6 @@ launchctl stop "gui/$UID_VAL/$LABEL" 2>/dev/null || true
 sleep 1
 launchctl unload "$PLIST_DST" 2>/dev/null || true
 rm -f "$PLIST_DST"
-
-# Remove app bundle from /Applications
-if [[ -d "$APP_BUNDLE" ]]; then
-    sudo rm -rf "$APP_BUNDLE"
-    echo "[vox-helper] Removed $APP_BUNDLE"
-fi
 
 # Remove helper script from permanent location
 if [[ -f "$APP_SUPPORT/menubar/vox_helper.py" ]]; then

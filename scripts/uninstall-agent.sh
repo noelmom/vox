@@ -6,7 +6,6 @@ set -euo pipefail
 LABEL="com.melolabdev.vox"
 PLIST_DST="$HOME/Library/LaunchAgents/$LABEL.plist"
 APP_SUPPORT="$HOME/Library/Application Support/Vox"
-SERVER_BUNDLE="$APP_SUPPORT/VoxServer.app"
 
 if [[ ! -f "$PLIST_DST" ]]; then
     echo "[vox] Server LaunchAgent not installed — nothing to do."
@@ -21,12 +20,6 @@ launchctl stop "gui/$UID_VAL/$LABEL" 2>/dev/null || true
 sleep 1
 launchctl unload "$PLIST_DST" 2>/dev/null || true
 rm -f "$PLIST_DST"
-
-# Remove VoxServer.app from Application Support
-if [[ -d "$SERVER_BUNDLE" ]]; then
-    rm -rf "$SERVER_BUNDLE"
-    echo "[vox] Removed $SERVER_BUNDLE"
-fi
 
 echo ""
 echo "[vox] Server uninstalled."

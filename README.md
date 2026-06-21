@@ -154,10 +154,10 @@ The **Vox icon** appears in your menu bar within a few seconds. Use it to start,
 **Via terminal:**
 
 ```bash
-launchctl start  com.melolabdev.vox                          # start
-launchctl stop   com.melolabdev.vox                          # stop
+launchctl kickstart gui/$(id -u)/com.melolabdev.vox          # start
+launchctl stop gui/$(id -u)/com.melolabdev.vox               # stop
 launchctl kickstart -k gui/$(id -u)/com.melolabdev.vox       # restart
-tail -f ~/Library/Logs/Vox/vox.log                      # live logs
+tail -f ~/Library/Logs/Vox/vox.log                           # live logs
 ```
 
 The menu bar helper shows `localhost:8000 · local only` when `VOX_HOST=127.0.0.1`, or `192.168.x.x:8000 · network accessible` when `VOX_HOST=0.0.0.0` (default) — so you always know at a glance who can reach the server.
@@ -201,7 +201,7 @@ bash scripts/run.sh
 Use this when the LaunchAgent isn't installed, you're debugging a startup crash and want live terminal output, or `launchctl` isn't responding and you need to rule out the agent itself. Stop the LaunchAgent first to avoid a port conflict:
 
 ```bash
-launchctl stop com.melolabdev.vox
+launchctl stop gui/$(id -u)/com.melolabdev.vox
 bash scripts/run.sh
 ```
 

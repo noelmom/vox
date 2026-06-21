@@ -188,7 +188,7 @@ Ideas and improvements to revisit. Not bugs — these are enhancements queued fo
   - Blocked by: Fix Developer ID codesign above
   - Sign `.app` bundles via `build-apps.sh`
   - Submit to Apple with `notarytool`, staple with `stapler`
-  - Run `bash scripts/notarize-helper.sh` (already written, just needs signing to work first)
+  - Write `scripts/notarize-helper.sh` — submit to Apple with `notarytool`, staple with `stapler`
 
 ---
 
