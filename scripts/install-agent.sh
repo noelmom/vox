@@ -33,6 +33,7 @@ fi
 mkdir -p "$AGENTS_DIR"
 mkdir -p "$LOG_DIR"
 mkdir -p "$APP_SUPPORT/api"
+mkdir -p "$APP_SUPPORT/ui"
 mkdir -p "$APP_SUPPORT/scripts"
 mkdir -p "$APP_SUPPORT/voices"
 mkdir -p "$APP_SUPPORT/outputs"
@@ -152,11 +153,19 @@ launchctl unload "$PLIST_DST" 2>/dev/null || true
 # 7. Load the agent
 launchctl load "$PLIST_DST"
 
+# Restart the server if it was already running so the /ui static mount
+# registers with the updated ui/ directory
+UID_VAL=$(id -u)
+if launchctl list "$LABEL" &>/dev/null; then
+    echo "[vox] Restarting server to apply changes…"
+    launchctl kickstart -k "gui/$UID_VAL/$LABEL" 2>/dev/null || true
+fi
+
 echo ""
 echo "[vox] Server LaunchAgent installed."
 echo ""
-echo "  Start:   launchctl start  $LABEL"
-echo "  Stop:    launchctl stop   $LABEL"
+echo "  Start:   launchctl kickstart gui/\$(id -u)/$LABEL"
+echo "  Stop:    launchctl kill SIGTERM gui/\$(id -u)/$LABEL"
 echo "  Restart: launchctl kickstart -k gui/\$(id -u)/$LABEL"
 echo "  Logs:    tail -f $LOG_DIR/vox.log"
 echo "  Errors:  tail -f $LOG_DIR/vox-error.log"
