@@ -155,6 +155,13 @@ Ideas and improvements to revisit. Not bugs — these are enhancements queued fo
 
   5. Re-run `bash scripts/install-helper.sh` — Login Items will show "Vox Helper" with the Vox icon.
 
+- [ ] **App Background Activity branding in System Settings**
+  - Both LaunchAgents currently appear under "Noelmo Melo" (the Developer ID name) with no custom icon in System Settings → General → Login Items & Extensions → App Background Activity.
+  - Two sub-issues to resolve:
+    1. **Icon** — `VoxHelper.app` and `VoxServer.app` bundles need a valid `CFBundleIconFile` that macOS picks up for the Login Items UI. Verify `Vox.icns` is correctly referenced and sized — macOS may require specific icon sizes (16, 32, 64px) to display in this context.
+    2. **Developer label** — the grouping label comes from the Developer ID certificate name ("Noelmo Melo"). Options to make it more brand-friendly: register a company/org name with Apple (e.g. "MeloLabDev") and reissue the cert under that name, or use a vanity domain like `noelmom.github.io` or `melolabdev.com` as the org identifier. Decide on permanent brand name before reissuing — cert changes require re-signing and re-notarizing all apps.
+  - Blocked by: final brand name decision and logo replacement.
+
 - [ ] **Replace temporary logo before public release**
   - `assets/Vox.icns` is a placeholder. The app name "Vox" / "Vox" is not finalised.
   - Once the permanent app name and logo are decided, replace `assets/Vox.icns` with the final `.icns` and update `CFBundleDisplayName` / `CFBundleIdentifier` in `install-helper.sh` to match.
