@@ -1523,7 +1523,14 @@ function renderVoices(el, actions) {
 
     async function startRecording() {
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        let stream;
+        try {
+          stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        } catch (e) {
+          if (e.name === 'OverconstrainedError') {
+            stream = await navigator.mediaDevices.getUserMedia({ audio: {} });
+          } else { throw e; }
+        }
 
         audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         analyser = audioCtx.createAnalyser();

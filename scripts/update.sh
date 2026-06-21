@@ -33,8 +33,10 @@ fi
 
 # ── Stop agents before touching files ─────────────────────────────────────────
 info "Stopping agents…"
-launchctl stop com.melolabdev.vox        2>/dev/null || true
-launchctl stop com.melolabdev.vox-helper 2>/dev/null || true
+UID_VAL=$(id -u)
+launchctl stop "gui/$UID_VAL/com.melolabdev.vox"        2>/dev/null || true
+launchctl stop "gui/$UID_VAL/com.melolabdev.vox-helper" 2>/dev/null || true
+sleep 2
 
 # ── Pull or copy new source files ─────────────────────────────────────────────
 if [[ -n "$ZIP_SRC" ]]; then
