@@ -67,23 +67,25 @@ cat <<'EOF'
     --helper-only     Target menu bar helper only
     --purge           (uninstall) Also delete voices, outputs, data, logs, venv
     --zip /path       (update) Use extracted zip folder instead of git pull
-    --devbranch       (update) Switch to and pull from the development branch
-    --branch NAME     (update) Switch to and pull from a specific branch
+    --devbranch       Switch to the development branch before running command
+    --branch NAME     Switch to a specific branch before running command
     --help            Show this help
 
   Examples:
-    bash vox.sh                          # interactive menu
-    bash vox.sh install                  # install with prompts
-    bash vox.sh install --yes            # install, no prompts, skip token
-    bash vox.sh install --token hf_xxx  # install with HF token, no prompt
+    bash vox.sh                              # interactive menu
+    bash vox.sh install                      # install with prompts
+    bash vox.sh install --yes                # install, no prompts, skip token
+    bash vox.sh install --token hf_xxx      # install with HF token, no prompt
     bash vox.sh install --yes --token hf_xxx
-    bash vox.sh update                   # pull current branch
-    bash vox.sh update --devbranch       # switch to development branch and pull
-    bash vox.sh update --branch main     # switch back to main
+    bash vox.sh install --devbranch          # install from development branch
+    bash vox.sh update                       # pull current branch
+    bash vox.sh update --devbranch           # switch to development and pull
+    bash vox.sh update --branch main         # switch back to main and pull
     bash vox.sh update --zip ~/Downloads/codename-vox-main
     bash vox.sh uninstall
-    bash vox.sh uninstall --purge        # remove everything including data
-    bash vox.sh uninstall --yes --purge  # no confirmation
+    bash vox.sh uninstall --devbranch        # uninstall using development scripts
+    bash vox.sh uninstall --purge            # remove everything including data
+    bash vox.sh uninstall --yes --purge      # no confirmation
 
 EOF
 }
@@ -115,6 +117,19 @@ confirm() {
     read -r reply
     [[ "$reply" =~ ^[Yy]$ ]]
 }
+
+# ── Branch switch (applies to all commands) ───────────────────────────────────
+if [[ -n "$OPT_BRANCH" ]]; then
+    if git -C "$ROOT" rev-parse --git-dir &>/dev/null; then
+        info "Switching to branch: $OPT_BRANCH…"
+        git -C "$ROOT" fetch origin
+        git -C "$ROOT" checkout "$OPT_BRANCH" || fail "Branch '$OPT_BRANCH' not found."
+        success "Now on branch: $OPT_BRANCH"
+        echo ""
+    else
+        warn "--branch / --devbranch has no effect — not a git repository."
+    fi
+fi
 
 # ── Interactive menu (no command given) ───────────────────────────────────────
 if [[ -z "$CMD" ]]; then
@@ -211,8 +226,6 @@ do_update() {
 
     if [[ -n "$OPT_ZIP" ]]; then
         bash "$ROOT/scripts/update.sh" "$OPT_ZIP"
-    elif [[ -n "$OPT_BRANCH" ]]; then
-        bash "$ROOT/scripts/update.sh" --branch "$OPT_BRANCH"
     else
         bash "$ROOT/scripts/update.sh"
     fi
