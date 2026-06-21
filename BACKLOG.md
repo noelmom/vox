@@ -65,6 +65,13 @@ Ideas and improvements to revisit. Not bugs — these are enhancements queued fo
 
 - [x] **CPU and RAM stats** — live metrics shown in the menu, polled every 5s via psutil.
 
+- [ ] **Restart transition state — "🟡 Restarting…"**
+  - When the user clicks ↺ Restart, immediately set title to `"🟡 Vox"` and status item to `"Restarting…"` before the poll cycle confirms anything.
+  - Hold that state for up to ~15s (reasonable worst-case for launchd to stop + start the server).
+  - If health check comes back healthy within the window → transition to `🟢 Running…` as normal.
+  - If the window expires with no healthy response → transition to `🔴 Stopped…` so the user knows something went wrong.
+  - Avoids the confusing jump from Restarting directly to red/Stopped during the normal stop phase of a restart.
+
 - [ ] **GPU / MPS utilization** — `psutil` has no MPS API. Options: parse `powermetrics` (requires sudo, not ideal) or use IOKit via PyObjC (what Stats.app uses). Defer until Swift rewrite investigation is complete — native Swift can access IOKit cleanly.
 
 ---
