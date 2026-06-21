@@ -142,8 +142,8 @@ class VoxHelper(rumps.App):
         running = self._check_server()
         self._running = running
 
-        # Menu bar title
-        self.title = "Vox"
+        # Menu bar title — dot gives at-a-glance status without opening menu
+        self.title = "🟢 Vox" if running else "🔴 Vox"
 
         # Status — green circle when up, red when down
         self._status_item.title = "🟢  Running" if running else "🔴  Stopped"
