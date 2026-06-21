@@ -44,9 +44,10 @@ cp "$ROOT/menubar/vox_helper.py" "$APP_SUPPORT/menubar/vox_helper.py"
 if [[ -f "$PREBUILT_ZIP" ]]; then
     # Use pre-signed bundle from assets/
     echo "[vox-helper] Installing pre-signed VoxHelper.app from assets/…"
-    rm -rf "$APP_BUNDLE"
-    ditto -x -k "$PREBUILT_ZIP" /Applications/
-    xattr -rd com.apple.quarantine "$APP_BUNDLE" 2>/dev/null || true
+    echo "[vox-helper] sudo required to install into /Applications — you may be prompted for your password."
+    sudo rm -rf "$APP_BUNDLE"
+    sudo ditto -x -k "$PREBUILT_ZIP" /Applications/
+    sudo xattr -rd com.apple.quarantine "$APP_BUNDLE" 2>/dev/null || true
     echo "[vox-helper] ✓ VoxHelper.app installed from pre-signed zip"
 else
     # Compile Swift launcher at install time (dev machine only)
