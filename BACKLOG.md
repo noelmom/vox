@@ -4,6 +4,39 @@ Ideas and improvements to revisit. Not bugs — these are enhancements queued fo
 
 ---
 
+## Quality & Testing Strategy
+
+- [ ] **Decide on testing stack and enforce it in CI**
+
+  Nothing is wired up yet. Before cutting a `v1.0` release or accepting external contributions we need a clear answer on each of these:
+
+  **Unit tests (backend)**
+  - Candidates: `pytest` + `pytest-asyncio` for FastAPI route handlers, TTS wrapper, DB helpers.
+  - Mock the Chatterbox model (slow, GPU-dependent) with a fixture that returns a dummy WAV.
+  - Coverage target TBD — recommend ≥80% on `api/` excluding model-loading paths.
+
+  **Integration / end-to-end tests**
+  - Spin up the full FastAPI app with `httpx.AsyncClient` + `ASGITransport` — no network needed.
+  - Key flows to cover: `POST /tts` happy path, bad voice file, missing text, history pagination, voice CRUD.
+  - For the web UI: `playwright` (Python) or `cypress` (JS) — decision deferred; playwright aligns with the existing Python stack.
+
+  **Linting & formatting**
+  - Backend: `ruff` (replaces flake8 + isort + pyupgrade in one tool), `black` for formatting.
+  - Frontend: `eslint` + `prettier` on `ui/*.html` / `ui/*.js` — or just `prettier` if JS is minimal enough.
+  - Shell scripts: `shellcheck` on everything in `scripts/`.
+
+  **Pre-commit hooks**
+  - `pre-commit` framework with hooks for ruff, black, shellcheck, and a secret-scanner (e.g. `detect-secrets`) to make sure `.env` tokens can never slip into a commit.
+
+  **CI pipeline**
+  - GitHub Actions on push to `main` and on all PRs (once PR workflow is adopted).
+  - Jobs: lint → unit tests → (optional) e2e tests against a mocked model.
+  - Block merge if any job fails.
+
+  **Decision needed:** agree on the above stack, then implement in a dedicated PR before adding more features.
+
+---
+
 ## Logging & Observability
 
 - [ ] **Capture User-Agent in logs and DB**
