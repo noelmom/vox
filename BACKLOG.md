@@ -65,6 +65,11 @@ Ideas and improvements to revisit. Not bugs — these are enhancements queued fo
 
 - [x] **CPU and RAM stats** — live metrics shown in the menu, polled every 5s via psutil.
 
+- [ ] **Update `setup.sh` post-install instructions**
+  - After requirements are installed, `setup.sh` still prints the old "run `bash run.sh`" instructions.
+  - Should be updated to direct users to `bash scripts/install-agent.sh` and `bash scripts/install-helper.sh` instead.
+  - Also verify any other references to the old `run.sh` path (was root, now `scripts/run.sh`) are corrected in the printed output.
+
 - [ ] **Restart transition state — "🟡 Restarting…"**
   - When the user clicks ↺ Restart, immediately set title to `"🟡 Vox"` and status item to `"Restarting…"` before the poll cycle confirms anything.
   - Hold that state for up to ~15s (reasonable worst-case for launchd to stop + start the server).
