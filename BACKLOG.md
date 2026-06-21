@@ -220,6 +220,8 @@ Ideas and improvements to revisit. Not bugs — these are enhancements queued fo
 
 ## Landing Page
 
+- [ ] **Increase nav and footer text contrast** — nav links (`--text-2: #6E6E73`) and footer copy/links (`--text-3: #AEAEB2`) are too light on some screens. Darken `--text-2` and `--text-3` in `ui/css/vox.css`, or override specifically in `ui/index.html` for the nav and footer elements. Target WCAG AA contrast ratio (4.5:1) against the page background.
+
 - [ ] **Smooth scroll navigation** — nav links animate to each section instead of jumping. `scroll-behavior: smooth` baseline + JS easing curve. Active link highlight updates as user scrolls past sections.
 
 ---
