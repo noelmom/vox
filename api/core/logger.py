@@ -25,6 +25,10 @@ def setup_logging():
     root.addHandler(handler)
     root.setLevel(logging.INFO)
 
+    # Suppress chatty third-party INFO logs that aren't actionable
+    logging.getLogger("httpx").setLevel(logging.WARNING)
+    logging.getLogger("httpcore").setLevel(logging.WARNING)
+
 
 def get_logger(name: str) -> logging.Logger:
     return logging.getLogger(name)
