@@ -20,58 +20,43 @@ Ideas and improvements to revisit. Not bugs — these are enhancements queued fo
 
 ## Web UI
 
-- [ ] Text input with preset selector
-- [ ] Job history with audio playback
-- [ ] Live generation status
-
-- [ ] **In-browser voice profile recording**
-  - Display a Vox calibration script (phonetically rich, ~30–60 seconds at relaxed pace) as a reading prompt on screen
-  - Use `MediaRecorder` API + `getUserMedia` — no library needed, works in all modern browsers
-  - UX flow: mic permission request → sample script displayed → Record button → live waveform visualizer (Web Audio API `AnalyserNode`) → Stop → playback preview → Name + submit
-  - On submit, recorded blob is posted directly to the existing `POST /voices` endpoint — no new server-side work needed
-  - ffmpeg already handles WebM/Opus → WAV conversion on ingest; just need to add `audio/webm` to `INGESTABLE_EXTENSIONS` in `api/core/audio.py`
-  - **Edge cases to handle:**
-    - Safari/iOS outputs a different container format — test separately
-    - Low mic gain / background noise check before accepting (basic RMS level check in Web Audio API)
-    - Re-record flow without page reload
-  - **Calibration script:** needs to be written — phonetically diverse, natural cadence, no tongue twisters. Should feel like reading a short news segment. Draft and store as a constant so it can be tweaked without touching UI code.
-  - **Effort estimate:** ~1 day for recording + upload flow; UX polish (waveform, countdown, re-record, gain check) is additional
-
-- [ ] Voice upload and profile management (drag & drop + file picker fallback)
+- [x] Text input with preset selector
+- [x] Job history with audio playback
+- [x] In-browser voice profile recording (MediaRecorder + live waveform)
+- [x] Voice upload and profile management (drag & drop + file picker)
+- [x] Custom tone panel (sliders for all 6 TTS params, localStorage persistence)
 
 ---
 
 ## macOS Menu Bar Helper
 
-- [ ] **System stats overlay — GPU, CPU, memory at a glance**
-  - Live metrics panel in the menu bar popover: GPU usage, CPU usage, and RAM — similar to iStatistica / Stats but purpose-built for Vox.
-  - Should feel native macOS: SF Symbols, translucent material background, compact layout.
-  - Show inference-specific context when a generation is running (e.g. MPS utilization spike, memory pressure).
-  - Reference aesthetic: modern macOS utility apps like TopNotch, Stats, or usage.app — not the older "Windows task manager" style.
+- [x] **CPU and RAM stats** — live metrics shown in the menu, polled every 5s via psutil.
+
+- [ ] **GPU / MPS utilization** — `psutil` has no MPS API. Options: parse `powermetrics` (requires sudo, not ideal) or use IOKit via PyObjC (what Stats.app uses). Defer until Swift rewrite investigation is complete — native Swift can access IOKit cleanly.
 
 ---
 
 ## Packaging & Distribution
 
-- [x] **LaunchAgent foundation** — `launchagent/com.melolabdev.vox.plist` + `scripts/install-agent.sh` / `uninstall-agent.sh`. Registers the server with macOS launchd for managed start/stop/crash-restart. Currently **manual-start only** (`RunAtLoad = false`).
+- [x] **LaunchAgent — server** — `launchagent/com.melolabdev.vox.plist`. Manual start, crash-restart, logs to `~/Library/Logs/VoxForge/`.
+- [x] **LaunchAgent — menu bar helper** — `launchagent/com.melolabdev.vox-helper.plist`. Auto-starts on login.
+- [x] **macOS menu bar helper (rumps)** — status dot, CPU/RAM, server control, copy address, open browser, view logs.
 
-- [ ] **Auto-launch on login** — when the one-click `.app` is ready to ship, change `RunAtLoad` from `<false/>` to `<true/>` in `launchagent/com.melolabdev.vox.plist` and re-run `scripts/install-agent.sh`. That single line change is the only thing needed for login auto-start.
+- [ ] **Fix LaunchAgent display name ("env")** — macOS Login Items shows `env` because `ProgramArguments` starts with `/usr/bin/env`. Fix: replace with `/bin/bash scripts/run.sh` directly. Do before public release.
 
-- [ ] **Fix LaunchAgent display name ("env")** — macOS Login Items / System Settings shows `env` as the agent name because `ProgramArguments` starts with `/usr/bin/env`. The fix is to replace `/usr/bin/env bash scripts/run.sh` with `/bin/bash scripts/run.sh` directly (or point to the venv Python binary for the packaged app) so macOS reads a recognisable name instead of the env shim. Should be done before public release so users don't see "Item from unidentified developer — env" in System Settings.
+- [ ] **Auto-launch on login (server)** — flip `RunAtLoad` from `<false/>` to `<true/>` in `launchagent/com.melolabdev.vox.plist` when shipping the `.app`. Helper already auto-starts.
 
-- [x] **macOS menu bar helper (rumps)** — `menubar/vox_helper.py`. Shows server status dot, CPU %, RAM used/total, hostname:port, Start/Stop/Restart via launchctl, Open in Browser, View Logs. Auto-starts on login via `com.melolabdev.vox-helper` LaunchAgent. Install with `bash scripts/install-helper.sh`.
+- [ ] **Investigate rewrite in Swift (native macOS)** — rumps works well for v1 but Swift would give: NSPopover with richer UI, SF Symbols, real IOKit GPU stats, tighter macOS integration, single signed binary. Key decision: macOS-only forever (go Swift) or cross-platform later (keep Python). Not a production blocker.
 
-- [ ] **Investigate rewrite in Swift (native macOS)** — rumps is Python and works well for v1, but a native Swift menu bar app would give: proper NSPopover with richer UI, SF Symbols, real GPU/IOKit stats, tighter macOS integration, and a single signed binary. Not a production blocker — evaluate when approaching public release. Key question: does the team want macOS-only forever (Swift makes sense) or cross-platform later (keep Python).
-- [ ] One-click `.app` packaging (PyInstaller or py2app)
-- [ ] Default `VOX_HOST` to `127.0.0.1` once packaged as a macOS app
+- [ ] **One-click `.app` packaging** — PyInstaller or py2app. Bundle Python, venv, and the server into a single distributable app.
 
-- [ ] **Code signing & notarization** — Apple Developer certificate required before public release.
-  - Sign the `.app` bundle with `codesign` using a Developer ID Application certificate
-  - Sign the LaunchAgent plist / helper binary separately if distributed outside the app bundle
-  - Submit to Apple for notarization with `notarytool` (replaces the deprecated `altool`)
-  - Staple the notarization ticket with `stapler` so the app passes Gatekeeper offline
-  - **Why it matters:** without signing, every user sees "unidentified developer" and must manually allow the app in System Settings. Without notarization, macOS Sequoia and later may block the app entirely on first launch.
-  - **Prerequisite:** enroll in the Apple Developer Program ($99/year) and generate a Developer ID Application certificate in Xcode → Settings → Accounts.
+- [ ] **Default `VOX_HOST` to `127.0.0.1`** once packaged as a macOS app.
+
+- [ ] **Code signing & notarization** — Apple Developer ID certificate required before public release.
+  - Sign `.app` bundle with `codesign`
+  - Submit to Apple with `notarytool`, staple with `stapler`
+  - Without this: every user sees "unidentified developer" and Sequoia may block launch entirely.
+  - Prerequisite: Apple Developer Program ($99/year).
 
 ---
 
@@ -84,45 +69,26 @@ Ideas and improvements to revisit. Not bugs — these are enhancements queued fo
   | Notation | Example | Result |
   |----------|---------|--------|
   | `*word*` | `*coughing*` | ❌ Says the word literally |
-  | `*word word*` | `*cough cough*` | ❌ Says the words literally |
   | `(description)` | `(clears throat)` | ✅ Some effect observed |
   | `[description]` | `[clears throat]` | ✅ Some effect observed |
-  | Natural ellipsis | `Uh... excuse me...` | ✅ Works — natural spoken hesitation |
-  | Natural ellipsis | `Hmm... let me reset` | ✅ Works |
-  | Standalone | `Ahem...` | ✅ Partial — produces a sound, not a full cough |
-  | Descriptive prose | `Coughing softly...` | ⚠️ Uncertain — reads as narration |
-  | Third-person | `He clears his throat.` | ⚠️ Likely reads literally |
+  | Natural ellipsis | `Uh... excuse me...` | ✅ Works |
+  | Standalone | `Ahem...` | ✅ Partial |
 
-  **Key findings:**
-  - `*asterisk*` notation is read aloud verbatim — Chatterbox does not treat it as a stage direction
-  - Bracket/paren notation `()` and `[]` appears to have more influence on prosody
-  - Natural written hesitation (`Uh...`, `Hmm...`, `Ahem...`) is the most reliable approach
-  - Explicit cough sounds are the hardest — the model says "coughing" rather than producing the sound
-
-  **Next steps:**
-  - Pre-process text before sending to Chatterbox: strip `*...*` wrappers, normalize to the best-performing notation
-  - Build a cue dictionary mapping intent → best notation (e.g. `cough` → `Ahem...` or `[clears throat]`)
-  - Investigate whether phoneme injection or SSML-like tags could force specific sounds
-  - Consider generating non-verbal sounds as separate audio clips and splicing them in post (ffmpeg concat) for sounds the model can't produce natively
+  **Next steps:** pre-process text to normalise to best-performing notation; build a cue dictionary; investigate phoneme injection or ffmpeg audio splicing for sounds the model can't produce natively.
 
 ---
 
 ## Tone Profiles
 
-- [ ] **Custom tone with parameter panel**
-  - Add a "Custom" tone pill in the Generate toolbar that opens an inline panel
-  - Panel exposes: `exaggeration`, `cfg_weight`, `temperature`, `repetition_penalty`, `top_p`, `min_p` as sliders/inputs
-  - Users can save a custom tone as a named profile (stored in DB alongside presets)
-  - Custom profiles appear as pills alongside built-in tones (default, youtube, hype, news)
-  - Deletion allowed for any custom profile — built-in tones are protected and cannot be deleted
-  - API side: new endpoints `POST /tones`, `DELETE /tones/{name}` backed by a `tones` table
-  - Seeded built-in tones remain read-only (flagged with `is_builtin=1` in DB)
+- [x] **Custom tone with parameter panel** — "✦ Custom" pill opens inline panel with sliders for all 6 TTS params. Validates on save, persists to `localStorage`, collapses/expands without losing selection.
+
+- [ ] **Named custom tone profiles** — save and delete named custom tones (stored in DB). Custom profiles appear as pills alongside built-ins. Built-in tones protected from deletion (`is_builtin=1`). Requires `POST /tones` and `DELETE /tones/{name}` endpoints.
 
 ---
 
 ## Landing Page
 
-- [ ] **Smooth scroll navigation** — when clicking nav links (Security, How it works, API, Features) the page should animate smoothly to each section instead of jumping. Add `scroll-behavior: smooth` as a baseline and layer a JS-driven scroll with a custom easing curve (ease-in-out cubic) for a premium feel. Consider adding a subtle progress indicator or active link highlight that updates as the user scrolls past each section.
+- [ ] **Smooth scroll navigation** — nav links animate to each section instead of jumping. `scroll-behavior: smooth` baseline + JS easing curve. Active link highlight updates as user scrolls past sections.
 
 ---
 
@@ -130,36 +96,30 @@ Ideas and improvements to revisit. Not bugs — these are enhancements queued fo
 
 - [ ] **Decide where to surface settings editing — web UI or menu bar helper**
 
-  The Settings screen in the web app is currently read-only. Two options:
+  **Option A — Web app Settings tab:** editable fields + `PATCH /settings` endpoint writes back to `.env`. "Restart required" banner + button for host/port/device changes.
 
-  **Option A — Web app Settings tab:** Add editable fields for TTL, max chars, device, host/port. A `PATCH /settings` endpoint writes back to `.env` and reloads in-memory config. Settings that require a restart (host, port, device) show a "Restart required" banner with a Restart button that calls `launchctl kickstart` on the server agent. Fits naturally where users already look for settings.
+  **Option B — Menu bar helper:** Settings submenu in rumps, or a proper Preferences window if rewriting in Swift.
 
-  **Option B — Menu bar helper:** Add a Settings submenu or panel to the rumps helper. Closer to how native macOS utilities expose preferences. Could eventually become a proper Preferences window if we rewrite in Swift. Less discoverable for new users who find the web UI first.
-
-  **Recommendation when deciding:** if the Swift rewrite is happening, hold off and do it natively there. If staying with rumps long-term, the web UI is the better surface — it already has the layout and the user is already looking at a settings screen.
+  **Recommendation:** if Swift rewrite is happening, hold off and do it natively. If staying with rumps, the web UI Settings tab is the better surface.
 
 ---
 
 ## Dark Mode
 
-- [ ] **Dark theme** — the original sketch used a dark background and it looked great. Add a full dark mode using CSS custom properties already defined in `vox.css`.
-  - Add dark token overrides in a `[data-theme="dark"]` selector or via `@media (prefers-color-scheme: dark)`
-  - Key surfaces: sidebar, main content, panels, toolbar, player, table — all need dark equivalents
-  - Offer a manual toggle (moon/sun icon in the sidebar footer) that persists to `localStorage`, with system preference as the default
-  - Code blocks and the API snippet already look great dark — keep them as-is
+- [ ] **Dark theme** — CSS custom properties already in `vox.css`. Add `[data-theme="dark"]` overrides, manual toggle (moon/sun icon in sidebar footer) persisting to `localStorage`, system preference as default.
 
 ---
 
 ## History Table
 
-- [ ] **Column visibility toggle** — let users show/hide columns (e.g. hide RTF, Duration) via a "Columns" dropdown. Persist preference in localStorage.
-- [ ] **CSV export** — download the current filtered view as a CSV file. Button in the topbar actions next to Refresh.
+- [ ] **Column visibility toggle** — show/hide columns via a "Columns" dropdown. Persist to localStorage.
+- [ ] **CSV export** — download current filtered view. Button in topbar next to Refresh.
 
 ---
 
 ## Maintenance & Memory
 
-- [ ] **Prune old job rows from SQLite** — the cleanup task deletes output *files* after the TTL but leaves DB rows forever. After months of heavy use the `jobs` table could grow into tens of thousands of rows causing query slowdown. Add a `DELETE FROM jobs WHERE created_at < datetime('now', '-30 days')` step to the existing cleanup loop, configurable via `VOX_JOB_RETENTION_DAYS` (default 30). Not urgent until the table exceeds ~100k rows but worth doing before public release.
+- [ ] **Prune old job rows from SQLite** — cleanup task deletes output files but DB rows accumulate forever. Add `DELETE FROM jobs WHERE created_at < datetime('now', '-30 days')` to the cleanup loop, configurable via `VOX_JOB_RETENTION_DAYS` (default 30).
 
 ---
 
@@ -167,4 +127,4 @@ Ideas and improvements to revisit. Not bugs — these are enhancements queued fo
 
 - [ ] Streaming audio response (chunked transfer encoding)
 - [ ] Concurrent generation queue (replace single `asyncio.Lock` with a worker pool)
-- [ ] Voice profile tagging and search
+- [ ] Server-sent events for real-time generation progress
