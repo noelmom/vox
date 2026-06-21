@@ -1,7 +1,6 @@
 #!/bin/bash
 # Install the Vox server LaunchAgent.
-# If assets/Vox.dmg exists (signed build), installs VoxServer.app to APP_SUPPORT.
-# Falls back to running bash run.sh directly when no DMG is present.
+# Installs VoxServer.app from assets/Vox.dmg to APP_SUPPORT.
 set -eo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -14,15 +13,16 @@ LABEL="com.melolabdev.vox"
 DMG="$ROOT/assets/Vox.dmg"
 MOUNT_POINT="/tmp/vox-dmg-install"
 
-echo "[vox] Installing server LaunchAgent…"
+echo "[vox] Installing server LaunchAgent..."
 
-[[ -f "$VENV/bin/python3" ]] || { echo "[vox] ✗ Venv not found — run bash vox.sh install first."; exit 1; }
+[[ -f "$VENV/bin/python3" ]] || { echo "[vox] x Venv not found — run bash vox.sh install first."; exit 1; }
+[[ -f "$DMG" ]]              || { echo "[vox] x Vox.dmg not found — run bash scripts/build-apps.sh first."; exit 1; }
 
 # ── Ensure directories ────────────────────────────────────────────────────────
 mkdir -p "$AGENTS_DIR" "$LOG_DIR" "$APP_SUPPORT"/{api,ui,scripts,voices,outputs,data,input/processed}
 
-# ── Sync server code and UI to permanent location ─────────────────────────────
-echo "[vox] Syncing server code to Application Support…"
+# ── Sync server code and UI ───────────────────────────────────────────────────
+echo "[vox] Syncing server code to Application Support..."
 rsync -a --delete "$ROOT/api/" "$APP_SUPPORT/api/"
 rsync -a --delete "$ROOT/ui/"  "$APP_SUPPORT/ui/"
 
@@ -42,24 +42,16 @@ exec "$VENV/bin/uvicorn" api.main:app --host "$HOST" --port "$PORT"
 RUNSCRIPT
 chmod +x "$APP_SUPPORT/scripts/run.sh"
 
-# ── Install VoxServer.app from DMG or fall back to direct bash ────────────────
-if [[ -f "$DMG" ]]; then
-    echo "[vox] DMG found — installing VoxServer.app to $APP_SUPPORT..."
-    mkdir -p "$MOUNT_POINT"
-    hdiutil attach "$DMG" -nobrowse -quiet -mountpoint "$MOUNT_POINT"
-    rm -rf "$APP_SUPPORT/VoxServer.app"
-    cp -r "$MOUNT_POINT/VoxServer.app" "$APP_SUPPORT/VoxServer.app"
-    hdiutil detach "$MOUNT_POINT" -quiet
-    rm -df "$MOUNT_POINT"
-    echo "[vox] VoxServer.app installed to $APP_SUPPORT"
-    PROGRAM_ARG="$APP_SUPPORT/VoxServer.app/Contents/MacOS/vox-server"
-else
-    echo "[vox] No DMG found — using bash run.sh directly (run build-apps.sh to build signed app)"
-    PROGRAM_ARG="/bin/bash"
-fi
+# ── Install VoxServer.app from DMG ───────────────────────────────────────────
+echo "[vox] Installing VoxServer.app from Vox.dmg..."
+mkdir -p "$MOUNT_POINT"
+hdiutil attach "$DMG" -nobrowse -quiet -mountpoint "$MOUNT_POINT"
+rm -rf "$APP_SUPPORT/VoxServer.app"
+cp -r "$MOUNT_POINT/VoxServer.app" "$APP_SUPPORT/VoxServer.app"
+hdiutil detach "$MOUNT_POINT" -quiet
+rm -df "$MOUNT_POINT"
 
 # ── Write LaunchAgent plist ───────────────────────────────────────────────────
-if [[ "$PROGRAM_ARG" == "/bin/bash" ]]; then
 cat > "$PLIST_DST" <<EOF
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -67,8 +59,7 @@ cat > "$PLIST_DST" <<EOF
   <key>Label</key><string>$LABEL</string>
   <key>ProgramArguments</key>
   <array>
-    <string>/bin/bash</string>
-    <string>$APP_SUPPORT/scripts/run.sh</string>
+    <string>$APP_SUPPORT/VoxServer.app/Contents/MacOS/vox-server</string>
   </array>
   <key>WorkingDirectory</key><string>$APP_SUPPORT</string>
   <key>StandardOutPath</key><string>$LOG_DIR/vox.log</string>
@@ -85,32 +76,6 @@ cat > "$PLIST_DST" <<EOF
   </dict>
 </dict></plist>
 EOF
-else
-cat > "$PLIST_DST" <<EOF
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0"><dict>
-  <key>Label</key><string>$LABEL</string>
-  <key>ProgramArguments</key>
-  <array>
-    <string>$PROGRAM_ARG</string>
-  </array>
-  <key>WorkingDirectory</key><string>$APP_SUPPORT</string>
-  <key>StandardOutPath</key><string>$LOG_DIR/vox.log</string>
-  <key>StandardErrorPath</key><string>$LOG_DIR/vox-error.log</string>
-  <key>RunAtLoad</key><false/>
-  <key>KeepAlive</key><dict><key>SuccessfulExit</key><false/></dict>
-  <key>ThrottleInterval</key><integer>10</integer>
-  <key>TimeOut</key><integer>120</integer>
-  <key>EnvironmentVariables</key>
-  <dict>
-    <key>VOX_HOST</key><string>0.0.0.0</string>
-    <key>VOX_PORT</key><string>8000</string>
-    <key>VOX_DEVICE</key><string>auto</string>
-  </dict>
-</dict></plist>
-EOF
-fi
 echo "[vox] Plist written to: $PLIST_DST"
 
 # ── Reload LaunchAgent ────────────────────────────────────────────────────────
@@ -122,11 +87,8 @@ launchctl load "$PLIST_DST"
 
 echo ""
 echo "[vox] Server LaunchAgent installed."
-echo ""
 echo "  Start:   launchctl kickstart gui/\$(id -u)/$LABEL"
 echo "  Stop:    launchctl stop gui/\$(id -u)/$LABEL"
-echo "  Restart: launchctl kickstart -k gui/\$(id -u)/$LABEL"
 echo "  Logs:    tail -f $LOG_DIR/vox.log"
+echo "  NOTE: Start the server from the Vox menu bar icon."
 echo ""
-echo "  NOTE: The server does NOT start automatically on login."
-echo "  Start it from the Vox Helper menu bar icon."
