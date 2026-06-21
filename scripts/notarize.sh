@@ -22,7 +22,7 @@ fail()    { echo -e "${RED}[notarize] ✗${RESET} $*"; exit 1; }
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 DMG="$ROOT/assets/Vox.dmg"
-APPLE_ID="noelmormelo@gmail.com"
+APPLE_ID="noelmomelo@mac.com"
 TEAM_ID="S65X5KY399"
 
 # ── Preflight ─────────────────────────────────────────────────────────────────
