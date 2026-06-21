@@ -1298,6 +1298,10 @@ function renderVoices(el, actions) {
             <strong style="color:var(--text-1);">Microphone unavailable</strong><br>
             Recording requires a secure connection (HTTPS). Open this app from a device on the same network using the server's address, or use <strong>Upload File</strong> to upload a Voice Memo instead.
           </div>
+          <div id="rec-no-mic-banner" style="display:none;padding:14px 16px;background:var(--bg-2);border:0.5px solid var(--border);border-radius:8px;color:var(--text-2);font-size:13px;max-width:480px;line-height:1.5;">
+            <strong style="color:var(--text-1);">No microphone detected</strong><br>
+            Connect a USB microphone or headset, then <button id="rec-retry-btn" style="background:none;border:none;color:var(--accent);cursor:pointer;font-size:13px;padding:0;text-decoration:underline;">try again</button>. Alternatively, use <strong>Upload File</strong> to upload a Voice Memo recorded on another device.
+          </div>
           <div id="rec-ui" style="display:grid;grid-template-columns:1fr 1fr;gap:24px;max-width:800px;">
             <div>
               <div class="recorder-zone" id="recorder-zone">
@@ -1500,7 +1504,23 @@ function renderVoices(el, actions) {
     const MAX_SECONDS = 300; // 5 minutes
     const WARN_AT     = 240; // warn at 4:00 remaining = 1 min left
 
-    const recHint = el.querySelector('#rec-hint');
+    const recHint       = el.querySelector('#rec-hint');
+    const recNoMicBanner = el.querySelector('#rec-no-mic-banner');
+    const recRetryBtn   = el.querySelector('#rec-retry-btn');
+    const recUiGrid     = el.querySelector('#rec-ui');
+
+    async function checkMic() {
+      try {
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const hasMic  = devices.some(d => d.kind === 'audioinput');
+        recNoMicBanner.style.display = hasMic ? 'none' : 'block';
+        recUiGrid.style.display      = hasMic ? 'grid' : 'none';
+      } catch (_) {
+        // enumerateDevices failed — show the UI and let getUserMedia surface the real error
+      }
+    }
+    checkMic();
+    recRetryBtn.addEventListener('click', checkMic);
 
     function fmtTime(s) {
       return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
