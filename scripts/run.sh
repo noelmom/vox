@@ -1,7 +1,9 @@
 #!/bin/bash
-# Start the Vox API server manually in the foreground.
-# Use this for development or troubleshooting — not for production.
-# Production: bash scripts/install-agent.sh, then launchctl start com.melolabdev.vox
+# Start the Vox server manually in the foreground (dev / troubleshooting).
+# Uses the permanent venv and .env from Application Support,
+# but serves the API code from this project folder (live reload enabled).
+#
+# For production use: bash scripts/install-agent.sh, then launchctl start com.melolabdev.vox
 set -e
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -14,18 +16,19 @@ if [[ ! -f "$VENV/bin/python" ]]; then
     exit 1
 fi
 
-# Load .env if present
-if [[ -f "$ROOT/.env" ]]; then
+# Load .env from permanent location
+if [[ -f "$APP_SUPPORT/.env" ]]; then
     set -o allexport
-    source "$ROOT/.env"
+    source "$APP_SUPPORT/.env"
     set +o allexport
 fi
 
 HOST="${VOX_HOST:-0.0.0.0}"
 PORT="${VOX_PORT:-8000}"
 
-echo "[vox] Starting on http://${HOST}:${PORT}"
+echo "[vox] Starting (dev mode) on http://${HOST}:${PORT}"
 echo "[vox] API docs: http://localhost:${PORT}/docs"
+echo "[vox] Serving from: $ROOT"
 echo ""
 
 cd "$ROOT"

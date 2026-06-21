@@ -95,7 +95,7 @@ Ideas and improvements to revisit. Not bugs — these are enhancements queued fo
 - [x] **Fix `Python3` label** — `install-helper.sh` creates a `vox-helper → python3` symlink in the venv; helper plist references it by that name so Login Items and Activity Monitor show `vox-helper`.
 
 - [x] **Branding icons — temporary** — `install-helper.sh` builds `VoxHelper.app` at `/Applications/` (permanent — survives project folder deletion) with `Info.plist`, VoxForge icon, and a symlink to the permanent venv. `assets/VoxForge.icns` committed to repo.
-- [x] **Permanent runtime layout** — venv lives at `~/Library/Application Support/VoxForge/venv/`, helper script copied to `~/Library/Application Support/VoxForge/menubar/`. Project folder is source-only; helper survives it being moved or deleted.
+- [x] **Permanent runtime layout** — everything runtime lives at `~/Library/Application Support/VoxForge/`: venv, api code, config/presets, helper script, voices, outputs, data, input, .env. Project folder is source-only. Server and helper both survive the project folder being moved or deleted.
 
 - [ ] **Replace temporary logo before public release**
   - `assets/VoxForge.icns` is a placeholder. The app name "VoxForge" / "Vox" is not finalised.

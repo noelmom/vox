@@ -82,13 +82,22 @@ fi
 PYTHON_VERSION=$("$PYTHON" --version 2>&1)
 success "$PYTHON_VERSION at $PYTHON"
 
-# ── Permanent Application Support directory ───────────────────────────────────
-info "Creating permanent application support directory..."
+# ── Application Support directory structure ───────────────────────────────────
+info "Creating permanent application support directories..."
 mkdir -p "$APP_SUPPORT/venv"
+mkdir -p "$APP_SUPPORT/api"
+mkdir -p "$APP_SUPPORT/config/presets"
 mkdir -p "$APP_SUPPORT/menubar"
+mkdir -p "$APP_SUPPORT/scripts"
+mkdir -p "$APP_SUPPORT/voices"
+mkdir -p "$APP_SUPPORT/outputs"
+mkdir -p "$APP_SUPPORT/data"
+mkdir -p "$APP_SUPPORT/input/processed"
+mkdir -p "$HOME/Library/LaunchAgents"
+mkdir -p "$HOME/Library/Logs/VoxForge"
 success "Application Support: $APP_SUPPORT"
 
-# ── Virtual environment (permanent location) ──────────────────────────────────
+# ── Virtual environment ───────────────────────────────────────────────────────
 VENV="$APP_SUPPORT/venv"
 
 if [[ ! -f "$VENV/bin/python" ]]; then
@@ -96,11 +105,11 @@ if [[ ! -f "$VENV/bin/python" ]]; then
     "$PYTHON" -m venv "$VENV"
 fi
 
-# Symlink .venv in project root → permanent venv (IDE / dev convenience)
+# .venv symlink in project root for IDE / dev convenience
 ln -sfn "$VENV" "$ROOT/.venv"
 
 VENV_PIP="$VENV/bin/pip"
-success "Virtual environment ready at $VENV"
+success "Virtual environment ready"
 
 # ── pip ───────────────────────────────────────────────────────────────────────
 info "Upgrading pip..."
@@ -112,15 +121,21 @@ info "Installing Python dependencies (this may take a few minutes on first run).
 "$VENV_PIP" install -r "$ROOT/requirements.txt"
 success "All Python dependencies installed"
 
-# ── Runtime directories ───────────────────────────────────────────────────────
-info "Creating runtime directories..."
-mkdir -p "$ROOT/voices" "$ROOT/outputs" "$ROOT/input/processed" "$ROOT/data"
-mkdir -p "$HOME/Library/LaunchAgents"
-mkdir -p "$HOME/Library/Logs/VoxForge"
-success "Directories ready"
+# ── Copy server code to permanent location ────────────────────────────────────
+info "Installing server code to Application Support..."
+rsync -a --delete "$ROOT/api/"           "$APP_SUPPORT/api/"
+rsync -a --delete "$ROOT/config/"        "$APP_SUPPORT/config/"
+rsync -a          "$ROOT/menubar/vox_helper.py" "$APP_SUPPORT/menubar/vox_helper.py"
+success "Server code installed"
+
+# ── Copy default voice profile ────────────────────────────────────────────────
+if [[ -f "$ROOT/voices/noelmo-normal.wav" ]] && [[ ! -f "$APP_SUPPORT/voices/noelmo-normal.wav" ]]; then
+    cp "$ROOT/voices/noelmo-normal.wav" "$APP_SUPPORT/voices/noelmo-normal.wav"
+    success "Default voice profile copied"
+fi
 
 # ── .env scaffold ─────────────────────────────────────────────────────────────
-ENV_FILE="$ROOT/.env"
+ENV_FILE="$APP_SUPPORT/.env"
 if [[ ! -f "$ENV_FILE" ]]; then
     info "Creating default .env..."
     cat > "$ENV_FILE" <<'EOF'
@@ -151,10 +166,13 @@ if [[ ! -f "$ENV_FILE" ]]; then
 # NEVER commit this value to git — this file is git-ignored for that reason.
 # HF_TOKEN=hf_your_token_here
 EOF
-    success ".env created (all values commented — defaults apply)"
+    success ".env created at $ENV_FILE"
 else
-    warn ".env already exists, skipping"
+    warn ".env already exists at $ENV_FILE, skipping"
 fi
+
+# Symlink .env in project root for easy access
+ln -sfn "$ENV_FILE" "$ROOT/.env"
 
 # ── Done ──────────────────────────────────────────────────────────────────────
 echo ""
@@ -162,8 +180,9 @@ echo -e "${GREEN}${BOLD}Vox is ready.${RESET}"
 echo ""
 echo "  Next steps:"
 echo ""
-echo "  1. Add your Hugging Face token to .env (recommended):"
-echo "     nano .env   →  uncomment HF_TOKEN=hf_your_token_here"
+echo "  1. Add your Hugging Face token (recommended):"
+echo "     nano \"$APP_SUPPORT/.env\""
+echo "     → uncomment HF_TOKEN=hf_your_token_here"
 echo ""
 echo "  2. Install the server LaunchAgent:"
 echo "     bash scripts/install-agent.sh"

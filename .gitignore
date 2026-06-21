@@ -1,19 +1,18 @@
-.venv/
 __pycache__/
 *.pyc
 *.pyo
+.DS_Store
+
+# Symlinks created by setup.sh pointing into ~/Library/Application Support/VoxForge/
+.venv
+.env
+
+# Runtime data — lives in Application Support, not the project folder
 outputs/
 input/
 data/
-.env
-.DS_Store
-
-# Voice profiles — only the default ships with the repo
 voices/*
 !voices/noelmo-normal.wav
 
 # UI sketches — local design references only
 sketches/
-
-# Symlink created by setup.sh pointing to ~/Library/Application Support/VoxForge/venv
-.venv

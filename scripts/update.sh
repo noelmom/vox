@@ -5,6 +5,7 @@
 # Zip install: bash scripts/update.sh /path/to/new-vox-folder
 #
 # Safe to re-run — install scripts unload before reloading.
+# User data (.env, voices/, outputs/, data/, input/) is never touched.
 set -euo pipefail
 
 BOLD="\033[1m"
@@ -27,7 +28,7 @@ cd "$ROOT"
 
 # ── Verify this is an existing install ────────────────────────────────────────
 if [[ ! -f "$VENV/bin/pip" ]]; then
-    fail "Virtual environment not found at $VENV. Run 'bash setup.sh' first to set up this installation, then use update.sh for future updates."
+    fail "Virtual environment not found at $VENV. Run 'bash setup.sh' first."
 fi
 
 # ── Stop agents before touching files ─────────────────────────────────────────
@@ -35,18 +36,19 @@ info "Stopping agents…"
 launchctl stop com.melolabdev.vox        2>/dev/null || true
 launchctl stop com.melolabdev.vox-helper 2>/dev/null || true
 
-# ── Pull or copy new source files ────────────────────────────────────────────
+# ── Pull or copy new source files ─────────────────────────────────────────────
 if [[ -n "$ZIP_SRC" ]]; then
     [[ -d "$ZIP_SRC" ]] || fail "Source folder not found: $ZIP_SRC"
-    info "Copying files from $ZIP_SRC…"
-    rsync -a --exclude='.env' \
-             --exclude='.venv' \
-             --exclude='data/' \
-             --exclude='voices/' \
-             --exclude='outputs/' \
-             --exclude='input/' \
-             "$ZIP_SRC/" "$ROOT/"
-    success "Files updated from zip"
+    info "Copying source files from $ZIP_SRC…"
+    rsync -a \
+        --exclude='.env' \
+        --exclude='.venv' \
+        --exclude='data/' \
+        --exclude='voices/' \
+        --exclude='outputs/' \
+        --exclude='input/' \
+        "$ZIP_SRC/" "$ROOT/"
+    success "Source files updated from zip"
 elif git -C "$ROOT" rev-parse --git-dir &>/dev/null; then
     BRANCH="$(git rev-parse --abbrev-ref HEAD)"
     info "Pulling latest changes from origin/$BRANCH…"
@@ -60,8 +62,7 @@ elif git -C "$ROOT" rev-parse --git-dir &>/dev/null; then
     fi
 else
     warn "Not a git repo and no source folder provided."
-    warn "Usage (zip install): bash scripts/update.sh /path/to/extracted-vox"
-    warn "Proceeding with dependency sync and agent reinstall only."
+    warn "Proceeding with sync and agent reinstall only."
 fi
 
 # ── Sync Python dependencies ──────────────────────────────────────────────────
@@ -69,11 +70,16 @@ info "Syncing Python dependencies…"
 "$VENV/bin/pip" install --quiet -r "$ROOT/requirements.txt"
 success "Dependencies up to date"
 
-# ── Sync helper script to permanent location ──────────────────────────────────
-info "Syncing helper script to Application Support…"
+# ── Sync code to permanent location (never touches user data) ─────────────────
+info "Syncing server code to Application Support…"
+mkdir -p "$APP_SUPPORT/api"
+mkdir -p "$APP_SUPPORT/config/presets"
 mkdir -p "$APP_SUPPORT/menubar"
-cp "$ROOT/menubar/vox_helper.py" "$APP_SUPPORT/menubar/vox_helper.py"
-success "Helper script updated"
+mkdir -p "$APP_SUPPORT/scripts"
+rsync -a --delete "$ROOT/api/"                  "$APP_SUPPORT/api/"
+rsync -a --delete "$ROOT/config/"               "$APP_SUPPORT/config/"
+rsync -a          "$ROOT/menubar/vox_helper.py" "$APP_SUPPORT/menubar/vox_helper.py"
+success "Code synced"
 
 # ── Re-register agents ────────────────────────────────────────────────────────
 info "Reinstalling server LaunchAgent…"
