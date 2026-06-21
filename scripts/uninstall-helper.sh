@@ -1,7 +1,7 @@
 #!/bin/bash
 # Remove the Vox menu bar helper LaunchAgent and app bundle.
 # Kills the running helper if active, then removes the agent and VoxHelper.app.
-set -euo pipefail
+set -eo pipefail
 
 LABEL="com.melolabdev.vox-helper"
 PLIST_DST="$HOME/Library/LaunchAgents/$LABEL.plist"
@@ -21,11 +21,12 @@ sleep 1
 launchctl unload "$PLIST_DST" 2>/dev/null || true
 rm -f "$PLIST_DST"
 
-# Remove helper script from permanent location
-if [[ -f "$APP_SUPPORT/menubar/vox_helper.py" ]]; then
-    rm -f "$APP_SUPPORT/menubar/vox_helper.py"
-    echo "[vox-helper] Removed helper script from Application Support"
+# Remove VoxHelper.app from /Applications
+if [[ -d "/Applications/VoxHelper.app" ]]; then
+    rm -rf "/Applications/VoxHelper.app"
+    echo "[vox-helper] Removed VoxHelper.app from /Applications"
 fi
+
 
 echo ""
 echo "[vox-helper] Helper uninstalled."

@@ -5,6 +5,23 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [0.4.0-beta] — 2026-06-21
+
+### Changed
+- **VoxHelper rewritten in native Swift** — replaces the Python/rumps/PyObjC helper entirely. Eliminates the quit-then-reopen bug caused by PyObjC teardown hang and macOS Sequoia `NSSceneStatusItem` session context failure. Swift binary uses `NSApplication.terminate(nil)` for clean exit and registers correctly with Launch Services from any launch path.
+- Single-instance lock now uses `fcntl F_SETLK` in Swift (`main.swift`) — non-blocking write lock, OS releases it unconditionally on process exit regardless of how the process dies.
+- `voxhelper/` directory replaces `menubar/vox_helper.py` as the helper source. Four Swift files: `main.swift`, `AppDelegate.swift`, `StatusBarController.swift`, `ServerMonitor.swift`.
+- `scripts/build-apps.sh`: VoxHelper built with `swiftc -target arm64-apple-macos13.0` instead of C launcher + Python script.
+- `scripts/install-helper.sh`: removed venv/pip setup for helper; plist `ProgramArguments` points directly to Swift binary.
+- `scripts/update.sh`, `setup.sh`: removed stale `menubar/` sync steps.
+- `scripts/uninstall-helper.sh`: removes `VoxHelper.app` from `/Applications`.
+
+### Added
+- Intel Mac block in `vox.sh` and `scripts/build-apps.sh` (`uname -m` check — exits with clear error on non-arm64).
+- Server single-instance guard in `scripts/run.sh`: port connectivity check before `exec uvicorn`; exits cleanly if server already running.
+
+---
+
 ## [0.3.1-beta] — 2026-06-21
 
 ### Added

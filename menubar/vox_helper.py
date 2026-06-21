@@ -3,6 +3,7 @@
 Vox menu bar helper.
 Controls the Vox server LaunchAgent and shows live CPU / RAM stats.
 """
+import fcntl
 import json
 import os
 import socket
@@ -216,8 +217,33 @@ class VoxHelper(rumps.App):
 
     def _quit(self, _):
         self._stop_event.set()
-        rumps.quit_application()
+        try:
+            from AppKit import NSStatusBar
+            NSStatusBar.systemStatusBar().removeStatusItem_(self.nsstatusitem)
+        except Exception:
+            pass
+        os._exit(0)
+
+
+def _acquire_instance_lock():
+    """Acquire an exclusive file lock. Returns the open file object (must stay
+    referenced for the lock to hold), or None if another instance owns it."""
+    lock_path = os.path.expanduser("~/Library/Application Support/Vox/.helper.lock")
+    os.makedirs(os.path.dirname(lock_path), exist_ok=True)
+    lock_fd = open(lock_path, "w")
+    try:
+        fcntl.flock(lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        lock_fd.write(str(os.getpid()))
+        lock_fd.flush()
+        return lock_fd
+    except OSError:
+        lock_fd.close()
+        return None
 
 
 if __name__ == "__main__":
+    import sys
+    _lock = _acquire_instance_lock()
+    if _lock is None:
+        sys.exit(0)
     VoxHelper().run()

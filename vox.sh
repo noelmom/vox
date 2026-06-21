@@ -108,6 +108,9 @@ while [[ $# -gt 0 ]]; do
     shift
 done
 
+# ── Architecture check ────────────────────────────────────────────────────────
+[[ "$(uname -m)" == "arm64" ]] || { echo -e "${RED}[vox] ✗ Vox requires Apple Silicon (M1 or later). Intel Macs are not supported.${RESET}"; exit 1; }
+
 # ── Confirm helper ────────────────────────────────────────────────────────────
 confirm() {
     # confirm "message" → returns 0 (yes) or 1 (no)
@@ -121,7 +124,7 @@ confirm() {
 # ── Branch switch (applies to all commands) ───────────────────────────────────
 if [[ -n "$OPT_BRANCH" ]]; then
     if git -C "$ROOT" rev-parse --git-dir &>/dev/null; then
-        info "Switching to branch: $OPT_BRANCH…"
+        info "Switching to branch: $OPT_BRANCH..."
         git -C "$ROOT" fetch origin
         git -C "$ROOT" checkout "$OPT_BRANCH" || fail "Branch '$OPT_BRANCH' not found."
         success "Now on branch: $OPT_BRANCH"
@@ -258,8 +261,7 @@ do_uninstall() {
                "$APP_SUPPORT/venv" \
                "$APP_SUPPORT/api" \
                "$APP_SUPPORT/ui" \
-               "$APP_SUPPORT/menubar" \
-               "$APP_SUPPORT/scripts" \
+"$APP_SUPPORT/scripts" \
                "$APP_SUPPORT/.env" \
                "$HOME/Library/Logs/Vox"
         rmdir "$APP_SUPPORT" 2>/dev/null || true
