@@ -178,6 +178,8 @@ Ideas and improvements to revisit. Not bugs — these are enhancements queued fo
   - **VoxServer.app / VoxHelper.app launchers:** the Swift binary can't show UI, but the underlying process will exit with code 1 and launchd will respect `KeepAlive: SuccessfulExit: false` so it won't loop.
   - Already partially covered by launchd (only one LaunchAgent per label), but direct double-launch of the `.app` bundles is not guarded.
 
+- [ ] **Signed `.pkg` installer for v1.0.0 release** — replace the DMG + `vox.sh` workflow with a single signed and notarized `.pkg` that handles everything: installs `VoxHelper.app` and `VoxServer.app` to `/Applications`, creates the LaunchAgents, sets up the runtime directory, and runs first-time setup. Built with `pkgbuild` + `productbuild`. Requires a Developer ID Installer certificate (separate from Developer ID Application). This is the target distribution format for v1.0.0 — clean one-double-click install with no terminal required.
+
 - [ ] **One-click `.app` packaging** — PyInstaller or py2app. Bundle Python, venv, and the server into a single distributable app.
 
 - [ ] **Default `VOX_HOST` to `127.0.0.1`** once packaged as a macOS app.
