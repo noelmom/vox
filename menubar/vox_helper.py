@@ -32,7 +32,7 @@ class VoxHelper(rumps.App):
         # no-op keeps items "enabled" so macOS renders them in full label color
         _noop = lambda _: None
 
-        self._status_item  = rumps.MenuItem("🔴  Stopped",       callback=_noop)
+        self._status_item  = rumps.MenuItem("Stopped…")
         self._addr_item    = rumps.MenuItem(self._addr_label(),   callback=_noop)
         self._copy_item    = rumps.MenuItem("⎘  Copy Address",   callback=self._copy_address)
         self._open_item    = rumps.MenuItem("↗  Open in Browser", callback=self._open_browser)
@@ -153,7 +153,7 @@ class VoxHelper(rumps.App):
         self.title = "🟢 Vox" if running else "🔴 Vox"
 
         # Status — green circle when up, red when down
-        self._status_item.title = "🟢  Running" if running else "🔴  Stopped"
+        self._status_item.title = "Running…" if running else "Stopped…"
 
         # Address row — always current
         self._addr_item.title = self._addr_label()
