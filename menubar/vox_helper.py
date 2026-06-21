@@ -14,6 +14,7 @@ import webbrowser
 
 import psutil
 import rumps
+from AppKit import NSApp, NSApplicationActivationPolicyAccessory
 
 SERVER_LABEL  = "com.melolabdev.vox"
 POLL_INTERVAL = 5   # seconds between status + stats refresh
@@ -172,4 +173,7 @@ class VoxHelper(rumps.App):
 
 
 if __name__ == "__main__":
-    VoxHelper().run()
+    app = VoxHelper()
+    # Hide from Dock and Cmd+Tab — menu bar only
+    NSApp.setActivationPolicy_(NSApplicationActivationPolicyAccessory)
+    app.run()
