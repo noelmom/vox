@@ -27,11 +27,6 @@ if [[ -d "/Applications/VoxHelper.app" ]]; then
     echo "[vox-helper] Removed VoxHelper.app from /Applications"
 fi
 
-# Remove helper script from permanent location
-if [[ -f "$APP_SUPPORT/menubar/vox_helper.py" ]]; then
-    rm -f "$APP_SUPPORT/menubar/vox_helper.py"
-    echo "[vox-helper] Removed helper script from Application Support"
-fi
 
 echo ""
 echo "[vox-helper] Helper uninstalled."

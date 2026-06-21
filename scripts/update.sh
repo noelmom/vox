@@ -80,11 +80,9 @@ success "Dependencies up to date"
 # ── Sync code to permanent location (never touches user data) ─────────────────
 info "Syncing server code to Application Support…"
 mkdir -p "$APP_SUPPORT/api"
-mkdir -p "$APP_SUPPORT/menubar"
 mkdir -p "$APP_SUPPORT/scripts"
 rsync -a --delete "$ROOT/api/"  "$APP_SUPPORT/api/"
 rsync -a --delete "$ROOT/ui/"   "$APP_SUPPORT/ui/"
-rsync -a          "$ROOT/menubar/vox_helper.py" "$APP_SUPPORT/menubar/vox_helper.py"
 success "Code synced"
 
 # ── Re-register agents ────────────────────────────────────────────────────────

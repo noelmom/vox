@@ -65,8 +65,11 @@ codename-vox/
 ├── outputs/                     # Generated audio files (auto-cleaned by TTL)
 ├── input/                       # Drop audio files here for auto-ingest
 │   └── processed/               # Files moved here after successful ingest
-├── menubar/
-│   └── vox_helper.py            # rumps menu bar helper (status, stats, server control)
+├── voxhelper/
+│   ├── main.swift               # entry point, single-instance lock
+│   ├── AppDelegate.swift        # NSApplicationDelegate lifecycle
+│   ├── StatusBarController.swift # NSStatusItem, menu, all actions
+│   └── ServerMonitor.swift      # health check, .env reader, CPU/RAM stats, launchctl
 ├── launchagent/
 │   ├── com.melolabdev.vox.plist         # Server LaunchAgent template (manual start)
 │   └── com.melolabdev.vox-helper.plist  # Helper LaunchAgent template (auto on login)
@@ -437,7 +440,7 @@ sqlite3 vox.db
 | Job queue | `asyncio.Lock` (single-device serialisation) |
 | Settings | [pydantic-settings](https://docs.pydantic.dev/latest/concepts/pydantic_settings/) |
 | Web UI | Vanilla JS (ES modules), single `app.html` SPA |
-| Menu bar helper | [rumps](https://github.com/jaredks/rumps) + psutil — macOS only |
+| Menu bar helper | Native Swift (AppKit `NSStatusItem`) — arm64 macOS only |
 | Process management | macOS launchd via LaunchAgent plists |
 | Packaging | *(coming soon — PyInstaller or py2app)* |
 
@@ -466,7 +469,7 @@ sqlite3 vox.db
 - [x] Custom tone panel (per-request TTS parameter overrides, localStorage persistence)
 - [x] Generation ETA progress bar
 - [x] Real upload progress (XHR byte-level)
-- [x] macOS menu bar helper (rumps) — status, CPU/RAM, server control, copy address
+- [x] macOS menu bar helper (native Swift) — status, CPU/RAM, server control, copy address
 - [x] LaunchAgent for server (manual start, crash-restart, structured logs)
 - [x] LaunchAgent for helper (auto-starts on login)
 - [ ] Streaming audio response (chunked transfer)
@@ -474,7 +477,7 @@ sqlite3 vox.db
 - [ ] One-click `.app` packaging (PyInstaller / py2app)
 - [ ] Code signing and notarization (Apple Developer ID)
 - [ ] Auto-launch on login (server — helper already auto-starts)
-- [ ] Swift menu bar rewrite investigation (native macOS alternative to rumps)
+- [x] Swift menu bar rewrite — native AppKit, eliminates Python/PyObjC session issues on macOS Sequoia
 - [ ] Public release polish (installer, docs site, demo)
 
 ---

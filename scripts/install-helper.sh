@@ -15,10 +15,9 @@ MOUNT_POINT="/tmp/vox-dmg-install"
 
 echo "[vox-helper] Installing menu bar helper..."
 
-[[ -f "$VENV/bin/python3" ]] || { echo "[vox-helper] x Venv not found — run bash vox.sh install first."; exit 1; }
-[[ -f "$DMG" ]]              || { echo "[vox-helper] x Vox.dmg not found — run bash scripts/build-apps.sh first."; exit 1; }
+[[ -f "$DMG" ]] || { echo "[vox-helper] x Vox.dmg not found — run bash scripts/build-apps.sh first."; exit 1; }
 
-mkdir -p "$AGENTS_DIR" "$LOG_DIR" "$APP_SUPPORT/menubar"
+mkdir -p "$AGENTS_DIR" "$LOG_DIR"
 
 # ── Install VoxHelper.app from DMG ───────────────────────────────────────────
 echo "[vox-helper] Installing VoxHelper.app from Vox.dmg..."

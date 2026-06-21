@@ -261,8 +261,7 @@ do_uninstall() {
                "$APP_SUPPORT/venv" \
                "$APP_SUPPORT/api" \
                "$APP_SUPPORT/ui" \
-               "$APP_SUPPORT/menubar" \
-               "$APP_SUPPORT/scripts" \
+"$APP_SUPPORT/scripts" \
                "$APP_SUPPORT/.env" \
                "$HOME/Library/Logs/Vox"
         rmdir "$APP_SUPPORT" 2>/dev/null || true

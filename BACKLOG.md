@@ -70,7 +70,7 @@ Ideas and improvements to revisit. Not bugs — these are enhancements queued fo
 
 ## macOS Menu Bar Helper
 
-- [x] **CPU and RAM stats** — live metrics shown in the menu, polled every 5s via psutil.
+- [x] **CPU and RAM stats** — live metrics shown in the menu, polled every 5s via host_statistics / vm_statistics64.
 
 - [ ] **Version number and support link in helper menu**
   - Show current version (git tag or short SHA, read at startup) as a non-clickable label near the top of the menu — e.g. `v0.2.0 · build a1b2c3`.
@@ -93,7 +93,7 @@ Ideas and improvements to revisit. Not bugs — these are enhancements queued fo
   - If the window expires with no healthy response → transition to `🔴 Stopped…` so the user knows something went wrong.
   - Avoids the confusing jump from Restarting directly to red/Stopped during the normal stop phase of a restart.
 
-- [ ] **GPU / MPS utilization** — `psutil` has no MPS API. Options: parse `powermetrics` (requires sudo, not ideal) or use IOKit via PyObjC (what Stats.app uses). Defer until Swift rewrite investigation is complete — native Swift can access IOKit cleanly.
+- [ ] **GPU / MPS utilization** — no public API. Options: parse `powermetrics` (requires sudo) or use IOKit (what Stats.app uses). Helper is now native Swift so IOKit access is straightforward when ready.
 
 ---
 
@@ -101,59 +101,15 @@ Ideas and improvements to revisit. Not bugs — these are enhancements queued fo
 
 - [x] **LaunchAgent — server** — `launchagent/com.melolabdev.vox.plist`. Manual start, crash-restart, logs to `~/Library/Logs/Vox/`.
 - [x] **LaunchAgent — menu bar helper** — `launchagent/com.melolabdev.vox-helper.plist`. Auto-starts on login.
-- [x] **macOS menu bar helper (rumps)** — status dot, CPU/RAM, server control, copy address, open browser, view logs.
+- [x] **macOS menu bar helper (native Swift)** — status dot, CPU/RAM, server control, copy address, open browser, view logs.
 
 - [x] **Fix `env` label** — server plist now uses `/bin/bash` directly; Login Items shows `bash` instead of `env`.
-- [x] **Fix `Python3` label** — `install-helper.sh` creates a `vox-helper → python3` symlink in the venv; helper plist references it by that name so Login Items and Activity Monitor show `vox-helper`.
+- [x] **Fix `Python3` label** — helper rewritten in native Swift; shows as "Vox Helper" in Login Items and Activity Monitor.
 
 - [x] **Branding icons — temporary** — `install-helper.sh` builds `VoxHelper.app` at `/Applications/` (permanent — survives project folder deletion) with `Info.plist`, Vox icon, and a symlink to the permanent venv. `assets/Vox.icns` committed to repo.
 - [x] **Permanent runtime layout** — everything runtime lives at `~/Library/Application Support/Vox/`: venv, api code, config/presets, helper script, voices, outputs, data, input, .env. Project folder is source-only. Server and helper both survive the project folder being moved or deleted.
 
-- [x] **Revert helper to signed VoxHelper.app bundle**
-
-  Currently the helper LaunchAgent runs `python3` directly from the permanent venv. This works but shows `Python3` in Login Items with no icon. The `.app` bundle approach (already built, see below) fixes both — but requires a signed binary to work on Sequoia without the `?` icon and auto-launch failure.
-
-  **Prerequisites:**
-  - Apple Developer ID Application certificate installed in Keychain
-  - Team ID from developer.apple.com
-  - App-specific password from appleid.apple.com (for notarytool)
-  - Xcode (full app) for `notarytool` and `stapler`
-
-  **All assets are already in the repo:**
-  - `assets/Vox.icns` — icon (temporary logo, replace before release)
-  - `install-helper.sh` — bundle build logic is preserved in git history (commit `cd1077d`)
-  - `launchagent/com.melolabdev.vox-helper.plist` — just needs ProgramArguments swapped back
-
-  **Steps to revert when certificate is ready:**
-
-  1. Restore bundle build in `install-helper.sh` — re-add the `VoxHelper.app` build block from commit `cd1077d`:
-     ```bash
-     APP_BUNDLE="/Applications/VoxHelper.app"
-     mkdir -p "$APP_BUNDLE/Contents/MacOS" "$APP_BUNDLE/Contents/Resources"
-     cp "$ROOT/assets/Vox.icns" "$APP_BUNDLE/Contents/Resources/Vox.icns"
-     # write Info.plist (CFBundleIdentifier, CFBundleDisplayName, CFBundleIconFile, LSUIElement)
-     ln -sf "$VENV/bin/python3" "$APP_BUNDLE/Contents/MacOS/vox-helper"
-     ```
-
-  2. Update helper plist `ProgramArguments` back to:
-     ```xml
-     <string>/Applications/VoxHelper.app/Contents/MacOS/vox-helper</string>
-     <string>VOX_APP_SUPPORT/menubar/vox_helper.py</string>
-     ```
-
-  3. Sign the bundle:
-     ```bash
-     codesign --deep --force --sign "Developer ID Application: NAME (TEAMID)" /Applications/VoxHelper.app
-     ```
-
-  4. Zip, notarize, and staple:
-     ```bash
-     ditto -c -k --keepParent /Applications/VoxHelper.app VoxHelper.zip
-     xcrun notarytool submit VoxHelper.zip --apple-id EMAIL --team-id TEAMID --password APP_PASSWORD --wait
-     xcrun stapler staple /Applications/VoxHelper.app
-     ```
-
-  5. Re-run `bash scripts/install-helper.sh` — Login Items will show "Vox Helper" with the Vox icon.
+- [x] **Rewrite VoxHelper in native Swift** — replaced Python/rumps with a native AppKit app (`voxhelper/`). Eliminates PyObjC teardown hang, macOS Sequoia NSSceneStatusItem session context issue, and Python3 in Background Apps. Shows "Vox Helper" in Login Items with the Vox icon.
 
 - [ ] **App Background Activity branding in System Settings**
   - Both LaunchAgents currently appear under "Noelmo Melo" (the Developer ID name) with no custom icon in System Settings → General → Login Items & Extensions → App Background Activity.
@@ -172,20 +128,11 @@ Ideas and improvements to revisit. Not bugs — these are enhancements queued fo
 
 - [ ] **Login item toggles in the helper menu** — add "Start Helper at Login" and "Start Server at Login" checkable menu items to VoxHelper. Each reads the current `RunAtLoad` value from the installed plist, reflects it as a checkmark, and toggles it by rewriting the plist + calling `launchctl unload` / `launchctl load`. Useful for users who want to control what runs on startup without touching the terminal.
 
-- [ ] **Investigate rewrite in Swift (native macOS)**
-  - If Swift rewrite is pursued, also evaluate **Mac App Store distribution**:
-    - Requires sandboxing — replace `launchctl` calls with `SMAppService` + XPC
-    - Replace `ProgramArguments`-based LaunchAgents with `SMAppService.register()`
-    - Submit through App Store Connect, subject to Apple review
-    - Discoverability and one-click install for non-technical users
-    - App is free so the 30% revenue cut is irrelevant
-    - Only worth pursuing if the Swift rewrite happens — do not attempt with the current Python/rumps architecture — rumps works well for v1 but Swift would give: NSPopover with richer UI, SF Symbols, real IOKit GPU stats, tighter macOS integration, single signed binary. Key decision: macOS-only forever (go Swift) or cross-platform later (keep Python). Not a production blocker.
+- [ ] **Mac App Store distribution** — requires sandboxing: replace `launchctl` calls with `SMAppService` + XPC, replace LaunchAgent plists with `SMAppService.register()`. Helper is already native Swift so this is the natural next step for public distribution.
 
-- [ ] **Single-instance enforcement** — prevent multiple server or helper processes from running simultaneously.
-  - **Server (`run.sh` / `VoxServer.app`):** write a PID file to `$APP_SUPPORT/vox-server.pid` on start; on startup check if PID exists and process is alive — if so, print "Vox Server is already running (PID $pid). Stop it first: launchctl stop com.melolabdev.vox" and exit 1. Clean up PID file on exit via trap.
-  - **Helper (`vox_helper.py`):** on startup check for another instance via `psutil.process_iter` matching the script path — if found, show a `rumps.alert` "Vox Helper is already running. Only one instance can run at a time." and `sys.exit(1)`.
-  - **VoxServer.app / VoxHelper.app launchers:** the Swift binary can't show UI, but the underlying process will exit with code 1 and launchd will respect `KeepAlive: SuccessfulExit: false` so it won't loop.
-  - Already partially covered by launchd (only one LaunchAgent per label), but direct double-launch of the `.app` bundles is not guarded.
+- [x] **Single-instance enforcement** — VoxHelper uses `fcntl F_SETLK` on `.helper.lock`; OS releases lock on process exit. Server uses port connectivity check in `run.sh` before exec'ing uvicorn.
+
+- [ ] **Single-instance enforcement (server — PID file)** — `run.sh` port check works but a PID file would give cleaner error messages and survive edge cases where the port is in use by another process.
 
 - [ ] **Signed `.pkg` installer for v1.0.0 release** — replace the DMG + `vox.sh` workflow with a single signed and notarized `.pkg` that handles everything: installs `VoxHelper.app` and `VoxServer.app` to `/Applications`, creates the LaunchAgents, sets up the runtime directory, and runs first-time setup. Built with `pkgbuild` + `productbuild`. Requires a Developer ID Installer certificate (separate from Developer ID Application). This is the target distribution format for v1.0.0 — clean one-double-click install with no terminal required.
 
