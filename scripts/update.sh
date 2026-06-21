@@ -52,15 +52,19 @@ if [[ -n "$ZIP_SRC" ]]; then
         "$ZIP_SRC/" "$ROOT/"
     success "Source files updated from zip"
 elif git -C "$ROOT" rev-parse --git-dir &>/dev/null; then
-    BRANCH="$(git rev-parse --abbrev-ref HEAD)"
-    info "Pulling latest changes from origin/$BRANCH…"
-    BEFORE="$(git rev-parse --short HEAD)"
-    git pull origin "$BRANCH"
-    AFTER="$(git rev-parse --short HEAD)"
-    if [[ "$BEFORE" == "$AFTER" ]]; then
-        warn "Already up to date ($AFTER) — reinstalling agents anyway."
+    BRANCH="$(git -C "$ROOT" rev-parse --abbrev-ref HEAD 2>/dev/null || echo "")"
+    if [[ -z "$BRANCH" ]]; then
+        warn "Could not determine git branch — skipping pull."
     else
-        success "Updated $BEFORE → $AFTER"
+        info "Pulling latest changes from origin/$BRANCH…"
+        BEFORE="$(git -C "$ROOT" rev-parse --short HEAD 2>/dev/null || echo "unknown")"
+        git -C "$ROOT" pull origin "$BRANCH"
+        AFTER="$(git -C "$ROOT" rev-parse --short HEAD 2>/dev/null || echo "unknown")"
+        if [[ "$BEFORE" == "$AFTER" ]]; then
+            warn "Already up to date ($AFTER) — reinstalling agents anyway."
+        else
+            success "Updated $BEFORE → $AFTER"
+        fi
     fi
 else
     warn "Not a git repo and no source folder provided."
@@ -94,7 +98,7 @@ echo ""
 echo -e "${GREEN}${BOLD}Vox updated successfully.${RESET}"
 echo ""
 if git -C "$ROOT" rev-parse --git-dir &>/dev/null; then
-    echo "  Branch:  $(git rev-parse --abbrev-ref HEAD)"
-    echo "  Version: $(git rev-parse --short HEAD)"
+    echo "  Branch:  $(git -C "$ROOT" rev-parse --abbrev-ref HEAD 2>/dev/null || echo "unknown")"
+    echo "  Version: $(git -C "$ROOT" rev-parse --short HEAD 2>/dev/null || echo "unknown")"
 fi
 echo ""
