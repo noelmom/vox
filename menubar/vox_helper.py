@@ -64,18 +64,21 @@ class VoxHelper(rumps.App):
         self._running = False
         self._poll()
 
-        # Hide from Dock and Cmd+Tab after the run loop starts
-        threading.Timer(0.5, self._hide_dock_icon).start()
+        # Hide from Dock and Cmd+Tab — must fire on the main run loop,
+        # so use rumps.Timer (not threading.Timer which is a background thread)
+        self._dock_timer = rumps.Timer(self._hide_dock_icon, 0.5)
+        self._dock_timer.start()
 
     # ── Helpers ───────────────────────────────────────────────────────────
 
-    def _hide_dock_icon(self):
+    def _hide_dock_icon(self, timer):
         try:
             NSApplication.sharedApplication().setActivationPolicy_(
                 NSApplicationActivationPolicyAccessory
             )
         except Exception:
             pass
+        timer.stop()
 
     def _read_env(self):
         host, port = "0.0.0.0", "8000"
