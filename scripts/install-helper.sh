@@ -2,7 +2,7 @@
 # Install the Vox menu bar helper as a LaunchAgent.
 # If assets/Vox.dmg exists (signed build), installs VoxHelper.app to /Applications.
 # Falls back to running python3 directly from the venv when no DMG is present.
-set -euo pipefail
+set -eo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 APP_SUPPORT="$HOME/Library/Application Support/Vox"
@@ -25,7 +25,7 @@ echo "[vox-helper] Installing Python dependencies (rumps, psutil)…"
 "$VENV/bin/pip" install --quiet rumps psutil pyobjc-framework-Cocoa
 
 # ── Copy helper script to permanent location ──────────────────────────────────
-echo "[vox-helper] Copying helper script to $APP_SUPPORT/menubar/…"
+echo "[vox-helper] Copying helper script to $APP_SUPPORT/menubar/..."
 cp "$ROOT/menubar/vox_helper.py" "$APP_SUPPORT/menubar/vox_helper.py"
 
 # ── Install VoxHelper.app from DMG or fall back to direct python3 ─────────────

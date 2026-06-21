@@ -2,7 +2,7 @@
 # Install the Vox server LaunchAgent.
 # If assets/Vox.dmg exists (signed build), installs VoxServer.app to APP_SUPPORT.
 # Falls back to running bash run.sh directly when no DMG is present.
-set -euo pipefail
+set -eo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 APP_SUPPORT="$HOME/Library/Application Support/Vox"
@@ -44,7 +44,7 @@ chmod +x "$APP_SUPPORT/scripts/run.sh"
 
 # ── Install VoxServer.app from DMG or fall back to direct bash ────────────────
 if [[ -f "$DMG" ]]; then
-    echo "[vox] DMG found — installing VoxServer.app to $APP_SUPPORT…"
+    echo "[vox] DMG found — installing VoxServer.app to $APP_SUPPORT..."
     mkdir -p "$MOUNT_POINT"
     hdiutil attach "$DMG" -nobrowse -quiet -mountpoint "$MOUNT_POINT"
     rm -rf "$APP_SUPPORT/VoxServer.app"

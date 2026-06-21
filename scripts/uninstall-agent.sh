@@ -1,7 +1,7 @@
 #!/bin/bash
 # Remove the Vox server LaunchAgent.
 # Kills the running server if active, then removes the agent and VoxServer.app.
-set -euo pipefail
+set -eo pipefail
 
 LABEL="com.melolabdev.vox"
 PLIST_DST="$HOME/Library/LaunchAgents/$LABEL.plist"

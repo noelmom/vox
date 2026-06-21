@@ -121,7 +121,7 @@ confirm() {
 # ── Branch switch (applies to all commands) ───────────────────────────────────
 if [[ -n "$OPT_BRANCH" ]]; then
     if git -C "$ROOT" rev-parse --git-dir &>/dev/null; then
-        info "Switching to branch: $OPT_BRANCH…"
+        info "Switching to branch: $OPT_BRANCH..."
         git -C "$ROOT" fetch origin
         git -C "$ROOT" checkout "$OPT_BRANCH" || fail "Branch '$OPT_BRANCH' not found."
         success "Now on branch: $OPT_BRANCH"

@@ -42,7 +42,7 @@ sleep 2
 BRANCH=""
 if [[ -n "$ZIP_SRC" ]]; then
     [[ -d "$ZIP_SRC" ]] || fail "Source folder not found: $ZIP_SRC"
-    info "Copying source files from $ZIP_SRC…"
+    info "Copying source files from $ZIP_SRC..."
     rsync -a \
         --exclude='.env' \
         --exclude='.venv' \
@@ -57,7 +57,7 @@ elif git -C "$ROOT" rev-parse --git-dir &>/dev/null; then
     if [[ -z "$BRANCH" ]]; then
         warn "Could not determine git branch — skipping pull."
     else
-        info "Pulling latest changes from origin/$BRANCH…"
+        info "Pulling latest changes from origin/$BRANCH..."
         BEFORE="$(git -C "$ROOT" rev-parse --short HEAD 2>/dev/null || echo "unknown")"
         git -C "$ROOT" pull origin "$BRANCH"
         AFTER="$(git -C "$ROOT" rev-parse --short HEAD 2>/dev/null || echo "unknown")"
