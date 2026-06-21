@@ -21,6 +21,12 @@ sleep 1
 launchctl unload "$PLIST_DST" 2>/dev/null || true
 rm -f "$PLIST_DST"
 
+# Remove VoxHelper.app from /Applications
+if [[ -d "/Applications/VoxHelper.app" ]]; then
+    rm -rf "/Applications/VoxHelper.app"
+    echo "[vox-helper] Removed VoxHelper.app from /Applications"
+fi
+
 # Remove helper script from permanent location
 if [[ -f "$APP_SUPPORT/menubar/vox_helper.py" ]]; then
     rm -f "$APP_SUPPORT/menubar/vox_helper.py"

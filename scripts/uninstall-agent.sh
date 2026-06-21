@@ -21,6 +21,12 @@ sleep 1
 launchctl unload "$PLIST_DST" 2>/dev/null || true
 rm -f "$PLIST_DST"
 
+# Remove VoxServer.app from Application Support
+if [[ -d "$APP_SUPPORT/VoxServer.app" ]]; then
+    rm -rf "$APP_SUPPORT/VoxServer.app"
+    echo "[vox] Removed VoxServer.app from Application Support"
+fi
+
 echo ""
 echo "[vox] Server uninstalled."
 echo ""
