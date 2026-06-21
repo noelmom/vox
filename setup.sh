@@ -14,6 +14,9 @@ success() { echo -e "${GREEN}[vox] ✓ $*${RESET}"; }
 warn()    { echo -e "${YELLOW}[vox] ⚠ $*${RESET}"; }
 fail()    { echo -e "${RED}[vox] ✗ $*${RESET}"; exit 1; }
 
+ROOT="$(cd "$(dirname "$0")" && pwd)"
+APP_SUPPORT="$HOME/Library/Application Support/VoxForge"
+
 # ── Already installed check ───────────────────────────────────────────────────
 AGENT_PLIST="$HOME/Library/LaunchAgents/com.melolabdev.vox.plist"
 HELPER_PLIST="$HOME/Library/LaunchAgents/com.melolabdev.vox-helper.plist"
@@ -50,7 +53,6 @@ info "Checking Homebrew..."
 if ! command -v brew &>/dev/null; then
     info "Installing Homebrew..."
     /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-    # Add brew to PATH for the rest of this script (Apple Silicon path)
     eval "$(/opt/homebrew/bin/brew shellenv)"
 fi
 success "Homebrew $(brew --version | head -1)"
@@ -67,7 +69,6 @@ success "ffmpeg $(ffmpeg -version 2>&1 | head -1 | awk '{print $3}')"
 info "Checking Python..."
 PYTHON=""
 
-# Prefer brew python 3.11 for stability with torch/chatterbox on Apple Silicon
 if brew list python@3.11 &>/dev/null; then
     PYTHON="$(brew --prefix python@3.11)/bin/python3.11"
 elif command -v python3.11 &>/dev/null; then
@@ -81,17 +82,25 @@ fi
 PYTHON_VERSION=$("$PYTHON" --version 2>&1)
 success "$PYTHON_VERSION at $PYTHON"
 
-# ── Virtual environment ───────────────────────────────────────────────────────
-VENV_DIR="$(dirname "$0")/.venv"
+# ── Permanent Application Support directory ───────────────────────────────────
+info "Creating permanent application support directory..."
+mkdir -p "$APP_SUPPORT/venv"
+mkdir -p "$APP_SUPPORT/menubar"
+success "Application Support: $APP_SUPPORT"
 
-if [[ ! -d "$VENV_DIR" ]]; then
-    info "Creating virtual environment at .venv..."
-    "$PYTHON" -m venv "$VENV_DIR"
+# ── Virtual environment (permanent location) ──────────────────────────────────
+VENV="$APP_SUPPORT/venv"
+
+if [[ ! -f "$VENV/bin/python" ]]; then
+    info "Creating virtual environment at $VENV..."
+    "$PYTHON" -m venv "$VENV"
 fi
 
-VENV_PYTHON="$VENV_DIR/bin/python"
-VENV_PIP="$VENV_DIR/bin/pip"
-success "Virtual environment ready"
+# Symlink .venv in project root → permanent venv (IDE / dev convenience)
+ln -sfn "$VENV" "$ROOT/.venv"
+
+VENV_PIP="$VENV/bin/pip"
+success "Virtual environment ready at $VENV"
 
 # ── pip ───────────────────────────────────────────────────────────────────────
 info "Upgrading pip..."
@@ -100,18 +109,18 @@ success "pip $("$VENV_PIP" --version | awk '{print $2}')"
 
 # ── Python dependencies ───────────────────────────────────────────────────────
 info "Installing Python dependencies (this may take a few minutes on first run)..."
-"$VENV_PIP" install -r "$(dirname "$0")/requirements.txt"
+"$VENV_PIP" install -r "$ROOT/requirements.txt"
 success "All Python dependencies installed"
 
 # ── Runtime directories ───────────────────────────────────────────────────────
 info "Creating runtime directories..."
-mkdir -p voices outputs input/processed data
+mkdir -p "$ROOT/voices" "$ROOT/outputs" "$ROOT/input/processed" "$ROOT/data"
 mkdir -p "$HOME/Library/LaunchAgents"
 mkdir -p "$HOME/Library/Logs/VoxForge"
-success "Directories: voices/ outputs/ input/ input/processed/ data/ LaunchAgents/ Logs/VoxForge/"
+success "Directories ready"
 
 # ── .env scaffold ─────────────────────────────────────────────────────────────
-ENV_FILE="$(dirname "$0")/.env"
+ENV_FILE="$ROOT/.env"
 if [[ ! -f "$ENV_FILE" ]]; then
     info "Creating default .env..."
     cat > "$ENV_FILE" <<'EOF'
@@ -153,13 +162,16 @@ echo -e "${GREEN}${BOLD}Vox is ready.${RESET}"
 echo ""
 echo "  Next steps:"
 echo ""
-echo "  1. Install the server LaunchAgent:"
+echo "  1. Add your Hugging Face token to .env (recommended):"
+echo "     nano .env   →  uncomment HF_TOKEN=hf_your_token_here"
+echo ""
+echo "  2. Install the server LaunchAgent:"
 echo "     bash scripts/install-agent.sh"
 echo ""
-echo "  2. Install the menu bar helper:"
+echo "  3. Install the menu bar helper:"
 echo "     bash scripts/install-helper.sh"
 echo ""
-echo "  3. Start the server from the menu bar icon, or:"
+echo "  4. Start the server from the menu bar icon, or:"
 echo "     launchctl start com.melolabdev.vox"
 echo ""
 echo "  Manual start (no LaunchAgent):"

@@ -1,17 +1,20 @@
 #!/bin/bash
-# Start the Vox API server using the local venv.
-# Run setup.sh first if .venv does not exist.
+# Start the Vox API server manually in the foreground.
+# Use this for development or troubleshooting — not for production.
+# Production: bash scripts/install-agent.sh, then launchctl start com.melolabdev.vox
 set -e
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-VENV="$ROOT/.venv"
+APP_SUPPORT="$HOME/Library/Application Support/VoxForge"
+VENV="$APP_SUPPORT/venv"
 
-if [[ ! -d "$VENV" ]]; then
-    echo "[vox] .venv not found. Run: bash setup.sh"
+if [[ ! -f "$VENV/bin/python" ]]; then
+    echo "[vox] Virtual environment not found at $VENV"
+    echo "[vox] Run: bash setup.sh"
     exit 1
 fi
 
-# Load .env if present so VOX_HOST / VOX_PORT overrides work
+# Load .env if present
 if [[ -f "$ROOT/.env" ]]; then
     set -o allexport
     source "$ROOT/.env"

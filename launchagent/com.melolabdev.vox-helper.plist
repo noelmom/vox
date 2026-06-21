@@ -6,18 +6,17 @@
   <key>Label</key>
   <string>com.melolabdev.vox-helper</string>
 
-  <!-- install-helper.sh rewrites VOX_PROJECT_ROOT with the real path -->
-  <!-- Binary lives inside a minimal .app bundle (built by install-helper.sh).
-       The bundle gives macOS the display name "Vox Helper" and the VoxForge
-       icon in Login Items and Activity Monitor. -->
+  <!-- Executable lives inside /Applications/VoxHelper.app (permanent, user-independent).
+       The helper script is copied to Application Support on install so it
+       survives the project folder being moved or deleted. -->
   <key>ProgramArguments</key>
   <array>
-    <string>VOX_PROJECT_ROOT/VoxHelper.app/Contents/MacOS/vox-helper</string>
-    <string>VOX_PROJECT_ROOT/menubar/vox_helper.py</string>
+    <string>/Applications/VoxHelper.app/Contents/MacOS/vox-helper</string>
+    <string>VOX_APP_SUPPORT/menubar/vox_helper.py</string>
   </array>
 
   <key>WorkingDirectory</key>
-  <string>VOX_PROJECT_ROOT</string>
+  <string>VOX_APP_SUPPORT</string>
 
   <key>StandardOutPath</key>
   <string>VOX_LOG_DIR/vox-helper.log</string>
@@ -28,9 +27,6 @@
     RunAtLoad = true — the menu bar helper starts automatically on login.
     This is intentional: the helper is the UI layer, not the server.
     The server (com.melolabdev.vox) remains manual-start.
-
-    SHIPPING NOTE: when the display name "env" issue is fixed and the app
-    is signed, this is already production-ready. No change needed here.
   -->
   <key>RunAtLoad</key>
   <true/>

@@ -1,6 +1,6 @@
 #!/bin/bash
 # Install the VoxForge LaunchAgent so macOS can manage the server.
-# Run once after cloning. Re-run after moving the project folder.
+# Run once after setup.sh. Re-run after moving the project folder.
 #
 # After install, control the server with:
 #   launchctl start  com.melolabdev.vox   → start
@@ -9,34 +9,36 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+APP_SUPPORT="$HOME/Library/Application Support/VoxForge"
 PLIST_SRC="$ROOT/launchagent/com.melolabdev.vox.plist"
 AGENTS_DIR="$HOME/Library/LaunchAgents"
 PLIST_DST="$AGENTS_DIR/com.melolabdev.vox.plist"
 LOG_DIR="$HOME/Library/Logs/VoxForge"
 LABEL="com.melolabdev.vox"
 
-echo "[vox] Installing LaunchAgent…"
+echo "[vox] Installing server LaunchAgent…"
 
 # 1. Create required directories
 mkdir -p "$AGENTS_DIR"
 mkdir -p "$LOG_DIR"
 
-# 2. Write the final plist, substituting real paths into the template
+# 2. Write the final plist, substituting real paths
 sed \
   -e "s|VOX_PROJECT_ROOT|$ROOT|g" \
+  -e "s|VOX_APP_SUPPORT|$APP_SUPPORT|g" \
   -e "s|VOX_LOG_DIR|$LOG_DIR|g" \
   "$PLIST_SRC" > "$PLIST_DST"
 
 echo "[vox] Plist written to: $PLIST_DST"
 
-# 3. Unload any previously loaded version (ignore error if not loaded)
+# 3. Unload any previously loaded version
 launchctl unload "$PLIST_DST" 2>/dev/null || true
 
-# 4. Load the agent (registers it with launchd; does NOT start it yet because RunAtLoad=false)
+# 4. Load the agent
 launchctl load "$PLIST_DST"
 
 echo ""
-echo "[vox] LaunchAgent installed successfully."
+echo "[vox] Server LaunchAgent installed."
 echo ""
 echo "  Start:   launchctl start  $LABEL"
 echo "  Stop:    launchctl stop   $LABEL"

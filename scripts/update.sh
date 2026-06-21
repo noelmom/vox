@@ -1,8 +1,8 @@
 #!/bin/bash
 # Pull the latest changes and restart both agents.
 #
-# Git repo:   bash scripts/update.sh           — pulls from origin/<branch>
-# Zip install: bash scripts/update.sh /path/to/new-vox-folder  — copies files in place
+# Git repo:    bash scripts/update.sh
+# Zip install: bash scripts/update.sh /path/to/new-vox-folder
 #
 # Safe to re-run — install scripts unload before reloading.
 set -euo pipefail
@@ -19,56 +19,61 @@ warn()    { echo -e "${YELLOW}[vox] ⚠ $*${RESET}"; }
 fail()    { echo -e "${RED}[vox] ✗ $*${RESET}"; exit 1; }
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-VENV="$ROOT/.venv"
+APP_SUPPORT="$HOME/Library/Application Support/VoxForge"
+VENV="$APP_SUPPORT/venv"
 ZIP_SRC="${1:-}"
 
 cd "$ROOT"
+
+# ── Verify this is an existing install ────────────────────────────────────────
+if [[ ! -f "$VENV/bin/pip" ]]; then
+    fail "Virtual environment not found at $VENV. Run 'bash setup.sh' first to set up this installation, then use update.sh for future updates."
+fi
 
 # ── Stop agents before touching files ─────────────────────────────────────────
 info "Stopping agents…"
 launchctl stop com.melolabdev.vox        2>/dev/null || true
 launchctl stop com.melolabdev.vox-helper 2>/dev/null || true
 
-# ── Pull or copy new files ────────────────────────────────────────────────────
+# ── Pull or copy new source files ────────────────────────────────────────────
 if [[ -n "$ZIP_SRC" ]]; then
-  # Zip / manual install path — caller passes the extracted folder
-  [[ -d "$ZIP_SRC" ]] || fail "Source folder not found: $ZIP_SRC"
-  info "Copying files from $ZIP_SRC…"
-  # Preserve .env, data/, voices/, outputs/, .venv/ — copy everything else
-  rsync -a --exclude='.env' \
-           --exclude='.venv/' \
-           --exclude='data/' \
-           --exclude='voices/' \
-           --exclude='outputs/' \
-           --exclude='input/' \
-           --exclude='VoxHelper.app/' \
-           "$ZIP_SRC/" "$ROOT/"
-  success "Files updated from zip"
+    [[ -d "$ZIP_SRC" ]] || fail "Source folder not found: $ZIP_SRC"
+    info "Copying files from $ZIP_SRC…"
+    rsync -a --exclude='.env' \
+             --exclude='.venv' \
+             --exclude='data/' \
+             --exclude='voices/' \
+             --exclude='outputs/' \
+             --exclude='input/' \
+             "$ZIP_SRC/" "$ROOT/"
+    success "Files updated from zip"
 elif git -C "$ROOT" rev-parse --git-dir &>/dev/null; then
-  # Git repo path
-  BRANCH="$(git rev-parse --abbrev-ref HEAD)"
-  info "Pulling latest changes from origin/$BRANCH…"
-  BEFORE="$(git rev-parse --short HEAD)"
-  git pull origin "$BRANCH"
-  AFTER="$(git rev-parse --short HEAD)"
-  if [[ "$BEFORE" == "$AFTER" ]]; then
-    warn "Already up to date ($AFTER) — reinstalling agents anyway."
-  else
-    success "Updated $BEFORE → $AFTER"
-  fi
+    BRANCH="$(git rev-parse --abbrev-ref HEAD)"
+    info "Pulling latest changes from origin/$BRANCH…"
+    BEFORE="$(git rev-parse --short HEAD)"
+    git pull origin "$BRANCH"
+    AFTER="$(git rev-parse --short HEAD)"
+    if [[ "$BEFORE" == "$AFTER" ]]; then
+        warn "Already up to date ($AFTER) — reinstalling agents anyway."
+    else
+        success "Updated $BEFORE → $AFTER"
+    fi
 else
-  warn "Not a git repo and no source folder provided."
-  warn "Usage (zip install): bash scripts/update.sh /path/to/extracted-vox"
-  warn "Proceeding with dependency sync and agent reinstall only."
+    warn "Not a git repo and no source folder provided."
+    warn "Usage (zip install): bash scripts/update.sh /path/to/extracted-vox"
+    warn "Proceeding with dependency sync and agent reinstall only."
 fi
 
-# ── Python dependencies ───────────────────────────────────────────────────────
-if [[ ! -f "$VENV/bin/pip" ]]; then
-  fail "Virtual environment not found. Run 'bash setup.sh' first to set up this installation, then use update.sh for future updates."
-fi
+# ── Sync Python dependencies ──────────────────────────────────────────────────
 info "Syncing Python dependencies…"
 "$VENV/bin/pip" install --quiet -r "$ROOT/requirements.txt"
 success "Dependencies up to date"
+
+# ── Sync helper script to permanent location ──────────────────────────────────
+info "Syncing helper script to Application Support…"
+mkdir -p "$APP_SUPPORT/menubar"
+cp "$ROOT/menubar/vox_helper.py" "$APP_SUPPORT/menubar/vox_helper.py"
+success "Helper script updated"
 
 # ── Re-register agents ────────────────────────────────────────────────────────
 info "Reinstalling server LaunchAgent…"
@@ -82,7 +87,7 @@ echo ""
 echo -e "${GREEN}${BOLD}Vox updated successfully.${RESET}"
 echo ""
 if git -C "$ROOT" rev-parse --git-dir &>/dev/null; then
-  echo "  Branch:  $(git rev-parse --abbrev-ref HEAD)"
-  echo "  Version: $(git rev-parse --short HEAD)"
+    echo "  Branch:  $(git rev-parse --abbrev-ref HEAD)"
+    echo "  Version: $(git rev-parse --short HEAD)"
 fi
 echo ""
