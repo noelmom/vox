@@ -3,8 +3,8 @@
 # Run once after setup.sh. Re-run after updating Vox.
 #
 # After install, control the server with:
-#   launchctl start  com.melolabdev.vox
-#   launchctl stop   com.melolabdev.vox
+#   launchctl kickstart gui/$(id -u)/com.melolabdev.vox
+#   launchctl stop gui/$(id -u)/com.melolabdev.vox
 #   launchctl kickstart -k gui/$(id -u)/com.melolabdev.vox
 set -euo pipefail
 
@@ -16,9 +16,6 @@ AGENTS_DIR="$HOME/Library/LaunchAgents"
 PLIST_DST="$AGENTS_DIR/com.melolabdev.vox.plist"
 LOG_DIR="$HOME/Library/Logs/Vox"
 LABEL="com.melolabdev.vox"
-SERVER_BUNDLE="$APP_SUPPORT/VoxServer.app"
-SIGN_IDENTITY="Developer ID Application: Noelmo Melo (S65X5KY399)"
-PREBUILT_ZIP="$ROOT/assets/VoxServer.app.zip"
 
 echo "[vox] Installing server LaunchAgent…"
 
@@ -70,76 +67,7 @@ RUNSCRIPT
 chmod +x "$APP_SUPPORT/scripts/run.sh"
 echo "[vox] Production run.sh written to $APP_SUPPORT/scripts/run.sh"
 
-# 4. Build or install VoxServer.app in Application Support
-if [[ -f "$PREBUILT_ZIP" ]]; then
-    # Use pre-signed bundle from assets/
-    echo "[vox] Installing pre-signed VoxServer.app from assets/…"
-    rm -rf "$SERVER_BUNDLE"
-    ditto -x -k "$PREBUILT_ZIP" "$APP_SUPPORT/"
-    xattr -rd com.apple.quarantine "$SERVER_BUNDLE" 2>/dev/null || true
-    echo "[vox] ✓ VoxServer.app installed from pre-signed zip"
-else
-    # Compile Swift launcher at install time (dev machine only)
-    echo "[vox] No pre-signed zip found — compiling VoxServer.app with swiftc…"
-    mkdir -p "$SERVER_BUNDLE/Contents/MacOS"
-    mkdir -p "$SERVER_BUNDLE/Contents/Resources"
-
-    cat > "$SERVER_BUNDLE/Contents/Info.plist" <<INFOPLIST
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-  <key>CFBundleIdentifier</key>
-  <string>com.melolabdev.vox-server</string>
-  <key>CFBundleName</key>
-  <string>Vox Server</string>
-  <key>CFBundleDisplayName</key>
-  <string>Vox Server</string>
-  <key>CFBundleVersion</key>
-  <string>1</string>
-  <key>CFBundlePackageType</key>
-  <string>APPL</string>
-  <key>LSUIElement</key>
-  <true/>
-  <key>LSBackgroundOnly</key>
-  <true/>
-</dict>
-</plist>
-INFOPLIST
-
-    LAUNCHER_SRC="$(mktemp /tmp/vox-server-launcher-XXXXXX.swift)"
-    cat > "$LAUNCHER_SRC" <<SWIFT
-import Foundation
-
-let home = FileManager.default.homeDirectoryForCurrentUser.path
-let script = "\(home)/Library/Application Support/Vox/scripts/run.sh"
-
-let process = Process()
-process.executableURL = URL(fileURLWithPath: "/bin/bash")
-process.arguments = [script]
-try? process.run()
-process.waitUntilExit()
-SWIFT
-
-    echo "[vox] Compiling launcher binary…"
-    swiftc -O -o "$SERVER_BUNDLE/Contents/MacOS/vox-server" "$LAUNCHER_SRC"
-    rm -f "$LAUNCHER_SRC"
-
-    # Sign if cert is available
-    if security find-identity -v -p codesigning 2>/dev/null | grep -qF "$SIGN_IDENTITY"; then
-        echo "[vox] Signing VoxServer.app…"
-        codesign --deep --force --options runtime \
-            --sign "$SIGN_IDENTITY" \
-            "$SERVER_BUNDLE"
-        echo "[vox] ✓ Signed with $SIGN_IDENTITY"
-    else
-        echo "[vox] ⚠ Signing identity not found — skipping codesign"
-    fi
-
-    echo "[vox] VoxServer.app built at: $SERVER_BUNDLE"
-fi
-
-# 5. Write the final plist — server now runs entirely from APP_SUPPORT
+# 4. Write the final plist — server runs entirely from APP_SUPPORT
 sed \
   -e "s|VOX_APP_SUPPORT|$APP_SUPPORT|g" \
   -e "s|VOX_LOG_DIR|$LOG_DIR|g" \
@@ -147,27 +75,18 @@ sed \
 
 echo "[vox] Plist written to: $PLIST_DST"
 
-# 6. Unload any previously loaded version
-launchctl unload "$PLIST_DST" 2>/dev/null || true
-
-# 7. Load the agent
-launchctl load "$PLIST_DST"
-
-# Restart the server if it was already running so the /ui static mount
-# registers with the updated ui/ directory
+# 5. Stop any running instance, unload, then reload
 UID_VAL=$(id -u)
-if launchctl list "$LABEL" &>/dev/null; then
-    echo "[vox] Restarting server to apply changes…"
-    launchctl stop "gui/$UID_VAL/$LABEL" 2>/dev/null || true
-    sleep 1
-    launchctl kickstart "gui/$UID_VAL/$LABEL" 2>/dev/null || true
-fi
+launchctl stop "gui/$UID_VAL/$LABEL" 2>/dev/null || true
+sleep 1
+launchctl unload "$PLIST_DST" 2>/dev/null || true
+launchctl load "$PLIST_DST"
 
 echo ""
 echo "[vox] Server LaunchAgent installed."
 echo ""
 echo "  Start:   launchctl kickstart gui/\$(id -u)/$LABEL"
-echo "  Stop:    launchctl kill SIGTERM gui/\$(id -u)/$LABEL"
+echo "  Stop:    launchctl stop gui/\$(id -u)/$LABEL"
 echo "  Restart: launchctl kickstart -k gui/\$(id -u)/$LABEL"
 echo "  Logs:    tail -f $LOG_DIR/vox.log"
 echo "  Errors:  tail -f $LOG_DIR/vox-error.log"
