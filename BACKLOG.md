@@ -201,9 +201,25 @@ Ideas and improvements to revisit. Not bugs — these are enhancements queued fo
 
 ## Non-Verbal Cues
 
-- [ ] **Non-verbal speech cue support**
+> ⚠️ **Post-v1.0 roadmap item** — not a launch blocker. Requires voice profile architecture changes before implementation.
 
-  **Test results** (`youtube` preset, `noelmo-normal` voice, 2026-06-20):
+- [ ] **Non-verbal speech cue support — voice-profile-bound audio splicing**
+
+  **Concept:** users record short non-verbal audio clips (cough, laugh, throat clear, sigh, etc.) tied to a specific voice profile. In the generator, tagging text with a cue like `<cough>` or `**cough**` automatically splices in the real recorded audio at that point — making output sound natural and human rather than synthesized.
+
+  **Tag format (TBD):** pick one consistent syntax across the product. Candidates:
+  - `<cough>` — XML-style, clear and easy to parse
+  - `**cough**` — markdown-style, familiar to users
+  - `[cough]` — bracket-style (some effect observed in model testing)
+
+  **Architecture changes needed:**
+  - **Voice profile redesign** — profiles currently store a single reference WAV. Need to expand to a profile bundle: reference audio + a named library of non-verbal clips (e.g. `noelmo-normal/cough.wav`, `noelmo-normal/laugh.wav`).
+  - **Text pre-processing pipeline** — before TTS, scan input for cue tags, extract their positions, strip them from the text sent to the model.
+  - **Audio splicing** — after TTS generation, use ffmpeg to splice real recorded clips into the synthesized audio at the correct timestamps. Requires estimating splice points from character/word position in the output.
+  - **Generator UI** — surface which cues are available for the selected voice profile so users know what tags they can use.
+  - **Recording UI** — extend the voice profile recorder to support recording and managing non-verbal clips per profile.
+
+  **Test results so far** (`youtube` preset, `noelmo-normal` voice, 2026-06-20):
 
   | Notation | Example | Result |
   |----------|---------|--------|
@@ -213,7 +229,7 @@ Ideas and improvements to revisit. Not bugs — these are enhancements queued fo
   | Natural ellipsis | `Uh... excuse me...` | ✅ Works |
   | Standalone | `Ahem...` | ✅ Partial |
 
-  **Next steps:** pre-process text to normalise to best-performing notation; build a cue dictionary; investigate phoneme injection or ffmpeg audio splicing for sounds the model can't produce natively.
+  **Decision needed before implementation:** agree on tag syntax, voice profile bundle structure, and whether to store non-verbal clips in the DB or filesystem alongside the reference WAV.
 
 ---
 
