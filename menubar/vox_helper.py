@@ -191,7 +191,7 @@ class VoxHelper(rumps.App):
 
     def _stop(self, _):
         uid = os.getuid()
-        self._launchctl("kill", "SIGTERM", f"gui/{uid}/{SERVER_LABEL}")
+        self._launchctl("stop", f"gui/{uid}/{SERVER_LABEL}")
 
     def _restart(self, _):
         uid = os.getuid()

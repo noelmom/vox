@@ -158,7 +158,9 @@ launchctl load "$PLIST_DST"
 UID_VAL=$(id -u)
 if launchctl list "$LABEL" &>/dev/null; then
     echo "[vox] Restarting server to apply changes…"
-    launchctl kickstart -k "gui/$UID_VAL/$LABEL" 2>/dev/null || true
+    launchctl stop "gui/$UID_VAL/$LABEL" 2>/dev/null || true
+    sleep 1
+    launchctl kickstart "gui/$UID_VAL/$LABEL" 2>/dev/null || true
 fi
 
 echo ""

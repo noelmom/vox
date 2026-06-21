@@ -15,9 +15,9 @@ fi
 
 echo "[vox-helper] Uninstalling menu bar helper…"
 
-# Kill the running process if active, then unload the agent
+# Stop the running process (suppresses KeepAlive restart), then unload
 UID_VAL=$(id -u)
-launchctl kill SIGTERM "gui/$UID_VAL/$LABEL" 2>/dev/null || true
+launchctl stop "gui/$UID_VAL/$LABEL" 2>/dev/null || true
 sleep 1
 launchctl unload "$PLIST_DST" 2>/dev/null || true
 rm -f "$PLIST_DST"
