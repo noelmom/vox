@@ -51,6 +51,8 @@ The server prints its address and API docs URL on startup. Logs stream directly 
 
 | Script | Purpose |
 |--------|---------|
-| `install-agent.sh` | Register the LaunchAgent with macOS launchd. Re-run after moving the project or changing the plist. |
-| `uninstall-agent.sh` | Unload and remove the LaunchAgent. Server stops immediately. |
+| `install-agent.sh` | Register the **server** LaunchAgent with macOS launchd. Re-run after moving the project or changing the plist. |
+| `uninstall-agent.sh` | Unload and remove the server LaunchAgent. Server stops immediately. |
+| `install-helper.sh` | Install the **menu bar helper** LaunchAgent. Installs rumps + psutil, then loads the helper (auto-starts on login). |
+| `uninstall-helper.sh` | Unload and remove the helper LaunchAgent. Icon disappears from menu bar. |
 | `run.sh` | Start the server manually in the foreground. Bypasses launchd entirely. |

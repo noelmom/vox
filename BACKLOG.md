@@ -59,7 +59,9 @@ Ideas and improvements to revisit. Not bugs — these are enhancements queued fo
 
 - [ ] **Fix LaunchAgent display name ("env")** — macOS Login Items / System Settings shows `env` as the agent name because `ProgramArguments` starts with `/usr/bin/env`. The fix is to replace `/usr/bin/env bash scripts/run.sh` with `/bin/bash scripts/run.sh` directly (or point to the venv Python binary for the packaged app) so macOS reads a recognisable name instead of the env shim. Should be done before public release so users don't see "Item from unidentified developer — env" in System Settings.
 
-- [ ] macOS menu bar helper (start/stop server, view recent jobs, open UI)
+- [x] **macOS menu bar helper (rumps)** — `menubar/vox_helper.py`. Shows server status dot, CPU %, RAM used/total, hostname:port, Start/Stop/Restart via launchctl, Open in Browser, View Logs. Auto-starts on login via `com.melolabdev.vox-helper` LaunchAgent. Install with `bash scripts/install-helper.sh`.
+
+- [ ] **Investigate rewrite in Swift (native macOS)** — rumps is Python and works well for v1, but a native Swift menu bar app would give: proper NSPopover with richer UI, SF Symbols, real GPU/IOKit stats, tighter macOS integration, and a single signed binary. Not a production blocker — evaluate when approaching public release. Key question: does the team want macOS-only forever (Swift makes sense) or cross-platform later (keep Python).
 - [ ] One-click `.app` packaging (PyInstaller or py2app)
 - [ ] Default `VOX_HOST` to `127.0.0.1` once packaged as a macOS app
 

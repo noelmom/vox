@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+
+  <key>Label</key>
+  <string>com.melolabdev.vox-helper</string>
+
+  <!-- install-helper.sh rewrites VOX_PROJECT_ROOT with the real path -->
+  <key>ProgramArguments</key>
+  <array>
+    <string>VOX_PROJECT_ROOT/.venv/bin/python3</string>
+    <string>VOX_PROJECT_ROOT/menubar/vox_helper.py</string>
+  </array>
+
+  <key>WorkingDirectory</key>
+  <string>VOX_PROJECT_ROOT</string>
+
+  <key>StandardOutPath</key>
+  <string>VOX_LOG_DIR/vox-helper.log</string>
+  <key>StandardErrorPath</key>
+  <string>VOX_LOG_DIR/vox-helper-error.log</string>
+
+  <!--
+    RunAtLoad = true — the menu bar helper starts automatically on login.
+    This is intentional: the helper is the UI layer, not the server.
+    The server (com.melolabdev.vox) remains manual-start.
+
+    SHIPPING NOTE: when the display name "env" issue is fixed and the app
+    is signed, this is already production-ready. No change needed here.
+  -->
+  <key>RunAtLoad</key>
+  <true/>
+
+  <!-- Restart if the helper crashes -->
+  <key>KeepAlive</key>
+  <dict>
+    <key>SuccessfulExit</key>
+    <false/>
+  </dict>
+
+  <key>ThrottleInterval</key>
+  <integer>10</integer>
+
+  <!-- Required for rumps to attach to the macOS window server -->
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PATH</key>
+    <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
+  </dict>
+
+</dict>
+</plist>
