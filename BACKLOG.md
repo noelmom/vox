@@ -170,6 +170,8 @@ Ideas and improvements to revisit. Not bugs — these are enhancements queued fo
 
 - [ ] **Auto-launch on login (server)** — flip `RunAtLoad` from `<false/>` to `<true/>` in `launchagent/com.melolabdev.vox.plist` when shipping the `.app`. Helper already auto-starts.
 
+- [ ] **Login item toggles in the helper menu** — add "Start Helper at Login" and "Start Server at Login" checkable menu items to VoxHelper. Each reads the current `RunAtLoad` value from the installed plist, reflects it as a checkmark, and toggles it by rewriting the plist + calling `launchctl unload` / `launchctl load`. Useful for users who want to control what runs on startup without touching the terminal.
+
 - [ ] **Investigate rewrite in Swift (native macOS)**
   - If Swift rewrite is pursued, also evaluate **Mac App Store distribution**:
     - Requires sandboxing — replace `launchctl` calls with `SMAppService` + XPC
