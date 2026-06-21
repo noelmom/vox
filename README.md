@@ -109,17 +109,22 @@ This single command:
 | Runtime directories | Creates `voices/`, `outputs/`, `input/`, `input/processed/` |
 | `.env` scaffold | Writes a commented config file with all available options |
 
-### 3. Start the server
+### 3. Install the LaunchAgents
 
-**Option A — macOS LaunchAgent (recommended for daily use):**
-
-Install once after setup:
+Two agents run independently — one for the server, one for the menu bar helper. Install both once after `setup.sh`:
 
 ```bash
-bash scripts/install-agent.sh
+bash scripts/install-agent.sh       # server agent (manual start)
+bash scripts/install-helper.sh      # menu bar helper (auto-starts on login)
 ```
 
-Then control the server with `launchctl`:
+The **Vox icon** appears in your menu bar within a few seconds. Use it to start, stop, and restart the server, open the web UI, and monitor CPU/RAM.
+
+### 4. Start the server
+
+**Via the menu bar (recommended):** click the Vox icon → **Start Server**.
+
+**Via terminal:**
 
 ```bash
 launchctl start  com.melolabdev.vox                          # start
@@ -128,15 +133,15 @@ launchctl kickstart -k gui/$(id -u)/com.melolabdev.vox       # restart
 tail -f ~/Library/Logs/VoxForge/vox.log                      # live logs
 ```
 
-The LaunchAgent:
-- Registers the server with macOS launchd
-- Restarts automatically on crash
-- Captures stdout + stderr to `~/Library/Logs/VoxForge/`
-- Does **not** start on login by default (manual start only)
+The menu bar helper shows `localhost:8000 · local only` when `VOX_HOST=127.0.0.1`, or `192.168.x.x:8000 · network accessible` when `VOX_HOST=0.0.0.0` (default) — so you always know at a glance who can reach the server.
 
-> **Shipping note:** When Vox ships as a one-click `.app`, set `RunAtLoad` to `true` in `launchagent/com.melolabdev.vox.plist` and re-run `scripts/install-agent.sh`. That single change enables auto-start on login. See `BACKLOG.md` for details.
+> **Shipping note:** When Vox ships as a one-click `.app`, set `RunAtLoad` to `true` in `launchagent/com.melolabdev.vox.plist` and re-run `scripts/install-agent.sh`. That single change enables server auto-start on login. The helper already auto-starts. See `BACKLOG.md` for details.
 
-To uninstall: `bash scripts/uninstall-agent.sh`
+To uninstall agents:
+```bash
+bash scripts/uninstall-agent.sh     # remove server agent
+bash scripts/uninstall-helper.sh    # remove menu bar helper
+```
 
 **Option B — manual start (troubleshooting / development):**
 
@@ -144,7 +149,7 @@ To uninstall: `bash scripts/uninstall-agent.sh`
 bash scripts/run.sh
 ```
 
-Use this when the LaunchAgent isn't installed, you're debugging a startup crash and want live terminal output, or `launchctl` isn't responding and you need to rule out the agent itself. If the LaunchAgent is already running, stop it first to avoid a port conflict:
+Use this when the LaunchAgent isn't installed, you're debugging a startup crash and want live terminal output, or `launchctl` isn't responding and you need to rule out the agent itself. Stop the LaunchAgent first to avoid a port conflict:
 
 ```bash
 launchctl stop com.melolabdev.vox
@@ -153,9 +158,9 @@ bash scripts/run.sh
 
 See [`scripts/README.md`](scripts/README.md) for a full reference of all scripts.
 
-The server starts on `http://0.0.0.0:8000` by default — reachable from any device on your local network. Open `http://localhost:8000/docs` for the interactive API docs or `http://localhost:8000/app` for the web UI.
+The server starts on `http://0.0.0.0:8000` by default — reachable from any device on your local network. Open `http://localhost:8000/app` for the web UI or `http://localhost:8000/docs` for the interactive API docs.
 
-> **Note for future packaging:** When Vox ships as a macOS `.app`, `VOX_HOST` should default to `127.0.0.1` (localhost only). Change the default in `api/core/config.py` and `run.sh` at that point. For now, `0.0.0.0` is intentional so you can test from phones, tablets, and other machines without extra config.
+> **Note for future packaging:** When Vox ships as a macOS `.app`, `VOX_HOST` should default to `127.0.0.1` (localhost only). Change the default in `api/core/config.py` and `scripts/run.sh` at that point. For now, `0.0.0.0` is intentional so you can test from phones, tablets, and other machines without extra config.
 
 ---
 

@@ -5,6 +5,7 @@ Controls the Vox server LaunchAgent and shows live CPU / RAM stats.
 """
 import json
 import os
+import socket
 import subprocess
 import threading
 import urllib.error
@@ -65,7 +66,7 @@ class VoxHelper(rumps.App):
     # ── Helpers ───────────────────────────────────────────────────────────
 
     def _read_env(self):
-        host, port = "localhost", "8000"
+        host, port = "0.0.0.0", "8000"
         env_path = os.path.abspath(
             os.path.join(os.path.dirname(__file__), "..", ".env")
         )
@@ -77,17 +78,32 @@ class VoxHelper(rumps.App):
                         continue
                     k, _, v = line.partition("=")
                     v = v.strip().strip('"').strip("'")
-                    if k.strip() == "VOX_HOST" and v not in ("", "0.0.0.0"):
+                    if k.strip() == "VOX_HOST" and v:
                         host = v
                     elif k.strip() == "VOX_PORT" and v:
                         port = v
         return host, port
 
+    def _is_local_only(self):
+        return self._host in ("127.0.0.1", "localhost")
+
+    def _lan_ip(self):
+        try:
+            with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+                s.connect(("8.8.8.8", 80))
+                return s.getsockname()[0]
+        except Exception:
+            return "unknown"
+
     def _addr_label(self):
-        return f"{self._host} · port {self._port}"
+        if self._is_local_only():
+            return f"localhost:{self._port}  ·  local only"
+        ip = self._lan_ip()
+        return f"{ip}:{self._port}  ·  network accessible"
 
     def _base_url(self):
-        return f"http://{self._host}:{self._port}"
+        host = "localhost" if self._host in ("0.0.0.0", "") else self._host
+        return f"http://{host}:{self._port}"
 
     def _check_server(self):
         try:
