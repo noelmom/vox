@@ -5,6 +5,30 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [0.3.1-beta] — 2026-06-21
+
+### Added
+- **`vox.sh` unified entry point** — single script for install, update, and uninstall with flags: `--yes`, `--token`, `--agent-only`, `--helper-only`, `--purge`, `--zip`, `--devbranch`, `--branch`.
+- **`--devbranch` / `--branch` global flag** — switches the local git repo to the specified branch before any command runs, so `install`, `update`, and `uninstall` all use scripts from the target branch. Enables easy switching between `main` (stable) and `development` (beta).
+- **Recording UX improvements** — hint text ("30–60 seconds is usually enough"), 5-minute auto-stop, warning at 4:00 remaining with accent colour, ObjectURL memory leak fixed on discard.
+- **Microphone detection on page load** — voice recorder now checks for audio input devices via `enumerateDevices()` on load. Shows a friendly banner with a retry button instead of an error when no mic is found (e.g. Mac Mini).
+- **`development` branch and PR workflow** — `main` is now stable/tagged only; all work happens on `development` and merges via PR.
+
+### Changed
+- Install flow simplified: three-step `setup.sh` → `install-agent.sh` → `install-helper.sh` replaced by `bash vox.sh install`.
+- Landing page, README, and `scripts/README.md` updated to reflect `vox.sh` as the primary entry point.
+- Runtime permanently moved to `~/Library/Application Support/Vox/` — project folder is source-only.
+- All launchctl commands use domain-qualified `gui/{uid}/label` form.
+- `update.sh` `set -euo pipefail` → `set -eo pipefail` to fix `BRANCH?: unbound variable` on macOS bash 3.2.
+
+### Fixed
+- `bash vox.sh update` without Vox installed no longer throws `BRANCH?: unbound variable`.
+- Copy address in menu bar helper now shows LAN IP instead of localhost when `VOX_HOST=0.0.0.0`.
+- Safari `OverconstrainedError` on recording — retry with `{ audio: {} }` constraint fallback.
+- `launchctl stop` / `kickstart` commands corrected to domain-qualified form throughout.
+
+---
+
 ## [Unreleased]
 
 ### Added
