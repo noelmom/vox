@@ -14,7 +14,7 @@ import webbrowser
 
 import psutil
 import rumps
-from AppKit import NSApp, NSApplicationActivationPolicyAccessory
+from AppKit import NSApplication, NSApplicationActivationPolicyAccessory
 
 SERVER_LABEL  = "com.melolabdev.vox"
 POLL_INTERVAL = 5   # seconds between status + stats refresh
@@ -24,6 +24,12 @@ HEALTH_PATH   = "/health"
 class VoxHelper(rumps.App):
     def __init__(self):
         super().__init__("Vox", quit_button=None)
+
+        # Hide from Dock and Cmd+Tab — must be called after super().__init__()
+        # which is when NSApp is actually initialised by rumps
+        NSApplication.sharedApplication().setActivationPolicy_(
+            NSApplicationActivationPolicyAccessory
+        )
 
         # Read host/port from .env so the helper stays in sync with the server
         self._host, self._port = self._read_env()
@@ -173,7 +179,4 @@ class VoxHelper(rumps.App):
 
 
 if __name__ == "__main__":
-    app = VoxHelper()
-    # Hide from Dock and Cmd+Tab — menu bar only
-    NSApp.setActivationPolicy_(NSApplicationActivationPolicyAccessory)
-    app.run()
+    VoxHelper().run()
