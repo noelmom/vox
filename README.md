@@ -180,11 +180,13 @@ Pulls the latest from your current branch, syncs pip dependencies, and re-regist
 
 **If you downloaded a zip:**
 1. Download and extract the new release zip
-2. Run:
+2. Run from your **existing** install folder:
 ```bash
 bash scripts/update.sh /path/to/extracted-vox-folder
 ```
 Your `.env`, `voices/`, `data/`, and `outputs/` are preserved — only the app files are replaced.
+
+> First time on a new machine? Run `bash setup.sh` first to build the environment. `update.sh` is for existing installs only.
 
 > The update script stops both agents before touching any files and restarts them cleanly when done. Safe to re-run.
 
