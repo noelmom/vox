@@ -6,11 +6,12 @@ Helper scripts for managing the Vox server.
 
 ## Normal workflow (LaunchAgent)
 
-Install once after `setup.sh`:
+Install with the unified entry point:
 
 ```bash
-bash scripts/install-agent.sh
-bash scripts/install-helper.sh
+bash vox.sh install       # guided install
+bash vox.sh update        # update existing install
+bash vox.sh uninstall     # remove agents
 ```
 
 Then control the server with `launchctl`:
@@ -52,9 +53,10 @@ The server prints its address and API docs URL on startup. Logs stream directly 
 
 | Script | Purpose |
 |--------|---------|
+| `../vox.sh` | **Unified entry point.** `install`, `update`, `uninstall` with flags (`--yes`, `--token`, `--purge`, `--zip`). Use this for all normal workflows. |
 | `install-agent.sh` | Register the **server** LaunchAgent with macOS launchd. Syncs `api/` and `ui/` to Application Support. |
 | `uninstall-agent.sh` | Stop and remove the server LaunchAgent. |
 | `install-helper.sh` | Install the **menu bar helper** LaunchAgent. Installs rumps + psutil and starts the helper. |
 | `uninstall-helper.sh` | Stop and remove the helper LaunchAgent. Icon disappears from menu bar. |
 | `run.sh` | Start the server manually in the foreground. Bypasses launchd entirely. |
-| `update.sh` | Pull latest changes + sync deps + re-register both agents. Works with git repos (`bash scripts/update.sh`) or zip installs (`bash scripts/update.sh /path/to/new-folder`). |
+| `update.sh` | Pull latest changes + sync deps + re-register both agents. Called by `vox.sh update` — can also be run directly. |

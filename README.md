@@ -101,53 +101,37 @@ git clone git@github.com:MeloLabDev/codename-vox.git
 cd codename-vox
 ```
 
-### 2. Run setup
+### 2. Install
 
 ```bash
-bash setup.sh
+bash vox.sh install
 ```
 
-This single command:
+The installer walks you through everything interactively:
 
 | Step | What it does |
 |------|-------------|
 | Homebrew | Installs if not present |
 | ffmpeg | `brew install ffmpeg` — handles all audio conversion |
 | Python 3.11 | `brew install python@3.11` — preferred for torch/Chatterbox stability |
-| Virtual environment | Creates `.venv/` inside the project |
+| Virtual environment | Creates venv in `~/Library/Application Support/Vox/` |
 | pip dependencies | Installs everything from `requirements.txt` |
-| Runtime directories | Creates `voices/`, `outputs/`, `input/`, `input/processed/` |
+| Runtime directories | Creates `voices/`, `outputs/`, `input/`, `data/` |
 | `.env` scaffold | Writes a commented config file with all available options |
+| HF token prompt | Optional — speeds up model downloads |
+| LaunchAgents | Registers the server agent and menu bar helper |
 
-### 3. Add your Hugging Face token (recommended)
-
-Vox downloads the Chatterbox model weights from Hugging Face on first run. Without a token the download still works, but adding one gives you faster transfer rates and access to any gated models.
-
-1. Generate a **read-only** token at [huggingface.co/settings/tokens](https://huggingface.co/settings/tokens)
-2. Open `.env` in your project folder (created by `setup.sh`):
-   ```bash
-   nano .env
-   ```
-3. Uncomment and fill in the `HF_TOKEN` line:
-   ```
-   HF_TOKEN=hf_your_token_here
-   ```
-4. Save and close — no restart needed until first launch.
+**Non-interactive install** (CI or scripted):
+```bash
+bash vox.sh install --yes                        # skip all prompts
+bash vox.sh install --yes --token hf_xxx         # also set HF token
+```
 
 > `.env` is git-ignored and never committed. Keep your token out of any other files.
 
-### 5. Install the LaunchAgents
-
-Two agents run independently — one for the server, one for the menu bar helper. Install both once after `setup.sh`:
-
-```bash
-bash scripts/install-agent.sh       # server agent (manual start)
-bash scripts/install-helper.sh      # menu bar helper (auto-starts on login)
-```
-
 The **Vox icon** appears in your menu bar within a few seconds. Use it to start, stop, and restart the server, open the web UI, and monitor CPU/RAM.
 
-### 6. Start the server
+### 3. Start the server
 
 **Via the menu bar (recommended):** click the Vox icon → **Start Server**.
 
@@ -164,31 +148,26 @@ The menu bar helper shows `localhost:8000 · local only` when `VOX_HOST=127.0.0.
 
 > **Shipping note:** When Vox ships as a one-click `.app`, set `RunAtLoad` to `true` in `launchagent/com.melolabdev.vox.plist` and re-run `scripts/install-agent.sh`. That single change enables server auto-start on login. The helper already auto-starts. See `BACKLOG.md` for details.
 
-To uninstall agents:
-```bash
-bash scripts/uninstall-agent.sh     # remove server agent
-bash scripts/uninstall-helper.sh    # remove menu bar helper
-```
+### 4. Updating
 
-### 7. Updating
-
-**If you cloned via git:**
 ```bash
-bash scripts/update.sh
+bash vox.sh update
 ```
 Pulls the latest from your current branch, syncs pip dependencies, and re-registers both LaunchAgents in one step.
 
-**If you downloaded a zip:**
-1. Download and extract the new release zip
-2. Run from your **existing** install folder:
+**If you downloaded a zip instead of cloning:**
 ```bash
-bash scripts/update.sh /path/to/extracted-vox-folder
+bash vox.sh update --zip /path/to/extracted-vox-folder
 ```
-Your `.env`, `voices/`, `data/`, and `outputs/` are preserved — only the app files are replaced.
+Your `.env`, `voices/`, `data/`, and `outputs/` are always preserved — only app files are replaced.
 
-> First time on a new machine? Run `bash setup.sh` first to build the environment. `update.sh` is for existing installs only.
+### 5. Uninstalling
 
-> The update script stops both agents before touching any files and restarts them cleanly when done. Safe to re-run.
+```bash
+bash vox.sh uninstall               # remove agents, keep data
+bash vox.sh uninstall --purge       # remove everything including voices and outputs
+bash vox.sh uninstall --yes --purge # no confirmation prompts
+```
 
 ---
 
