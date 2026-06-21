@@ -18,8 +18,8 @@ Then control the server with `launchctl`:
 launchctl start  com.melolabdev.vox                         # start
 launchctl stop   com.melolabdev.vox                         # stop
 launchctl kickstart -k gui/$(id -u)/com.melolabdev.vox      # restart
-tail -f ~/Library/Logs/VoxForge/vox.log                     # live logs
-tail -f ~/Library/Logs/VoxForge/vox-error.log               # error logs
+tail -f ~/Library/Logs/Vox/vox.log                     # live logs
+tail -f ~/Library/Logs/Vox/vox-error.log               # error logs
 ```
 
 ---
@@ -51,9 +51,36 @@ The server prints its address and API docs URL on startup. Logs stream directly 
 
 | Script | Purpose |
 |--------|---------|
-| `install-agent.sh` | Register the **server** LaunchAgent with macOS launchd. Re-run after moving the project or changing the plist. |
+| `build-apps.sh` | **Dev machine only.** Compile, sign, and zip both `.app` bundles into `assets/`. Run before committing when helper or server launcher code changes. |
+| `install-agent.sh` | Register the **server** LaunchAgent with macOS launchd. Installs `VoxServer.app` from `assets/VoxServer.app.zip` if present. |
 | `uninstall-agent.sh` | Unload and remove the server LaunchAgent. Server stops immediately. |
-| `install-helper.sh` | Install the **menu bar helper** LaunchAgent. Installs rumps + psutil, then loads the helper (auto-starts on login). |
+| `install-helper.sh` | Install the **menu bar helper** LaunchAgent. Installs `VoxHelper.app` from `assets/VoxHelper.app.zip` if present. |
 | `uninstall-helper.sh` | Unload and remove the helper LaunchAgent. Icon disappears from menu bar. |
 | `run.sh` | Start the server manually in the foreground. Bypasses launchd entirely. |
 | `update.sh` | Pull latest changes + sync deps + re-register both agents. Works with git repos (`bash scripts/update.sh`) or zip installs (`bash scripts/update.sh /path/to/new-folder`). |
+
+---
+
+## Pre-signed app bundles (`assets/*.app.zip`)
+
+`assets/VoxHelper.app.zip` and `assets/VoxServer.app.zip` are pre-signed app bundles committed to git. The install scripts unzip them directly — no Xcode or signing cert required on the user's machine.
+
+### When to regenerate
+
+Regenerate the zips any time you change:
+- `menubar/vox_helper.py` — helper behaviour or UI
+- The Swift launcher source inside `build-apps.sh` (helper or server)
+- `assets/Vox.icns` — app icon
+- `CFBundleVersion` or any Info.plist field in `build-apps.sh`
+
+Run on your dev machine (requires Developer ID Application cert in Keychain):
+
+```bash
+bash scripts/build-apps.sh
+git add assets/VoxHelper.app.zip assets/VoxServer.app.zip
+git commit -m "chore: rebuild signed app bundles"
+```
+
+### Old zips
+
+Delete the old zips before committing the new ones — just overwrite them. Git keeps the history so old builds are always recoverable via `git show <commit>:assets/VoxHelper.app.zip` if ever needed. There is no reason to keep multiple versions of the zips in the working tree.

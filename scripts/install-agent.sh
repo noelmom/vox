@@ -1,5 +1,5 @@
 #!/bin/bash
-# Install the VoxForge server LaunchAgent.
+# Install the Vox server LaunchAgent.
 # Run once after setup.sh. Re-run after updating Vox.
 #
 # After install, control the server with:
@@ -9,13 +9,16 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-APP_SUPPORT="$HOME/Library/Application Support/VoxForge"
+APP_SUPPORT="$HOME/Library/Application Support/Vox"
 VENV="$APP_SUPPORT/venv"
 PLIST_SRC="$ROOT/launchagent/com.melolabdev.vox.plist"
 AGENTS_DIR="$HOME/Library/LaunchAgents"
 PLIST_DST="$AGENTS_DIR/com.melolabdev.vox.plist"
-LOG_DIR="$HOME/Library/Logs/VoxForge"
+LOG_DIR="$HOME/Library/Logs/Vox"
 LABEL="com.melolabdev.vox"
+SERVER_BUNDLE="$APP_SUPPORT/VoxServer.app"
+SIGN_IDENTITY="Developer ID Application: Noelmo Melo (S65X5KY399)"
+PREBUILT_ZIP="$ROOT/assets/VoxServer.app.zip"
 
 echo "[vox] Installing server LaunchAgent…"
 
@@ -41,7 +44,6 @@ echo "[vox] Syncing server code to Application Support…"
 rsync -a --delete "$ROOT/api/" "$APP_SUPPORT/api/"
 
 # 3. Write the production run.sh into Application Support
-# This script is self-contained — references APP_SUPPORT by its own location.
 cat > "$APP_SUPPORT/scripts/run.sh" <<'RUNSCRIPT'
 #!/bin/bash
 # Production server start script — managed by launchd.
@@ -66,7 +68,75 @@ RUNSCRIPT
 chmod +x "$APP_SUPPORT/scripts/run.sh"
 echo "[vox] Production run.sh written to $APP_SUPPORT/scripts/run.sh"
 
-# 4. Write the final plist — server now runs entirely from APP_SUPPORT
+# 4. Build or install VoxServer.app in Application Support
+if [[ -f "$PREBUILT_ZIP" ]]; then
+    # Use pre-signed bundle from assets/
+    echo "[vox] Installing pre-signed VoxServer.app from assets/…"
+    rm -rf "$SERVER_BUNDLE"
+    ditto -x -k "$PREBUILT_ZIP" "$APP_SUPPORT/"
+    echo "[vox] ✓ VoxServer.app installed from pre-signed zip"
+else
+    # Compile Swift launcher at install time (dev machine only)
+    echo "[vox] No pre-signed zip found — compiling VoxServer.app with swiftc…"
+    mkdir -p "$SERVER_BUNDLE/Contents/MacOS"
+    mkdir -p "$SERVER_BUNDLE/Contents/Resources"
+
+    cat > "$SERVER_BUNDLE/Contents/Info.plist" <<INFOPLIST
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>CFBundleIdentifier</key>
+  <string>com.melolabdev.vox-server</string>
+  <key>CFBundleName</key>
+  <string>Vox Server</string>
+  <key>CFBundleDisplayName</key>
+  <string>Vox Server</string>
+  <key>CFBundleVersion</key>
+  <string>1</string>
+  <key>CFBundlePackageType</key>
+  <string>APPL</string>
+  <key>LSUIElement</key>
+  <true/>
+  <key>LSBackgroundOnly</key>
+  <true/>
+</dict>
+</plist>
+INFOPLIST
+
+    LAUNCHER_SRC="$(mktemp /tmp/vox-server-launcher-XXXXXX.swift)"
+    cat > "$LAUNCHER_SRC" <<SWIFT
+import Foundation
+
+let home = FileManager.default.homeDirectoryForCurrentUser.path
+let script = "\(home)/Library/Application Support/Vox/scripts/run.sh"
+
+let process = Process()
+process.executableURL = URL(fileURLWithPath: "/bin/bash")
+process.arguments = [script]
+try? process.run()
+process.waitUntilExit()
+SWIFT
+
+    echo "[vox] Compiling launcher binary…"
+    swiftc -O -o "$SERVER_BUNDLE/Contents/MacOS/vox-server" "$LAUNCHER_SRC"
+    rm -f "$LAUNCHER_SRC"
+
+    # Sign if cert is available
+    if security find-identity -v -p codesigning 2>/dev/null | grep -qF "$SIGN_IDENTITY"; then
+        echo "[vox] Signing VoxServer.app…"
+        codesign --deep --force --options runtime \
+            --sign "$SIGN_IDENTITY" \
+            "$SERVER_BUNDLE"
+        echo "[vox] ✓ Signed with $SIGN_IDENTITY"
+    else
+        echo "[vox] ⚠ Signing identity not found — skipping codesign"
+    fi
+
+    echo "[vox] VoxServer.app built at: $SERVER_BUNDLE"
+fi
+
+# 5. Write the final plist — server now runs entirely from APP_SUPPORT
 sed \
   -e "s|VOX_APP_SUPPORT|$APP_SUPPORT|g" \
   -e "s|VOX_LOG_DIR|$LOG_DIR|g" \
@@ -74,10 +144,10 @@ sed \
 
 echo "[vox] Plist written to: $PLIST_DST"
 
-# 5. Unload any previously loaded version
+# 6. Unload any previously loaded version
 launchctl unload "$PLIST_DST" 2>/dev/null || true
 
-# 6. Load the agent
+# 7. Load the agent
 launchctl load "$PLIST_DST"
 
 echo ""
@@ -90,5 +160,4 @@ echo "  Logs:    tail -f $LOG_DIR/vox.log"
 echo "  Errors:  tail -f $LOG_DIR/vox-error.log"
 echo ""
 echo "  NOTE: The server does NOT start automatically on login."
-echo "  When shipping the .app, set RunAtLoad=true in the plist"
-echo "  and re-run this script. See BACKLOG.md for details."
+echo "  Start it from the Vox Helper menu bar icon."

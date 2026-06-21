@@ -1,10 +1,10 @@
 #!/bin/bash
-# Remove the VoxForge server LaunchAgent.
+# Remove the Vox server LaunchAgent.
 # The server stops immediately and will not restart on login.
 set -euo pipefail
 
 PLIST_DST="$HOME/Library/LaunchAgents/com.melolabdev.vox.plist"
-APP_SUPPORT="$HOME/Library/Application Support/VoxForge"
+APP_SUPPORT="$HOME/Library/Application Support/Vox"
 
 if [[ ! -f "$PLIST_DST" ]]; then
     echo "[vox] Server LaunchAgent not installed — nothing to do."
@@ -20,7 +20,7 @@ echo "[vox] Server LaunchAgent removed."
 echo ""
 echo "  The following are kept and must be removed manually if needed:"
 echo "    Data:  $APP_SUPPORT/{voices,outputs,data,input}"
-echo "    Logs:  $HOME/Library/Logs/VoxForge/"
+echo "    Logs:  $HOME/Library/Logs/Vox/"
 echo "    Code:  $APP_SUPPORT/{api,config,scripts}"
 echo ""
 echo "  Run scripts/install-agent.sh to reinstall."

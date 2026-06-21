@@ -77,7 +77,7 @@ Ideas and improvements to revisit. Not bugs — these are enhancements queued fo
   - On failure: notification "Update failed — check logs" with no restart.
   - Consider showing current version (git tag or short SHA) in the menu so the user knows what they're on.
 
-- [x] **Update `setup.sh` post-install instructions** — now prints the correct install-agent → install-helper → start flow. Also creates `~/Library/LaunchAgents` and `~/Library/Logs/VoxForge` so install scripts never fail on a clean macOS install.
+- [x] **Update `setup.sh` post-install instructions** — now prints the correct install-agent → install-helper → start flow. Also creates `~/Library/LaunchAgents` and `~/Library/Logs/Vox` so install scripts never fail on a clean macOS install.
 
 - [ ] **Restart transition state — "🟡 Restarting…"**
   - When the user clicks ↺ Restart, immediately set title to `"🟡 Vox"` and status item to `"Restarting…"` before the poll cycle confirms anything.
@@ -92,15 +92,15 @@ Ideas and improvements to revisit. Not bugs — these are enhancements queued fo
 
 ## Packaging & Distribution
 
-- [x] **LaunchAgent — server** — `launchagent/com.melolabdev.vox.plist`. Manual start, crash-restart, logs to `~/Library/Logs/VoxForge/`.
+- [x] **LaunchAgent — server** — `launchagent/com.melolabdev.vox.plist`. Manual start, crash-restart, logs to `~/Library/Logs/Vox/`.
 - [x] **LaunchAgent — menu bar helper** — `launchagent/com.melolabdev.vox-helper.plist`. Auto-starts on login.
 - [x] **macOS menu bar helper (rumps)** — status dot, CPU/RAM, server control, copy address, open browser, view logs.
 
 - [x] **Fix `env` label** — server plist now uses `/bin/bash` directly; Login Items shows `bash` instead of `env`.
 - [x] **Fix `Python3` label** — `install-helper.sh` creates a `vox-helper → python3` symlink in the venv; helper plist references it by that name so Login Items and Activity Monitor show `vox-helper`.
 
-- [x] **Branding icons — temporary** — `install-helper.sh` builds `VoxHelper.app` at `/Applications/` (permanent — survives project folder deletion) with `Info.plist`, VoxForge icon, and a symlink to the permanent venv. `assets/VoxForge.icns` committed to repo.
-- [x] **Permanent runtime layout** — everything runtime lives at `~/Library/Application Support/VoxForge/`: venv, api code, config/presets, helper script, voices, outputs, data, input, .env. Project folder is source-only. Server and helper both survive the project folder being moved or deleted.
+- [x] **Branding icons — temporary** — `install-helper.sh` builds `VoxHelper.app` at `/Applications/` (permanent — survives project folder deletion) with `Info.plist`, Vox icon, and a symlink to the permanent venv. `assets/Vox.icns` committed to repo.
+- [x] **Permanent runtime layout** — everything runtime lives at `~/Library/Application Support/Vox/`: venv, api code, config/presets, helper script, voices, outputs, data, input, .env. Project folder is source-only. Server and helper both survive the project folder being moved or deleted.
 
 - [x] **Revert helper to signed VoxHelper.app bundle**
 
@@ -113,7 +113,7 @@ Ideas and improvements to revisit. Not bugs — these are enhancements queued fo
   - Xcode (full app) for `notarytool` and `stapler`
 
   **All assets are already in the repo:**
-  - `assets/VoxForge.icns` — icon (temporary logo, replace before release)
+  - `assets/Vox.icns` — icon (temporary logo, replace before release)
   - `install-helper.sh` — bundle build logic is preserved in git history (commit `cd1077d`)
   - `launchagent/com.melolabdev.vox-helper.plist` — just needs ProgramArguments swapped back
 
@@ -123,7 +123,7 @@ Ideas and improvements to revisit. Not bugs — these are enhancements queued fo
      ```bash
      APP_BUNDLE="/Applications/VoxHelper.app"
      mkdir -p "$APP_BUNDLE/Contents/MacOS" "$APP_BUNDLE/Contents/Resources"
-     cp "$ROOT/assets/VoxForge.icns" "$APP_BUNDLE/Contents/Resources/VoxForge.icns"
+     cp "$ROOT/assets/Vox.icns" "$APP_BUNDLE/Contents/Resources/Vox.icns"
      # write Info.plist (CFBundleIdentifier, CFBundleDisplayName, CFBundleIconFile, LSUIElement)
      ln -sf "$VENV/bin/python3" "$APP_BUNDLE/Contents/MacOS/vox-helper"
      ```
@@ -146,11 +146,11 @@ Ideas and improvements to revisit. Not bugs — these are enhancements queued fo
      xcrun stapler staple /Applications/VoxHelper.app
      ```
 
-  5. Re-run `bash scripts/install-helper.sh` — Login Items will show "Vox Helper" with the VoxForge icon.
+  5. Re-run `bash scripts/install-helper.sh` — Login Items will show "Vox Helper" with the Vox icon.
 
 - [ ] **Replace temporary logo before public release**
-  - `assets/VoxForge.icns` is a placeholder. The app name "VoxForge" / "Vox" is not finalised.
-  - Once the permanent app name and logo are decided, replace `assets/VoxForge.icns` with the final `.icns` and update `CFBundleDisplayName` / `CFBundleIdentifier` in `install-helper.sh` to match.
+  - `assets/Vox.icns` is a placeholder. The app name "Vox" / "Vox" is not finalised.
+  - Once the permanent app name and logo are decided, replace `assets/Vox.icns` with the final `.icns` and update `CFBundleDisplayName` / `CFBundleIdentifier` in `install-helper.sh` to match.
   - The `.icns` should include all required sizes: 16, 32, 64, 128, 256, 512, 1024px.
   - Must be done before App Store submission or any public release.
 
@@ -169,11 +169,18 @@ Ideas and improvements to revisit. Not bugs — these are enhancements queued fo
 
 - [ ] **Default `VOX_HOST` to `127.0.0.1`** once packaged as a macOS app.
 
-- [ ] **Code signing & notarization** — Apple Developer ID certificate required before public release.
-  - Sign `.app` bundle with `codesign`
+- [ ] **Fix Developer ID codesign (`errSecInternalComponent`)** — signing currently fails even with cert installed.
+  - Cert is present and chain is valid (`F8:3A:0C:69` AKID matches intermediate SKID)
+  - Likely cause: private key was generated via Keychain Access GUI with Secure Enclave access controls that block `codesign`
+  - Fix: revoke current cert, generate new CSR via CLI (`openssl genrsa` + `openssl req`) to avoid Secure Enclave, re-download cert from Apple Developer portal, import with `-T /usr/bin/codesign`
+  - Until resolved: bundles ship unsigned; test devices right-click → Open on first launch
+  - `build-apps.sh` will automatically sign once this is fixed (just re-add the `codesign` call)
+
+- [ ] **Code signing & notarization** — required before public release.
+  - Blocked by: Fix Developer ID codesign above
+  - Sign `.app` bundles via `build-apps.sh`
   - Submit to Apple with `notarytool`, staple with `stapler`
-  - Without this: every user sees "unidentified developer" and Sequoia may block launch entirely.
-  - Prerequisite: Apple Developer Program ($99/year).
+  - Run `bash scripts/notarize-helper.sh` (already written, just needs signing to work first)
 
 ---
 
@@ -297,7 +304,7 @@ Ideas and improvements to revisit. Not bugs — these are enhancements queued fo
 
 ## Installation & Diagnostics
 
-- [ ] **Write install log to `~/Library/Logs/VoxForge/install.log`**
+- [ ] **Write install log to `~/Library/Logs/Vox/install.log`**
   - `setup.sh`, `install-agent.sh`, and `install-helper.sh` should tee all output to a timestamped install log so failed installs can be diagnosed without the user having to reproduce the issue in front of you.
   - Each script appends to the same file with a clear header (script name + timestamp + macOS version + architecture).
   - On failure, the error and the last few lines of context are preserved so the exact step that failed is obvious.

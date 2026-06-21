@@ -198,12 +198,12 @@ class VoxHelper(rumps.App):
         webbrowser.open(self._base_url() + "/app")
 
     def _open_input(self, _):
-        input_dir = os.path.expanduser("~/Library/Application Support/VoxForge/input")
+        input_dir = os.path.expanduser("~/Library/Application Support/Vox/input")
         os.makedirs(input_dir, exist_ok=True)
         subprocess.run(["open", input_dir])
 
     def _view_logs(self, _):
-        log = os.path.expanduser("~/Library/Logs/VoxForge/vox.log")
+        log = os.path.expanduser("~/Library/Logs/Vox/vox.log")
         subprocess.run(["open", "-a", "Console", log])
 
     def _quit(self, _):

@@ -25,7 +25,7 @@ It exposes a clean REST API and a web UI for generating high-quality audio from 
 - **Generation ETA** — progress bar with elapsed/remaining time estimate while TTS is running
 - **Real upload progress** — live byte-count progress bar during voice file uploads
 - **macOS menu bar helper** — 🟢/🔴 status, CPU %, RAM, Start/Stop/Restart, Open in Browser, Copy Address — auto-starts on login
-- **LaunchAgent management** — server and helper managed by macOS launchd; crash-restart, structured logs to `~/Library/Logs/VoxForge/`
+- **LaunchAgent management** — server and helper managed by macOS launchd; crash-restart, structured logs to `~/Library/Logs/Vox/`
 
 ---
 
@@ -157,7 +157,7 @@ The **Vox icon** appears in your menu bar within a few seconds. Use it to start,
 launchctl start  com.melolabdev.vox                          # start
 launchctl stop   com.melolabdev.vox                          # stop
 launchctl kickstart -k gui/$(id -u)/com.melolabdev.vox       # restart
-tail -f ~/Library/Logs/VoxForge/vox.log                      # live logs
+tail -f ~/Library/Logs/Vox/vox.log                      # live logs
 ```
 
 The menu bar helper shows `localhost:8000 · local only` when `VOX_HOST=127.0.0.1`, or `192.168.x.x:8000 · network accessible` when `VOX_HOST=0.0.0.0` (default) — so you always know at a glance who can reach the server.

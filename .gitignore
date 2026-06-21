@@ -3,7 +3,7 @@ __pycache__/
 *.pyo
 .DS_Store
 
-# Symlinks created by setup.sh pointing into ~/Library/Application Support/VoxForge/
+# Symlinks created by setup.sh pointing into ~/Library/Application Support/Vox/
 .venv
 .env
 

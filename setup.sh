@@ -15,7 +15,7 @@ warn()    { echo -e "${YELLOW}[vox] ⚠ $*${RESET}"; }
 fail()    { echo -e "${RED}[vox] ✗ $*${RESET}"; exit 1; }
 
 ROOT="$(cd "$(dirname "$0")" && pwd)"
-APP_SUPPORT="$HOME/Library/Application Support/VoxForge"
+APP_SUPPORT="$HOME/Library/Application Support/Vox"
 
 # ── Already installed check ───────────────────────────────────────────────────
 AGENT_PLIST="$HOME/Library/LaunchAgents/com.melolabdev.vox.plist"
@@ -93,7 +93,7 @@ mkdir -p "$APP_SUPPORT/outputs"
 mkdir -p "$APP_SUPPORT/data"
 mkdir -p "$APP_SUPPORT/input/processed"
 mkdir -p "$HOME/Library/LaunchAgents"
-mkdir -p "$HOME/Library/Logs/VoxForge"
+mkdir -p "$HOME/Library/Logs/Vox"
 success "Application Support: $APP_SUPPORT"
 
 # ── Virtual environment ───────────────────────────────────────────────────────

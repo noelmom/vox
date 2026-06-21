@@ -1,5 +1,5 @@
 #!/bin/bash
-# Install the VoxForge menu bar helper as a LaunchAgent.
+# Install the Vox menu bar helper as a LaunchAgent.
 # The helper auto-starts on login and provides a menu bar icon
 # to start/stop the server, view stats, and open the web UI.
 #
@@ -7,15 +7,16 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-APP_SUPPORT="$HOME/Library/Application Support/VoxForge"
+APP_SUPPORT="$HOME/Library/Application Support/Vox"
 VENV="$APP_SUPPORT/venv"
 PLIST_SRC="$ROOT/launchagent/com.melolabdev.vox-helper.plist"
 AGENTS_DIR="$HOME/Library/LaunchAgents"
 PLIST_DST="$AGENTS_DIR/com.melolabdev.vox-helper.plist"
-LOG_DIR="$HOME/Library/Logs/VoxForge"
+LOG_DIR="$HOME/Library/Logs/Vox"
 LABEL="com.melolabdev.vox-helper"
 APP_BUNDLE="/Applications/VoxHelper.app"
 SIGN_IDENTITY="Developer ID Application: Noelmo Melo (S65X5KY399)"
+PREBUILT_ZIP="$ROOT/assets/VoxHelper.app.zip"
 
 echo "[vox-helper] Installing menu bar helper…"
 
@@ -39,16 +40,22 @@ mkdir -p "$APP_SUPPORT/menubar"
 echo "[vox-helper] Copying helper script to $APP_SUPPORT/menubar/…"
 cp "$ROOT/menubar/vox_helper.py" "$APP_SUPPORT/menubar/vox_helper.py"
 
-# 5. Build VoxHelper.app in /Applications
-echo "[vox-helper] Building /Applications/VoxHelper.app…"
-mkdir -p "$APP_BUNDLE/Contents/MacOS"
-mkdir -p "$APP_BUNDLE/Contents/Resources"
+# 5. Build or install VoxHelper.app
+if [[ -f "$PREBUILT_ZIP" ]]; then
+    # Use pre-signed bundle from assets/
+    echo "[vox-helper] Installing pre-signed VoxHelper.app from assets/…"
+    rm -rf "$APP_BUNDLE"
+    ditto -x -k "$PREBUILT_ZIP" /Applications/
+    echo "[vox-helper] ✓ VoxHelper.app installed from pre-signed zip"
+else
+    # Compile Swift launcher at install time (dev machine only)
+    echo "[vox-helper] No pre-signed zip found — compiling VoxHelper.app with swiftc…"
+    mkdir -p "$APP_BUNDLE/Contents/MacOS"
+    mkdir -p "$APP_BUNDLE/Contents/Resources"
 
-# Icon
-cp "$ROOT/assets/VoxForge.icns" "$APP_BUNDLE/Contents/Resources/VoxForge.icns"
+    cp "$ROOT/assets/Vox.icns" "$APP_BUNDLE/Contents/Resources/Vox.icns"
 
-# Info.plist
-cat > "$APP_BUNDLE/Contents/Info.plist" <<INFOPLIST
+    cat > "$APP_BUNDLE/Contents/Info.plist" <<INFOPLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
@@ -60,7 +67,7 @@ cat > "$APP_BUNDLE/Contents/Info.plist" <<INFOPLIST
   <key>CFBundleDisplayName</key>
   <string>Vox Helper</string>
   <key>CFBundleIconFile</key>
-  <string>VoxForge</string>
+  <string>Vox</string>
   <key>CFBundleVersion</key>
   <string>1</string>
   <key>CFBundlePackageType</key>
@@ -71,16 +78,13 @@ cat > "$APP_BUNDLE/Contents/Info.plist" <<INFOPLIST
 </plist>
 INFOPLIST
 
-# Executable: compile a real Mach-O launcher binary using swiftc.
-# A symlink won't satisfy codesign — macOS requires a real binary as the
-# main executable in a signed .app bundle.
-LAUNCHER_SRC="$(mktemp /tmp/vox-launcher-XXXXXX.swift)"
-cat > "$LAUNCHER_SRC" <<SWIFT
+    LAUNCHER_SRC="$(mktemp /tmp/vox-launcher-XXXXXX.swift)"
+    cat > "$LAUNCHER_SRC" <<SWIFT
 import Foundation
 
 let home = FileManager.default.homeDirectoryForCurrentUser.path
-let python = "\(home)/Library/Application Support/VoxForge/venv/bin/python3"
-let script = "\(home)/Library/Application Support/VoxForge/menubar/vox_helper.py"
+let python = "\(home)/Library/Application Support/Vox/venv/bin/python3"
+let script = "\(home)/Library/Application Support/Vox/menubar/vox_helper.py"
 
 let args = CommandLine.arguments.dropFirst()
 var fullArgs = [script] + args
@@ -92,22 +96,22 @@ try? process.run()
 process.waitUntilExit()
 SWIFT
 
-echo "[vox-helper] Compiling launcher binary…"
-swiftc -O -o "$APP_BUNDLE/Contents/MacOS/vox-helper" "$LAUNCHER_SRC"
-rm -f "$LAUNCHER_SRC"
+    echo "[vox-helper] Compiling launcher binary…"
+    swiftc -O -o "$APP_BUNDLE/Contents/MacOS/vox-helper" "$LAUNCHER_SRC"
+    rm -f "$LAUNCHER_SRC"
 
-echo "[vox-helper] VoxHelper.app built at: $APP_BUNDLE"
+    if security find-identity -v -p codesigning 2>/dev/null | grep -qF "$SIGN_IDENTITY"; then
+        echo "[vox-helper] Signing VoxHelper.app…"
+        codesign --deep --force --options runtime \
+            --sign "$SIGN_IDENTITY" \
+            "$APP_BUNDLE"
+        echo "[vox-helper] ✓ Signed with $SIGN_IDENTITY"
+    else
+        echo "[vox-helper] ⚠ Signing identity not found — skipping codesign"
+        echo "             Install the Developer ID Application certificate and re-run."
+    fi
 
-# 6. Sign the bundle with Developer ID certificate
-if security find-identity -v -p codesigning 2>/dev/null | grep -qF "$SIGN_IDENTITY"; then
-    echo "[vox-helper] Signing VoxHelper.app…"
-    codesign --deep --force --options runtime \
-        --sign "$SIGN_IDENTITY" \
-        "$APP_BUNDLE"
-    echo "[vox-helper] ✓ Signed with $SIGN_IDENTITY"
-else
-    echo "[vox-helper] ⚠ Signing identity not found — skipping codesign"
-    echo "             Install the Developer ID Application certificate and re-run."
+    echo "[vox-helper] VoxHelper.app built at: $APP_BUNDLE"
 fi
 
 # 7. Write the final plist with real paths substituted

@@ -10,8 +10,7 @@
        The server runs entirely from APP_SUPPORT — no project folder dependency. -->
   <key>ProgramArguments</key>
   <array>
-    <string>/bin/bash</string>
-    <string>VOX_APP_SUPPORT/scripts/run.sh</string>
+    <string>VOX_APP_SUPPORT/VoxServer.app/Contents/MacOS/vox-server</string>
   </array>
 
   <key>WorkingDirectory</key>

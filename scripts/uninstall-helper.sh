@@ -1,11 +1,11 @@
 #!/bin/bash
-# Remove the VoxForge menu bar helper LaunchAgent and app bundle.
+# Remove the Vox menu bar helper LaunchAgent and app bundle.
 # The icon disappears from the menu bar immediately.
 set -euo pipefail
 
 PLIST_DST="$HOME/Library/LaunchAgents/com.melolabdev.vox-helper.plist"
 APP_BUNDLE="/Applications/VoxHelper.app"
-APP_SUPPORT="$HOME/Library/Application Support/VoxForge"
+APP_SUPPORT="$HOME/Library/Application Support/Vox"
 
 if [[ ! -f "$PLIST_DST" ]]; then
   echo "[vox-helper] Helper not installed — nothing to do."
@@ -30,6 +30,6 @@ if [[ -f "$APP_SUPPORT/menubar/vox_helper.py" ]]; then
 fi
 
 echo ""
-echo "[vox-helper] Done. Log files kept at: $HOME/Library/Logs/VoxForge/"
+echo "[vox-helper] Done. Log files kept at: $HOME/Library/Logs/Vox/"
 echo "             Venv kept at: $APP_SUPPORT/venv"
 echo "             Run scripts/install-helper.sh to reinstall."

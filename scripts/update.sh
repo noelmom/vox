@@ -20,7 +20,7 @@ warn()    { echo -e "${YELLOW}[vox] ⚠ $*${RESET}"; }
 fail()    { echo -e "${RED}[vox] ✗ $*${RESET}"; exit 1; }
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-APP_SUPPORT="$HOME/Library/Application Support/VoxForge"
+APP_SUPPORT="$HOME/Library/Application Support/Vox"
 VENV="$APP_SUPPORT/venv"
 ZIP_SRC="${1:-}"
 

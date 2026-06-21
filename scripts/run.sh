@@ -7,7 +7,7 @@
 set -e
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-APP_SUPPORT="$HOME/Library/Application Support/VoxForge"
+APP_SUPPORT="$HOME/Library/Application Support/Vox"
 VENV="$APP_SUPPORT/venv"
 
 if [[ ! -f "$VENV/bin/python" ]]; then
