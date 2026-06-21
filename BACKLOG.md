@@ -187,6 +187,21 @@ Ideas and improvements to revisit. Not bugs — these are enhancements queued fo
 
 ---
 
+## Pre-Release Code Review
+
+- [ ] **Full codebase optimization pass** — before cutting v1.0, do a complete review of all code for:
+  - Dead code, unused imports, redundant logic
+  - API response consistency (error shapes, status codes, headers)
+  - SQL queries — missing indexes, N+1 patterns, unbounded SELECTs
+  - Python async correctness — any blocking calls on the event loop
+  - Security — input validation at API boundaries, path traversal in file endpoints, filename sanitization
+  - Memory usage — large objects held longer than needed (model weights, audio buffers)
+  - Shell scripts — `set -euo pipefail`, quoting, error messages
+  - Frontend JS — dead event listeners, missing error states, console warnings
+  - Do this after the testing strategy is in place so issues found can be covered by tests
+
+---
+
 ## API & Performance
 
 - [ ] Streaming audio response (chunked transfer encoding)
