@@ -44,7 +44,8 @@ cat > "$PLIST_DST" <<EOF
   <key>Label</key><string>$LABEL</string>
   <key>ProgramArguments</key>
   <array>
-    <string>/Applications/VoxHelper.app/Contents/MacOS/vox-helper</string>
+    <string>$VENV/bin/python3</string>
+    <string>$APP_SUPPORT/menubar/vox_helper.py</string>
   </array>
   <key>WorkingDirectory</key><string>$APP_SUPPORT</string>
   <key>StandardOutPath</key><string>$LOG_DIR/vox-helper.log</string>
