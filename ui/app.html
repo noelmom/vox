@@ -1293,7 +1293,11 @@ function renderVoices(el, actions) {
 
         <!-- Record tab -->
         <div id="tab-record" style="display:${_addVoiceTab === 'record' ? 'block' : 'none'}">
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;max-width:800px;">
+          <div id="rec-insecure-banner" style="display:none;padding:14px 16px;background:var(--bg-2);border:0.5px solid var(--border);border-radius:8px;color:var(--text-2);font-size:13px;max-width:480px;line-height:1.5;">
+            <strong style="color:var(--text-1);">Microphone unavailable</strong><br>
+            Recording requires a secure connection (HTTPS). Open this app from a device on the same network using the server's address, or use <strong>Upload File</strong> to upload a Voice Memo instead.
+          </div>
+          <div id="rec-ui" style="display:grid;grid-template-columns:1fr 1fr;gap:24px;max-width:800px;">
             <div>
               <div class="recorder-zone" id="recorder-zone">
                 <div class="rec-btn" id="rec-btn" title="Start recording">
@@ -1326,6 +1330,7 @@ function renderVoices(el, actions) {
               </div>
             </div>
           </div>
+          </div><!-- /rec-ui -->
         </div>
 
       </div>
@@ -1473,6 +1478,14 @@ function renderVoices(el, actions) {
   const recUploadBtn  = el.querySelector('#rec-upload-btn');
 
   if (recBtn) {
+    // Show banner and hide UI on non-secure contexts (http:// on iOS/Safari blocks mediaDevices)
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      const banner = el.querySelector('#rec-insecure-banner');
+      const recUi  = el.querySelector('#rec-ui');
+      if (banner) banner.style.display = 'block';
+      if (recUi)  recUi.style.display  = 'none';
+    } else {
+
     let mediaRecorder = null;
     let audioChunks   = [];
     let recordedBlob  = null;
@@ -1645,6 +1658,7 @@ function renderVoices(el, actions) {
         progressWrap?.remove();
       }
     });
+    } // end else (mediaDevices available)
   }
 }
 
