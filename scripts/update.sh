@@ -39,6 +39,7 @@ launchctl stop "gui/$UID_VAL/com.melolabdev.vox-helper" 2>/dev/null || true
 sleep 2
 
 # ── Pull or copy new source files ─────────────────────────────────────────────
+BRANCH=""
 if [[ -n "$ZIP_SRC" ]]; then
     [[ -d "$ZIP_SRC" ]] || fail "Source folder not found: $ZIP_SRC"
     info "Copying source files from $ZIP_SRC…"
