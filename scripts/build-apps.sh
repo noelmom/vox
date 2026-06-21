@@ -94,26 +94,12 @@ mkdir -p "$SERVER_APP/Contents/MacOS" "$SERVER_APP/Contents/Resources"
 
 cp "$ROOT/assets/Vox.icns" "$SERVER_APP/Contents/Resources/Vox.icns"
 
-cat > /tmp/vox-server-$$.c <<'CSRC'
-#include <unistd.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-int main(int argc, char *argv[]) {
-    const char *home = getenv("HOME");
-    if (!home) { fprintf(stderr, "HOME not set\n"); return 1; }
-    char run_sh[1024];
-    snprintf(run_sh, sizeof(run_sh), "%s/Library/Application Support/Vox/scripts/run.sh", home);
-    char *bash = "/bin/bash";
-    char *args[] = {bash, run_sh, NULL};
-    execv(bash, args);
-    perror("execv failed");
-    return 1;
-}
-CSRC
-clang -arch arm64 -O2 -o "$SERVER_APP/Contents/MacOS/vox-server" /tmp/vox-server-$$.c \
+info "Compiling Swift VoxServer…"
+swiftc \
+    -target arm64-apple-macos13.0 \
+    "$ROOT/voxserver/main.swift" \
+    -o "$SERVER_APP/Contents/MacOS/vox-server" \
     || fail "Failed to compile vox-server launcher"
-rm -f /tmp/vox-server-$$.c
 
 cat > "$SERVER_APP/Contents/Info.plist" <<EOF
 <?xml version="1.0" encoding="UTF-8"?>
