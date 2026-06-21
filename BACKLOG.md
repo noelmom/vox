@@ -53,6 +53,13 @@ Ideas and improvements to revisit. Not bugs — these are enhancements queued fo
 
 ## Web UI
 
+- [ ] **Detect missing microphone on page load in the voice recorder**
+  - On page load, call `navigator.mediaDevices.enumerateDevices()` and check for any `audioinput` device.
+  - If none found: hide the record button and show a persistent inline notice — e.g. "No microphone detected. Connect a USB mic or headset to record." with a "Retry" button that re-runs the check.
+  - If found: show the record UI as normal.
+  - This avoids the confusing flow where the user clicks record, nothing happens, and an error appears after the fact. Especially relevant on desktop machines (Mac Mini, Mac Pro) with no built-in mic.
+
+
 - [x] Text input with preset selector
 - [x] Job history with audio playback
 - [x] In-browser voice profile recording (MediaRecorder + live waveform)
