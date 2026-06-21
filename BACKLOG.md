@@ -273,6 +273,26 @@ Ideas and improvements to revisit. Not bugs — these are enhancements queued fo
 
   Keep existing individual scripts (`install-agent.sh`, `install-helper.sh`, `update.sh`, etc.) working as-is — `install.sh` is a convenience wrapper, not a replacement. Power users and CI can still call scripts directly.
 
+- [ ] **Unify uninstall scripts into a single `uninstall.sh`**
+  - Merge `uninstall-agent.sh` and `uninstall-helper.sh` into one `scripts/uninstall.sh` with an interactive prompt to choose what to remove.
+  - Support flags for non-interactive/CI use:
+    - `--all` — remove everything (agent + helper + app bundle)
+    - `--agent` — remove server agent only
+    - `--helper` — remove helper + app bundle only
+    - `--data` — also remove voices, outputs, data, input from Application Support (destructive, off by default)
+    - `--yes` — skip all confirmation prompts
+
+- [ ] **Add CLI flags to `install.sh` and `update.sh` for scripted workflows**
+  - `install.sh` flags:
+    - `--agent` — install server agent only, skip helper
+    - `--helper` — install helper only, skip agent
+    - `--hf-token TOKEN` — pass Hugging Face token directly, skip prompt
+    - `--yes` — accept all prompts non-interactively
+  - `update.sh` flags:
+    - `--no-restart` — sync files and deps but do not restart agents (useful mid-session)
+    - `--agent-only` / `--helper-only` — reinstall only one agent
+  - Flags make CI pipelines, automated testing, and power-user workflows possible without interactive input
+
 ---
 
 ## Installation & Diagnostics
