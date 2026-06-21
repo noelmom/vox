@@ -322,6 +322,20 @@ Ideas and improvements to revisit. Not bugs — these are enhancements queued fo
 
 ---
 
+## One-Liner Remote Install
+
+- [ ] **curl/wget one-liner installer**
+  - Allow installing Vox with a single command, no git clone required:
+    ```bash
+    curl -fsSL https://raw.githubusercontent.com/MeloLabDev/codename-vox/main/vox.sh | bash -s install
+    ```
+  - `vox.sh` already handles the full install flow — this just removes the clone step for end users.
+  - Requirements before enabling: code signing & notarization done, repo public or install token approach decided, `vox.sh` downloads the full source itself (zip from latest release) rather than relying on the local project folder being present.
+  - Consider hosting on a vanity URL (e.g. `get.vox.app`) that redirects to the raw GitHub URL so the command stays short and the URL is decoupled from the repo location.
+  - Blocked by: public release readiness (signed app, stable v1.0).
+
+---
+
 ## Version Tracking
 
 - [ ] **Track installed version and prevent redundant installs/updates**
