@@ -187,6 +187,16 @@ Ideas and improvements to revisit. Not bugs — these are enhancements queued fo
 
 ---
 
+## Installation & Diagnostics
+
+- [ ] **Write install log to `~/Library/Logs/VoxForge/install.log`**
+  - `setup.sh`, `install-agent.sh`, and `install-helper.sh` should tee all output to a timestamped install log so failed installs can be diagnosed without the user having to reproduce the issue in front of you.
+  - Each script appends to the same file with a clear header (script name + timestamp + macOS version + architecture).
+  - On failure, the error and the last few lines of context are preserved so the exact step that failed is obvious.
+  - Suggested implementation: `exec > >(tee -a "$LOG_FILE") 2>&1` at the top of each script after the log dir is created.
+
+---
+
 ## Pre-Release Code Review
 
 - [ ] **Full codebase optimization pass** — before cutting v1.0, do a complete review of all code for:
