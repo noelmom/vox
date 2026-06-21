@@ -74,6 +74,7 @@ if [[ -f "$PREBUILT_ZIP" ]]; then
     echo "[vox] Installing pre-signed VoxServer.app from assets/…"
     rm -rf "$SERVER_BUNDLE"
     ditto -x -k "$PREBUILT_ZIP" "$APP_SUPPORT/"
+    xattr -rd com.apple.quarantine "$SERVER_BUNDLE" 2>/dev/null || true
     echo "[vox] ✓ VoxServer.app installed from pre-signed zip"
 else
     # Compile Swift launcher at install time (dev machine only)
