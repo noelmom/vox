@@ -340,5 +340,13 @@ Ideas and improvements to revisit. Not bugs — these are enhancements queued fo
 ## API & Performance
 
 - [ ] Streaming audio response (chunked transfer encoding)
-- [ ] Concurrent generation queue (replace single `asyncio.Lock` with a worker pool)
+- [ ] **Generation queue with UI feedback** — replace single `asyncio.Lock` with a proper worker queue.
+  - Backend: queue incoming requests when a generation is already in progress; return a job ID immediately with `202 Accepted` and expose `GET /jobs/{id}/status` for polling or SSE.
+  - UI: when a request is queued, show the position in queue ("⏳ Queued — position 2") in the generate button area and update live as position changes. Transition to a progress indicator once generation starts.
+  - Pair with the sidebar stats item below.
+- [ ] **Sidebar stats panel** — use the empty space in the left navigation bar to surface live server stats.
+  - Candidates: requests processed (session + all-time), audio minutes generated (session + all-time), current queue depth, average generation time.
+  - Pull from existing SQLite job history for all-time counts; track session counts in memory.
+  - Update on each completed job — no polling needed if driven by the same SSE stream as queue feedback.
+  - Display as a compact, non-interactive stats block near the bottom of the nav sidebar.
 - [ ] Server-sent events for real-time generation progress
