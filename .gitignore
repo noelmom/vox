@@ -14,3 +14,6 @@ voices/*
 
 # UI sketches — local design references only
 sketches/
+
+# Generated at install time by install-helper.sh — contains absolute paths
+VoxHelper.app/

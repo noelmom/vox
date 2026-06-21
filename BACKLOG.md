@@ -87,10 +87,13 @@ Ideas and improvements to revisit. Not bugs — these are enhancements queued fo
 - [x] **Fix `env` label** — server plist now uses `/bin/bash` directly; Login Items shows `bash` instead of `env`.
 - [x] **Fix `Python3` label** — `install-helper.sh` creates a `vox-helper → python3` symlink in the venv; helper plist references it by that name so Login Items and Activity Monitor show `vox-helper`.
 
-- [ ] **Branding icons in Login Items & Activity Monitor**
-  - Both agents still show generic icons (shell/Python).
-  - Requires a `.icns` file (Vox logo at 16/32/64/128/256/512px) and wrapping the helper in a minimal `.app` bundle with an `Info.plist` containing `CFBundleDisplayName` and `CFBundleIconFile`.
-  - Defer to the one-click `.app` packaging phase — icon and bundle work naturally happen together.
+- [x] **Branding icons — temporary** — `install-helper.sh` now builds `VoxHelper.app` (a minimal bundle with `Info.plist` + icon) so Login Items and Activity Monitor show "Vox Helper" with the VoxForge icon. `assets/VoxForge.icns` committed to the repo.
+
+- [ ] **Replace temporary logo before public release**
+  - `assets/VoxForge.icns` is a placeholder. The app name "VoxForge" / "Vox" is not finalised.
+  - Once the permanent app name and logo are decided, replace `assets/VoxForge.icns` with the final `.icns` and update `CFBundleDisplayName` / `CFBundleIdentifier` in `install-helper.sh` to match.
+  - The `.icns` should include all required sizes: 16, 32, 64, 128, 256, 512, 1024px.
+  - Must be done before App Store submission or any public release.
 
 - [ ] **Auto-launch on login (server)** — flip `RunAtLoad` from `<false/>` to `<true/>` in `launchagent/com.melolabdev.vox.plist` when shipping the `.app`. Helper already auto-starts.
 

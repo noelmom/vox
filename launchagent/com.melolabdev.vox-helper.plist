@@ -7,12 +7,12 @@
   <string>com.melolabdev.vox-helper</string>
 
   <!-- install-helper.sh rewrites VOX_PROJECT_ROOT with the real path -->
-  <!-- Uses a symlink named 'vox-helper' → python3, created by install-helper.sh.
-       macOS Login Items and Activity Monitor show the executable name, so this
-       makes it appear as 'vox-helper' instead of the generic 'Python3'. -->
+  <!-- Binary lives inside a minimal .app bundle (built by install-helper.sh).
+       The bundle gives macOS the display name "Vox Helper" and the VoxForge
+       icon in Login Items and Activity Monitor. -->
   <key>ProgramArguments</key>
   <array>
-    <string>VOX_PROJECT_ROOT/.venv/bin/vox-helper</string>
+    <string>VOX_PROJECT_ROOT/VoxHelper.app/Contents/MacOS/vox-helper</string>
     <string>VOX_PROJECT_ROOT/menubar/vox_helper.py</string>
   </array>
 
