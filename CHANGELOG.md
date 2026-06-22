@@ -12,6 +12,15 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - **Audio player waveform sync** — waveform bars now update in sync with both playback timeline and manual seek slider dragging.
 - **Waveform bars disappearing at end** — bars now stay filled throughout end-of-playback instead of vanishing.
 - **ETA estimation** — progress bar no longer fills too fast; added 1.3× safety multiplier and improved messaging (shows "Finalizing…" when estimate exceeded).
+- **Generation silently failing over Cloudflare tunnels and slow connections** — long generations (>100s) would complete successfully on the server but never deliver audio to the browser. Two-part fix:
+
+  **Root cause 1 — synchronous HTTP response:** `POST /tts` previously held the HTTP connection open for the entire generation duration (up to several minutes). Cloudflare tunnels enforce a ~100s idle timeout and would kill the connection before the server could respond, leaving the file on disk but showing nothing in the UI.
+
+  **Fix:** `POST /tts` now returns `202 Accepted` with a `{ request_id }` immediately after queuing the job. Generation runs as an `asyncio` background task. The UI polls `GET /jobs/{request_id}` every 2 seconds until `status` is `completed` or `failed`, then fetches the audio from the new `GET /jobs/{request_id}/audio` endpoint.
+
+  **Root cause 2 — blocked event loop:** Even with the async job approach, `model.generate()` is a blocking CPU/GPU-bound call that froze the entire asyncio event loop during inference. This prevented the polling requests from being served while generation was running — same timeout symptom, different layer.
+
+  **Fix:** `model.generate()` is now dispatched via `asyncio.get_running_loop().run_in_executor(None, ...)`, running inference in a thread pool so the event loop remains free to serve status polls throughout generation.
 
 ---
 
