@@ -53,6 +53,11 @@ let uvicorn    = appSupport + "/venv/bin/uvicorn"
 
 // Build environment for the exec'd process
 var execEnv = ProcessInfo.processInfo.environment
+// Merge all .env variables (includes HF_TOKEN, etc.)
+for (key, value) in env {
+    execEnv[key] = value
+}
+// Override with explicit VOX_* settings
 execEnv["VOX_HOST"]   = host
 execEnv["VOX_DEVICE"] = device
 execEnv["VOX_PORT"]   = String(port)
