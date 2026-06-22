@@ -516,12 +516,22 @@
     } catch { return false; }
   }
 
+  function stripPrompts(text) {
+    // Remove shell prompts ($ or #) and extra whitespace from each line
+    return text
+      .split('\n')
+      .map(line => line.replace(/^\s*[$#]\s?/, '').trim())
+      .filter(line => line.length > 0)
+      .join('\n');
+  }
+
   document.addEventListener('click', async e => {
     const btn = e.target.closest('[data-copy-target]');
     if (!btn) return;
     const target = document.getElementById(btn.dataset.copyTarget);
     if (!target) return;
-    const ok = await copyText(target.innerText.trim());
+    const textToCopy = stripPrompts(target.innerText.trim());
+    const ok = await copyText(textToCopy);
     if (ok) {
       btn.textContent = '✓ Copied';
       btn.classList.add('copied');
