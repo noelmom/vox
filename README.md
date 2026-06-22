@@ -396,11 +396,9 @@ All settings are controlled via environment variables with a `VOX_` prefix, or b
 | `VOX_DEFAULT_MAX_CHARS` | `450` | Default text chunk size |
 | `VOX_MIN_MAX_CHARS` | `100` | Minimum allowed chunk size |
 | `VOX_MAX_MAX_CHARS` | `3000` | Maximum allowed chunk size |
-| `HF_TOKEN` | *(none)* | HuggingFace access token. Optional but recommended — enables authenticated downloads for faster transfer rates and access to gated models. Uses the standard HF convention (no `VOX_` prefix). Generate a read-only token at [huggingface.co/settings/tokens](https://huggingface.co/settings/tokens). **Never commit this value to git.** |
+| `HF_TOKEN` | *(none)* | HuggingFace access token. Only needed the first time the model is downloaded — without it, downloads are anonymous and subject to HuggingFace rate limits. Has no effect on generation speed once the model is cached locally. Uses the standard HF convention (no `VOX_` prefix). Generate a read-only token at [huggingface.co/settings/tokens](https://huggingface.co/settings/tokens). **Never commit this value to git.** |
 
 > **Note:** The menu bar helper (`VoxHelper.app`) reads `.env` on startup and uses the configured `VOX_PORT` for all health checks and API calls. If you change `VOX_PORT`, restart the helper for the change to take effect.
-
-> **HF_TOKEN tip:** Set `HF_TOKEN` in `.env` to enable authenticated HuggingFace downloads. This speeds up model loading and TTS generation significantly (10-20x faster). Never commit your token to git — `.env` is git-ignored by default.
 
 **Example `.env`:**
 
