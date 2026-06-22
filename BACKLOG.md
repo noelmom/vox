@@ -257,6 +257,30 @@ Ideas and improvements to revisit. Not bugs — these are enhancements queued fo
 
 ## Maintenance & Memory
 
+- [ ] **Soft-delete voice profiles — trash folder with 72h recovery window**
+
+  When a voice profile is deleted via `DELETE /voices/{name}`, instead of permanently removing the WAV file, move it to a `voices/deleted/` folder alongside a metadata sidecar so it can be restored if needed.
+
+  **Soft-delete behavior (`DELETE /voices/{name}`):**
+  - Move `voices/{filename}.wav` → `voices/deleted/{filename}.wav`
+  - Write a sidecar `voices/deleted/{filename}.json` with: `{ "name", "description", "tags", "deleted_at", "original_filename" }` so the profile can be fully restored
+  - Mark the DB row `status='deleted'` and set `deleted_at=datetime('now')` instead of hard-deleting it — keeps job history intact
+
+  **Routine cleanup task (extend existing `cleanup.py`):**
+  - The existing `run_cleanup_loop()` already runs on a TTL schedule — extend it rather than adding a second timer
+  - Add a pass that scans `voices/deleted/` and permanently removes any file whose sidecar `deleted_at` is older than `VOX_DELETED_VOICE_TTL_HOURS` (default 72)
+  - After purging the file, hard-delete the DB row and the sidecar
+  - Log each purge at INFO level with the voice name and age
+
+  **Future `POST /voices/{name}/restore` endpoint (optional, later):**
+  - Move WAV back to `voices/`, re-activate the DB row, remove the sidecar
+  - Surface in UI as an "Undo delete" option within the 72h window
+
+  **Config:**
+  - `VOX_DELETED_VOICE_TTL_HOURS` — default `72`, `0` = never auto-purge
+
+  **Why:** Accidental deletes are hard to recover from today. A trash folder with a daily cleanup is a low-cost safety net that matches how macOS Trash works. Extending the existing cleanup loop keeps the scheduled-task surface minimal.
+
 - [ ] **Prune old job rows from SQLite** — cleanup task deletes output files but DB rows accumulate forever. Add `DELETE FROM jobs WHERE created_at < datetime('now', '-30 days')` to the cleanup loop, configurable via `VOX_JOB_RETENTION_DAYS` (default 30).
 
 ---
