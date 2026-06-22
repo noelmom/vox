@@ -42,19 +42,7 @@ app = FastAPI(
     title=settings.app_name,
     lifespan=lifespan,
     servers=[
-        {
-            "url": f"http://127.0.0.1:{settings.port}",
-            "description": "Local (localhost only)",
-        },
-        {
-            "url": f"http://{settings.host}:{settings.port}",
-            "description": f"Network ({settings.host}:{settings.port})",
-        },
-    ] if settings.host != "127.0.0.1" else [
-        {
-            "url": f"http://127.0.0.1:{settings.port}",
-            "description": "Local (localhost only)",
-        },
+        {"url": "/", "description": "Current server"},
     ],
     swagger_ui_parameters={"defaultModelsExpandDepth": 0},
     swagger_css_url="data:text/css,.swagger-ui .models { background: #f5f5f5 !important; } .swagger-ui .models h4 { color: #1d1d1f !important; } .swagger-ui .models h5 { color: #1d1d1f !important; } .swagger-ui .models .model-title { color: #1d1d1f !important; } .swagger-ui .models a { color: #0066cc !important; text-decoration: underline !important; } .swagger-ui .models a:hover { color: #004499 !important; } .swagger-ui .models .model-box { background: #fff !important; } .swagger-ui .models .model-box td { color: #1d1d1f !important; } .swagger-ui .models .model-container { border-color: #ccc !important; color: #1d1d1f !important; }",
