@@ -19,6 +19,7 @@ It exposes a clean REST API and a web UI for generating high-quality audio from 
 - **Zero cloud dependency** — fully self-hosted
 - **Web UI** — single-page app for generating audio, managing voices, viewing history, and configuring settings
 - **In-browser voice recording** — capture microphone audio directly in the browser with live waveform visualisation
+- **Audio player with synchronized waveform** — generated audio plays inline with a waveform display that fills as playback progresses and stays synchronized when seeking
 - **Voice profile editing** — update description, tags, and TTS defaults without re-uploading audio
 - **Tag system** — tag voices (`uploaded`, `auto-import`, or custom) with filter pills on the Voices screen
 - **Custom tone** — "✦ Custom" pill opens a parameter panel with sliders for all 6 TTS params; persists via `localStorage`

@@ -5,6 +5,26 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [Unreleased]
+
+### Fixed
+- **API docs Schemas section styling** — hyperlinks and text now readable with monochromatic blue/dark color scheme applied via Swagger UI CSS override.
+- **Audio player waveform sync** — waveform bars now update in sync with both playback timeline and manual seek slider dragging.
+- **Waveform bars disappearing at end** — bars now stay filled throughout end-of-playback instead of vanishing.
+- **ETA estimation** — progress bar no longer fills too fast; added 1.3× safety multiplier and improved messaging (shows "Finalizing…" when estimate exceeded).
+
+---
+
+## [0.4.1-beta] — 2026-06-22
+
+### Added
+- **Webm to WAV conversion** — audio uploads now accept `.webm` format (e.g., from browser recording) and auto-convert to 24kHz mono WAV with ffmpeg.
+
+### Fixed
+- Landing page footer version bumped to v0.4.1-beta.
+
+---
+
 ## [0.4.0-beta] — 2026-06-21
 
 ### Changed
