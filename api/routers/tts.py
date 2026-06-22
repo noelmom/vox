@@ -1,3 +1,4 @@
+import asyncio
 import time
 import uuid
 from datetime import datetime
@@ -6,7 +7,7 @@ from pathlib import Path
 import numpy as np
 import soundfile as sf
 from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
-from fastapi.responses import FileResponse
+from fastapi.responses import JSONResponse
 
 from api.core.audio import INGESTABLE_EXTENSIONS, convert_to_wav, export_mp3
 from api.core.chunker import clamp_max_chars, split_text
@@ -21,11 +22,6 @@ log = get_logger(__name__)
 
 
 async def _resolve_voice(voice_name: str | None, rid: str, db) -> tuple[Path | None, str | None]:
-    """
-    Looks up voice_name in the DB, verifies the WAV file exists on disk,
-    and returns (wav_path, voice_id). Returns (None, None) if no voice requested.
-    Raises HTTPException 404 with a clear message if the voice can't be resolved.
-    """
     if not voice_name:
         return None, None
 
@@ -55,126 +51,36 @@ async def _resolve_voice(voice_name: str | None, rid: str, db) -> tuple[Path | N
     return wav_path, row["id"]
 
 
-async def _fail_job(db, rid: str, error: str, status_code: int, log_msg: str):
-    """Write a failed job record and raise the appropriate HTTPException."""
-    await db.execute(
-        "UPDATE jobs SET status='failed', error=?, completed_at=datetime('now') WHERE request_id=?",
-        (error, rid),
-    )
-    await db.commit()
-    log.error("%s request_id=%s error=%s", log_msg, rid, error, extra={"request_id": rid})
-    raise HTTPException(status_code=status_code, detail=error)
-
-
-@router.post("")
-async def generate_tts(
-    request: Request,
-    text: str = Form(...),
-    preset: str = Form("default"),
-    output_format: str = Form("mp3"),
-    voice_name: str | None = Form(None),
-    voice: UploadFile | None = File(None),
-    max_chars: int | None = Form(None),
-    temperature: float | None = Form(None),
-    exaggeration: float | None = Form(None),
-    cfg_weight: float | None = Form(None),
-    repetition_penalty: float | None = Form(None),
-    top_p: float | None = Form(None),
-    min_p: float | None = Form(None),
+async def _run_generation(
+    rid: str,
+    text: str,
+    preset_name: str,
+    output_format_name: str,
+    chunk_max_chars: int,
+    params: dict,
+    audio_prompt_path: Path | None,
+    tmp_paths: list[Path],
 ):
-    rid = request.state.request_id
+    """Background task: run TTS generation and update job record when done."""
     request_start = time.time()
     db = await get_db()
 
-    preset_name = preset.lower()
-    output_format_name = output_format.lower()
-    chunk_max_chars = clamp_max_chars(
-        max_chars,
-        settings.default_max_chars,
-        settings.min_max_chars,
-        settings.max_max_chars,
-    )
-
-    # Insert job immediately so every outcome — including early failures — is tracked
-    await db.execute(
-        """INSERT INTO jobs (request_id, status, text, preset, output_format)
-           VALUES (?, 'processing', ?, ?, ?)""",
-        (rid, text, preset_name, output_format_name),
-    )
-    await db.commit()
-
-    # Resolve voice profile (DB-authoritative, verifies file on disk)
     try:
-        audio_prompt_path, voice_id = await _resolve_voice(voice_name, rid, db)
-    except HTTPException as exc:
-        await db.execute(
-            "UPDATE jobs SET status='failed', error=?, completed_at=datetime('now') WHERE request_id=?",
-            (exc.detail, rid),
-        )
-        await db.commit()
-        log.warning("Voice not found: %s", exc.detail, extra={"request_id": rid})
-        raise
-
-    # Update job with resolved voice_id
-    if voice_id:
-        await db.execute("UPDATE jobs SET voice_id=? WHERE request_id=?", (voice_id, rid))
-        await db.commit()
-
-    # Param precedence: preset → voice defaults → request overrides
-    params = PRESETS.get(preset_name, PRESETS["default"]).copy()
-
-    if voice_id:
-        async with db.execute(
-            "SELECT exaggeration, cfg_weight, temperature, repetition_penalty, top_p, min_p "
-            "FROM voices WHERE id = ?", (voice_id,)
-        ) as cur:
-            voice_row = await cur.fetchone()
-        if voice_row:
-            params.update({k: v for k, v in dict(voice_row).items() if v is not None})
-
-    request_overrides = {
-        "temperature": temperature,
-        "exaggeration": exaggeration,
-        "cfg_weight": cfg_weight,
-        "repetition_penalty": repetition_penalty,
-        "top_p": top_p,
-        "min_p": min_p,
-    }
-    params.update({k: v for k, v in request_overrides.items() if v is not None})
-
-    # Handle inline voice file upload
-    if voice:
-        suffix = Path(voice.filename or "").suffix.lower()
-        if suffix not in INGESTABLE_EXTENSIONS:
-            await _fail_job(
-                db, rid,
-                f"Unsupported voice format '{suffix}'. Accepted: {sorted(INGESTABLE_EXTENSIONS)}",
-                400, "Unsupported voice upload format",
+        chunks = split_text(text, chunk_max_chars)
+        if not chunks:
+            await db.execute(
+                "UPDATE jobs SET status='failed', error=?, completed_at=datetime('now') WHERE request_id=?",
+                ("Text cannot be empty.", rid),
             )
-        raw = await voice.read()
-        if suffix == ".wav":
-            tmp_path = settings.output_dir / f"tmp_voice_{uuid.uuid4()}.wav"
-            tmp_path.write_bytes(raw)
-            audio_prompt_path = tmp_path
-        else:
-            tmp_src = settings.output_dir / f"tmp_voice_{uuid.uuid4()}{suffix}"
-            tmp_wav = tmp_src.with_suffix(".wav")
-            tmp_src.write_bytes(raw)
-            convert_to_wav(tmp_src, tmp_wav)
-            tmp_src.unlink(missing_ok=True)
-            audio_prompt_path = tmp_wav
+            await db.commit()
+            return
 
-    chunks = split_text(text, chunk_max_chars)
-    if not chunks:
-        await _fail_job(db, rid, "Text cannot be empty.", 400, "Empty text rejected")
+        log.info(
+            "TTS job started: preset=%s chunks=%d format=%s",
+            preset_name, len(chunks), output_format_name,
+            extra={"request_id": rid},
+        )
 
-    log.info(
-        "TTS job started: preset=%s chunks=%d format=%s voice=%s",
-        preset_name, len(chunks), output_format_name, voice_name or "none",
-        extra={"request_id": rid},
-    )
-
-    try:
         model = get_model()
         async with get_lock():
             generation_start = time.time()
@@ -208,6 +114,7 @@ async def generate_tts(
             t0 = time.time()
             export_mp3(wav_path, mp3_path)
             encode_s = time.time() - t0
+            wav_path.unlink(missing_ok=True)
             output_path = mp3_path
 
         total_s = time.time() - request_start
@@ -229,39 +136,6 @@ async def generate_tts(
             extra={"request_id": rid},
         )
 
-        headers = {
-            "X-Request-ID": rid,
-            "X-Preset": preset_name,
-            "X-Device": str(model.device) if hasattr(model, "device") else "mps",
-            "X-Chunks": str(len(chunks)),
-            "X-Max-Chars": str(chunk_max_chars),
-            "X-Audio-Duration-Seconds": f"{audio_duration_s:.2f}",
-            "X-Generation-Seconds": f"{generation_s:.2f}",
-            "X-Total-Seconds": f"{total_s:.2f}",
-            "X-RTF": f"{rtf:.2f}",
-        }
-        if encode_s is not None:
-            headers["X-MP3-Encode-Seconds"] = f"{encode_s:.2f}"
-
-        voice_slug = voice_name or "generic"
-        timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
-        dl_name = f"{voice_slug}-{timestamp}"
-
-        if output_format_name == "mp3":
-            return FileResponse(
-                output_path,
-                media_type="audio/mpeg",
-                filename=f"{dl_name}.mp3",
-                headers=headers,
-            )
-
-        return FileResponse(
-            output_path,
-            media_type="audio/wav",
-            filename=f"{dl_name}.wav",
-            headers=headers,
-        )
-
     except Exception as exc:
         await db.execute(
             "UPDATE jobs SET status='failed', error=?, completed_at=datetime('now') WHERE request_id=?",
@@ -269,4 +143,120 @@ async def generate_tts(
         )
         await db.commit()
         log.error("TTS job failed: %s", exc, extra={"request_id": rid})
-        raise HTTPException(status_code=500, detail=str(exc))
+
+    finally:
+        for p in tmp_paths:
+            p.unlink(missing_ok=True)
+
+
+@router.post("")
+async def generate_tts(
+    request: Request,
+    text: str = Form(...),
+    preset: str = Form("default"),
+    output_format: str = Form("mp3"),
+    voice_name: str | None = Form(None),
+    voice: UploadFile | None = File(None),
+    max_chars: int | None = Form(None),
+    temperature: float | None = Form(None),
+    exaggeration: float | None = Form(None),
+    cfg_weight: float | None = Form(None),
+    repetition_penalty: float | None = Form(None),
+    top_p: float | None = Form(None),
+    min_p: float | None = Form(None),
+):
+    rid = request.state.request_id
+    db = await get_db()
+
+    preset_name = preset.lower()
+    output_format_name = output_format.lower()
+    chunk_max_chars = clamp_max_chars(
+        max_chars,
+        settings.default_max_chars,
+        settings.min_max_chars,
+        settings.max_max_chars,
+    )
+
+    await db.execute(
+        """INSERT INTO jobs (request_id, status, text, preset, output_format)
+           VALUES (?, 'queued', ?, ?, ?)""",
+        (rid, text, preset_name, output_format_name),
+    )
+    await db.commit()
+
+    # Resolve voice profile before launching background task
+    try:
+        audio_prompt_path, voice_id = await _resolve_voice(voice_name, rid, db)
+    except HTTPException as exc:
+        await db.execute(
+            "UPDATE jobs SET status='failed', error=?, completed_at=datetime('now') WHERE request_id=?",
+            (exc.detail, rid),
+        )
+        await db.commit()
+        raise
+
+    if voice_id:
+        await db.execute("UPDATE jobs SET voice_id=? WHERE request_id=?", (voice_id, rid))
+        await db.commit()
+
+    params = PRESETS.get(preset_name, PRESETS["default"]).copy()
+
+    if voice_id:
+        async with db.execute(
+            "SELECT exaggeration, cfg_weight, temperature, repetition_penalty, top_p, min_p "
+            "FROM voices WHERE id = ?", (voice_id,)
+        ) as cur:
+            voice_row = await cur.fetchone()
+        if voice_row:
+            params.update({k: v for k, v in dict(voice_row).items() if v is not None})
+
+    request_overrides = {
+        "temperature": temperature,
+        "exaggeration": exaggeration,
+        "cfg_weight": cfg_weight,
+        "repetition_penalty": repetition_penalty,
+        "top_p": top_p,
+        "min_p": min_p,
+    }
+    params.update({k: v for k, v in request_overrides.items() if v is not None})
+
+    # Handle inline voice file upload — write to disk before returning
+    tmp_paths: list[Path] = []
+    if voice:
+        suffix = Path(voice.filename or "").suffix.lower()
+        if suffix not in INGESTABLE_EXTENSIONS:
+            await db.execute(
+                "UPDATE jobs SET status='failed', error=?, completed_at=datetime('now') WHERE request_id=?",
+                (f"Unsupported voice format '{suffix}'.", rid),
+            )
+            await db.commit()
+            raise HTTPException(
+                status_code=400,
+                detail=f"Unsupported voice format '{suffix}'. Accepted: {sorted(INGESTABLE_EXTENSIONS)}",
+            )
+        raw = await voice.read()
+        if suffix == ".wav":
+            tmp_path = settings.output_dir / f"tmp_voice_{uuid.uuid4()}.wav"
+            tmp_path.write_bytes(raw)
+            audio_prompt_path = tmp_path
+            tmp_paths.append(tmp_path)
+        else:
+            tmp_src = settings.output_dir / f"tmp_voice_{uuid.uuid4()}{suffix}"
+            tmp_wav = tmp_src.with_suffix(".wav")
+            tmp_src.write_bytes(raw)
+            convert_to_wav(tmp_src, tmp_wav)
+            tmp_src.unlink(missing_ok=True)
+            audio_prompt_path = tmp_wav
+            tmp_paths.append(tmp_wav)
+
+    await db.execute(
+        "UPDATE jobs SET status='processing' WHERE request_id=?", (rid,)
+    )
+    await db.commit()
+
+    asyncio.create_task(_run_generation(
+        rid, text, preset_name, output_format_name,
+        chunk_max_chars, params, audio_prompt_path, tmp_paths,
+    ))
+
+    return JSONResponse({"request_id": rid}, status_code=202)

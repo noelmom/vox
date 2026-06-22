@@ -107,10 +107,11 @@ export async function listPresets() {
 }
 
 /**
- * Generate TTS audio. Returns { blob, headers } where blob is the audio file
- * and headers is an object with all X-* timing/tracing headers.
+ * Submit a TTS generation job. Returns { request_id } immediately (202).
+ * Poll getJob(request_id) until status === 'completed' | 'failed',
+ * then call getJobAudio(request_id) to fetch the audio blob.
  */
-export async function generateTTS({ text, preset = 'default', voice_name, output_format = 'mp3',
+export async function submitTTS({ text, preset = 'default', voice_name, output_format = 'mp3',
   max_chars, temperature, exaggeration, cfg_weight, repetition_penalty, top_p, min_p } = {}) {
 
   const fd = new FormData();
@@ -133,11 +134,21 @@ export async function generateTTS({ text, preset = 'default', voice_name, output
     throw new Error(err.detail || r.statusText);
   }
 
-  const headers = {};
-  for (const [k, v] of r.headers.entries()) {
-    if (k.toLowerCase().startsWith('x-')) headers[k] = v;
-  }
+  return r.json(); // { request_id }
+}
 
+export async function getJob(request_id) {
+  const r = await fetch(`${BASE}/jobs/${encodeURIComponent(request_id)}`);
+  if (!r.ok) throw new Error(await r.text());
+  return r.json();
+}
+
+export async function getJobAudio(request_id) {
+  const r = await fetch(`${BASE}/jobs/${encodeURIComponent(request_id)}/audio`);
+  if (!r.ok) {
+    const err = await r.json().catch(() => ({ detail: r.statusText }));
+    throw new Error(err.detail || r.statusText);
+  }
   const blob = await r.blob();
-  return { blob, headers };
+  return blob;
 }

@@ -692,7 +692,7 @@
 </script>
 
 <script type="module">
-import { healthCheck, listVoices, listJobs, listPresets, generateTTS, uploadVoice, uploadVoiceWithProgress, deleteVoice, patchVoice } from '/ui/js/api.js';
+import { healthCheck, listVoices, listJobs, listPresets, submitTTS, getJob, getJobAudio, uploadVoice, uploadVoiceWithProgress, deleteVoice, patchVoice } from '/ui/js/api.js';
 import { toast, toastError, toastSuccess } from '/ui/js/toast.js';
 
 // ── State ────────────────────────────────────────────────────────────────────
@@ -1212,7 +1212,9 @@ async function runGenerate() {
 
   try {
     const isCustom = state.generate.preset === 'custom';
-    const { blob, headers } = await generateTTS({
+
+    // Submit job — returns immediately with request_id
+    const { request_id } = await submitTTS({
       text,
       preset:        isCustom ? 'default' : state.generate.preset,
       voice_name:    state.generate.voice_name || undefined,
@@ -1220,9 +1222,36 @@ async function runGenerate() {
       ...(isCustom ? state.generate.customParams : {}),
     });
 
+    // Poll until completed or failed
+    let job;
+    while (true) {
+      job = await getJob(request_id);
+      if (job.status === 'completed' || job.status === 'failed') break;
+      await new Promise(r => setTimeout(r, 2000));
+    }
+
+    if (job.status === 'failed') {
+      throw new Error(job.error || 'Generation failed');
+    }
+
     // Snap bar to 100%
     const fill = document.getElementById('eta-bar-fill');
     if (fill) fill.style.width = '100%';
+
+    // Fetch audio blob from dedicated endpoint
+    const blob = await getJobAudio(request_id);
+
+    // Reconstruct headers from job record for stats display
+    const headers = {
+      'x-request-id':              job.request_id,
+      'x-preset':                  job.preset,
+      'x-chunks':                  String(job.chunks ?? ''),
+      'x-audio-duration-seconds':  job.audio_duration_s != null ? job.audio_duration_s.toFixed(2) : '',
+      'x-generation-seconds':      job.generation_s    != null ? job.generation_s.toFixed(2)    : '',
+      'x-total-seconds':           job.total_s         != null ? job.total_s.toFixed(2)         : '',
+      'x-rtf':                     job.rtf             != null ? job.rtf.toFixed(2)             : '',
+    };
+    if (job.encode_s != null) headers['x-mp3-encode-seconds'] = job.encode_s.toFixed(2);
 
     const url = URL.createObjectURL(blob);
     state.generate.result = { blob, headers, url };
