@@ -1130,7 +1130,11 @@ function wirePlayer(el) {
   }
 
   _audio.addEventListener('timeupdate', updatePlayerUI);
-  _audio.addEventListener('ended', () => { playBtn.textContent = '▶'; bars.forEach(b => b.classList.remove('played')); });
+  _audio.addEventListener('ended', () => {
+    playBtn.textContent = '▶';
+    // Keep all bars filled when playback ends
+    bars.forEach(b => b.classList.add('played'));
+  });
 
   playBtn.addEventListener('click', () => {
     if (_audio.paused) { _audio.play(); playBtn.textContent = '⏸'; }
