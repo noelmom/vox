@@ -84,6 +84,29 @@ Ideas and improvements to revisit. Not bugs — these are enhancements queued fo
 
   **Why:** A 4+ minute generation that fails silently with a 3-second toast is one of the worst UX patterns in a long-running-task app. The user waited, the result is gone, and the error is already gone too.
 
+- [ ] **System alert banner framework**
+
+  A general-purpose dismissible banner system (below the topbar) for surfacing critical server-side conditions to the user. Banners are persistent until dismissed and should not auto-hide.
+
+  **Backend:** Add a `GET /alerts` endpoint that returns a list of active alerts. The server evaluates conditions on each call and returns structured entries:
+  ```json
+  [
+    { "id": "low_disk", "level": "warning", "message": "Disk space is low (2.1 GB free). Old outputs may not be cleaned up in time." },
+    { "id": "no_ffmpeg", "level": "error", "message": "ffmpeg not found. MP3 export will fail." }
+  ]
+  ```
+
+  **Frontend:** On app load (and periodically, e.g. every 5 minutes), call `/alerts` and render any active banners below the topbar. Dismissed banners are stored in `sessionStorage` by `id` so they don't re-appear until the next session.
+
+  **Initial conditions to implement:**
+  - Low disk space (e.g. < 1 GB free on the output volume)
+  - ffmpeg missing or not executable (MP3 export broken)
+  - Output directory not writable
+
+  **Future conditions to add as needed:**
+  - Model not yet downloaded / cache missing
+  - GPU unavailable, falling back to CPU
+
 - [ ] **Detect missing microphone on page load in the voice recorder**
   - On page load, call `navigator.mediaDevices.enumerateDevices()` and check for any `audioinput` device.
   - If none found: hide the record button and show a persistent inline notice — e.g. "No microphone detected. Connect a USB mic or headset to record." with a "Retry" button that re-runs the check.
