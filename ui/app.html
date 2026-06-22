@@ -478,6 +478,12 @@
     }
     .rec-preview audio { width: 100%; height: 36px; }
     .rec-controls { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+    .rec-ui-grid {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 24px; max-width: 800px;
+    }
+    @media (max-width: 560px) {
+      .rec-ui-grid { grid-template-columns: 1fr; }
+    }
 
     /* ── Screen: History ───────────────────────────────────────────────── */
     .history-filters {
@@ -1350,7 +1356,7 @@ function renderVoices(el, actions) {
             <strong style="color:var(--text-1);">No microphone detected</strong><br>
             Connect a USB microphone or headset, then <button id="rec-retry-btn" style="background:none;border:none;color:var(--accent);cursor:pointer;font-size:13px;padding:0;text-decoration:underline;">try again</button>. Alternatively, use <strong>Upload File</strong> to upload a Voice Memo recorded on another device.
           </div>
-          <div id="rec-ui" style="display:grid;grid-template-columns:1fr 1fr;gap:24px;max-width:800px;">
+          <div id="rec-ui" class="rec-ui-grid">
             <div>
               <div class="recorder-zone" id="recorder-zone">
                 <div class="rec-btn" id="rec-btn" title="Start recording">
