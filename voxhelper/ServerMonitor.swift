@@ -68,7 +68,7 @@ class ServerMonitor {
     // ── Health check ───────────────────────────────────────────────────────
     private func checkServer() -> Bool {
         guard let url = URL(string: "http://localhost:\(port)/health") else { return false }
-        var req = URLRequest(url: url, timeoutInterval: 2)
+        var req = URLRequest(url: url, timeoutInterval: 10)
         req.httpMethod = "GET"
         var ok  = false
         let sem = DispatchSemaphore(value: 0)
