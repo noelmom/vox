@@ -115,14 +115,20 @@ Ideas and improvements to revisit. Not bugs — these are enhancements queued fo
   - Do the same comparison for `VoxServer.app` (installed at `~/Library/Application Support/Vox/VoxServer.app`).
   - Each app is checked and skipped independently — helper may be current while server needs update.
 
-  **What gets skipped when up to date:**
+  **What gets skipped when app version is unchanged:**
   - `cp -r` of the app bundle from DMG
-  - `launchctl unload` + `launchctl load` of the LaunchAgent (avoids restarting a running server)
+  - `launchctl unload` + `launchctl load` of the LaunchAgent plist
 
   **What always runs regardless:**
   - `git pull` (already conditional on diff)
   - Python dependency sync (`pip install -r requirements.txt`)
   - API/UI code sync to Application Support
+
+  **Important — LaunchAgent reload vs server restart are separate concerns:**
+  The LaunchAgent only needs to be unloaded/reloaded when the plist itself changes (new port, args, env vars) or when the app binary is replaced. Python code changes (API, UI) do **not** require a plist reload — the server just needs to be restarted so the new code is picked up by the running process. The update script should therefore:
+  - Skip `launchctl unload/load` when neither the app binary nor the plist has changed
+  - Always stop + start the server process at the end of update so fresh Python code is active
+  - Communicate clearly in output: "Reloading LaunchAgent (binary updated)" vs "Restarting server (code updated)"
 
   **Output:**
   ```
