@@ -66,6 +66,7 @@ class ServerMonitor {
     }
 
     // ── Health check ───────────────────────────────────────────────────────
+    // Uses the port configured in .env (VOX_PORT), defaults to 8000 if not set
     private func checkServer() -> Bool {
         guard let portInt = Int(port) else { return false }
         let sock = socket(AF_INET, SOCK_STREAM, 0)
