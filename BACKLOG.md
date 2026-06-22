@@ -97,6 +97,42 @@ Ideas and improvements to revisit. Not bugs — these are enhancements queued fo
 
 ---
 
+## Update Script
+
+- [ ] **Skip app reinstall when VoxServer and VoxHelper are already current**
+
+  `vox.sh update` always reinstalls both LaunchAgents unconditionally, even when the DMG hasn't changed and the installed apps are identical. This means every `update` triggers a full stop→copy→reload cycle for both agents regardless of whether the Swift binaries changed — wasteful and causes an unnecessary server restart.
+
+  **Detection approach:**
+  - Read the installed app's version from its `Info.plist`:
+    ```bash
+    installed=$(/usr/libexec/PlistBuddy -c "Print CFBundleShortVersionString" \
+      /Applications/VoxHelper.app/Contents/Info.plist 2>/dev/null)
+    bundled=$(/usr/libexec/PlistBuddy -c "Print CFBundleShortVersionString" \
+      "$MOUNT_POINT/VoxHelper.app/Contents/Info.plist" 2>/dev/null)
+    ```
+  - Compare `$installed` vs `$bundled` (version string from `build-apps.sh`). If equal → skip reinstall for that app.
+  - Do the same comparison for `VoxServer.app` (installed at `~/Library/Application Support/Vox/VoxServer.app`).
+  - Each app is checked and skipped independently — helper may be current while server needs update.
+
+  **What gets skipped when up to date:**
+  - `cp -r` of the app bundle from DMG
+  - `launchctl unload` + `launchctl load` of the LaunchAgent (avoids restarting a running server)
+
+  **What always runs regardless:**
+  - `git pull` (already conditional on diff)
+  - Python dependency sync (`pip install -r requirements.txt`)
+  - API/UI code sync to Application Support
+
+  **Output:**
+  ```
+  [vox] VoxServer.app already at v0.4.1 — skipping reinstall
+  [vox-helper] VoxHelper.app already at v0.4.1 — skipping reinstall
+  ```
+  vs current: `⚠ Already up to date — reinstalling agents anyway.`
+
+  **Blocked by:** version bump workflow — `CFBundleShortVersionString` in `build-apps.sh` must be kept in sync with the git tag. Covered by the vox.yaml unified version tracking backlog item.
+
 ## Packaging & Distribution
 
 - [x] **LaunchAgent — server** — `launchagent/com.melolabdev.vox.plist`. Manual start, crash-restart, logs to `~/Library/Logs/Vox/`.
