@@ -1120,14 +1120,16 @@ function wirePlayer(el) {
     return `${m}:${String(Math.floor(s % 60)).padStart(2,'0')}`;
   }
 
-  _audio.addEventListener('timeupdate', () => {
+  // Update bars and time display (called by both timeupdate and seek input)
+  function updatePlayerUI() {
     const pct = _audio.duration ? (_audio.currentTime / _audio.duration) * 100 : 0;
     seekEl.value = pct;
     timeEl.textContent = `${fmt(_audio.currentTime)} / ${fmt(_audio.duration || 0)}`;
     const playedCount = Math.floor((pct / 100) * bars.length);
     bars.forEach((b, i) => b.classList.toggle('played', i < playedCount));
-  });
+  }
 
+  _audio.addEventListener('timeupdate', updatePlayerUI);
   _audio.addEventListener('ended', () => { playBtn.textContent = '▶'; bars.forEach(b => b.classList.remove('played')); });
 
   playBtn.addEventListener('click', () => {
@@ -1136,7 +1138,10 @@ function wirePlayer(el) {
   });
 
   seekEl.addEventListener('input', () => {
-    if (_audio.duration) _audio.currentTime = (_audio.duration * seekEl.value) / 100;
+    if (_audio.duration) {
+      _audio.currentTime = (_audio.duration * seekEl.value) / 100;
+      updatePlayerUI();  // Update bars immediately when dragging
+    }
   });
 }
 
