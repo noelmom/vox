@@ -82,15 +82,22 @@ async def _run_generation(
         )
 
         model = get_model()
+        loop = asyncio.get_running_loop()
         async with get_lock():
             generation_start = time.time()
             audio_segments = []
 
             for chunk in chunks:
-                wav = model.generate(
-                    text=chunk,
-                    audio_prompt_path=str(audio_prompt_path) if audio_prompt_path else None,
-                    **params,
+                prompt_path = str(audio_prompt_path) if audio_prompt_path else None
+                # Run blocking model inference in a thread so the event loop stays
+                # free to serve status-poll requests while generation is in progress.
+                wav = await loop.run_in_executor(
+                    None,
+                    lambda c=chunk, p=prompt_path: model.generate(
+                        text=c,
+                        audio_prompt_path=p,
+                        **params,
+                    ),
                 )
                 audio = wav.squeeze().cpu().numpy()
                 audio_segments.append(audio)
