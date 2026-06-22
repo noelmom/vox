@@ -38,7 +38,25 @@ async def lifespan(app: FastAPI):
     await disconnect()
 
 
-app = FastAPI(title=settings.app_name, lifespan=lifespan)
+app = FastAPI(
+    title=settings.app_name,
+    lifespan=lifespan,
+    servers=[
+        {
+            "url": f"http://127.0.0.1:{settings.port}",
+            "description": "Local (localhost only)",
+        },
+        {
+            "url": f"http://{settings.host}:{settings.port}",
+            "description": f"Network ({settings.host}:{settings.port})",
+        },
+    ] if settings.host != "127.0.0.1" else [
+        {
+            "url": f"http://127.0.0.1:{settings.port}",
+            "description": "Local (localhost only)",
+        },
+    ],
+)
 
 app.add_middleware(RequestIDMiddleware)
 
