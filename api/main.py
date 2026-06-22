@@ -56,6 +56,7 @@ app = FastAPI(
             "description": "Local (localhost only)",
         },
     ],
+    swagger_ui_parameters={"defaultModelsExpandDepth": 0},
 )
 
 app.add_middleware(RequestIDMiddleware)
