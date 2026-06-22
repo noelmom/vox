@@ -20,6 +20,10 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Intel Mac block in `vox.sh` and `scripts/build-apps.sh` (`uname -m` check — exits with clear error on non-arm64).
 - Server single-instance guard in `scripts/run.sh`: port connectivity check before `exec uvicorn`; exits cleanly if server already running.
 
+### Fixed
+- **HF_TOKEN not passed to uvicorn** — Swift launcher now merges all .env variables (including `HF_TOKEN`) into the environment passed to uvicorn. Previously only forwarded `VOX_HOST`, `VOX_DEVICE`, `VOX_PORT`. This enables authenticated HuggingFace downloads and significantly improves model inference speed (~10-20x faster TTS generation).
+- **Helper shows "Server stopped" during TTS generation** — replaced HTTP health check (which timed out under heavy CPU load) with native Swift TCP connection check to the configured port. Helper now shows accurate "Running" status even while generating audio. Health check respects `VOX_PORT` configuration and defaults to 8000 if not set.
+
 ---
 
 ## [0.3.1-beta] — 2026-06-21
