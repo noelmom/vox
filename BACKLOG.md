@@ -53,6 +53,37 @@ Ideas and improvements to revisit. Not bugs — these are enhancements queued fo
 
 ## Web UI
 
+- [ ] **[HIGH] Rethink error display — replace ephemeral toast with persistent, actionable error UI**
+
+  The current error toast (bottom-left, disappears after a few seconds) is inadequate for generation failures. A 4-minute job that silently fails with a toast the user may not even see is a bad experience. Errors need to be visible, readable, and persistent until the user dismisses them.
+
+  **Proposed approach — inline error state in the Generate panel:**
+  - When a generation fails, replace the progress bar / player area with a persistent inline error card that stays until the user dismisses or retries
+  - Show: a clear error heading ("Generation failed"), the server's error message in a readable monospace block, the request ID for support, and two actions: **Retry** and **Dismiss**
+  - Color: red/danger styling, not a neutral toast
+  - Do not auto-dismiss — the user should choose to acknowledge it
+
+  **Error card should include:**
+  ```
+  ✕  Generation failed
+  ─────────────────────────────────
+  Voice file missing on disk.
+  Re-upload the voice profile to fix this.
+
+  Request ID: 90ad88fe-eb79-402e-8033  [Copy]
+
+  [↺ Retry]  [Dismiss]
+  ```
+
+  **Keep the toast for non-critical feedback only** (copy success, voice uploaded, settings saved). Errors from API calls — generation, voice upload failures, network errors — should all use the persistent inline card pattern.
+
+  **Other surfaces to update:**
+  - Voice upload failures: currently show a toast; should show an inline error below the upload zone
+  - Voice delete failures: inline error on the card, not a toast
+  - Network/offline errors: persistent banner at top of screen
+
+  **Why:** A 4+ minute generation that fails silently with a 3-second toast is one of the worst UX patterns in a long-running-task app. The user waited, the result is gone, and the error is already gone too.
+
 - [ ] **Detect missing microphone on page load in the voice recorder**
   - On page load, call `navigator.mediaDevices.enumerateDevices()` and check for any `audioinput` device.
   - If none found: hide the record button and show a persistent inline notice — e.g. "No microphone detected. Connect a USB mic or headset to record." with a "Retry" button that re-runs the check.
