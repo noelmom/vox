@@ -57,15 +57,7 @@ app = FastAPI(
         },
     ],
     swagger_ui_parameters={"defaultModelsExpandDepth": 0},
-    swagger_css_url="data:text/css,\
-    .models { background: #fff !important; } \
-    .model-title { color: #1d1d1f !important; } \
-    .model a { color: #0066cc !important; text-decoration: underline; } \
-    .model a:hover { color: #004499 !important; } \
-    .model-box { background: #fff !important; color: #1d1d1f !important; } \
-    .model-box td { color: #1d1d1f !important; } \
-    .swagger-ui .models .model-container { border-color: #ccc !important; } \
-    ",
+    swagger_css_url="data:text/css,.swagger-ui .models { background: #f5f5f5 !important; } .swagger-ui .models h4 { color: #1d1d1f !important; } .swagger-ui .models h5 { color: #1d1d1f !important; } .swagger-ui .models .model-title { color: #1d1d1f !important; } .swagger-ui .models a { color: #0066cc !important; text-decoration: underline !important; } .swagger-ui .models a:hover { color: #004499 !important; } .swagger-ui .models .model-box { background: #fff !important; } .swagger-ui .models .model-box td { color: #1d1d1f !important; } .swagger-ui .models .model-container { border-color: #ccc !important; color: #1d1d1f !important; }",
 )
 
 app.add_middleware(RequestIDMiddleware)
