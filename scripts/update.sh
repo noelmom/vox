@@ -34,9 +34,13 @@ fi
 # ── Stop agents before touching files ─────────────────────────────────────────
 info "Stopping agents…"
 UID_VAL=$(id -u)
-launchctl stop "gui/$UID_VAL/com.melolabdev.vox"        2>/dev/null || true
-launchctl stop "gui/$UID_VAL/com.melolabdev.vox-helper" 2>/dev/null || true
-sleep 2
+launchctl kickstart -k "gui/$UID_VAL/com.melolabdev.vox"        2>/dev/null || true
+launchctl stop        "gui/$UID_VAL/com.melolabdev.vox-helper"  2>/dev/null || true
+# Wait for the server process to fully exit before syncing files
+for i in {1..10}; do
+    pgrep -f "uvicorn api.main:app" &>/dev/null || break
+    sleep 1
+done
 
 # ── Pull or copy new source files ─────────────────────────────────────────────
 BRANCH=""
@@ -82,9 +86,8 @@ info "Syncing server code to Application Support…"
 mkdir -p "$APP_SUPPORT/api"
 mkdir -p "$APP_SUPPORT/scripts"
 mkdir -p "$APP_SUPPORT/ui-dist"
-rsync -a --delete "$ROOT/api/"     "$APP_SUPPORT/api/"
-rsync -a --delete "$ROOT/ui/"      "$APP_SUPPORT/ui/"
-rsync -a --delete "$ROOT/ui-dist/" "$APP_SUPPORT/ui-dist/"
+rsync -a --delete "$ROOT/api/"      "$APP_SUPPORT/api/"
+rsync -a --delete "$ROOT/ui-dist/"  "$APP_SUPPORT/ui-dist/"
 success "Code synced"
 
 # ── Re-register agents ────────────────────────────────────────────────────────
