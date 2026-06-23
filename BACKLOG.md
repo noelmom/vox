@@ -455,6 +455,25 @@ Ideas and improvements to revisit. Not bugs — these are enhancements queued fo
 
 ## Landing Page
 
+- [ ] **[BLOCKER — v1.0.0] Install window background indistinguishable from menu bar**
+
+  The terminal/install window mockup on the landing page uses the same (or very similar) background color as the simulated macOS menu bar above it, making the two regions blend together. The window content area needs to read as a distinct, lighter surface so the mockup clearly communicates "this is a terminal window inside a menu bar screenshot."
+
+  **Fix:** lighten the window body background — e.g. `#1e1e1e` or similar dark-but-distinct value versus the menu bar's near-black — so there's visible depth separation. A subtle border or drop shadow between the two zones may also help. Verify on both light and dark OS themes if the mockup is static.
+
+  File: `ui-src/src/routes/index.tsx` (landing page install section).
+
+- [ ] **[BLOCKER — v1.0.0] "Buy Me a Coffee" button looks out of place next to "View on GitHub"**
+
+  The two CTA buttons sit side by side on the landing page, but "Buy Me a Coffee" is visually inconsistent with the polished "View on GitHub" button — different weight, color treatment, or style signals "third-party widget" rather than a cohesive design. On a v1.0.0 landing page this reads as unfinished.
+
+  **Options to consider:**
+  - Restyle the coffee button to match the GitHub button's border, radius, font weight, and icon treatment — same visual language, different icon (e.g. a coffee cup from lucide or a custom SVG) and label.
+  - Use a plain `<a>` link styled as a secondary outline button that links to the Buy Me a Coffee URL instead of embedding their widget/badge.
+  - Reconsider placement — if the two buttons are meant to have different visual weight (GitHub = primary, coffee = secondary), make that hierarchy intentional rather than accidental.
+
+  File: `ui-src/src/routes/index.tsx` (landing page hero / CTA section).
+
 - [ ] **Increase nav and footer text contrast** — the landing page nav links and footer copy are too light on some screens. Target WCAG AA contrast ratio (4.5:1) against the page background. Fix in `ui-src/src/routes/index.tsx` (landing page) using Tailwind opacity utilities or updated colour values.
 
 - [ ] **Smooth scroll navigation** — nav links animate to each section instead of jumping. `scroll-behavior: smooth` baseline + JS easing curve. Active link highlight updates as user scrolls past sections.
