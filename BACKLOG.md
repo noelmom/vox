@@ -620,6 +620,18 @@ Ideas and improvements to revisit. Not bugs — these are enhancements queued fo
     - `--data` — also remove voices, outputs, data, input from Application Support (destructive, off by default)
     - `--yes` — skip all confirmation prompts
 
+- [ ] **Add `-y` / `--yes` flag to `setup.sh` to skip interactive prompts during clean install**
+
+  During clean install testing, `setup.sh` surfaces several confirmation prompts that users must manually answer before the install proceeds. A `-y` flag would accept all defaults automatically — useful for re-installs, CI, and power users who know what they're doing.
+
+  **Prompts to auto-accept with `-y`:**
+  - First, audit `setup.sh` to enumerate every `read`/`select` prompt currently present — the exact list needs to be confirmed against the current script.
+  - Likely candidates: install server LaunchAgent? [Y/n], install menu bar helper? [Y/n], HF token prompt (skip / leave blank by default), any overwrite/reinstall confirmations.
+
+  **Implementation:** check whether a simple `yes |` pipe (`yes | bash setup.sh`) already works, or whether prompts need explicit `-y` branching. Some `read` calls with `-r` may not respond to piped input correctly — if so, add a `YES=false` flag at the top of the script and wrap each prompt: `if $YES; then ANSWER=y; else read ...`.
+
+  **Also apply to:** `install-agent.sh`, `install-helper.sh` — any script that is called from `setup.sh` and adds its own prompts should accept a passed-through `-y` flag.
+
 - [ ] **Add CLI flags to `install.sh` and `update.sh` for scripted workflows**
   - `install.sh` flags:
     - `--agent` — install server agent only, skip helper
