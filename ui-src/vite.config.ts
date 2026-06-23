@@ -14,6 +14,17 @@ export default defineConfig({
     tailwindcss(),
     tsconfigPaths(),
   ],
+  server: {
+    proxy: {
+      "/health": "http://localhost:8000",
+      "/tts": "http://localhost:8000",
+      "/jobs": "http://localhost:8000",
+      "/voices": "http://localhost:8000",
+      "/presets": "http://localhost:8000",
+      "/alerts": "http://localhost:8000",
+      "/settings": "http://localhost:8000",
+    },
+  },
   build: {
     outDir: "../ui-dist",
     emptyOutDir: true,

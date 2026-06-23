@@ -9,7 +9,10 @@ import soundfile as sf
 from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import JSONResponse
 
-from api.core.audio import INGESTABLE_EXTENSIONS, convert_to_wav, export_mp3
+from api.core.audio import (
+    INGESTABLE_EXTENSIONS, VALID_MP3_BITRATES, VALID_WAV_DEPTHS, WAV_SUBTYPES,
+    convert_to_wav, export_mp3,
+)
 from api.core.chunker import clamp_max_chars, split_text
 from api.core.config import settings
 from api.core.db import get_db
@@ -60,6 +63,8 @@ async def _run_generation(
     params: dict,
     audio_prompt_path: Path | None,
     tmp_paths: list[Path],
+    mp3_bitrate: int | None = None,
+    wav_bit_depth: str | None = None,
 ):
     """Background task: run TTS generation and update job record when done."""
     request_start = time.time()
@@ -110,19 +115,22 @@ async def _run_generation(
         rtf = generation_s / audio_duration_s if audio_duration_s > 0 else 0
 
         output_id = uuid.uuid4()
-        wav_path = settings.output_dir / f"{output_id}.wav"
-        sf.write(str(wav_path), final_audio, model.sr)
-
         encode_s = None
-        output_path = wav_path
 
         if output_format_name == "mp3":
+            wav_path = settings.output_dir / f"{output_id}.wav"
+            sf.write(str(wav_path), final_audio, model.sr, subtype="PCM_16")
             mp3_path = settings.output_dir / f"{output_id}.mp3"
             t0 = time.time()
-            export_mp3(wav_path, mp3_path)
+            export_mp3(wav_path, mp3_path, bitrate=mp3_bitrate)
             encode_s = time.time() - t0
             wav_path.unlink(missing_ok=True)
             output_path = mp3_path
+        else:
+            subtype = WAV_SUBTYPES.get(wav_bit_depth or "16", "PCM_16")
+            wav_path = settings.output_dir / f"{output_id}.wav"
+            sf.write(str(wav_path), final_audio, model.sr, subtype=subtype)
+            output_path = wav_path
 
         total_s = time.time() - request_start
 
@@ -171,12 +179,19 @@ async def generate_tts(
     repetition_penalty: float | None = Form(None),
     top_p: float | None = Form(None),
     min_p: float | None = Form(None),
+    mp3_bitrate: int | None = Form(None),
+    wav_bit_depth: str | None = Form(None),
 ):
     rid = request.state.request_id
     db = await get_db()
 
     preset_name = preset.lower()
     output_format_name = output_format.lower()
+
+    if mp3_bitrate is not None and mp3_bitrate not in VALID_MP3_BITRATES:
+        raise HTTPException(status_code=422, detail=f"mp3_bitrate must be one of {sorted(VALID_MP3_BITRATES)}")
+    if wav_bit_depth is not None and wav_bit_depth not in VALID_WAV_DEPTHS:
+        raise HTTPException(status_code=422, detail=f"wav_bit_depth must be one of {sorted(VALID_WAV_DEPTHS)}")
     chunk_max_chars = clamp_max_chars(
         max_chars,
         settings.default_max_chars,
@@ -264,6 +279,8 @@ async def generate_tts(
     asyncio.create_task(_run_generation(
         rid, text, preset_name, output_format_name,
         chunk_max_chars, params, audio_prompt_path, tmp_paths,
+        mp3_bitrate=mp3_bitrate,
+        wav_bit_depth=wav_bit_depth,
     ))
 
     return JSONResponse({"request_id": rid}, status_code=202)

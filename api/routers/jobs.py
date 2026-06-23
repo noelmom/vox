@@ -1,4 +1,5 @@
 from pathlib import Path
+from typing import Any
 
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import FileResponse
@@ -16,6 +17,13 @@ _JOB_SELECT = """
 """
 
 
+def _annotate(row: Any) -> dict:
+    d = dict(row)
+    p = d.get("output_path")
+    d["file_available"] = bool(p and Path(p).exists())
+    return d
+
+
 @router.get("", response_model=list[JobOut])
 async def list_jobs(request: Request, limit: int = 50, offset: int = 0):
     db = await get_db()
@@ -24,7 +32,7 @@ async def list_jobs(request: Request, limit: int = 50, offset: int = 0):
         (limit, offset),
     ) as cur:
         rows = await cur.fetchall()
-    return [dict(r) for r in rows]
+    return [_annotate(r) for r in rows]
 
 
 @router.get("/{request_id}", response_model=JobOut)
@@ -34,7 +42,22 @@ async def get_job(request_id: str, request: Request):
         row = await cur.fetchone()
     if not row:
         raise HTTPException(status_code=404, detail="Job not found")
-    return dict(row)
+    return _annotate(row)
+
+
+@router.delete("/{request_id}", status_code=204)
+async def delete_job(request_id: str, request: Request):
+    db = await get_db()
+    async with db.execute("SELECT output_path FROM jobs WHERE request_id = ?", (request_id,)) as cur:
+        row = await cur.fetchone()
+    if not row:
+        raise HTTPException(status_code=404, detail="Job not found")
+    await db.execute("DELETE FROM jobs WHERE request_id = ?", (request_id,))
+    await db.commit()
+    if row["output_path"]:
+        p = Path(row["output_path"])
+        if p.exists():
+            p.unlink(missing_ok=True)
 
 
 @router.get("/{request_id}/audio")

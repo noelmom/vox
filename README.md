@@ -35,7 +35,7 @@ It exposes a clean REST API and a web UI for generating high-quality audio from 
 ```
 codename-vox/
 ├── api/
-│   ├── main.py                  # FastAPI app, lifespan, middleware registration
+│   ├── main.py                  # FastAPI app, lifespan, SPA routing, settings endpoint
 │   ├── middleware/
 │   │   └── request_id.py        # Attaches X-Request-ID to every req/res
 │   ├── core/
@@ -55,34 +55,47 @@ codename-vox/
 │   └── models/
 │       ├── voice.py             # VoiceOut, VoiceParams, VoiceCreate schemas
 │       └── job.py               # JobOut schema
-├── ui/
-│   ├── app.html                 # Single-page web UI (vanilla JS, ES modules)
-│   ├── css/
-│   │   └── vox.css              # Design tokens and component styles
-│   └── js/
-│       └── api.js               # Thin fetch/XHR wrappers for every API endpoint
-├── working-poc/                 # Original proof-of-concept (reference only)
+├── ui-src/                      # React SPA source (Vite + TypeScript + Tailwind v4)
+│   ├── src/
+│   │   ├── routes/              # TanStack Router file-based routes
+│   │   │   ├── index.tsx        # Landing page
+│   │   │   ├── app.tsx          # Shell layout — sidebar, header, footer
+│   │   │   ├── app.index.tsx    # Create page (TTS generation)
+│   │   │   ├── app.library.tsx  # Library page (voice profile management)
+│   │   │   ├── app.recordings.tsx # Recordings page (job history)
+│   │   │   └── app.settings.tsx # Settings page
+│   │   ├── lib/
+│   │   │   └── api.ts           # Typed fetch wrappers for every API endpoint
+│   │   ├── components/ui/       # shadcn/ui primitives
+│   │   └── assets/              # Logos, icons, screenshots
+│   ├── public/                  # Static assets (favicon, etc.)
+│   ├── index.html
+│   ├── vite.config.ts
+│   └── package.json
+├── ui-dist/                     # Production build output (served by FastAPI)
 ├── voices/                      # Stored voice profile WAV files
 ├── outputs/                     # Generated audio files (auto-cleaned by TTL)
 ├── input/                       # Drop audio files here for auto-ingest
 │   └── processed/               # Files moved here after successful ingest
 ├── voxhelper/
-│   ├── main.swift               # entry point, single-instance lock
+│   ├── main.swift               # Entry point, single-instance lock
 │   ├── AppDelegate.swift        # NSApplicationDelegate lifecycle
 │   ├── StatusBarController.swift # NSStatusItem, menu, all actions
-│   └── ServerMonitor.swift      # health check, .env reader, CPU/RAM stats, launchctl
+│   └── ServerMonitor.swift      # Health check, .env reader, CPU/RAM stats, launchctl
 ├── launchagent/
 │   ├── com.melolabdev.vox.plist         # Server LaunchAgent template (manual start)
 │   └── com.melolabdev.vox-helper.plist  # Helper LaunchAgent template (auto on login)
 ├── scripts/
 │   ├── run.sh                   # Manual foreground start (troubleshooting / dev)
+│   ├── build-apps.sh            # Build, sign, and package VoxHelper + VoxServer DMG
 │   ├── install-agent.sh         # Register server LaunchAgent with macOS launchd
 │   ├── uninstall-agent.sh       # Unload and remove the server LaunchAgent
 │   ├── install-helper.sh        # Register menu bar helper LaunchAgent
 │   ├── uninstall-helper.sh      # Unload and remove the helper LaunchAgent
-│   └── update.sh                # Pull latest + sync deps + re-register agents
+│   ├── update.sh                # Pull latest + sync deps + re-register agents
 │   └── README.md                # Script reference + manual start guide
 ├── setup.sh                     # One-shot bootstrap script
+├── vox.sh                       # Unified CLI — install, update, uninstall
 ├── requirements.txt             # Python dependencies
 ├── CHANGELOG.md                 # Notable changes per version
 └── .env                         # Local config overrides (git-ignored)
@@ -443,7 +456,7 @@ sqlite3 vox.db
 | Audio conversion | ffmpeg |
 | Job queue | `asyncio.Lock` (single-device serialisation) |
 | Settings | [pydantic-settings](https://docs.pydantic.dev/latest/concepts/pydantic_settings/) |
-| Web UI | Vanilla JS (ES modules), single `app.html` SPA |
+| Web UI | React 19 + TypeScript, Vite 6, Tailwind CSS v4, TanStack Router + Query |
 | Menu bar helper | Native Swift (AppKit `NSStatusItem`) — arm64 macOS only |
 | Process management | macOS launchd via LaunchAgent plists |
 | Packaging | *(coming soon — PyInstaller or py2app)* |
@@ -466,23 +479,27 @@ sqlite3 vox.db
 - [x] TTL-based output file cleanup
 - [x] Environment-based configuration
 - [x] One-command setup script (`setup.sh`)
-- [x] Web UI — Generate, Voices, History, Settings screens
-- [x] Voice profile tagging and filter pills
-- [x] Voice profile editing modal
-- [x] In-browser microphone recording with waveform visualiser
-- [x] Custom tone panel (per-request TTS parameter overrides, localStorage persistence)
-- [x] Generation ETA progress bar
-- [x] Real upload progress (XHR byte-level)
+- [x] Web UI — Create, Library, Recordings, Settings screens (React SPA)
+- [x] Voice profile tagging, filter pills, and search
+- [x] Voice profile editing — display name, description, tags, custom icon
+- [x] Favorites — starred voices persist in SQLite, survive restarts and device changes
+- [x] In-browser microphone recording with live waveform
+- [x] Voice profile audio preview player with seek and volume
+- [x] Custom tone panel — per-request TTS parameter sliders, named presets saved to DB
+- [x] Sidebar widgets — lifetime and daily request/audio-minutes stats with sparklines
+- [x] Generation ETA — elapsed timer with M:SS display while processing
+- [x] Result download with format and quality controls
+- [x] Recent recordings with inline play, download, and delete
 - [x] macOS menu bar helper (native Swift) — status, CPU/RAM, server control, copy address
 - [x] LaunchAgent for server (manual start, crash-restart, structured logs)
 - [x] LaunchAgent for helper (auto-starts on login)
+- [x] Swift menu bar rewrite — native AppKit, eliminates Python/PyObjC issues on macOS Sequoia
+- [ ] Real audio waveform visualisation (currently decorative — v1.0.0 blocker)
+- [ ] Persistent error UI (replace ephemeral toasts with inline error cards)
+- [ ] Named custom tone profiles (save/delete user-defined presets)
 - [ ] Streaming audio response (chunked transfer)
-- [ ] Queue with concurrency support (multiple requests)
-- [ ] One-click `.app` packaging (PyInstaller / py2app)
-- [ ] Code signing and notarization (Apple Developer ID)
+- [ ] One-click `.app` packaging and code signing
 - [ ] Auto-launch on login (server — helper already auto-starts)
-- [x] Swift menu bar rewrite — native AppKit, eliminates Python/PyObjC session issues on macOS Sequoia
-- [ ] Public release polish (installer, docs site, demo)
 
 ---
 

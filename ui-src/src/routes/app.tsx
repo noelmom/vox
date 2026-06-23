@@ -1,23 +1,21 @@
 import { createFileRoute, Link, Outlet, useRouterState } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import {
   Zap,
-  User,
-  Clock,
+  Library,
+  Mic,
   Settings,
-  Bell,
-  Sun,
-  ChevronDown,
   Menu,
   X,
   Heart,
-  Home,
-  ArrowUpRight,
   PanelLeftClose,
   PanelLeftOpen,
 } from "lucide-react";
 import voxLogo from "@/assets/vox-logo-app.png";
-import voxIcon from "@/assets/vox-icon.png";
+import voxIcon from "@/assets/vox-icon-2.png";
+import voxLogoDark from "@/assets/vox-logo-dark-trim.png";
+import { getStats, getServerSettings, healthCheck, type Stats, type ServerSettings } from "@/lib/api";
 
 export const Route = createFileRoute("/app")({
   head: () => ({
@@ -29,10 +27,10 @@ export const Route = createFileRoute("/app")({
   component: AppLayout,
 });
 
-const NAV: { label: string; to: "/app" | "/app/voices" | "/app/history" | "/app/settings"; Icon: typeof Zap }[] = [
-  { label: "Generate", to: "/app", Icon: Zap },
-  { label: "Voices", to: "/app/voices", Icon: User },
-  { label: "History", to: "/app/history", Icon: Clock },
+const NAV: { label: string; to: "/app" | "/app/library" | "/app/recordings" | "/app/settings"; Icon: typeof Zap }[] = [
+  { label: "Create", to: "/app", Icon: Zap },
+  { label: "Library", to: "/app/library", Icon: Library },
+  { label: "Recordings", to: "/app/recordings", Icon: Mic },
   { label: "Settings", to: "/app/settings", Icon: Settings },
 ];
 
@@ -42,6 +40,21 @@ function AppLayout() {
   const [collapsed, setCollapsed] = useState<boolean>(() => {
     if (typeof window === "undefined") return false;
     return window.localStorage.getItem("vox.sidebarCollapsed") === "1";
+  });
+
+  const { data: serverInfo, isLoading: serverLoading, isError: serverError } = useQuery<ServerSettings>({
+    queryKey: ["settings"],
+    queryFn: getServerSettings,
+    staleTime: 0,
+    refetchInterval: 30_000,
+  });
+
+  const { isLoading: healthLoading, isError: healthError } = useQuery({
+    queryKey: ["health"],
+    queryFn: healthCheck,
+    staleTime: 0,
+    refetchInterval: 15_000,
+    retry: 1,
   });
 
   // Close drawer on route change
@@ -59,7 +72,7 @@ function AppLayout() {
     <div className="flex min-h-screen w-full bg-[oklch(0.985_0.005_260)] text-foreground">
       {/* Desktop sidebar */}
       <aside
-        className={`hidden shrink-0 flex-col border-r border-border bg-white py-5 transition-[width] duration-200 lg:flex ${
+        className={`sticky top-0 hidden h-screen shrink-0 flex-col border-r border-border bg-white py-5 transition-[width] duration-200 lg:flex ${
           collapsed ? "w-[68px] px-2" : "w-[232px] px-4"
         }`}
       >
@@ -95,7 +108,7 @@ function AppLayout() {
       <div className="flex min-w-0 flex-1 flex-col">
         {/* Top bar */}
         <header className="flex h-[64px] shrink-0 items-center justify-between gap-3 border-b border-border bg-white px-4 sm:px-8">
-          <div className="flex min-w-0 items-center gap-3">
+          <div className="flex items-center gap-3">
             <button
               type="button"
               onClick={() => setMobileOpen(true)}
@@ -107,25 +120,25 @@ function AppLayout() {
             <div className="flex shrink-0 items-center lg:hidden" aria-label="Vox Studio">
               <img src={voxLogo} alt="Vox" className="h-8 w-auto" />
             </div>
-            <div className="hidden min-w-0 items-center gap-5 text-[13px] font-medium text-foreground/75 md:flex">
-              <StatusPill color="green" label="Ready" />
-              <StatusPill color="green" label="Apple MPS" />
-              <StatusPill color="green" label="Chatterbox Turbo" />
-            </div>
           </div>
-          <div className="flex shrink-0 items-center gap-2">
-            <IconBtn aria-label="Toggle theme"><Sun className="h-4 w-4" /></IconBtn>
-            <IconBtn aria-label="Notifications"><Bell className="h-4 w-4" /></IconBtn>
-            <button
-              type="button"
-              className="ml-1 flex items-center gap-1.5 rounded-full pl-1 pr-2 py-1 hover:bg-muted"
-              aria-label="Account"
-            >
-              <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[oklch(0.55_0.22_260)] text-[12px] font-bold text-white">
-                V
-              </span>
-              <ChevronDown className="h-3.5 w-3.5 text-foreground/60" />
-            </button>
+          <div className="hidden items-center gap-3 md:flex">
+            {(() => {
+              const serverStatus = serverLoading ? "loading" : serverError ? "error" : "ok";
+              const healthStatus = healthLoading ? "loading" : healthError ? "error" : "ok";
+              const device = serverInfo?.device_resolved === "mps" ? "Apple MPS" : serverInfo?.device_resolved?.toUpperCase() ?? "…";
+              const model = serverInfo?.model_name ?? "…";
+              return (
+                <>
+                  <span className="text-[11px] font-semibold uppercase tracking-widest text-foreground/35">
+                    System Status
+                  </span>
+                  <div className="h-3.5 w-px bg-border" />
+                  <StatusPill status={healthStatus} label="Ready" />
+                  <StatusPill status={serverStatus} label={device} />
+                  <StatusPill status={serverStatus} label={model} />
+                </>
+              );
+            })()}
           </div>
         </header>
 
@@ -169,7 +182,9 @@ function AppLayout() {
               </a>
             </div>
             <span className="font-mono tabular-nums">
-              Apple M1 — macOS 26.5.1 (25F80) · VOX v1.0.0
+              {serverInfo
+                ? `${serverInfo.chip} — macOS ${serverInfo.macos_version} · Vox Studio v${serverInfo.vox_version}`
+                : "—"}
             </span>
           </div>
         </footer>
@@ -177,6 +192,31 @@ function AppLayout() {
     </div>
   );
 }
+
+function lsGet<T>(key: string, fallback: T): T {
+  try {
+    const v = localStorage.getItem(key);
+    return v !== null ? (JSON.parse(v) as T) : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function readWidgetPrefs() {
+  return {
+    requests: lsGet("vox:widget.requests", true),
+    minutes: lsGet("vox:widget.minutes", true),
+  };
+}
+
+const EMPTY_STATS: Stats = {
+  total_requests: 0,
+  today_requests: 0,
+  total_minutes: 0,
+  today_minutes: 0,
+  sparkline_requests: [],
+  sparkline_minutes: [],
+};
 
 function SidebarContent({
   pathname,
@@ -187,114 +227,186 @@ function SidebarContent({
   collapsed?: boolean;
   onToggleCollapsed?: () => void;
 }) {
+  const [widgetPrefs, setWidgetPrefs] = useState(readWidgetPrefs);
+
+  useEffect(() => {
+    const handler = () => setWidgetPrefs(readWidgetPrefs());
+    window.addEventListener("vox:prefschanged", handler);
+    return () => window.removeEventListener("vox:prefschanged", handler);
+  }, []);
+
+  const showAnyWidget = !collapsed && (widgetPrefs.requests || widgetPrefs.minutes);
+
+  const { data: stats = EMPTY_STATS } = useQuery({
+    queryKey: ["stats"],
+    queryFn: getStats,
+    enabled: showAnyWidget,
+    staleTime: 0,
+    refetchInterval: 2 * 60 * 1000,
+    refetchIntervalInBackground: false,
+  });
+
   return (
     <>
-      <div className={`mb-7 flex items-center ${collapsed ? "justify-center" : "px-2"}`}>
-        {collapsed ? (
-          <img src={voxIcon.url} alt="Vox" className="h-8 w-8 rounded-lg" />
-        ) : (
-          <img src={voxLogo} alt="Vox Studio" className="h-10 w-auto" />
+      {/* Scrollable top — logo + nav */}
+      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
+        <div className={`mb-7 flex items-center ${collapsed ? "justify-center" : "px-2"}`}>
+          {collapsed ? (
+            <img src={voxIcon} alt="Vox" className="h-8 w-8 rounded-lg" />
+          ) : (
+            <img src={voxLogo} alt="Vox Studio" className="h-10 w-auto" />
+          )}
+        </div>
+        <nav className="flex flex-col gap-1">
+          {NAV.map(({ label, to, Icon }) => {
+            const active = to === "/app" ? pathname === "/app" : pathname.startsWith(to);
+            const base = collapsed
+              ? "flex items-center justify-center rounded-lg p-2.5"
+              : "flex items-center gap-3 rounded-lg px-3 py-2.5";
+            return (
+              <Link
+                key={to}
+                to={to}
+                title={collapsed ? label : undefined}
+                aria-label={label}
+                className={
+                  active
+                    ? `${base} bg-[oklch(0.96_0.03_260)] text-[14px] font-semibold text-[oklch(0.55_0.22_260)]`
+                    : `${base} text-[14px] font-medium text-foreground/70 transition-colors hover:bg-muted hover:text-foreground`
+                }
+              >
+                <Icon className="h-4 w-4" />
+                {!collapsed && label}
+              </Link>
+            );
+          })}
+        </nav>
+      </div>
+
+      {/* Pinned bottom — always visible */}
+      <div className="shrink-0 flex flex-col gap-3 pt-3">
+        {!collapsed && (
+          <>
+            {widgetPrefs.requests && (
+              <section className="rounded-2xl border border-border bg-white p-4">
+                <div className="text-[12px] font-semibold uppercase tracking-wide text-muted-foreground">Requests</div>
+                <div className="mt-3 flex items-end justify-between gap-2">
+                  <div>
+                    <div className="text-[10px] font-semibold uppercase tracking-wide text-foreground/50">Total</div>
+                    <div className="mt-0.5 text-[28px] font-black leading-none text-foreground tabular-nums">
+                      {stats.total_requests}
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-[10px] font-semibold uppercase tracking-wide text-foreground/50">Today</div>
+                    <div className="mt-0.5 text-[22px] font-black leading-none text-[oklch(0.55_0.22_260)] tabular-nums">
+                      {stats.today_requests}
+                    </div>
+                  </div>
+                </div>
+                <div className="mt-3">
+                  <Sparkline
+                    points={stats.sparkline_requests.length > 0 ? stats.sparkline_requests : [0]}
+                    color="oklch(0.62 0.13 175)"
+                  />
+                </div>
+              </section>
+            )}
+
+            {widgetPrefs.minutes && (
+              <section className="rounded-2xl border border-border bg-white p-4">
+                <div className="text-[12px] font-semibold uppercase tracking-wide text-muted-foreground">Audio Generated</div>
+                <div className="mt-3 flex items-end justify-between gap-2">
+                  <div>
+                    <div className="text-[10px] font-semibold uppercase tracking-wide text-foreground/50">All time (min)</div>
+                    <div className="mt-0.5 text-[28px] font-black leading-none text-foreground tabular-nums">
+                      {stats.total_minutes < 10 ? stats.total_minutes.toFixed(1) : Math.round(stats.total_minutes)}
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-[10px] font-semibold uppercase tracking-wide text-foreground/50">Today</div>
+                    <div className="mt-0.5 text-[22px] font-black leading-none text-[oklch(0.55_0.22_260)] tabular-nums">
+                      {stats.today_minutes < 10 ? stats.today_minutes.toFixed(1) : Math.round(stats.today_minutes)}
+                    </div>
+                  </div>
+                </div>
+                <div className="mt-3">
+                  <Sparkline
+                    points={stats.sparkline_minutes.length > 0 ? stats.sparkline_minutes : [0]}
+                    color="oklch(0.55 0.22 260)"
+                  />
+                </div>
+              </section>
+            )}
+
+            <Link
+              to="/"
+              className="flex items-center justify-center"
+              aria-label="Go to landing page"
+            >
+              <img
+                src={voxLogoDark}
+                alt="Vox"
+                className="h-12 w-auto opacity-75 transition-all hover:-translate-y-0.5 hover:opacity-100"
+              />
+            </Link>
+          </>
+        )}
+
+        {onToggleCollapsed && (
+          <button
+            type="button"
+            onClick={onToggleCollapsed}
+            title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+            aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+            className={`flex items-center ${
+              collapsed ? "justify-center p-2.5" : "gap-2 px-3 py-2"
+            } rounded-lg text-[12px] font-medium text-foreground/60 transition-colors hover:bg-muted hover:text-foreground`}
+          >
+            {collapsed ? (
+              <PanelLeftOpen className="h-4 w-4" />
+            ) : (
+              <>
+                <PanelLeftClose className="h-4 w-4" />
+                Collapse
+              </>
+            )}
+          </button>
         )}
       </div>
-      <nav className="flex flex-col gap-1">
-        {NAV.map(({ label, to, Icon }) => {
-          const active = to === "/app" ? pathname === "/app" : pathname.startsWith(to);
-          const base = collapsed
-            ? "flex items-center justify-center rounded-lg p-2.5"
-            : "flex items-center gap-3 rounded-lg px-3 py-2.5";
-          return (
-            <Link
-              key={to}
-              to={to}
-              title={collapsed ? label : undefined}
-              aria-label={label}
-              className={
-                active
-                  ? `${base} bg-[oklch(0.96_0.03_260)] text-[14px] font-semibold text-[oklch(0.55_0.22_260)]`
-                  : `${base} text-[14px] font-medium text-foreground/70 transition-colors hover:bg-muted hover:text-foreground`
-              }
-            >
-              <Icon className="h-4 w-4" />
-              {!collapsed && label}
-            </Link>
-          );
-        })}
-      </nav>
-
-      {!collapsed && (
-        <>
-          <section className="mt-auto rounded-2xl border border-border bg-white p-4">
-            <div className="flex items-center gap-2 text-[13px] font-semibold text-foreground">
-              System Status
-              <span className="h-1.5 w-1.5 rounded-full bg-[oklch(0.7_0.18_145)]" />
-            </div>
-            <div className="mt-0.5 text-[11.5px] text-muted-foreground">All systems go</div>
-
-            <div className="mt-4 text-[12px] font-semibold text-foreground/70">Requests Today</div>
-            <div className="mt-1 flex items-end justify-between">
-              <div className="text-[28px] font-black leading-none text-foreground">12</div>
-              <Sparkline />
-            </div>
-          </section>
-
-          <section className="mt-3 rounded-2xl border border-border bg-white p-4">
-            <div className="flex items-baseline justify-between gap-2">
-              <div className="text-[13px] font-semibold text-foreground">Minutes Recorded</div>
-              <div className="text-[10.5px] uppercase tracking-wide text-muted-foreground">All time</div>
-            </div>
-
-            <div className="mt-3 text-[12px] font-semibold text-foreground/70">Hours</div>
-            <div className="mt-1 flex items-end justify-between">
-              <div className="text-[28px] font-black leading-none text-foreground tabular-nums">22.3</div>
-              <Sparkline color="oklch(0.55 0.22 260)" points={[2, 4, 3, 6, 5, 8, 7, 9, 11, 13]} />
-            </div>
-          </section>
-
-          <Link
-            to="/"
-            className="group mt-3 flex items-center gap-3 rounded-2xl border border-border bg-white px-3.5 py-3 transition-all hover:-translate-y-0.5 hover:border-[oklch(0.55_0.22_260/0.35)] hover:shadow-[0_8px_18px_-12px_oklch(0.55_0.22_260/0.35)]"
-          >
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[oklch(0.96_0.02_260)] text-[oklch(0.55_0.22_260)] transition-colors group-hover:bg-[oklch(0.94_0.04_260)]">
-              <Home className="h-4 w-4" />
-            </span>
-            <span className="min-w-0 flex-1">
-              <span className="block text-[13px] font-bold text-foreground">Landing page</span>
-              <span className="block text-[11px] text-muted-foreground">vox.studio · marketing site</span>
-            </span>
-            <ArrowUpRight className="h-3.5 w-3.5 text-foreground/40 transition-all group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-[oklch(0.55_0.22_260)]" />
-          </Link>
-        </>
-      )}
-
-      {onToggleCollapsed && (
-        <button
-          type="button"
-          onClick={onToggleCollapsed}
-          title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-          aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-          className={`${collapsed ? "mt-auto" : "mt-3"} flex items-center ${
-            collapsed ? "justify-center p-2.5" : "gap-2 px-3 py-2"
-          } rounded-lg text-[12px] font-medium text-foreground/60 transition-colors hover:bg-muted hover:text-foreground`}
-        >
-          {collapsed ? (
-            <PanelLeftOpen className="h-4 w-4" />
-          ) : (
-            <>
-              <PanelLeftClose className="h-4 w-4" />
-              Collapse
-            </>
-          )}
-        </button>
-      )}
     </>
   );
 }
 
-function StatusPill({ color, label }: { color: "green"; label: string }) {
-  const dot = color === "green" ? "bg-[oklch(0.7_0.18_145)]" : "bg-muted";
+function StatusPill({ status, label }: { status: "ok" | "loading" | "error"; label: string }) {
+  const styles = {
+    ok: {
+      wrap: "border-[oklch(0.88_0.1_145)] bg-[oklch(0.97_0.04_145)] text-[oklch(0.38_0.14_145)]",
+      ping: "bg-[oklch(0.65_0.18_145)]",
+      dot: "bg-[oklch(0.55_0.18_145)]",
+    },
+    loading: {
+      wrap: "border-[oklch(0.88_0.1_75)] bg-[oklch(0.97_0.04_75)] text-[oklch(0.45_0.12_75)]",
+      ping: "bg-[oklch(0.7_0.15_75)]",
+      dot: "bg-[oklch(0.6_0.15_75)]",
+    },
+    error: {
+      wrap: "border-[oklch(0.88_0.1_25)] bg-[oklch(0.97_0.04_25)] text-[oklch(0.45_0.18_25)]",
+      ping: "",
+      dot: "bg-[oklch(0.6_0.2_25)]",
+    },
+  }[status];
+
   return (
-    <span className="inline-flex items-center gap-1.5">
-      <span className={`h-1.5 w-1.5 rounded-full ${dot}`} />
+    <span
+      className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11.5px] font-semibold tracking-wide shadow-[inset_0_1px_0_oklch(1_0_0/0.6)] ${styles.wrap}`}
+    >
+      <span className="relative flex h-1.5 w-1.5 shrink-0">
+        {status !== "error" && (
+          <span className={`absolute inline-flex h-full w-full animate-ping rounded-full opacity-60 ${styles.ping}`} />
+        )}
+        <span className={`relative inline-flex h-1.5 w-1.5 rounded-full ${styles.dot}`} />
+      </span>
       {label}
     </span>
   );
@@ -307,29 +419,19 @@ function Sparkline({
   points?: number[];
   color?: string;
 }) {
-  const max = Math.max(...points);
-  const w = 96;
-  const h = 32;
-  const step = w / (points.length - 1);
-  const path = points
-    .map((v, i) => `${i === 0 ? "M" : "L"} ${i * step} ${h - (v / max) * (h - 4) - 2}`)
+  const safePoints = points.length < 2 ? [...points, ...Array(2 - points.length).fill(0)] : points;
+  const max = Math.max(...safePoints, 1);
+  const w = 160;
+  const h = 36;
+  const step = w / (safePoints.length - 1);
+  const path = safePoints
+    .map((v, i) => `${i === 0 ? "M" : "L"} ${i * step} ${h - (v / max) * (h - 6) - 3}`)
     .join(" ");
   return (
-    <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} style={{ color }}>
-      <path d={`${path} L ${w} ${h} L 0 ${h} Z`} fill="currentColor" opacity="0.15" />
-      <path d={path} fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
+    <svg width="100%" height={h} viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" style={{ color }}>
+      <path d={`${path} L ${w} ${h} L 0 ${h} Z`} fill="currentColor" opacity="0.12" />
+      <path d={path} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }
 
-function IconBtn({ children, ...props }: React.ButtonHTMLAttributes<HTMLButtonElement>) {
-  return (
-    <button
-      type="button"
-      className="flex h-9 w-9 items-center justify-center rounded-lg text-foreground/70 transition-colors hover:bg-muted hover:text-foreground"
-      {...props}
-    >
-      {children}
-    </button>
-  );
-}

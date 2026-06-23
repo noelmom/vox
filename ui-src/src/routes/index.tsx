@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
 
-import voxLogo from "@/assets/vox-logo.png";
+import voxLogoV2 from "@/assets/vox-logo-v2.png";
 import voxLogoDark from "@/assets/vox-logo-dark-trim.png";
 import voxInstallerIcon from "@/assets/vox-installer-icon.png";
 import studioScreenshot from "@/assets/studio-screenshot.png";
@@ -66,7 +66,7 @@ export const Route = createFileRoute("/")({
 function Logo({ className = "" }: { className?: string }) {
   return (
     <div className={`flex items-center ${className}`}>
-      <img src={voxLogo} alt="VOX" className="h-12 w-auto" />
+      <img src={voxLogoV2} alt="VOX" className="h-12 w-auto" />
     </div>
   );
 }
@@ -458,7 +458,7 @@ function StudioScreenshot() {
         </div>
 
         <img
-          src={studioScreenshot.url}
+          src={studioScreenshot}
           alt="Vox Studio — Generate tab"
           className="block w-full"
           loading="lazy"
@@ -956,7 +956,7 @@ function Footer() {
       <div className="relative mx-auto max-w-[1180px] px-6 py-14 lg:px-10">
         <div className="flex flex-col items-center gap-8 text-center">
           <div className="flex items-center gap-3">
-            <img src={voxLogoDark.url} alt="VOX" className="h-14 w-auto" />
+            <img src={voxLogoDark} alt="VOX" className="h-14 w-auto" />
           </div>
 
           <p className="max-w-[460px] text-[13px] leading-relaxed text-white/55">
@@ -1146,7 +1146,7 @@ function ApiSection() {
     <section id="api-docs" className="mt-20 scroll-mt-24 pb-24 text-center">
       <div className="inline-flex items-center gap-2 rounded-full border border-border bg-white/70 px-3 py-1 text-[11px] font-semibold tracking-[0.18em] text-foreground/70 backdrop-blur">
         <StatusDot color="oklch(0.55 0.22 260)" />
-        FOR DEVELOPERS
+        USE IT YOUR WAY
       </div>
       <h2 className="mt-4 text-[40px] font-black leading-[1.05] tracking-tight text-foreground">
         Built for creators and developers
@@ -1234,7 +1234,7 @@ function ApiSection() {
       {/* CTA */}
       <div className="mt-8 flex flex-col items-center gap-3">
         <a
-          href="#"
+          href="/docs"
           className="group relative inline-flex items-center gap-2.5 overflow-hidden rounded-xl px-7 py-3.5 text-sm font-bold text-white transition-all hover:-translate-y-0.5"
           style={{
             background:

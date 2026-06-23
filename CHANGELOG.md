@@ -7,6 +7,15 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+- **React 19 SPA — Generate page history panel** — previous completed jobs load from `GET /jobs` below the current Output card. Newest First / Oldest sort toggle and a live filter search bar. Shows 5 jobs initially; "Load more" reveals 3 more per click. Current Output job is excluded from History to avoid duplicates.
+- **Single audio player enforcement** — only one audio player (across Output, History, and Voices) can play at a time. Pressing play on any `JobRow` or `ProfileCard` pauses all others via lifted `activePlayerId` state and an `onActivate` callback.
+- **Expired file detection on load** — `GET /jobs` response includes a `file_available` boolean computed server-side via `Path(output_path).exists()`. Expired jobs render immediately with an amber panel showing "Copy Script" (copies text to clipboard) and "Regenerate" — no extra round-trip needed.
+- **Voices page — full React rewrite** — replaced placeholder with two-tab layout:
+  - *Upload tab:* drag-and-drop or file picker with audio preview, name / description / tags fields, real-time upload to `POST /voices`.
+  - *Record tab:* full mic permission flow with distinct `no-device` (amber, "Connect a microphone") and `denied` (red, "Open browser site settings") error states; device selector dropdown when more than one mic is available (`enumerateDevices()` after permission); MediaRecorder with 250 ms chunks; playback preview before saving; "Save as Voice Profile" calls `POST /voices`.
+  - *ProfileCard grid:* lazy audio fetch per card, single-player coordination, two-step delete confirm, "Use" button writes profile to `localStorage` and navigates to Generate.
+
 ### Fixed
 - **API docs Schemas section styling** — hyperlinks and text now readable with monochromatic blue/dark color scheme applied via Swagger UI CSS override.
 - **Audio player waveform sync** — waveform bars now update in sync with both playback timeline and manual seek slider dragging.

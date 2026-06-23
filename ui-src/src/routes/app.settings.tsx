@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import {
   Cpu,
   Sparkles,
@@ -7,44 +8,154 @@ import {
   Shield,
   ChevronDown,
   Folder,
-  RefreshCw,
   Check,
-  Info,
   AlertTriangle,
+  Zap,
+  Server,
+  CheckCircle2,
+  XCircle,
+  RotateCcw,
+  X,
+  Info,
+  LayoutGrid,
 } from "lucide-react";
+import { type ServerSettings, getServerSettings, listVoices, listPresets } from "@/lib/api";
 
 export const Route = createFileRoute("/app/settings")({
   head: () => ({ meta: [{ title: "Settings — Vox Studio" }] }),
   component: SettingsPage,
 });
 
+// ─── helpers ─────────────────────────────────────────────────────────────────
+
+function capitalize(s: string) {
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+function lsGet<T>(key: string, fallback: T): T {
+  try {
+    const v = localStorage.getItem(key);
+    return v !== null ? (JSON.parse(v) as T) : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function loadPrefs() {
+  return {
+    format: lsGet<"mp3" | "wav">("vox:format", "mp3"),
+    mp3Quality: lsGet("vox:mp3Quality", "128"),
+    wavQuality: lsGet("vox:wavQuality", "16"),
+    advanced: lsGet("vox:advanced", ADVANCED_DEFAULTS),
+    offline: lsGet("vox:offline", false),
+    voiceId: lsGet("vox:voiceId", ""),
+    tone: lsGet("vox:tone", "Default"),
+    widgetRequests: lsGet("vox:widget.requests", true),
+    widgetMinutes: lsGet("vox:widget.minutes", true),
+  };
+}
+
+function savePrefs(p: ReturnType<typeof loadPrefs>) {
+  localStorage.setItem("vox:format", JSON.stringify(p.format));
+  localStorage.setItem("vox:mp3Quality", JSON.stringify(p.mp3Quality));
+  localStorage.setItem("vox:wavQuality", JSON.stringify(p.wavQuality));
+  localStorage.setItem("vox:advanced", JSON.stringify(p.advanced));
+  localStorage.setItem("vox:offline", JSON.stringify(p.offline));
+  localStorage.setItem("vox:voiceId", JSON.stringify(p.voiceId));
+  localStorage.setItem("vox:tone", JSON.stringify(p.tone));
+  localStorage.setItem("vox:widget.requests", JSON.stringify(p.widgetRequests));
+  localStorage.setItem("vox:widget.minutes", JSON.stringify(p.widgetMinutes));
+  window.dispatchEvent(new CustomEvent("vox:prefschanged"));
+}
+
+// ─── defaults (must match Generate page) ────────────────────────────────────
+
+const ADVANCED_DEFAULTS = {
+  exaggeration: 0.5,
+  cfg: 0.5,
+  temperature: 0.8,
+  repetition: 1.2,
+  topP: 1,
+  minP: 0.05,
+};
+
+const MP3_OPTIONS = ["96", "128", "192", "256", "320"] as const;
+const WAV_OPTIONS = ["16", "24", "32f"] as const;
+
+const TTL_LABELS: Record<number, string> = {
+  1: "1 hour",
+  6: "6 hours",
+  12: "12 hours",
+  24: "24 hours",
+  168: "7 days",
+  720: "30 days",
+  0: "Keep forever",
+};
+
+// ─── page ────────────────────────────────────────────────────────────────────
 
 function SettingsPage() {
-  const [device, setDevice] = useState<"mps" | "cpu">("mps");
-  const [model, setModel] = useState("Chatterbox Turbo");
-  const [precision, setPrecision] = useState("Float16 (Default)");
-  const [format, setFormat] = useState<"mp3" | "wav">("mp3");
-  const [sampleRate, setSampleRate] = useState("48 kHz");
-  const [temperature, setTemperature] = useState(0.75);
-  const [cfg, setCfg] = useState(2.5);
-  const [exaggeration, setExaggeration] = useState(0.3);
-  const [seed, setSeed] = useState("0");
-  const [inputFolder, setInputFolder] = useState("/Users/yourname/Vox/Input");
-  const [outFolder, setOutFolder] = useState("/Users/yourname/Vox/Output");
-  const [voiceFolder, setVoiceFolder] = useState("/Users/yourname/Vox/Voices");
-  const [cacheSize, setCacheSize] = useState("2 GB");
-  const [outputTTL, setOutputTTL] = useState("24 hours");
-  const [offline, setOffline] = useState(true);
-  const [saved, setSaved] = useState(false);
+  const { data: server, isLoading: serverLoading } = useQuery<ServerSettings>({
+    queryKey: ["settings"],
+    queryFn: getServerSettings,
+  });
+
+  const { data: voices = [] } = useQuery({ queryKey: ["voices"], queryFn: listVoices });
+  const { data: presetsData } = useQuery({ queryKey: ["presets"], queryFn: listPresets });
+
+  const voiceOptions = [
+    { value: "", label: "Generic (no voice cloning)" },
+    ...voices.map((v) => ({ value: v.name, label: v.name })),
+  ];
+
+  const toneOptions = presetsData
+    ? [...Object.keys(presetsData).map((k) => ({ value: capitalize(k), label: capitalize(k) })), { value: "Custom", label: "Custom" }]
+    : [{ value: "Default", label: "Default" }, { value: "Custom", label: "Custom" }];
+
+  // Draft state — not persisted until Save is clicked
+  const [prefs, setPrefs] = useState(loadPrefs);
+
+  // Snapshot of what's actually in localStorage (to compute dirty)
+  const [savedSnapshot, setSavedSnapshot] = useState(() => JSON.stringify(loadPrefs()));
+
+  // Once dismissed, stays gone for the rest of this page visit.
+  const [dismissed, setDismissed] = useState(false);
+
+  const [saveFeedback, setSaveFeedback] = useState(false);
   const [confirmClear, setConfirmClear] = useState(false);
 
-  const onSave = () => {
-    setSaved(true);
-    window.setTimeout(() => setSaved(false), 1600);
+  const currentSnapshot = JSON.stringify(prefs);
+  const isDirty = currentSnapshot !== savedSnapshot;
+  const isFloating = isDirty && !dismissed;
+
+  const set = <K extends keyof typeof prefs>(key: K, val: (typeof prefs)[K]) => {
+    setPrefs((p) => ({ ...p, [key]: val }));
   };
 
+  const setAdvField = (key: keyof typeof ADVANCED_DEFAULTS, val: number) =>
+    set("advanced", { ...prefs.advanced, [key]: val });
+
+  const handleSave = () => {
+    savePrefs(prefs);
+    setSavedSnapshot(currentSnapshot);
+    setDismissed(false);
+    setSaveFeedback(true);
+    setTimeout(() => setSaveFeedback(false), 1600);
+  };
+
+  const handleReset = () => {
+    const defaults = { format: "mp3" as const, mp3Quality: "128", wavQuality: "16", advanced: ADVANCED_DEFAULTS, offline: false, voiceId: "", tone: "Default", widgetRequests: true, widgetMinutes: true };
+    setPrefs(defaults);
+  };
+
+  const handleDismiss = () => setDismissed(true);
+
+  const ttlLabel = server
+    ? TTL_LABELS[server.output_ttl_hours] ?? `${server.output_ttl_hours}h`
+    : "—";
+
   return (
-    <div className="mx-auto flex max-w-[1280px] flex-col gap-5">
+    <div className={`mx-auto flex max-w-[1280px] flex-col gap-5 ${isFloating ? "pb-24" : ""}`}>
       {/* Header */}
       <div>
         <h1 className="text-[28px] font-black tracking-tight text-foreground">Settings</h1>
@@ -53,175 +164,267 @@ function SettingsPage() {
         </p>
       </div>
 
-      <div className="flex flex-col gap-5">
-          {/* MODEL */}
-          <Section id="model" title="Model" Icon={Cpu} subtitle="Pick how and where Vox runs inference.">
-            <Row label="Compute Device" hint="Choose where inference runs.">
-              <SegmentToggle
-                value={device}
-                onChange={(v) => setDevice(v as "mps" | "cpu")}
-                options={[
-                  { value: "mps", label: "Apple MPS" },
-                  { value: "cpu", label: "CPU" },
-                ]}
-              />
-            </Row>
-            <Row label="Model" hint="Select the TTS model.">
-              <Select value={model} onChange={setModel} options={["Chatterbox Turbo", "Chatterbox Studio", "Chatterbox Lite"]} badge="Recommended" />
-            </Row>
-            <Row label="Precision" hint="Lower precision uses less memory.">
-              <Select value={precision} onChange={setPrecision} options={["Float16 (Default)", "Float32", "Int8"]} />
-            </Row>
-          </Section>
-
-          {/* GENERATION */}
-          <Section id="generation" title="Generation Defaults" Icon={Sparkles} subtitle="The starting point for every new generation.">
-            <Row label="Output Format" hint="Choose audio output format.">
-              <SegmentToggle
-                value={format}
-                onChange={(v) => setFormat(v as "mp3" | "wav")}
-                options={[
-                  { value: "mp3", label: "MP3" },
-                  { value: "wav", label: "WAV" },
-                ]}
-              />
-            </Row>
-            <Row label="Sample Rate" hint="Audio sample rate.">
-              <Select value={sampleRate} onChange={setSampleRate} options={["22.05 kHz", "44.1 kHz", "48 kHz", "96 kHz"]} />
-            </Row>
-            <Row label="Temperature" hint="Controls randomness.">
-              <SliderRow value={temperature} onChange={setTemperature} min={0} max={2} step={0.01} decimals={2} />
-            </Row>
-            <Row label="CFG Weight" hint="Guidance strength.">
-              <SliderRow value={cfg} onChange={setCfg} min={0} max={5} step={0.1} decimals={1} />
-            </Row>
-            <Row label="Exaggeration" hint="Expressiveness boost.">
-              <SliderRow value={exaggeration} onChange={setExaggeration} min={0} max={1} step={0.01} decimals={2} />
-            </Row>
-            <Row label="Seed" hint="Set to 0 for random.">
+      {/* RUNTIME (server read-only) */}
+      <Section id="runtime" title="Runtime" Icon={Server} subtitle="Live server configuration — edit .env to change.">
+        {serverLoading ? (
+          <div className="px-5 py-6 text-[13px] text-muted-foreground">Loading server info…</div>
+        ) : server ? (
+          <>
+            <InfoRow label="Compute Device" hint="Where inference runs (MPS = Apple GPU).">
               <div className="flex items-center gap-2">
-                <input
-                  value={seed}
-                  onChange={(e) => setSeed(e.target.value)}
-                  placeholder="0 for random"
-                  className="flex-1 rounded-lg border border-border bg-white px-3 py-2 text-[13.5px] tabular-nums outline-none placeholder:text-muted-foreground focus:border-[oklch(0.55_0.22_260)]"
-                />
-                <button
-                  onClick={() => setSeed(String(Math.floor(Math.random() * 1_000_000) + 1))}
-                  aria-label="Randomize seed"
-                  className="flex h-9 w-9 items-center justify-center rounded-lg border border-border bg-white text-foreground/65 hover:bg-muted hover:text-foreground"
-                >
-                  <RefreshCw className="h-3.5 w-3.5" />
-                </button>
+                <DeviceBadge device={server.device_resolved} />
+                {server.device_config === "auto" && (
+                  <span className="text-[11.5px] text-muted-foreground">(auto-detected)</span>
+                )}
               </div>
-            </Row>
-          </Section>
-
-          {/* STORAGE */}
-          <Section id="storage" title="Storage" Icon={HardDrive} subtitle="Where Vox keeps your audio and voices.">
-            <Row label="Input Folder" hint="Drop audio files here to be picked up and processed by Vox.">
-              <PathInput value={inputFolder} onChange={setInputFolder} />
-            </Row>
-            <Row label="Output Folder" hint="Where generated audio is saved.">
-              <PathInput value={outFolder} onChange={setOutFolder} />
-            </Row>
-            <Row label="Voice Folder" hint="Where voice profiles are stored.">
-              <PathInput value={voiceFolder} onChange={setVoiceFolder} />
-            </Row>
-            <Row label="Output TTL" hint="How long generated audio is retained before auto-deletion.">
-              <Select
-                value={outputTTL}
-                onChange={setOutputTTL}
-                options={["1 hour", "6 hours", "24 hours", "7 days", "30 days", "Keep forever"]}
-              />
-            </Row>
-            <Row label="Max Cache Size" hint="Cache for faster generations.">
-              <Select value={cacheSize} onChange={setCacheSize} options={["512 MB", "1 GB", "2 GB", "5 GB", "10 GB"]} />
-            </Row>
-            {(() => {
-              const usedGB = 1.4;
-              const totalGB = 2;
-              const pct = Math.min(100, (usedGB / totalGB) * 100);
-              const tone =
-                pct >= 80
-                  ? { from: "oklch(0.7 0.2 25)", to: "oklch(0.55 0.22 25)", text: "oklch(0.55 0.22 25)" }
-                  : pct >= 50
-                    ? { from: "oklch(0.78 0.17 65)", to: "oklch(0.65 0.18 55)", text: "oklch(0.55 0.18 55)" }
-                    : { from: "oklch(0.6 0.2 260)", to: "oklch(0.5 0.22 270)", text: "oklch(0.55 0.22 260)" };
-              return (
-                <div className="px-5 py-4">
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="text-[12.5px] text-muted-foreground">
-                      Currently using{" "}
-                      <span className="font-semibold tabular-nums" style={{ color: tone.text }}>
-                        {usedGB} GB
-                      </span>
-                      <span className="text-foreground/50"> / {totalGB} GB</span>
-                    </div>
-                    <button
-                      onClick={() => setConfirmClear(true)}
-                      className="text-[12px] font-semibold text-[oklch(0.55_0.22_25)] hover:underline"
-                    >
-                      Clear cache
-                    </button>
-                  </div>
-                  <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-muted">
-                    <div
-                      className="h-full rounded-full transition-all"
-                      style={{
-                        width: `${pct}%`,
-                        backgroundImage: `linear-gradient(to right, ${tone.from}, ${tone.to})`,
-                      }}
-                    />
-                  </div>
+            </InfoRow>
+            <InfoRow label="Model" hint="Active TTS model.">
+              <div className="flex items-center gap-1.5">
+                <Zap className="h-3.5 w-3.5 text-[oklch(0.55_0.22_260)]" />
+                <span className="text-[13.5px] font-semibold text-foreground">{server.model_name}</span>
+              </div>
+            </InfoRow>
+            <InfoRow label="Server address" hint="Where the API listens. 0.0.0.0 = all network interfaces.">
+              <code className="rounded-md border border-border bg-muted px-2 py-1 font-mono text-[12.5px] text-foreground/80">
+                {server.host}:{server.port}
+              </code>
+            </InfoRow>
+            <InfoRow label="ffmpeg" hint="Required for audio conversion (MP3 export, WebM recording).">
+              {server.ffmpeg_available ? (
+                <div className="flex items-center gap-1.5 text-[13px]">
+                  <CheckCircle2 className="h-4 w-4 text-[oklch(0.5_0.15_145)]" />
+                  <span className="font-medium text-[oklch(0.4_0.13_145)]">Available</span>
+                  <code className="ml-1 text-[11px] text-muted-foreground">{server.ffmpeg_path}</code>
                 </div>
-              );
-            })()}
-          </Section>
-
-          {/* PRIVACY */}
-          <Section id="privacy" title="Privacy" Icon={Shield} subtitle="You control what — if anything — leaves this device.">
-            <Row label="Offline Mode" hint="Disable all network access.">
-              <Toggle checked={offline} onChange={setOffline} />
-            </Row>
-            <Row label="Crash Reports" hint="Send anonymous crash reports." comingSoon>
-              <Toggle checked={false} onChange={() => {}} disabled />
-            </Row>
-          </Section>
-
-          {/* Bottom action bar */}
-          <div className="sticky bottom-4 z-10 flex flex-wrap items-center justify-end gap-2 rounded-2xl border border-border bg-white/95 px-4 py-3 shadow-[0_8px_24px_-12px_oklch(0.16_0.02_260/0.18)] backdrop-blur">
-            <span className="mr-auto text-[12px] text-muted-foreground">
-              Changes apply on save and are stored locally on this device.
-            </span>
-            <button className="rounded-xl border border-border bg-white px-3 py-2 text-[13px] font-medium text-foreground/80 hover:bg-muted">
-              Reset to defaults
-            </button>
-            <button
-              onClick={onSave}
-              className="inline-flex items-center gap-1.5 rounded-xl px-4 py-2 text-[13px] font-bold text-white transition-all hover:brightness-110"
-              style={{
-                background:
-                  "linear-gradient(135deg, oklch(0.6 0.2 260), oklch(0.5 0.22 270))",
-                boxShadow:
-                  "0 10px 24px -10px oklch(0.55 0.22 260 / 0.55), inset 0 1px 0 oklch(1 0 0 / 0.25)",
-              }}
-            >
-              {saved ? (
-                <>
-                  <Check className="h-3.5 w-3.5" /> Saved
-                </>
               ) : (
-                <>Save changes</>
+                <div className="flex items-center gap-1.5 text-[13px]">
+                  <XCircle className="h-4 w-4 text-[oklch(0.55_0.22_25)]" />
+                  <span className="font-medium text-[oklch(0.5_0.22_25)]">Not found</span>
+                  <span className="text-[11.5px] text-muted-foreground">— MP3 export will fail</span>
+                </div>
               )}
+            </InfoRow>
+          </>
+        ) : (
+          <div className="px-5 py-5 text-[13px] text-[oklch(0.5_0.22_25)]">
+            Could not reach the server — make sure Vox is running.
+          </div>
+        )}
+      </Section>
+
+      {/* GENERATION DEFAULTS */}
+      <Section
+        id="generation"
+        title="Generation Defaults"
+        Icon={Sparkles}
+        subtitle="Starting values for every new generation. Synced with the Generate page."
+      >
+        <Row label="Output Format" hint="Default audio format for new generations.">
+          <SegmentToggle
+            value={prefs.format}
+            onChange={(v) => set("format", v as "mp3" | "wav")}
+            options={[
+              { value: "mp3", label: "MP3" },
+              { value: "wav", label: "WAV" },
+            ]}
+          />
+        </Row>
+        {prefs.format === "mp3" ? (
+          <Row label="MP3 Quality" hint="Higher bitrate = better sound but larger file.">
+            <Select
+              value={prefs.mp3Quality}
+              onChange={(v) => set("mp3Quality", v)}
+              options={MP3_OPTIONS.map((v) => ({
+                value: v,
+                label: `${v} kbps${v === "128" ? " · Default" : v === "192" ? " · Podcast" : v === "320" ? " · Max" : ""}`,
+              }))}
+            />
+          </Row>
+        ) : (
+          <Row label="WAV Bit Depth" hint="24-bit recommended for editing.">
+            <Select
+              value={prefs.wavQuality}
+              onChange={(v) => set("wavQuality", v)}
+              options={[
+                { value: "16", label: "16-bit · 24 kHz · Default" },
+                { value: "24", label: "24-bit · 24 kHz · Studio" },
+                { value: "32f", label: "32-bit float · 24 kHz · Archival" },
+              ]}
+            />
+          </Row>
+        )}
+        <Row label="Default Voice Profile" hint="Voice used when opening a new Generate session.">
+          <Select
+            value={prefs.voiceId}
+            onChange={(v) => set("voiceId", v)}
+            options={voiceOptions}
+          />
+        </Row>
+        <Row label="Default Tone" hint="Tone preset used when opening a new Generate session.">
+          <Select
+            value={prefs.tone}
+            onChange={(v) => set("tone", v)}
+            options={toneOptions}
+          />
+        </Row>
+
+        {prefs.tone === "Custom" && (
+          <>
+            <Row label="Exaggeration" hint="Delivery drama and pace. Higher = more expressive.">
+              <SliderRow value={prefs.advanced.exaggeration} onChange={(v) => setAdvField("exaggeration", v)} min={0} max={1} step={0.05} decimals={2} />
+            </Row>
+            <Row label="CFG Weight" hint="How closely the model follows the voice prompt.">
+              <SliderRow value={prefs.advanced.cfg} onChange={(v) => setAdvField("cfg", v)} min={0} max={1} step={0.05} decimals={2} />
+            </Row>
+            <Row label="Temperature" hint="Randomness. Higher = more varied delivery.">
+              <SliderRow value={prefs.advanced.temperature} onChange={(v) => setAdvField("temperature", v)} min={0} max={1.5} step={0.05} decimals={2} />
+            </Row>
+            <Row label="Repetition Penalty" hint="Discourages repeated sounds. Keep near 1.2.">
+              <SliderRow value={prefs.advanced.repetition} onChange={(v) => setAdvField("repetition", v)} min={1} max={2} step={0.05} decimals={2} />
+            </Row>
+            <Row label="Top P" hint="Nucleus sampling threshold.">
+              <SliderRow value={prefs.advanced.topP} onChange={(v) => setAdvField("topP", v)} min={0} max={1} step={0.05} decimals={2} />
+            </Row>
+            <Row label="Min P" hint="Minimum token probability floor.">
+              <SliderRow value={prefs.advanced.minP} onChange={(v) => setAdvField("minP", v)} min={0} max={1} step={0.01} decimals={2} />
+            </Row>
+          </>
+        )}
+      </Section>
+
+      {/* STORAGE */}
+      <Section id="storage" title="Storage" Icon={HardDrive} subtitle="File paths and retention — edit .env to change.">
+        {server ? (
+          <>
+            <InfoRow label="Output folder" hint="Where generated audio files are saved.">
+              <StoragePath path={server.output_dir} />
+            </InfoRow>
+            <InfoRow label="Voice folder" hint="Where voice profiles (WAV files) are stored.">
+              <StoragePath path={server.voice_dir} />
+            </InfoRow>
+            <InfoRow label="Input folder" hint="Drop audio here for automatic voice profile import.">
+              <StoragePath path={server.input_dir} />
+            </InfoRow>
+            <InfoRow label="Output TTL" hint="How long generated audio is kept before auto-deletion.">
+              <div className="flex items-center gap-2">
+                <span className="rounded-lg border border-border bg-white px-3 py-2 text-[13.5px] font-semibold text-foreground">
+                  {ttlLabel}
+                </span>
+                <span className="text-[11.5px] text-muted-foreground">Set via VOX_OUTPUT_TTL_HOURS in .env</span>
+              </div>
+            </InfoRow>
+          </>
+        ) : (
+          <div className="px-5 py-5 text-[13px] text-muted-foreground">Waiting for server…</div>
+        )}
+        <div className="border-t border-border px-5 py-4">
+          <div className="flex items-center justify-between gap-3">
+            <div className="text-[12.5px] text-muted-foreground">
+              Expired outputs are cleaned up automatically by the server based on the TTL above.
+            </div>
+            <button
+              onClick={() => setConfirmClear(true)}
+              className="shrink-0 text-[12px] font-semibold text-[oklch(0.55_0.22_25)] hover:underline"
+            >
+              Clear all outputs now
             </button>
           </div>
+        </div>
+      </Section>
 
-      </div>
+      {/* DASHBOARD WIDGETS */}
+      <Section
+        id="widgets"
+        title="Dashboard Widgets"
+        Icon={LayoutGrid}
+        subtitle="Choose which stats panels appear in the sidebar. Changes take effect after saving."
+      >
+        <Row label="Requests widget" hint="Shows total requests (lifetime) and today's count with a 7-day sparkline.">
+          <Toggle checked={prefs.widgetRequests} onChange={(v) => set("widgetRequests", v)} />
+        </Row>
+        <Row label="Audio Generated widget" hint="Shows total minutes generated (all time) and today's minutes with a 7-day sparkline.">
+          <Toggle checked={prefs.widgetMinutes} onChange={(v) => set("widgetMinutes", v)} />
+        </Row>
+      </Section>
 
+      {/* PRIVACY */}
+      <Section id="privacy" title="Privacy" Icon={Shield} subtitle="You control what — if anything — leaves this device.">
+        <Row label="Offline Mode" hint="Marks that network access should be avoided. Vox is always local-first.">
+          <Toggle checked={prefs.offline} onChange={(v) => set("offline", v)} />
+        </Row>
+        <Row label="Crash Reports" hint="Send anonymous crash reports." comingSoon>
+          <Toggle checked={false} onChange={() => {}} disabled />
+        </Row>
+      </Section>
+
+      {/* Save bar — in page flow when clean, fixed+floating when dirty */}
+      {!isFloating && (
+        <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-border bg-white px-4 py-3 shadow-[0_2px_8px_-4px_oklch(0.16_0.02_260/0.08)]">
+          <span className="mr-auto text-[12px] text-muted-foreground">
+            {saveFeedback
+              ? "Preferences saved — Generate page will use these values next session."
+              : "Generation defaults and privacy settings are saved locally on this device."}
+          </span>
+          <button
+            onClick={handleReset}
+            className="inline-flex items-center gap-1.5 rounded-xl border border-border bg-white px-3 py-2 text-[13px] font-medium text-foreground/80 hover:bg-muted"
+          >
+            <RotateCcw className="h-3.5 w-3.5" />
+            Reset to defaults
+          </button>
+          <button
+            onClick={handleSave}
+            className="inline-flex items-center gap-1.5 rounded-xl px-4 py-2 text-[13px] font-bold text-white transition-all hover:brightness-110"
+            style={{
+              background: "linear-gradient(135deg, oklch(0.6 0.2 260), oklch(0.5 0.22 270))",
+              boxShadow: "0 10px 24px -10px oklch(0.55 0.22 260 / 0.55), inset 0 1px 0 oklch(1 0 0 / 0.25)",
+            }}
+          >
+            {saveFeedback ? <><Check className="h-3.5 w-3.5" /> Saved</> : "Save changes"}
+          </button>
+        </div>
+      )}
+
+      {isFloating && (
+        <div className="fixed bottom-6 left-64 right-4 z-10 flex flex-wrap items-center gap-2 rounded-2xl border border-[oklch(0.88_0.06_75)] bg-[oklch(0.995_0.015_75)] px-4 py-3 shadow-[0_12px_32px_-8px_oklch(0.16_0.02_260/0.22)]">
+          <div className="mr-auto flex min-w-0 items-center gap-2">
+            <AlertTriangle className="h-4 w-4 shrink-0 text-[oklch(0.55_0.15_70)]" />
+            <span className="text-[12.5px] font-medium text-[oklch(0.35_0.08_70)]">
+              Generation defaults have unsaved changes — they'll be lost if you leave this page.
+            </span>
+            <button
+              onClick={handleDismiss}
+              aria-label="Dismiss warning"
+              className="ml-1 inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[12px] font-semibold text-[oklch(0.5_0.1_70)] hover:bg-[oklch(0.94_0.05_75)] hover:text-[oklch(0.35_0.1_70)]"
+            >
+              <X className="h-3 w-3" /> ignore
+            </button>
+          </div>
+          <button
+            onClick={handleReset}
+            className="inline-flex items-center gap-1.5 rounded-xl border border-[oklch(0.88_0.06_75)] bg-white/80 px-3 py-2 text-[13px] font-medium text-foreground/80 hover:bg-white"
+          >
+            <RotateCcw className="h-3.5 w-3.5" />
+            Reset to defaults
+          </button>
+          <button
+            onClick={handleSave}
+            className="inline-flex items-center gap-1.5 rounded-xl px-4 py-2 text-[13px] font-bold text-white transition-all hover:brightness-110"
+            style={{
+              background: "linear-gradient(135deg, oklch(0.6 0.2 260), oklch(0.5 0.22 270))",
+              boxShadow: "0 10px 24px -10px oklch(0.55 0.22 260 / 0.55), inset 0 1px 0 oklch(1 0 0 / 0.25)",
+            }}
+          >
+            Save changes
+          </button>
+        </div>
+      )}
 
       {confirmClear && (
         <ConfirmDialog
+          title="Clear all output files?"
+          description="This permanently deletes all generated audio files on this device. Scripts are kept — you can regenerate any clip from History."
+          confirmLabel="Yes, clear outputs"
           onCancel={() => setConfirmClear(false)}
           onConfirm={() => setConfirmClear(false)}
         />
@@ -230,7 +433,117 @@ function SettingsPage() {
   );
 }
 
-function ConfirmDialog({ onCancel, onConfirm }: { onCancel: () => void; onConfirm: () => void }) {
+// ─── StoragePath ─────────────────────────────────────────────────────────────
+
+function StoragePath({ path }: { path: string }) {
+  const [copied, setCopied] = useState(false);
+  const [tipOpen, setTipOpen] = useState(false);
+  const tipRef = useRef<HTMLDivElement>(null);
+
+  const copy = async () => {
+    await navigator.clipboard.writeText(path).catch(() => {});
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1400);
+  };
+
+  // Close tooltip on outside click
+  useEffect(() => {
+    if (!tipOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (tipRef.current && !tipRef.current.contains(e.target as Node)) setTipOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [tipOpen]);
+
+  return (
+    <div className="flex min-w-0 items-center gap-2">
+      <code className="min-w-0 flex-1 truncate rounded-lg border border-border bg-[oklch(0.985_0.005_260)] px-3 py-2 font-mono text-[12px] text-foreground/75">
+        {path}
+      </code>
+
+      {/* Info tooltip */}
+      <div ref={tipRef} className="relative shrink-0">
+        <button
+          onClick={() => setTipOpen((v) => !v)}
+          aria-label="How to open this folder"
+          className="flex h-9 w-9 items-center justify-center rounded-lg border border-border bg-white text-foreground/50 hover:bg-muted hover:text-[oklch(0.55_0.22_260)]"
+        >
+          <Info className="h-3.5 w-3.5" />
+        </button>
+        {tipOpen && (
+          <div className="absolute right-0 top-[calc(100%+6px)] z-30 w-[300px] rounded-xl border border-border bg-white p-3.5 shadow-[0_12px_30px_-12px_oklch(0.16_0.02_260/0.25)]">
+            <p className="text-[12.5px] leading-relaxed text-foreground/80">
+              <span className="font-semibold text-foreground">How to open this folder:</span> click
+              the <Folder className="inline h-3 w-3 align-text-bottom" /> button to copy the path.
+              In Finder press{" "}
+              <Kbd>⌘</Kbd><Kbd>⇧</Kbd><Kbd>G</Kbd>{" "}
+              (or <em>Go → Go to Folder…</em>), paste, and press Return.
+            </p>
+          </div>
+        )}
+      </div>
+
+      {/* Copy button */}
+      <button
+        onClick={copy}
+        aria-label={copied ? "Copied" : "Copy path"}
+        title={copied ? "Copied!" : "Copy path to clipboard"}
+        className={
+          "flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border transition-colors " +
+          (copied
+            ? "border-[oklch(0.85_0.1_145)] bg-[oklch(0.96_0.07_145)] text-[oklch(0.4_0.16_145)]"
+            : "border-border bg-white text-foreground/65 hover:bg-muted hover:text-foreground")
+        }
+      >
+        {copied ? <Check className="h-3.5 w-3.5" /> : <Folder className="h-3.5 w-3.5" />}
+      </button>
+    </div>
+  );
+}
+
+function Kbd({ children }: { children: React.ReactNode }) {
+  return (
+    <kbd className="mx-0.5 inline-flex h-5 min-w-[18px] items-center justify-center rounded border border-border bg-muted px-1 font-mono text-[10.5px] font-semibold text-foreground/80 shadow-[0_1px_0_oklch(0.16_0.02_260/0.08)]">
+      {children}
+    </kbd>
+  );
+}
+
+// ─── DeviceBadge ─────────────────────────────────────────────────────────────
+
+function DeviceBadge({ device }: { device: string }) {
+  const isMps = device === "mps";
+  return (
+    <span
+      className={
+        "inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[12.5px] font-bold " +
+        (isMps
+          ? "bg-gradient-to-br from-[oklch(0.6_0.2_260)] to-[oklch(0.5_0.22_270)] text-white shadow-sm"
+          : "bg-muted text-foreground/70")
+      }
+    >
+      <Cpu className="h-3.5 w-3.5" />
+      {isMps ? "Apple MPS" : device.toUpperCase()}
+    </span>
+  );
+}
+
+// ─── confirm dialog ───────────────────────────────────────────────────────────
+
+function ConfirmDialog({
+  title,
+  description,
+  confirmLabel,
+  onCancel,
+  onConfirm,
+}: {
+  title: string;
+  description: string;
+  confirmLabel: string;
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/40 p-4 backdrop-blur-sm"
@@ -245,11 +558,8 @@ function ConfirmDialog({ onCancel, onConfirm }: { onCancel: () => void; onConfir
             <AlertTriangle className="h-5 w-5" />
           </span>
           <div className="min-w-0">
-            <h3 className="text-[15px] font-bold text-foreground">Clear cached audio?</h3>
-            <p className="mt-1 text-[13px] leading-snug text-muted-foreground">
-              This permanently deletes all cached generations on this device. The action is
-              irreversible — clips will need to be regenerated to play again.
-            </p>
+            <h3 className="text-[15px] font-bold text-foreground">{title}</h3>
+            <p className="mt-1 text-[13px] leading-snug text-muted-foreground">{description}</p>
           </div>
         </div>
         <div className="flex items-center justify-end gap-2 border-t border-border bg-[oklch(0.985_0.005_260)] px-5 py-3">
@@ -257,19 +567,21 @@ function ConfirmDialog({ onCancel, onConfirm }: { onCancel: () => void; onConfir
             onClick={onCancel}
             className="rounded-lg border border-border bg-white px-3.5 py-2 text-[12.5px] font-semibold text-foreground/80 hover:bg-muted"
           >
-            No, keep cache
+            Cancel
           </button>
           <button
             onClick={onConfirm}
             className="rounded-lg bg-gradient-to-br from-[oklch(0.7_0.2_25)] to-[oklch(0.55_0.22_25)] px-3.5 py-2 text-[12.5px] font-bold text-white shadow-sm hover:brightness-110"
           >
-            Yes, clear cache
+            {confirmLabel}
           </button>
         </div>
       </div>
     </div>
   );
 }
+
+// ─── layout primitives ────────────────────────────────────────────────────────
 
 function Section({
   id,
@@ -334,6 +646,28 @@ function Row({
   );
 }
 
+// Read-only variant — label on left, value on right, no grid — value is compact
+function InfoRow({
+  label,
+  hint,
+  children,
+}: {
+  label: string;
+  hint?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="grid grid-cols-1 items-center gap-3 px-5 py-4 sm:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)]">
+      <div className="min-w-0">
+        <div className="text-[13.5px] font-semibold text-foreground">{label}</div>
+        {hint && <div className="text-[12px] text-muted-foreground">{hint}</div>}
+      </div>
+      <div className="min-w-0">{children}</div>
+    </div>
+  );
+}
+
+// ─── form controls ────────────────────────────────────────────────────────────
 
 function SegmentToggle<T extends string>({
   value,
@@ -371,13 +705,14 @@ function Select({
   value,
   onChange,
   options,
-  badge,
 }: {
   value: string;
   onChange: (v: string) => void;
-  options: string[];
-  badge?: string;
+  options: { value: string; label: string }[] | readonly string[];
 }) {
+  const normalised = (options as (string | { value: string; label: string })[]).map((o) =>
+    typeof o === "string" ? { value: o, label: o } : o,
+  );
   return (
     <div className="relative">
       <select
@@ -385,20 +720,13 @@ function Select({
         onChange={(e) => onChange(e.target.value)}
         className="w-full appearance-none rounded-lg border border-border bg-white px-3 py-2 pr-9 text-[13.5px] font-medium text-foreground outline-none focus:border-[oklch(0.55_0.22_260)]"
       >
-        {options.map((o) => (
-          <option key={o} value={o}>
-            {o}
+        {normalised.map((o) => (
+          <option key={o.value} value={o.value}>
+            {o.label}
           </option>
         ))}
       </select>
-      <div className="pointer-events-none absolute inset-y-0 right-2 flex items-center gap-1.5">
-        {badge && (
-          <span className="rounded-md bg-[oklch(0.94_0.08_145)] px-1.5 py-0.5 text-[10px] font-bold text-[oklch(0.4_0.16_145)]">
-            {badge}
-          </span>
-        )}
-        <ChevronDown className="h-3.5 w-3.5 text-foreground/50" />
-      </div>
+      <ChevronDown className="pointer-events-none absolute inset-y-0 right-2.5 my-auto h-3.5 w-3.5 text-foreground/50" />
     </div>
   );
 }
@@ -446,84 +774,15 @@ function SliderRow({
   );
 }
 
-function PathInput({ value, onChange }: { value: string; onChange: (v: string) => void }) {
-  const [copied, setCopied] = useState(false);
-  const onCopy = async () => {
-    try {
-      await navigator.clipboard.writeText(value);
-      setCopied(true);
-      window.setTimeout(() => setCopied(false), 1400);
-    } catch {
-      /* noop */
-    }
-  };
-  return (
-    <div className="flex items-center gap-2">
-      <input
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="flex-1 truncate rounded-lg border border-border bg-white px-3 py-2 font-mono text-[12.5px] text-foreground/85 outline-none focus:border-[oklch(0.55_0.22_260)]"
-      />
-      <InfoTip>
-        <div className="text-[12px] leading-snug text-foreground/80">
-          <span className="font-semibold text-foreground">How to open this folder:</span>{" "}
-          click the <Folder className="inline h-3 w-3 align-text-bottom" /> button to copy the path.
-          In Finder press <Kbd>⌘</Kbd><Kbd>⇧</Kbd><Kbd>G</Kbd> (or{" "}
-          <em>Go → Go to Folder…</em>), paste, and press Return.
-        </div>
-      </InfoTip>
-      <button
-        onClick={onCopy}
-        aria-label={copied ? "Copied" : "Copy path"}
-        title={copied ? "Copied!" : "Copy path to clipboard"}
-        className={
-          "flex h-9 w-9 items-center justify-center rounded-lg border transition-colors " +
-          (copied
-            ? "border-[oklch(0.85_0.1_145)] bg-[oklch(0.96_0.07_145)] text-[oklch(0.4_0.16_145)]"
-            : "border-border bg-white text-foreground/65 hover:bg-muted hover:text-foreground")
-        }
-      >
-        {copied ? <Check className="h-3.5 w-3.5" /> : <Folder className="h-3.5 w-3.5" />}
-      </button>
-    </div>
-  );
-}
-
-function InfoTip({ children }: { children: React.ReactNode }) {
-  const [open, setOpen] = useState(false);
-  return (
-    <div className="relative">
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        onBlur={() => setOpen(false)}
-        aria-label="More info"
-        className="flex h-9 w-9 items-center justify-center rounded-lg border border-border bg-white text-foreground/55 hover:bg-muted hover:text-[oklch(0.55_0.22_260)]"
-      >
-        <Info className="h-3.5 w-3.5" />
-      </button>
-      {open && (
-        <div
-          role="tooltip"
-          className="absolute right-0 top-[calc(100%+6px)] z-20 w-[280px] rounded-xl border border-border bg-white p-3 shadow-[0_12px_30px_-12px_oklch(0.16_0.02_260/0.25)]"
-        >
-          {children}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function Kbd({ children }: { children: React.ReactNode }) {
-  return (
-    <kbd className="mx-0.5 inline-flex h-5 min-w-[20px] items-center justify-center rounded border border-border bg-white px-1 font-mono text-[10.5px] font-semibold text-foreground/80 shadow-[0_1px_0_oklch(0.16_0.02_260/0.08)]">
-      {children}
-    </kbd>
-  );
-}
-
-
-function Toggle({ checked, onChange, disabled }: { checked: boolean; onChange: (v: boolean) => void; disabled?: boolean }) {
+function Toggle({
+  checked,
+  onChange,
+  disabled,
+}: {
+  checked: boolean;
+  onChange: (v: boolean) => void;
+  disabled?: boolean;
+}) {
   return (
     <div className="flex justify-end">
       <button

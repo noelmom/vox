@@ -18,3 +18,4 @@ class JobOut(BaseModel):
     voice_name: str | None = None
     created_at: str
     completed_at: str | None
+    file_available: bool = False

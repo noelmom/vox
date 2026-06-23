@@ -12,9 +12,9 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as AppRouteImport } from './routes/app'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AppIndexRouteImport } from './routes/app.index'
-import { Route as AppVoicesRouteImport } from './routes/app.voices'
 import { Route as AppSettingsRouteImport } from './routes/app.settings'
-import { Route as AppHistoryRouteImport } from './routes/app.history'
+import { Route as AppRecordingsRouteImport } from './routes/app.recordings'
+import { Route as AppLibraryRouteImport } from './routes/app.library'
 
 const AppRoute = AppRouteImport.update({
   id: '/app',
@@ -31,44 +31,44 @@ const AppIndexRoute = AppIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AppRoute,
 } as any)
-const AppVoicesRoute = AppVoicesRouteImport.update({
-  id: '/voices',
-  path: '/voices',
-  getParentRoute: () => AppRoute,
-} as any)
 const AppSettingsRoute = AppSettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
   getParentRoute: () => AppRoute,
 } as any)
-const AppHistoryRoute = AppHistoryRouteImport.update({
-  id: '/history',
-  path: '/history',
+const AppRecordingsRoute = AppRecordingsRouteImport.update({
+  id: '/recordings',
+  path: '/recordings',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppLibraryRoute = AppLibraryRouteImport.update({
+  id: '/library',
+  path: '/library',
   getParentRoute: () => AppRoute,
 } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/app': typeof AppRouteWithChildren
-  '/app/history': typeof AppHistoryRoute
+  '/app/library': typeof AppLibraryRoute
+  '/app/recordings': typeof AppRecordingsRoute
   '/app/settings': typeof AppSettingsRoute
-  '/app/voices': typeof AppVoicesRoute
   '/app/': typeof AppIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/app/history': typeof AppHistoryRoute
+  '/app/library': typeof AppLibraryRoute
+  '/app/recordings': typeof AppRecordingsRoute
   '/app/settings': typeof AppSettingsRoute
-  '/app/voices': typeof AppVoicesRoute
   '/app': typeof AppIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/app': typeof AppRouteWithChildren
-  '/app/history': typeof AppHistoryRoute
+  '/app/library': typeof AppLibraryRoute
+  '/app/recordings': typeof AppRecordingsRoute
   '/app/settings': typeof AppSettingsRoute
-  '/app/voices': typeof AppVoicesRoute
   '/app/': typeof AppIndexRoute
 }
 export interface FileRouteTypes {
@@ -76,19 +76,19 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/app'
-    | '/app/history'
+    | '/app/library'
+    | '/app/recordings'
     | '/app/settings'
-    | '/app/voices'
     | '/app/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/app/history' | '/app/settings' | '/app/voices' | '/app'
+  to: '/' | '/app/library' | '/app/recordings' | '/app/settings' | '/app'
   id:
     | '__root__'
     | '/'
     | '/app'
-    | '/app/history'
+    | '/app/library'
+    | '/app/recordings'
     | '/app/settings'
-    | '/app/voices'
     | '/app/'
   fileRoutesById: FileRoutesById
 }
@@ -120,13 +120,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppIndexRouteImport
       parentRoute: typeof AppRoute
     }
-    '/app/voices': {
-      id: '/app/voices'
-      path: '/voices'
-      fullPath: '/app/voices'
-      preLoaderRoute: typeof AppVoicesRouteImport
-      parentRoute: typeof AppRoute
-    }
     '/app/settings': {
       id: '/app/settings'
       path: '/settings'
@@ -134,27 +127,34 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppSettingsRouteImport
       parentRoute: typeof AppRoute
     }
-    '/app/history': {
-      id: '/app/history'
-      path: '/history'
-      fullPath: '/app/history'
-      preLoaderRoute: typeof AppHistoryRouteImport
+    '/app/recordings': {
+      id: '/app/recordings'
+      path: '/recordings'
+      fullPath: '/app/recordings'
+      preLoaderRoute: typeof AppRecordingsRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/library': {
+      id: '/app/library'
+      path: '/library'
+      fullPath: '/app/library'
+      preLoaderRoute: typeof AppLibraryRouteImport
       parentRoute: typeof AppRoute
     }
   }
 }
 
 interface AppRouteChildren {
-  AppHistoryRoute: typeof AppHistoryRoute
+  AppLibraryRoute: typeof AppLibraryRoute
+  AppRecordingsRoute: typeof AppRecordingsRoute
   AppSettingsRoute: typeof AppSettingsRoute
-  AppVoicesRoute: typeof AppVoicesRoute
   AppIndexRoute: typeof AppIndexRoute
 }
 
 const AppRouteChildren: AppRouteChildren = {
-  AppHistoryRoute: AppHistoryRoute,
+  AppLibraryRoute: AppLibraryRoute,
+  AppRecordingsRoute: AppRecordingsRoute,
   AppSettingsRoute: AppSettingsRoute,
-  AppVoicesRoute: AppVoicesRoute,
   AppIndexRoute: AppIndexRoute,
 }
 

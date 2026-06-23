@@ -19,13 +19,12 @@ echo "[vox] Installing server LaunchAgent..."
 [[ -f "$DMG" ]]              || { echo "[vox] x Vox.dmg not found — run bash scripts/build-apps.sh first."; exit 1; }
 
 # ── Ensure directories ────────────────────────────────────────────────────────
-mkdir -p "$AGENTS_DIR" "$LOG_DIR" "$APP_SUPPORT"/{api,ui,ui-dist,scripts,voices,outputs,data,input/processed}
+mkdir -p "$AGENTS_DIR" "$LOG_DIR" "$APP_SUPPORT"/{api,ui-dist,scripts,voices,outputs,data,input/processed}
 
 # ── Sync server code and UI ───────────────────────────────────────────────────
 echo "[vox] Syncing server code to Application Support..."
-rsync -a --delete "$ROOT/api/"     "$APP_SUPPORT/api/"
-rsync -a --delete "$ROOT/ui/"      "$APP_SUPPORT/ui/"
-rsync -a --delete "$ROOT/ui-dist/" "$APP_SUPPORT/ui-dist/"
+rsync -a --delete "$ROOT/api/"      "$APP_SUPPORT/api/"
+rsync -a --delete "$ROOT/ui-dist/"  "$APP_SUPPORT/ui-dist/"
 
 # ── Write production run.sh ───────────────────────────────────────────────────
 cat > "$APP_SUPPORT/scripts/run.sh" <<'RUNSCRIPT'

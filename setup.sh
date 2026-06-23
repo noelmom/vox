@@ -121,8 +121,9 @@ success "All Python dependencies installed"
 
 # ── Copy server code to permanent location ────────────────────────────────────
 info "Installing server code to Application Support..."
-rsync -a --delete "$ROOT/api/"           "$APP_SUPPORT/api/"
-rsync -a --delete "$ROOT/ui/"            "$APP_SUPPORT/ui/"
+mkdir -p "$APP_SUPPORT/ui-dist"
+rsync -a --delete "$ROOT/api/"      "$APP_SUPPORT/api/"
+rsync -a --delete "$ROOT/ui-dist/"  "$APP_SUPPORT/ui-dist/"
 success "Server code installed"
 
 # ── Copy default voice profile ────────────────────────────────────────────────

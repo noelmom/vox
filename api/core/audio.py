@@ -37,10 +37,19 @@ def convert_to_wav(src: Path, dest: Path):
     )
 
 
-def export_mp3(wav_path: Path, mp3_path: Path):
-    _run_ffmpeg(
-        "-i", str(wav_path),
-        "-codec:a", "libmp3lame",
-        "-qscale:a", "2",
-        str(mp3_path),
-    )
+VALID_MP3_BITRATES = {96, 128, 192, 256, 320}
+VALID_WAV_DEPTHS = {"16", "24", "32f"}
+
+# soundfile subtype for each WAV depth
+WAV_SUBTYPES: dict[str, str] = {
+    "16": "PCM_16",
+    "24": "PCM_24",
+    "32f": "FLOAT",
+}
+
+
+def export_mp3(wav_path: Path, mp3_path: Path, bitrate: int | None = None):
+    if bitrate and bitrate in VALID_MP3_BITRATES:
+        _run_ffmpeg("-i", str(wav_path), "-codec:a", "libmp3lame", "-b:a", f"{bitrate}k", str(mp3_path))
+    else:
+        _run_ffmpeg("-i", str(wav_path), "-codec:a", "libmp3lame", "-qscale:a", "2", str(mp3_path))
