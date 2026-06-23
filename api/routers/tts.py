@@ -36,7 +36,7 @@ async def _resolve_voice(voice_name: str | None, rid: str, db) -> tuple[Path | N
     if not row:
         raise HTTPException(
             status_code=404,
-            detail=f"Voice profile '{voice_name}' not found. Use GET /voices to see available profiles.",
+            detail=f"Voice profile '{voice_name}' not found. Use GET /api/v1/voices to see available profiles.",
         )
 
     wav_path = settings.voice_dir / row["filename"]

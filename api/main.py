@@ -95,7 +95,7 @@ Every TTS response includes timing telemetry:
 ## Async job lifecycle
 
 ```
-POST /tts → queued → processing → completed → audio available
+POST /api/v1/tts → queued → processing → completed → audio available
                                 └→ failed   → error field set
 ```
 
@@ -105,7 +105,7 @@ Audio files are automatically cleaned up after `VOX_OUTPUT_TTL_HOURS` (default 2
 _TAGS = [
     {
         "name": "tts",
-        "description": "Generate speech from text. Submission is async — you get a `request_id` immediately and poll `/jobs/{request_id}` for completion.",
+        "description": "Generate speech from text. Submission is async — you get a `request_id` immediately and poll `/api/v1/jobs/{request_id}` for completion.",
     },
     {
         "name": "voices",
