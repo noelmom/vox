@@ -53,6 +53,22 @@ Ideas and improvements to revisit. Not bugs — these are enhancements queued fo
 
 ## Web UI
 
+- [ ] **[BLOCKER — v1.0.0] Git not installed — macOS prompts to install Developer Tools and terminal command fails**
+
+  On a fresh macOS machine without Xcode Command Line Tools, running any `git` command (including `bash vox.sh install` or `bash vox.sh update`) triggers a system dialog: *"The git command requires the command line developer tools. Would you like to install the tools now?"*. The terminal command hangs waiting for the dialog, and if the user dismisses it, the install fails with a confusing error.
+
+  **Who hits this:** any new user on a stock macOS machine who has never installed Xcode or the CLT package. More common than expected — macOS ships without git since Catalina.
+
+  **Options to consider:**
+  - **Check for git before running** — add a guard near the top of `setup.sh` / `vox.sh` that runs `command -v git` and exits with a clear human-readable message if not found, rather than letting macOS intercept the call with a confusing dialog.
+  - **Trigger CLT install explicitly** — `xcode-select --install` launches the same dialog intentionally, and the script can wait for it to complete (`xcode-select -p` exits 0 once done). This lets the installer handle git as a dependency rather than asking the user to do it separately.
+  - **Document in README / FAQ** — at minimum, note the prerequisite and link to the one-liner (`xcode-select --install`) before the install steps.
+  - **`.pkg` installer path** — if the v1.0.0 `.pkg` installer handles setup, it can bundle or pre-check this dependency at install time, bypassing the terminal issue entirely.
+
+  **Recommended short-term fix:** add a `command -v git || { echo "[vox] git is required. Run: xcode-select --install"; exit 1; }` guard in `setup.sh` and `vox.sh` so the user gets a clear message instead of a hanging dialog.
+
+  **Longer term:** FAQ entry and/or handle it inside the `.pkg` installer flow.
+
 - [ ] **[BLOCKER — v1.0.0] Real audio waveform visualisation**
 
   All waveforms in the app (voice profile cards, upload preview, record pane, generate result) are currently fake: static sine-wave bars computed from a fixed formula with no relation to the actual audio signal. They look dead and unconvincing. This must be replaced before v1.0.0 ships.
