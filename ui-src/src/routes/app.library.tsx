@@ -409,6 +409,7 @@ function RecordPane({ onSaved }: { onSaved: () => void }) {
   const rafRef = useRef<number | null>(null);
   const [liveBars, setLiveBars] = useState<number[]>([]);
   const [recordedBars, setRecordedBars] = useState<number[] | null>(null);
+  const [playbackProgress, setPlaybackProgress] = useState(0);
   const MAX = 5 * 60;
 
   useEffect(() => {
@@ -418,7 +419,15 @@ function RecordPane({ onSaved }: { onSaved: () => void }) {
   }, [recordingState]);
 
   useEffect(() => { const a = audioRef.current; if (!a) return; if (playing) a.play().catch(() => setPlaying(false)); else a.pause(); }, [playing]);
-  useEffect(() => { const a = audioRef.current; if (!a) return; const onEnded = () => setPlaying(false); a.addEventListener("ended", onEnded); return () => a.removeEventListener("ended", onEnded); }, [recordedUrl]);
+  useEffect(() => {
+    const a = audioRef.current;
+    if (!a) return;
+    const onEnded = () => { setPlaying(false); setPlaybackProgress(0); };
+    const onTime = () => { if (a.duration > 0) setPlaybackProgress(a.currentTime / a.duration); };
+    a.addEventListener("ended", onEnded);
+    a.addEventListener("timeupdate", onTime);
+    return () => { a.removeEventListener("ended", onEnded); a.removeEventListener("timeupdate", onTime); };
+  }, [recordedUrl]);
 
   const classifyMicError = (err: unknown) => {
     const name = err instanceof Error ? err.name : "";
@@ -543,7 +552,7 @@ function RecordPane({ onSaved }: { onSaved: () => void }) {
     mediaRecorderRef.current?.stop();
     setRecordingState("idle"); setElapsed(0); setRecordedBlob(null);
     if (recordedUrl) { URL.revokeObjectURL(recordedUrl); setRecordedUrl(null); }
-    setLiveBars([]); setRecordedBars(null);
+    setLiveBars([]); setRecordedBars(null); setPlaybackProgress(0);
     setPlaying(false); setSaveStatus("idle");
   };
 
@@ -646,7 +655,7 @@ function RecordPane({ onSaved }: { onSaved: () => void }) {
           </div>
         </div>
       </div>
-      <div className="mt-5"><Waveform liveBars={liveBars} recordedBars={recordedBars} recording={recordingState === "recording"} /></div>
+      <div className="mt-5"><Waveform liveBars={liveBars} recordedBars={recordedBars} recording={recordingState === "recording"} progress={playbackProgress} /></div>
       <div className="mt-6 grid grid-cols-2 gap-2 sm:grid-cols-[1fr_1fr_1fr_1.4fr]">
         <button onClick={() => setPlaying((p) => !p)} disabled={!recordedUrl} className="inline-flex items-center justify-center gap-2 rounded-xl border border-border bg-white px-4 py-2.5 text-[13.5px] font-semibold text-[oklch(0.55_0.22_260)] hover:bg-muted disabled:cursor-not-allowed disabled:opacity-40">
           {playing ? <><Pause className="h-3.5 w-3.5" fill="currentColor" /> Pause</> : <><Play className="h-3.5 w-3.5" fill="currentColor" /> Play Preview</>}
@@ -1054,22 +1063,32 @@ function Meta({ label, value }: { label: string; value: string }) {
   );
 }
 
-function Waveform({ liveBars, recordedBars, recording }: { liveBars: number[]; recordedBars: number[] | null; recording: boolean }) {
-  // While recording: show live mic amplitude bars
-  // After recording: show decoded waveform of the captured audio
-  // Idle (no data yet): show a flat placeholder row
+function Waveform({ liveBars, recordedBars, recording, progress = 0 }: {
+  liveBars: number[];
+  recordedBars: number[] | null;
+  recording: boolean;
+  progress?: number;
+}) {
   const BAR_COUNT = 64;
   const bars: number[] = recording
     ? (liveBars.length > 0 ? liveBars : Array(BAR_COUNT).fill(0.05))
     : (recordedBars ?? Array(BAR_COUNT).fill(0.05));
+  const playedIdx = Math.floor(progress * bars.length);
 
   return (
-    <div className="flex h-8 min-w-0 flex-1 items-center gap-[2px]">
+    <div className="flex h-10 min-w-0 flex-1 items-center gap-[2px]">
       {bars.map((h, i) => (
         <span
           key={i}
-          className="block min-w-[2px] flex-1 rounded-full bg-[oklch(0.55_0.22_260)]/55 transition-[height] duration-75"
-          style={{ height: `${Math.round(Math.max(5, h * 100))}%` }}
+          className="block min-w-[2px] flex-1 rounded-full transition-[height] duration-75"
+          style={{
+            height: `${Math.round(Math.max(5, h * 100))}%`,
+            background: recording
+              ? "oklch(0.65 0.22 25 / 0.7)"
+              : i <= playedIdx && progress > 0
+                ? "oklch(0.55 0.22 260)"
+                : "oklch(0.55 0.22 260 / 0.3)",
+          }}
         />
       ))}
     </div>
