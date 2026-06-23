@@ -73,6 +73,29 @@ Ideas and improvements to revisit. Not bugs — these are enhancements queued fo
 
   **Why a blocker:** the fake waves actively undermine trust in the output quality. Users expect to see their voice reflected in the waveform before committing to "Use" a profile or downloading a clip.
 
+- [ ] **[MEDIUM] Custom tone edit flow — "Update" vs "Save As" split action**
+
+  When a user is on a custom tone and has tweaked the sliders, there is currently only a "Save Preset" button that always creates a new preset. This forces duplication when the user just wants to update their existing custom tone in place. The flow needs two distinct exit paths:
+
+  **Proposed UI — split action when editing an existing custom preset:**
+
+  When the selected tone is a user-created preset (not a built-in like Default / YouTube / Hype / News) and the sliders have been modified, show two buttons instead of one:
+
+  - **Update** — overwrites the current preset with the new slider values, keeping the same name. No confirmation needed (it's reversible by re-saving). Button label: `Update "[preset name]"`.
+  - **Save As** — opens the existing name input form to create a new preset from the current slider values. Pre-fills the name field with `"[preset name] 2"` or similar to make it easy to derive a variant.
+
+  When the selected tone is `Custom` (not saved yet), keep the current single `Save Preset` button — there is no "existing" preset to update.
+
+  **State logic:**
+  - Track whether the active tone is a user preset (`isUserPreset: boolean`) and whether sliders diverge from that preset's saved values (`isModified: boolean`).
+  - Show split buttons only when `isUserPreset && isModified`.
+  - On Update: call `PATCH /presets/{name}` (or `savePreset(name, values)` which upserts) and flash a brief "Updated" confirmation inline.
+  - On Save As: open the name input pre-filled, let user edit the name, then call `savePreset(newName, values)`.
+
+  **Where to implement:** `ui-src/src/routes/app.index.tsx` — the tone section around the `savePresetOpen` state and the `Save Preset` button (currently around line 919–1003).
+
+  **Open question:** should the Update path show an undo/revert option for a few seconds after saving, so users can roll back a mis-click? Probably a nice-to-have for v2.
+
 - [ ] **[LOW] Replace timer on "Processing Script…" button with a progress bar or percentage**
 
   The Generate button cycles through states: `Generate Voice` → `Processing Script…` → result. While processing, the button currently shows an elapsed timer (e.g. "Processing Script… 0:12"). The elapsed time is redundant — the Result pane already shows a timer. The button real estate is better used to show how far along the generation actually is.
