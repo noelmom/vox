@@ -16,3 +16,8 @@ voices/*
 
 # UI sketches — local design references only
 sketches/
+
+# React SPA build output
+ui-dist/
+ui-src/node_modules/
+ui-src/bun.lock

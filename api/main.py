@@ -17,6 +17,7 @@ from api.middleware.request_id import RequestIDMiddleware
 from api.routers import jobs, tts, voices
 
 _UI_DIR = Path(__file__).parent.parent / "ui"
+_UI_DIST = Path(__file__).parent.parent / "ui-dist"
 
 _background_tasks: list[asyncio.Task] = []
 
@@ -54,24 +55,37 @@ app.include_router(tts.router)
 app.include_router(voices.router)
 app.include_router(jobs.router)
 
-# Serve the UI assets (CSS, JS, etc.) — must come before the catch-all routes
+# Serve legacy ui/ folder (favicon, CSS, old JS) — kept for backwards compat during transition
 if _UI_DIR.exists():
     app.mount("/ui", StaticFiles(directory=str(_UI_DIR)), name="ui")
+
+# Serve new React SPA built assets
+if _UI_DIST.exists():
+    app.mount("/assets", StaticFiles(directory=str(_UI_DIST / "assets")), name="ui-assets")
+
+_SPA_INDEX = _UI_DIST / "index.html"
+
+
+def _spa() -> FileResponse:
+    return FileResponse(str(_SPA_INDEX), media_type="text/html")
 
 
 @app.get("/")
 async def landing():
-    index = _UI_DIR / "index.html"
-    if index.exists():
-        return FileResponse(str(index), media_type="text/html")
+    if _SPA_INDEX.exists():
+        return _spa()
     return {"status": "ok", "device": get_device(), "presets": list(PRESETS.keys())}
 
 
+# Client-side routes — all must return index.html so TanStack Router handles them
 @app.get("/app")
-async def ui_app():
-    app_html = _UI_DIR / "app.html"
-    if app_html.exists():
-        return FileResponse(str(app_html), media_type="text/html")
+@app.get("/app/")
+@app.get("/app/voices")
+@app.get("/app/history")
+@app.get("/app/settings")
+async def spa_routes():
+    if _SPA_INDEX.exists():
+        return _spa()
     return {"error": "UI not found"}
 
 
