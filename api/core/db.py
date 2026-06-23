@@ -92,6 +92,9 @@ async def _migrate(db: aiosqlite.Connection):
         ("is_favorite",  "ALTER TABLE voices ADD COLUMN is_favorite INTEGER NOT NULL DEFAULT 0"),
         ("display_name", "ALTER TABLE voices ADD COLUMN display_name TEXT"),
         ("icon_data",    "ALTER TABLE voices ADD COLUMN icon_data TEXT"),
+        ("char_count",   "ALTER TABLE jobs ADD COLUMN char_count INTEGER"),
+        ("word_count",   "ALTER TABLE jobs ADD COLUMN word_count INTEGER"),
+        ("device",       "ALTER TABLE jobs ADD COLUMN device TEXT"),
     ]:
         try:
             await db.execute(ddl)

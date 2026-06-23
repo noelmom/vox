@@ -16,7 +16,7 @@ from api.core.audio import (
 from api.core.chunker import clamp_max_chars, split_text
 from api.core.config import settings
 from api.core.db import get_db
-from api.core.engine import get_lock, get_model
+from api.core.engine import get_device, get_lock, get_model
 from api.core.logger import get_logger
 from api.core.presets import PRESETS
 
@@ -133,15 +133,19 @@ async def _run_generation(
             output_path = wav_path
 
         total_s = time.time() - request_start
+        char_count = len(text)
+        word_count = len(text.split())
+        device = get_device()
 
         await db.execute(
             """UPDATE jobs SET
                 status='completed', output_path=?, chunks=?,
                 audio_duration_s=?, generation_s=?, encode_s=?,
-                total_s=?, rtf=?, completed_at=datetime('now')
+                total_s=?, rtf=?, char_count=?, word_count=?, device=?,
+                completed_at=datetime('now')
                WHERE request_id=?""",
             (str(output_path), len(chunks), audio_duration_s,
-             generation_s, encode_s, total_s, rtf, rid),
+             generation_s, encode_s, total_s, rtf, char_count, word_count, device, rid),
         )
         await db.commit()
 
