@@ -754,8 +754,10 @@ function EditForm({
   const [tags, setTags] = useState(voice.tags.join(", "));
   const [iconPreview, setIconPreview] = useState<string | null>(voice.icon_data);
   const [iconError, setIconError] = useState("");
+  const [selectedPreset, setSelectedPreset] = useState("");
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState("");
+  const { data: presets = {} } = useQuery({ queryKey: ["presets"], queryFn: listPresets, staleTime: 5 * 60 * 1000 });
   const iconInputRef = useRef<HTMLInputElement>(null);
 
   const processImageBlob = (blob: Blob) => {
@@ -792,12 +794,20 @@ function EditForm({
     setSaving(true); setSaveError("");
     try {
       const trimmedLabel = label.trim();
+      const presetParams = selectedPreset ? (presets[selectedPreset] as PresetParams | undefined) : undefined;
       await patchVoice(voice.name, {
         display_name: trimmedLabel && trimmedLabel !== slugToTitle(voice.name) ? trimmedLabel : undefined,
         description: description.trim() || undefined,
         tags: tags.split(",").map((t) => t.trim()).filter(Boolean),
-        // undefined = don't change; null = clear; string = set
         icon_data: iconPreview !== voice.icon_data ? (iconPreview ?? null) : undefined,
+        ...(presetParams && {
+          temperature: presetParams.temperature,
+          exaggeration: presetParams.exaggeration,
+          cfg_weight: presetParams.cfg_weight,
+          repetition_penalty: presetParams.repetition_penalty,
+          top_p: presetParams.top_p,
+          min_p: presetParams.min_p,
+        }),
       });
       onSave();
     } catch (err) {
@@ -825,6 +835,28 @@ function EditForm({
         <div className="sm:col-span-2">
           <label className="text-[12px] font-semibold text-foreground">Description</label>
           <input value={description} onChange={(e) => setDescription(e.target.value)} placeholder="e.g. Calm narrator for long-form content" className="mt-1 w-full rounded-lg border border-border bg-white px-3 py-2 text-[13.5px] outline-none focus:border-[oklch(0.55_0.22_260)]" />
+        </div>
+
+        <div className="sm:col-span-2">
+          <label className="text-[12px] font-semibold text-foreground">
+            Default tone <span className="font-normal text-muted-foreground">(optional)</span>
+          </label>
+          {voice.exaggeration != null && !selectedPreset && (
+            <p className="mb-1 text-[11px] text-muted-foreground">
+              Current: custom parameters set — select a preset to replace them
+            </p>
+          )}
+          <select
+            value={selectedPreset}
+            onChange={(e) => setSelectedPreset(e.target.value)}
+            className="mt-1 w-full rounded-lg border border-border bg-white px-3 py-2 text-[13.5px] text-foreground capitalize outline-none focus:border-[oklch(0.55_0.22_260)]"
+          >
+            <option value="">— No change —</option>
+            {Object.keys(presets).map((name) => (
+              <option key={name} value={name} className="capitalize">{name}</option>
+            ))}
+          </select>
+          <p className="mt-1 text-[11px] text-muted-foreground">Applied whenever this voice is used for generation</p>
         </div>
 
         {/* Icon upload */}
