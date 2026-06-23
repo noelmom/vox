@@ -33,8 +33,6 @@ export type Job = {
   rtf: number | null;
   error: string | null;
   voice_name: string | null;
-  char_count: number | null;
-  word_count: number | null;
   device: string | null;
   created_at: string;
   completed_at: string | null;

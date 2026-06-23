@@ -133,19 +133,17 @@ async def _run_generation(
             output_path = wav_path
 
         total_s = time.time() - request_start
-        char_count = len(text)
-        word_count = len(text.split())
         device = get_device()
 
         await db.execute(
             """UPDATE jobs SET
                 status='completed', output_path=?, chunks=?,
                 audio_duration_s=?, generation_s=?, encode_s=?,
-                total_s=?, rtf=?, char_count=?, word_count=?, device=?,
+                total_s=?, rtf=?, device=?,
                 completed_at=datetime('now')
                WHERE request_id=?""",
             (str(output_path), len(chunks), audio_duration_s,
-             generation_s, encode_s, total_s, rtf, char_count, word_count, device, rid),
+             generation_s, encode_s, total_s, rtf, device, rid),
         )
         await db.commit()
 

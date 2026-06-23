@@ -1605,11 +1605,11 @@ function JobRow({
           <div className="mt-0.5 truncate text-[11.5px] text-foreground/45">
             {voiceLabel} · {presetLabel} · {formatLabel} · {timeLabel}
           </div>
-          {/* Generation metrics strip */}
-          {(job.word_count != null || job.generation_s != null || job.device != null) && (
+          {/* Generation metrics strip — word/char counts derived from stored text */}
+          {(job.generation_s != null || job.device != null) && (
             <div className="mt-1 flex flex-wrap gap-x-2.5 gap-y-0.5 text-[11px] text-foreground/40">
-              {job.word_count != null && <span>{job.word_count.toLocaleString()} words</span>}
-              {job.char_count != null && <span>{job.char_count.toLocaleString()} chars</span>}
+              <span>{job.text.split(/\s+/).filter(Boolean).length.toLocaleString()} words</span>
+              <span>{job.text.length.toLocaleString()} chars</span>
               {job.generation_s != null && <span>gen {job.generation_s.toFixed(1)}s</span>}
               {job.total_s != null && <span>total {job.total_s.toFixed(1)}s</span>}
               {job.device != null && <span className="uppercase">{job.device}</span>}
