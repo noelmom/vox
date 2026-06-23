@@ -521,6 +521,14 @@ function nameToHue(name: string): number {
   return h % 360;
 }
 
+function tagStyle(tag: string): React.CSSProperties {
+  const hue = nameToHue(tag);
+  return {
+    background: `oklch(0.94 0.07 ${hue})`,
+    color: `oklch(0.38 0.12 ${hue})`,
+  };
+}
+
 function AvatarPlayButton({
   name, iconUrl, audioStatus, playing, displayLabel, onClick,
 }: {
@@ -634,7 +642,7 @@ function ProfileCard({
           {voice.description && <div className="mt-0.5 truncate text-[12px] text-muted-foreground">{voice.description}</div>}
           {voice.tags.length > 0 && (
             <div className="mt-1.5 flex flex-wrap gap-1.5">
-              {voice.tags.map((t) => <span key={t} className="rounded-md bg-muted px-1.5 py-0.5 text-[11px] font-medium text-foreground/70">{t}</span>)}
+              {voice.tags.map((t) => <span key={t} className="rounded-md px-1.5 py-0.5 text-[11px] font-semibold" style={tagStyle(t)}>{t}</span>)}
             </div>
           )}
         </div>
