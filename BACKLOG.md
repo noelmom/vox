@@ -73,6 +73,14 @@ Ideas and improvements to revisit. Not bugs — these are enhancements queued fo
 
   **Why a blocker:** the fake waves actively undermine trust in the output quality. Users expect to see their voice reflected in the waveform before committing to "Use" a profile or downloading a clip.
 
+- [ ] **[LOW] Migrate existing user preset names to lowercase in DB**
+
+  Preset names are now normalized to lowercase at save time (both frontend and backend). Any presets saved before this change may still have mixed-case names in `user_presets.name`, which could cause duplicate chips or mismatched tone selection.
+
+  **Fix:** run a one-time migration `UPDATE user_presets SET name = lower(name)` and handle any conflicts (keep the most recently created row if two names collide after lowercasing). This can be added to the additive migrations loop in `api/core/db.py` — but since it's destructive (data change, not schema change), it needs a version guard to only run once (e.g. check a `meta` table or use a flag column).
+
+  **Priority:** low — only affects users who saved presets before the normalization fix landed.
+
 - [ ] **[MEDIUM] Custom tone edit flow — "Update" vs "Save As" split action**
 
   When a user is on a custom tone and has tweaked the sliders, there is currently only a "Save Preset" button that always creates a new preset. This forces duplication when the user just wants to update their existing custom tone in place. The flow needs two distinct exit paths:

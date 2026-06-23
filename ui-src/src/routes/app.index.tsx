@@ -440,7 +440,7 @@ function GeneratePage() {
   };
 
   const handleSavePreset = async () => {
-    const name = presetNameInput.trim();
+    const name = presetNameInput.trim().toLowerCase();
     if (!name) { setSavePresetError("Name is required."); return; }
     setSavingPreset(true);
     setSavePresetError("");
@@ -981,17 +981,10 @@ function GeneratePage() {
                       Name this preset — it will appear in the Tone chips above.
                     </p>
                     {(() => {
-                      const trimmed = presetNameInput.trim();
+                      const trimmed = presetNameInput.trim().toLowerCase();
                       const allPresetKeys = presetsData ? Object.keys(presetsData) : [];
-                      const collision = trimmed
-                        ? allPresetKeys.find((k) => k.toLowerCase() === trimmed.toLowerCase())
-                        : undefined;
-                      const isBuiltin = trimmed && ["default","youtube","hype","news"].includes(trimmed.toLowerCase());
-                      const nameError = isBuiltin
-                        ? `'${trimmed}' is a built-in preset and cannot be overwritten.`
-                        : collision
-                        ? `A preset named '${collision}' already exists.`
-                        : null;
+                      const collision = trimmed ? allPresetKeys.find((k) => k.toLowerCase() === trimmed) : undefined;
+                      const nameError = collision ? `'${trimmed}' already exists — saving will update it.` : null;
                       return (
                         <div className="flex flex-col gap-2">
                           <input
@@ -1001,15 +994,15 @@ function GeneratePage() {
                             onKeyDown={(e) => { if (e.key === "Enter") handleSavePreset(); if (e.key === "Escape") setSavePresetOpen(false); }}
                             placeholder="e.g. My Deep Voice"
                             maxLength={40}
-                            className={`w-full rounded-lg border bg-white px-3 py-2 text-[12px] outline-none focus:ring-2 ${nameError ? "border-[oklch(0.7_0.2_25)] focus:border-[oklch(0.6_0.2_25)] focus:ring-[oklch(0.6_0.2_25/0.12)]" : "border-border focus:border-[oklch(0.55_0.22_260)] focus:ring-[oklch(0.55_0.22_260/0.12)]"}`}
+                            className="w-full rounded-lg border border-border bg-white px-3 py-2 text-[12px] outline-none focus:border-[oklch(0.55_0.22_260)] focus:ring-2 focus:ring-[oklch(0.55_0.22_260/0.12)]"
                           />
                           {nameError && (
-                            <p className="text-[11px] text-[oklch(0.5_0.2_25)]">{nameError}</p>
+                            <p className="text-[11px] text-[oklch(0.5_0.15_260)]">{nameError}</p>
                           )}
                           <div className="flex gap-2">
                             <button
                               onClick={handleSavePreset}
-                              disabled={savingPreset || !trimmed || !!nameError}
+                              disabled={savingPreset || !trimmed}
                               className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-[oklch(0.55_0.22_260)] px-3 py-2 text-[12px] font-bold text-white transition-all hover:brightness-110 disabled:opacity-60"
                             >
                               {savingPreset ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}

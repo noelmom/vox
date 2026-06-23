@@ -20,20 +20,11 @@ class PresetBody(BaseModel):
 
 @router.post("/{name}", status_code=204)
 async def save_preset(name: str, body: PresetBody):
-    name = name.strip()
+    name = name.strip().lower()
     if not name:
         raise HTTPException(status_code=422, detail="Preset name cannot be empty.")
-    if name.lower() in _BUILTIN:
+    if name in _BUILTIN:
         raise HTTPException(status_code=409, detail=f"'{name}' is a built-in preset and cannot be overwritten.")
-    db = await get_db()
-    # Case-insensitive collision check — prevent "My Tone" / "my tone" duplicates
-    async with db.execute("SELECT name FROM user_presets WHERE name = ? COLLATE NOCASE", (name,)) as cur:
-        existing = await cur.fetchone()
-    if existing and existing["name"] != name:
-        raise HTTPException(
-            status_code=409,
-            detail=f"A preset named '{existing['name']}' already exists. Rename it or use the same name to update it.",
-        )
     await db.execute(
         """INSERT INTO user_presets (name, temperature, exaggeration, cfg_weight, repetition_penalty, top_p, min_p)
            VALUES (?, ?, ?, ?, ?, ?, ?)
@@ -53,7 +44,8 @@ async def save_preset(name: str, body: PresetBody):
 
 @router.delete("/{name}", status_code=204)
 async def delete_preset(name: str):
-    if name.lower() in _BUILTIN:
+    name = name.strip().lower()
+    if name in _BUILTIN:
         raise HTTPException(status_code=409, detail=f"'{name}' is a built-in preset and cannot be deleted.")
     db = await get_db()
     async with db.execute("DELETE FROM user_presets WHERE name = ?", (name,)) as cur:
