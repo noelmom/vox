@@ -1633,7 +1633,10 @@ function JobRow({
               type="range" min={0} max={1} step={0.01} value={muted ? 0 : volume}
               onChange={(e) => { setVolume(Number(e.target.value)); setMuted(false); }}
               aria-label="Volume"
-              className="w-20 h-1 cursor-pointer appearance-none rounded-full bg-muted accent-[oklch(0.55_0.22_260)]"
+              className="w-20 h-1 cursor-pointer appearance-none rounded-full"
+              style={{
+                background: `linear-gradient(to right, oklch(0.55 0.22 260) 0%, oklch(0.55 0.22 260) ${(muted ? 0 : volume) * 100}%, oklch(0.6 0.01 260) ${(muted ? 0 : volume) * 100}%, oklch(0.6 0.01 260) 100%)`,
+              }}
             />
             <input
               type="range" min={0} max={audioDuration || 1} step={0.1} value={progress}
@@ -1645,7 +1648,7 @@ function JobRow({
               aria-label="Seek"
               className="h-1 flex-1 cursor-pointer appearance-none rounded-full"
               style={{
-                background: `linear-gradient(to right, oklch(0.55 0.22 260) 0%, oklch(0.55 0.22 260) ${progressPct}%, oklch(0.92 0.01 260) ${progressPct}%, oklch(0.92 0.01 260) 100%)`,
+                background: `linear-gradient(to right, oklch(0.55 0.22 260) 0%, oklch(0.55 0.22 260) ${progressPct}%, oklch(0.6 0.01 260) ${progressPct}%, oklch(0.6 0.01 260) 100%)`,
               }}
             />
             <SpeedControl value={speed} onChange={setSpeed} />
@@ -1730,6 +1733,7 @@ function VoicePreviewPlayer({ voiceId }: { voiceId: string }) {
   const [progress, setProgress] = useState(0);
   const [duration, setDuration] = useState(0);
   const [volume, setVolume] = useState(0.7);
+  const [muted, setMuted] = useState(false);
 
   // Reset player when voice changes
   useEffect(() => {
@@ -1765,8 +1769,8 @@ function VoicePreviewPlayer({ voiceId }: { voiceId: string }) {
   }, [playing, isGeneric]);
 
   useEffect(() => {
-    if (audioRef.current) audioRef.current.volume = volume;
-  }, [volume]);
+    if (audioRef.current) audioRef.current.volume = muted ? 0 : volume;
+  }, [volume, muted]);
 
   const pct = duration > 0 ? (progress / duration) * 100 : 0;
   const src = voiceId ? `/voices/${encodeURIComponent(voiceId)}/audio` : "";
@@ -1780,9 +1784,9 @@ function VoicePreviewPlayer({ voiceId }: { voiceId: string }) {
             <Play className="ml-0.5 h-3.5 w-3.5" />
           </span>
           <span className="w-8 text-center text-[10px] font-mono tabular-nums text-foreground/40">0:00</span>
-          <div className="h-1 flex-1 rounded-full bg-muted" />
+          <div className="h-1 flex-1 rounded-full bg-foreground/20" />
           <span className="w-8 text-center text-[10px] font-mono tabular-nums text-foreground/40">—:——</span>
-          <Volume2 className="h-3.5 w-3.5 text-foreground/30" />
+          <Volume2 className="h-3.5 w-3.5 text-foreground/40" />
         </div>
       </div>
     );
@@ -1819,9 +1823,9 @@ function VoicePreviewPlayer({ voiceId }: { voiceId: string }) {
           if (audioRef.current) audioRef.current.currentTime = v;
         }}
         aria-label="Seek"
-        className="h-1 flex-1 cursor-pointer appearance-none rounded-full bg-muted accent-[oklch(0.55_0.22_260)]"
+        className="h-1 flex-1 cursor-pointer appearance-none rounded-full"
         style={{
-          background: `linear-gradient(to right, oklch(0.55 0.22 260) 0%, oklch(0.55 0.22 260) ${pct}%, oklch(0.92 0.01 260) ${pct}%, oklch(0.92 0.01 260) 100%)`,
+          background: `linear-gradient(to right, oklch(0.55 0.22 260) 0%, oklch(0.55 0.22 260) ${pct}%, oklch(0.6 0.01 260) ${pct}%, oklch(0.6 0.01 260) 100%)`,
         }}
       />
 
@@ -1829,15 +1833,25 @@ function VoicePreviewPlayer({ voiceId }: { voiceId: string }) {
         {duration > 0 ? fmtTime(duration) : "—:——"}
       </span>
 
+      <button
+        onClick={() => setMuted((m) => !m)}
+        aria-label={muted ? "Unmute" : "Mute"}
+        className="shrink-0 text-foreground/60 hover:text-foreground"
+      >
+        {muted ? <VolumeX className="h-3.5 w-3.5" /> : <Volume2 className="h-3.5 w-3.5" />}
+      </button>
       <input
         type="range"
         min={0}
         max={1}
         step={0.01}
-        value={volume}
-        onChange={(e) => setVolume(Number(e.target.value))}
+        value={muted ? 0 : volume}
+        onChange={(e) => { setVolume(Number(e.target.value)); setMuted(false); }}
         aria-label="Volume"
-        className="w-12 cursor-pointer appearance-none rounded-full bg-muted h-1 accent-[oklch(0.55_0.22_260)]"
+        className="w-12 h-1 cursor-pointer appearance-none rounded-full"
+        style={{
+          background: `linear-gradient(to right, oklch(0.55 0.22 260) 0%, oklch(0.55 0.22 260) ${(muted ? 0 : volume) * 100}%, oklch(0.6 0.01 260) ${(muted ? 0 : volume) * 100}%, oklch(0.6 0.01 260) 100%)`,
+        }}
       />
       </div>
     </div>
