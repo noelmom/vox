@@ -165,6 +165,12 @@ export type Stats = {
   today_minutes: number;
   sparkline_requests: number[];
   sparkline_minutes: number[];
+  // library & storage
+  voice_count: number;
+  recording_count: number;
+  voices_disk_bytes: number;
+  recordings_disk_bytes: number;
+  disk_used_bytes: number;
 };
 
 export async function getStats(): Promise<Stats> {

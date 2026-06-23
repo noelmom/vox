@@ -241,8 +241,11 @@ async def health():
     response_description="Usage stats with sparkline arrays",
 )
 async def get_stats():
+    import asyncio
     from api.core.db import get_db
     db = await get_db()
+
+    # Usage aggregates
     async with db.execute(
         """
         SELECT
@@ -256,6 +259,26 @@ async def get_stats():
         row = await cur.fetchone()
     total_requests, total_seconds, today_requests, today_seconds = row
 
+    # Library counts
+    async with db.execute("SELECT COUNT(*) FROM voices") as cur:
+        (voice_count,) = await cur.fetchone()
+    async with db.execute("SELECT COUNT(*) FROM jobs WHERE status = 'completed'") as cur:
+        (recording_count,) = await cur.fetchone()
+
+    # Disk usage — scan both directories in a thread to avoid blocking the event loop
+    def _scan_dir(path: Path) -> int:
+        try:
+            return sum(f.stat().st_size for f in path.iterdir() if f.is_file())
+        except (FileNotFoundError, PermissionError):
+            return 0
+
+    loop = asyncio.get_running_loop()
+    voices_disk_bytes, recordings_disk_bytes = await asyncio.gather(
+        loop.run_in_executor(None, _scan_dir, settings.voice_dir),
+        loop.run_in_executor(None, _scan_dir, settings.output_dir),
+    )
+
+    # 7-day sparklines
     sparkline_requests = []
     sparkline_minutes = []
     for i in range(6, -1, -1):
@@ -274,6 +297,12 @@ async def get_stats():
         "today_minutes": round(today_seconds / 60, 2),
         "sparkline_requests": sparkline_requests,
         "sparkline_minutes": sparkline_minutes,
+        # Library & storage
+        "voice_count": voice_count,
+        "recording_count": recording_count,
+        "voices_disk_bytes": voices_disk_bytes,
+        "recordings_disk_bytes": recordings_disk_bytes,
+        "disk_used_bytes": voices_disk_bytes + recordings_disk_bytes,
     }
 
 

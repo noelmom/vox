@@ -206,6 +206,7 @@ function readWidgetPrefs() {
   return {
     requests: lsGet("vox:widget.requests", true),
     minutes: lsGet("vox:widget.minutes", true),
+    library: lsGet("vox:widget.library", true),
   };
 }
 
@@ -216,6 +217,11 @@ const EMPTY_STATS: Stats = {
   today_minutes: 0,
   sparkline_requests: [],
   sparkline_minutes: [],
+  voice_count: 0,
+  recording_count: 0,
+  voices_disk_bytes: 0,
+  recordings_disk_bytes: 0,
+  disk_used_bytes: 0,
 };
 
 function SidebarContent({
@@ -235,7 +241,7 @@ function SidebarContent({
     return () => window.removeEventListener("vox:prefschanged", handler);
   }, []);
 
-  const showAnyWidget = !collapsed && (widgetPrefs.requests || widgetPrefs.minutes);
+  const showAnyWidget = !collapsed && (widgetPrefs.requests || widgetPrefs.minutes || widgetPrefs.library);
 
   const { data: stats = EMPTY_STATS } = useQuery({
     queryKey: ["stats"],
@@ -339,6 +345,28 @@ function SidebarContent({
               </section>
             )}
 
+            {widgetPrefs.library && (
+              <section className="rounded-xl border border-border bg-card p-3 shadow-sm">
+                <p className="mb-2 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+                  Library & Storage
+                </p>
+                <div className="grid grid-cols-3 gap-1 text-center">
+                  <div>
+                    <div className="text-lg font-bold tabular-nums leading-none">{stats.voice_count}</div>
+                    <div className="mt-0.5 text-[9px] text-muted-foreground">Voices</div>
+                  </div>
+                  <div>
+                    <div className="text-lg font-bold tabular-nums leading-none">{stats.recording_count}</div>
+                    <div className="mt-0.5 text-[9px] text-muted-foreground">Clips</div>
+                  </div>
+                  <div>
+                    <div className="text-lg font-bold tabular-nums leading-none">{formatBytes(stats.disk_used_bytes)}</div>
+                    <div className="mt-0.5 text-[9px] text-muted-foreground">Disk Used</div>
+                  </div>
+                </div>
+              </section>
+            )}
+
             <Link
               to="/"
               className="flex items-center justify-center"
@@ -410,6 +438,14 @@ function StatusPill({ status, label }: { status: "ok" | "loading" | "error"; lab
       {label}
     </span>
   );
+}
+
+function formatBytes(bytes: number): string {
+  if (bytes === 0) return "0 B";
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 ** 2) return `${(bytes / 1024).toFixed(1)} KB`;
+  if (bytes < 1024 ** 3) return `${(bytes / 1024 ** 2).toFixed(1)} MB`;
+  return `${(bytes / 1024 ** 3).toFixed(2)} GB`;
 }
 
 function Sparkline({
