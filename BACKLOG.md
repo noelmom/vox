@@ -620,6 +620,37 @@ Ideas and improvements to revisit. Not bugs — these are enhancements queued fo
     - `--data` — also remove voices, outputs, data, input from Application Support (destructive, off by default)
     - `--yes` — skip all confirmation prompts
 
+- [ ] **Install script should surface Chatterbox model download/load progress instead of silently returning**
+
+  On first install, after `setup.sh` completes and the LaunchAgent starts, the Chatterbox model must be downloaded from Hugging Face (can be several GB) and loaded into memory before the server is actually ready. Currently the script prints "Done" and releases the terminal immediately — users see a prompt again and may navigate to `localhost:8000` or open the app, get connection errors or a spinner, and assume the install failed.
+
+  **Three approaches to consider (not mutually exclusive):**
+
+  **Option A — Tail logs and wait in the install script**
+  - After starting the LaunchAgent, poll the server log (`~/Library/Logs/Vox/server.log`) until a "Model loaded" or "Application startup complete" line appears (or a timeout, e.g. 10 min).
+  - Print live progress lines to the terminal while waiting: `[vox] Waiting for model to load… (this may take a few minutes on first run)`.
+  - Once ready, print `[vox] ✓ Server is ready — open http://localhost:8000` and exit.
+  - If timeout is reached, print a clear message explaining the model may still be downloading and how to check logs.
+
+  **Option B — Print a clear warning and release immediately**
+  - Simpler: after starting the agent, print a prominent notice:
+    ```
+    ⚠️  First-run model download in progress.
+        The Chatterbox model will download in the background (may take a few minutes).
+        The app will show a loading state until it's ready.
+        To check progress: open VoxHelper from the menu bar → View Logs
+    ```
+  - No polling, no blocking — just sets the right expectation upfront.
+
+  **Option C — Helper tracks and displays model download/load progress (best long-term)**
+  - The VoxHelper menu bar app polls `GET /health` or a new `GET /status` endpoint that returns a `model_state` field: `"downloading"` / `"loading"` / `"ready"` / `"error"`.
+  - While the model is not ready, the helper icon shows a spinner or distinct state (e.g. gray icon vs. green) and the menu shows "Model loading… 42%" or "Downloading model (1.2 GB / 3.4 GB)".
+  - Once `model_state == "ready"`, icon turns green and a macOS notification fires: "Vox is ready."
+  - This is the most user-friendly path — no terminal watching required, and it works both on first install and after a restart.
+  - Requires the backend to expose download/load state, which could be tracked via a module-level variable updated during `load_model()` in `api/core/engine.py`.
+
+  **Recommended approach:** implement Option B immediately (low effort, fixes the confusion now) and backlog Option C as the premium experience for v1.0.0.
+
 - [ ] **Add `-y` / `--yes` flag to `setup.sh` to skip interactive prompts during clean install**
 
   During clean install testing, `setup.sh` surfaces several confirmation prompts that users must manually answer before the install proceeds. A `-y` flag would accept all defaults automatically — useful for re-installs, CI, and power users who know what they're doing.
