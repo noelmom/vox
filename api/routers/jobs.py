@@ -24,7 +24,13 @@ def _annotate(row: Any) -> dict:
     return d
 
 
-@router.get("", response_model=list[JobOut])
+@router.get(
+    "",
+    response_model=list[JobOut],
+    summary="List generation jobs",
+    description="Returns recent TTS jobs in descending creation order. Supports cursor-style pagination via `limit` and `offset`. Each job includes timing metrics (`generation_s`, `audio_duration_s`, `rtf`) once completed.",
+    response_description="Array of job objects",
+)
 async def list_jobs(request: Request, limit: int = 50, offset: int = 0):
     db = await get_db()
     async with db.execute(
@@ -35,7 +41,26 @@ async def list_jobs(request: Request, limit: int = 50, offset: int = 0):
     return [_annotate(r) for r in rows]
 
 
-@router.get("/{request_id}", response_model=JobOut)
+@router.get(
+    "/{request_id}",
+    response_model=JobOut,
+    summary="Get job status",
+    description="""Poll this endpoint after `POST /api/v1/tts` to track generation progress.
+
+**Status values**
+
+| Status | Meaning |
+|---|---|
+| `queued` | Job is waiting — another generation may be in progress |
+| `processing` | Model is actively generating audio |
+| `completed` | Audio is ready — download via `GET /api/v1/jobs/{request_id}/audio` |
+| `failed` | Generation failed — see the `error` field for the reason |
+
+Typical generation time on Apple Silicon is 1–5× real-time depending on text length and voice complexity.
+""",
+    response_description="Job object with current status and timing metrics",
+    responses={404: {"description": "Job not found"}},
+)
 async def get_job(request_id: str, request: Request):
     db = await get_db()
     async with db.execute(f"{_JOB_SELECT} WHERE j.request_id = ?", (request_id,)) as cur:
@@ -45,7 +70,14 @@ async def get_job(request_id: str, request: Request):
     return _annotate(row)
 
 
-@router.delete("/{request_id}", status_code=204)
+@router.delete(
+    "/{request_id}",
+    status_code=204,
+    summary="Delete a job and its audio",
+    description="Deletes the job record and its associated audio file from disk. Useful for freeing storage before the automatic TTL cleanup runs.",
+    response_description="No content",
+    responses={404: {"description": "Job not found"}},
+)
 async def delete_job(request_id: str, request: Request):
     db = await get_db()
     async with db.execute("SELECT output_path FROM jobs WHERE request_id = ?", (request_id,)) as cur:
@@ -60,7 +92,17 @@ async def delete_job(request_id: str, request: Request):
             p.unlink(missing_ok=True)
 
 
-@router.get("/{request_id}/audio")
+@router.get(
+    "/{request_id}/audio",
+    summary="Download generated audio",
+    description="Stream the generated MP3 or WAV file for a completed job. Returns `409` if the job is not yet complete, and `410` if the file has already been cleaned up (output TTL expired or manually deleted).",
+    response_description="MP3 or WAV audio stream",
+    responses={
+        404: {"description": "Job not found"},
+        409: {"description": "Job is not yet completed"},
+        410: {"description": "Audio file has expired or been deleted"},
+    },
+)
 async def get_job_audio(request_id: str, request: Request):
     db = await get_db()
     async with db.execute(

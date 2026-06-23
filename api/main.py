@@ -3,7 +3,7 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import APIRouter, FastAPI
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
 from api.core.cleanup import run_cleanup_loop
@@ -38,14 +38,105 @@ async def lifespan(app: FastAPI):
     await disconnect()
 
 
+_DESCRIPTION = """
+**Vox** is a local text-to-speech API running on your Mac, powered by [Chatterbox Turbo](https://github.com/resemble-ai/chatterbox) — a high-quality voice synthesis model optimised for Apple Silicon.
+
+## Base URL
+
+All API routes are versioned under `/api/v1`:
+
+```
+http://localhost:8000/api/v1
+```
+
+## Quick start
+
+```bash
+# 1. Generate speech (returns immediately with a job ID)
+curl -X POST http://localhost:8000/api/v1/tts \\
+  -F "text=Hello, this is Vox." \\
+  -F "voice_name=my-voice" \\
+  -F "preset=default" \\
+  --output /dev/null -w "%{http_code}"   # → 202
+
+# 2. Poll until completed
+curl http://localhost:8000/api/v1/jobs/{request_id}
+
+# 3. Download audio
+curl http://localhost:8000/api/v1/jobs/{request_id}/audio --output audio.mp3
+```
+
+## Generation parameters
+
+All six Chatterbox parameters can be tuned per-request or saved as a named **preset**:
+
+| Parameter | Range | Effect |
+|---|---|---|
+| `temperature` | 0 – 1.5 | Randomness. Higher = more expressive, less predictable. |
+| `exaggeration` | 0 – 1 | Prosody emphasis. Higher = more dramatic delivery. |
+| `cfg_weight` | 0 – 1 | Guidance strength. Higher = closer to the reference voice. |
+| `repetition_penalty` | 1 – 2 | Penalises repeated tokens. Higher = less looping. |
+| `top_p` | 0 – 1 | Nucleus sampling cutoff. |
+| `min_p` | 0 – 1 | Minimum token probability floor. |
+
+**Override priority** (lowest → highest): built-in preset → voice profile defaults → per-request values.
+
+## Response headers
+
+Every TTS response includes timing telemetry:
+
+| Header | Description |
+|---|---|
+| `X-Request-ID` | UUID identifying this job |
+| `X-Audio-Duration-Seconds` | Length of the generated clip |
+| `X-Generation-Seconds` | Time spent in the model |
+| `X-RTF` | Real-time factor (generation ÷ audio duration). RTF < 1 = faster than real-time. |
+
+## Async job lifecycle
+
+```
+POST /tts → queued → processing → completed → audio available
+                                └→ failed   → error field set
+```
+
+Audio files are automatically cleaned up after `VOX_OUTPUT_TTL_HOURS` (default 24 h).
+"""
+
+_TAGS = [
+    {
+        "name": "tts",
+        "description": "Generate speech from text. Submission is async — you get a `request_id` immediately and poll `/jobs/{request_id}` for completion.",
+    },
+    {
+        "name": "voices",
+        "description": "Manage voice profiles used as cloning references. Upload a short audio clip and Vox learns the tone, pace, and character of that voice.",
+    },
+    {
+        "name": "jobs",
+        "description": "Track generation jobs and download completed audio. Jobs move through `queued → processing → completed` (or `failed`).",
+    },
+    {
+        "name": "presets",
+        "description": "Named bundles of the six Chatterbox generation parameters. Built-in presets are read-only; custom presets can be created, overwritten, and deleted.",
+    },
+    {
+        "name": "system",
+        "description": "Server health, configuration, and usage statistics.",
+    },
+]
+
 app = FastAPI(
-    title=settings.app_name,
+    title="Vox API",
+    summary="Local text-to-speech API powered by Chatterbox Turbo on Apple Silicon.",
+    description=_DESCRIPTION,
+    version="0.5.0",
+    contact={"name": "MeloLab Dev", "url": "https://github.com/MeloLabDev/codename-vox"},
+    license_info={"name": "MIT"},
     lifespan=lifespan,
-    servers=[
-        {"url": "/api/v1", "description": "Current server"},
-    ],
-    swagger_ui_parameters={"defaultModelsExpandDepth": 0},
-    swagger_css_url="data:text/css,.swagger-ui .models { background: #f5f5f5 !important; } .swagger-ui .models h4 { color: #1d1d1f !important; } .swagger-ui .models h5 { color: #1d1d1f !important; } .swagger-ui .models .model-title { color: #1d1d1f !important; } .swagger-ui .models a { color: #0066cc !important; text-decoration: underline !important; } .swagger-ui .models a:hover { color: #004499 !important; } .swagger-ui .models .model-box { background: #fff !important; } .swagger-ui .models .model-box td { color: #1d1d1f !important; } .swagger-ui .models .model-container { border-color: #ccc !important; color: #1d1d1f !important; }",
+    servers=[{"url": "/api/v1", "description": "Current server"}],
+    openapi_tags=_TAGS,
+    docs_url=None,
+    redoc_url=None,
 )
 
 app.add_middleware(RequestIDMiddleware)
@@ -65,6 +156,37 @@ _SPA_INDEX = _UI_DIST / "index.html"
 
 def _spa() -> FileResponse:
     return FileResponse(str(_SPA_INDEX), media_type="text/html")
+
+
+@app.get("/docs", include_in_schema=False)
+async def scalar_docs():
+    return HTMLResponse("""<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Vox API Reference</title>
+  <style>body { margin: 0; }</style>
+</head>
+<body>
+  <script id="api-reference" data-url="/openapi.json"></script>
+  <script>
+    document.getElementById('api-reference').dataset.configuration = JSON.stringify({
+      theme: 'kepler',
+      layout: 'modern',
+      defaultHttpClient: { targetKey: 'shell', clientKey: 'curl' },
+      defaultOpenAllTags: false,
+      hideModels: false,
+      hiddenClients: [],
+      servers: [{ url: 'http://localhost:8000', description: 'Local' }],
+      metadata: {
+        title: 'Vox API Reference',
+      },
+    })
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/@scalar/api-reference"></script>
+</body>
+</html>""")
 
 
 @app.get("/favicon.png", include_in_schema=False)
@@ -94,7 +216,13 @@ async def spa_routes():
     return {"error": "UI not found"}
 
 
-@app.get("/health")
+@app.get(
+    "/health",
+    tags=["system"],
+    summary="Liveness check",
+    description="Returns `ok` if the server process is running. Does not verify model or database state — use `GET /api/v1/settings` for a full diagnostic.",
+    response_description="Server status",
+)
 async def health():
     return {
         "status": "ok",
@@ -105,7 +233,13 @@ async def health():
     }
 
 
-@v1.get("/stats")
+@v1.get(
+    "/stats",
+    tags=["system"],
+    summary="Usage statistics",
+    description="Returns aggregate counts of completed jobs and audio minutes generated — all-time and today — plus a 7-day sparkline for both metrics.",
+    response_description="Usage stats with sparkline arrays",
+)
 async def get_stats():
     from api.core.db import get_db
     db = await get_db()
@@ -143,7 +277,13 @@ async def get_stats():
     }
 
 
-@v1.get("/settings")
+@v1.get(
+    "/settings",
+    tags=["system"],
+    summary="Server configuration",
+    description="Returns the active server configuration — resolved device (MPS/CPU), file paths, model name, FFmpeg availability, macOS version, and chip. Useful for debugging installation issues.",
+    response_description="Server configuration object",
+)
 async def get_settings():
     import shutil, platform
     ffmpeg = settings.ffmpeg_path
@@ -173,7 +313,13 @@ async def get_settings():
     }
 
 
-@v1.get("/presets")
+@v1.get(
+    "/presets",
+    tags=["presets"],
+    summary="List all tone presets",
+    description="Returns all available presets — built-in (read-only) and any saved custom presets. Each preset is a dict of the six Chatterbox generation parameters. Pass a preset name as the `preset` field in `POST /api/v1/tts`.",
+    response_description="Map of preset name → parameter values",
+)
 async def get_presets():
     from api.core.db import get_db
     db = await get_db()

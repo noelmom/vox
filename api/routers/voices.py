@@ -60,7 +60,13 @@ async def _register_voice(
         return dict(await cur.fetchone())
 
 
-@router.get("", response_model=list[VoiceOut])
+@router.get(
+    "",
+    response_model=list[VoiceOut],
+    summary="List voice profiles",
+    description="Returns all registered voice profiles ordered alphabetically. Each profile includes its stored TTS parameter defaults and any user customisations (display name, icon, favourite status).",
+    response_description="Array of voice profile objects",
+)
 async def list_voices(request: Request):
     db = await get_db()
     async with db.execute("SELECT * FROM voices ORDER BY name") as cur:
@@ -68,7 +74,14 @@ async def list_voices(request: Request):
     return [dict(r) for r in rows]
 
 
-@router.get("/{name}", response_model=VoiceOut)
+@router.get(
+    "/{name}",
+    response_model=VoiceOut,
+    summary="Get a voice profile",
+    description="Fetch a single voice profile by its slug — the URL-safe name assigned on upload (lowercase, spaces replaced with hyphens).",
+    response_description="Voice profile object",
+    responses={404: {"description": "Voice profile not found"}},
+)
 async def get_voice(name: str, request: Request):
     db = await get_db()
     async with db.execute("SELECT * FROM voices WHERE name = ?", (name,)) as cur:
@@ -78,7 +91,28 @@ async def get_voice(name: str, request: Request):
     return dict(row)
 
 
-@router.post("", response_model=VoiceOut, status_code=201)
+@router.post(
+    "",
+    response_model=VoiceOut,
+    status_code=201,
+    summary="Upload a voice profile",
+    description="""Upload a voice reference clip and register it as a named profile for use in TTS generation.
+
+**Accepted formats:** WAV, MP3, FLAC, OGG, M4A, WEBM. All formats are converted to 24 kHz mono WAV internally.
+
+**Tips for best results:**
+- 10–30 seconds of clean, natural speech with no background music or noise.
+- Avoid heavy reverb, echo, or processing.
+- The `name` field becomes a URL-safe slug: lowercase, spaces → hyphens (e.g. `"Noel Normal"` → `noelmo-normal`).
+
+If a profile with the same name already exists it is overwritten.
+""",
+    response_description="Created (or updated) voice profile",
+    responses={
+        201: {"description": "Voice profile created"},
+        400: {"description": "Unsupported audio format"},
+    },
+)
 async def create_voice(
     request: Request,
     name: str = Form(...),
@@ -131,7 +165,16 @@ async def create_voice(
     return await _register_voice(db, safe, wav_dest, original_filename, description, params, rid, tags=_parse_tags(tags))
 
 
-@router.get("/{name}/audio")
+@router.get(
+    "/{name}/audio",
+    summary="Download voice reference audio",
+    description="Stream the raw WAV file used as the voice cloning reference for this profile.",
+    response_description="WAV audio stream",
+    responses={
+        404: {"description": "Voice profile not found"},
+        410: {"description": "Audio file is missing on disk"},
+    },
+)
 async def get_voice_audio(name: str, request: Request):
     db = await get_db()
     async with db.execute("SELECT filename FROM voices WHERE name = ?", (name,)) as cur:
@@ -144,7 +187,21 @@ async def get_voice_audio(name: str, request: Request):
     return FileResponse(str(wav_path), media_type="audio/wav")
 
 
-@router.patch("/{name}", response_model=VoiceOut)
+@router.patch(
+    "/{name}",
+    response_model=VoiceOut,
+    summary="Update voice profile settings",
+    description="""Update one or more fields on an existing voice profile. All fields are optional — only supplied fields are changed.
+
+**Clearing optional fields:** pass an empty string (`""`) for `display_name` or `icon_data` to reset them to `null`.
+
+**TTS parameter defaults:** the six generation parameters (`temperature`, `exaggeration`, etc.) stored on a voice profile act as defaults that are applied before any per-request overrides.
+
+**Favourite / display customisation:** `is_favorite` (0 or 1), `display_name`, and `icon_data` (base64 PNG) are UI-only fields used by the Vox app.
+""",
+    response_description="Updated voice profile",
+    responses={404: {"description": "Voice profile not found"}},
+)
 async def update_voice_params(
     name: str,
     request: Request,
@@ -202,7 +259,14 @@ async def update_voice_params(
         return dict(await cur.fetchone())
 
 
-@router.delete("/{name}", status_code=204)
+@router.delete(
+    "/{name}",
+    status_code=204,
+    summary="Delete a voice profile",
+    description="Permanently deletes the voice profile record and its WAV file from disk. This cannot be undone. Jobs that referenced this voice are not affected.",
+    response_description="No content",
+    responses={404: {"description": "Voice profile not found"}},
+)
 async def delete_voice(name: str, request: Request):
     rid = request.state.request_id
     db = await get_db()

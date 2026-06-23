@@ -164,7 +164,43 @@ async def _run_generation(
             p.unlink(missing_ok=True)
 
 
-@router.post("")
+@router.post(
+    "",
+    summary="Generate speech from text",
+    description="""Submit a text-to-speech job. Returns **202 Accepted** immediately with a `request_id`; generation runs in the background on the local GPU/CPU.
+
+**Typical flow**
+
+1. `POST /api/v1/tts` → `{ "request_id": "abc123" }`
+2. Poll `GET /api/v1/jobs/{request_id}` until `status == "completed"`
+3. Download audio at `GET /api/v1/jobs/{request_id}/audio`
+
+**Voice cloning**
+
+Pass `voice_name` to clone a pre-uploaded profile, or upload a one-off reference clip via the `voice` file field (10–30 s of clean speech recommended).
+
+**Output format**
+
+`output_format` accepts `mp3` (default) or `wav`. Use `mp3_bitrate` to control MP3 quality (64–320 kbps, default 128). Use `wav_bit_depth` to set WAV precision (`16`, `24`, or `32`).
+
+**Chunking**
+
+Long text is split at sentence boundaries. `max_chars` sets the maximum chunk length (default 450, range 100–3000). Shorter chunks generate faster but prosody may vary at boundaries.
+
+**Parameter override order** (lowest → highest priority)
+
+1. Built-in preset defaults
+2. Per-voice parameter overrides stored on the voice profile
+3. Per-request overrides (`temperature`, `exaggeration`, etc.) passed directly to this endpoint
+""",
+    response_description="Job accepted. Poll `/api/v1/jobs/{request_id}` for status.",
+    responses={
+        202: {"description": "Job accepted — `request_id` returned for polling"},
+        400: {"description": "Unsupported voice file format"},
+        404: {"description": "Named voice profile not found or its audio file is missing"},
+        422: {"description": "Validation error — check `mp3_bitrate` or `wav_bit_depth` values"},
+    },
+)
 async def generate_tts(
     request: Request,
     text: str = Form(...),
