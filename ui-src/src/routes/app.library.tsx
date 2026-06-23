@@ -357,7 +357,7 @@ function UploadPane({ onUploaded }: { onUploaded: () => void }) {
 // ─── Record Pane ────────────────────────────────────────────────────────────
 
 function RecordPane({ onSaved }: { onSaved: () => void }) {
-  const [permission, setPermission] = useState<"unknown" | "granted" | "denied" | "no-device">("unknown");
+  const [permission, setPermission] = useState<"unknown" | "granted" | "denied" | "no-device" | "insecure-context">("unknown");
   const [devices, setDevices] = useState<MediaDeviceInfo[]>([]);
   const [selectedDeviceId, setSelectedDeviceId] = useState<string>("");
   const [recordingState, setRecordingState] = useState<"idle" | "recording" | "done">("idle");
@@ -388,7 +388,14 @@ function RecordPane({ onSaved }: { onSaved: () => void }) {
 
   const classifyMicError = (err: unknown) => {
     const name = err instanceof Error ? err.name : "";
-    setPermission(name === "NotFoundError" || name === "DevicesNotFoundError" || name === "NotReadableError" ? "no-device" : "denied");
+    if (name === "NotFoundError" || name === "DevicesNotFoundError" || name === "NotReadableError") {
+      setPermission("no-device");
+    } else if (!window.isSecureContext) {
+      // MediaDevices API is unavailable on HTTP (non-localhost) — browser blocks it silently or throws NotAllowedError
+      setPermission("insecure-context");
+    } else {
+      setPermission("denied");
+    }
   };
 
   const refreshDevices = async () => {
@@ -401,6 +408,7 @@ function RecordPane({ onSaved }: { onSaved: () => void }) {
   const getAudioConstraints = () => selectedDeviceId ? { audio: { deviceId: { exact: selectedDeviceId } } } : { audio: true };
 
   const requestMic = async () => {
+    if (!window.isSecureContext) { setPermission("insecure-context"); return; }
     try { const stream = await navigator.mediaDevices.getUserMedia(getAudioConstraints()); streamRef.current = stream; setPermission("granted"); await refreshDevices(); }
     catch (err) { classifyMicError(err); }
   };
@@ -474,6 +482,16 @@ function RecordPane({ onSaved }: { onSaved: () => void }) {
       <p className="text-[14px] font-semibold text-foreground">Microphone access denied</p>
       <p className="max-w-xs text-[12.5px] text-muted-foreground">Open your browser's site settings, allow microphone access for this page, then reload.</p>
       <button onClick={requestMic} className="mt-1 inline-flex items-center gap-1.5 rounded-lg border border-border bg-white px-3 py-2 text-[12.5px] font-medium text-foreground/80 hover:bg-muted"><RefreshCw className="h-3.5 w-3.5" />Try again</button>
+    </div>
+  );
+
+  if (permission === "insecure-context") return (
+    <div className="flex flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-[oklch(0.82_0.08_55)] bg-[oklch(0.985_0.01_55)] py-12 text-center">
+      <AlertCircle className="h-8 w-8 text-[oklch(0.62_0.16_55)]" />
+      <p className="text-[14px] font-semibold text-foreground">Microphone not available over HTTP</p>
+      <p className="max-w-xs text-[12.5px] text-muted-foreground">
+        Browsers block microphone access on insecure connections. Access Vox over <strong>https://</strong> or from <strong>localhost</strong> to use the recorder.
+      </p>
     </div>
   );
 

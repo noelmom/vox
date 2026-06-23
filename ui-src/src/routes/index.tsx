@@ -746,10 +746,10 @@ function GetStarted() {
         {/* Panel */}
         <div className="mx-auto mt-8 max-w-[760px]">
           <div
-            className="relative rounded-2xl border border-black/10 bg-white"
+            className="relative rounded-2xl border border-white/20 bg-white"
             style={{
               boxShadow:
-                "0 30px 80px -30px oklch(0.1 0.04 260 / 0.8), inset 0 1px 0 oklch(1 0 0 / 0.8)",
+                "0 0 0 1px oklch(1 0 0 / 0.12), 0 30px 80px -30px oklch(0.1 0.04 260 / 0.9), 0 8px 32px -8px oklch(0 0 0 / 0.5), inset 0 1px 0 oklch(1 0 0 / 0.9)",
             }}
           >
             {/* Window chrome */}
@@ -903,21 +903,10 @@ function GetStarted() {
             href="https://www.buymeacoffee.com"
             target="_blank"
             rel="noreferrer noopener"
-            className="group relative inline-flex items-center gap-2.5 overflow-hidden rounded-lg px-6 py-3 text-sm font-extrabold tracking-tight text-[oklch(0.22_0.05_70)] transition-all hover:-translate-y-0.5"
-            style={{
-              background:
-                "linear-gradient(135deg, oklch(0.92 0.18 95) 0%, oklch(0.86 0.21 85) 55%, oklch(0.9 0.19 92) 100%)",
-              boxShadow:
-                "0 12px 30px -8px oklch(0.86 0.21 85 / 0.55), inset 0 1px 0 oklch(1 0 0 / 0.6), inset 0 -2px 0 oklch(0.7 0.18 80 / 0.4)",
-            }}
+            className="inline-flex items-center gap-2 rounded-lg border border-white/15 bg-white/5 px-6 py-3 text-sm font-semibold text-white backdrop-blur transition-colors hover:bg-white/10"
           >
-            {/* shine sweep */}
-            <span
-              aria-hidden
-              className="pointer-events-none absolute inset-y-0 -left-1/3 w-1/3 -skew-x-12 bg-white/40 opacity-0 transition-all duration-700 group-hover:left-[110%] group-hover:opacity-80"
-            />
             <CoffeeCup />
-            <span>Buy me a Coffee</span>
+            Buy me a Coffee
           </a>
         </div>
       </div>
