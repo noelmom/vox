@@ -803,10 +803,9 @@ function ProfileCard({
         />
       )}
 
-      <div className="mt-3 grid grid-cols-[1fr_1fr_auto] items-end gap-3">
+      <div className="mt-3 grid grid-cols-[1fr_1fr] items-end gap-3">
         <Meta label="Added" value={dateLabel} />
         <Meta label="Source" value="Local" />
-        <MiniWave />
       </div>
     </div>
   );
