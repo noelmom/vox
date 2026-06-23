@@ -25,6 +25,7 @@ async def save_preset(name: str, body: PresetBody):
         raise HTTPException(status_code=422, detail="Preset name cannot be empty.")
     if name in _BUILTIN:
         raise HTTPException(status_code=409, detail=f"'{name}' is a built-in preset and cannot be overwritten.")
+    db = await get_db()
     await db.execute(
         """INSERT INTO user_presets (name, temperature, exaggeration, cfg_weight, repetition_penalty, top_p, min_p)
            VALUES (?, ?, ?, ?, ?, ?, ?)

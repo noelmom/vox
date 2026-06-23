@@ -52,11 +52,11 @@ export async function healthCheck() {
 }
 
 export async function listVoices(): Promise<ApiVoice[]> {
-  return apiFetch("/voices").then((r) => r.json());
+  return apiFetch("/api/v1/voices").then((r) => r.json());
 }
 
 export async function listPresets(): Promise<Record<string, object>> {
-  return apiFetch("/presets").then((r) => r.json());
+  return apiFetch("/api/v1/presets").then((r) => r.json());
 }
 
 export async function submitTTS(params: {
@@ -88,7 +88,7 @@ export async function submitTTS(params: {
   if (params.min_p != null) fd.append("min_p", String(params.min_p));
   if (params.mp3_bitrate != null) fd.append("mp3_bitrate", String(params.mp3_bitrate));
   if (params.wav_bit_depth != null) fd.append("wav_bit_depth", params.wav_bit_depth);
-  const r = await apiFetch("/tts", { method: "POST", body: fd });
+  const r = await apiFetch("/api/v1/tts", { method: "POST", body: fd });
   return r.json();
 }
 
@@ -103,7 +103,7 @@ export async function savePreset(
     min_p: number;
   },
 ): Promise<void> {
-  await apiFetch(`/presets/${encodeURIComponent(name)}`, {
+  await apiFetch(`/api/v1/presets/${encodeURIComponent(name)}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(params),
@@ -111,15 +111,15 @@ export async function savePreset(
 }
 
 export async function deletePreset(name: string): Promise<void> {
-  await apiFetch(`/presets/${encodeURIComponent(name)}`, { method: "DELETE" });
+  await apiFetch(`/api/v1/presets/${encodeURIComponent(name)}`, { method: "DELETE" });
 }
 
 export async function getJob(requestId: string): Promise<Job> {
-  return apiFetch(`/jobs/${encodeURIComponent(requestId)}`).then((r) => r.json());
+  return apiFetch(`/api/v1/jobs/${encodeURIComponent(requestId)}`).then((r) => r.json());
 }
 
 export async function getJobAudio(requestId: string): Promise<Blob> {
-  const r = await apiFetch(`/jobs/${encodeURIComponent(requestId)}/audio`);
+  const r = await apiFetch(`/api/v1/jobs/${encodeURIComponent(requestId)}/audio`);
   return r.blob();
 }
 
@@ -128,16 +128,16 @@ export async function listJobs(params?: { limit?: number; offset?: number }): Pr
     limit: String(params?.limit ?? 50),
     offset: String(params?.offset ?? 0),
   });
-  return apiFetch(`/jobs?${q}`).then((r) => r.json());
+  return apiFetch(`/api/v1/jobs?${q}`).then((r) => r.json());
 }
 
 export async function uploadVoice(formData: FormData): Promise<ApiVoice> {
-  const r = await apiFetch("/voices", { method: "POST", body: formData });
+  const r = await apiFetch("/api/v1/voices", { method: "POST", body: formData });
   return r.json();
 }
 
 export async function deleteVoice(name: string): Promise<void> {
-  await apiFetch(`/voices/${encodeURIComponent(name)}`, { method: "DELETE" });
+  await apiFetch(`/api/v1/voices/${encodeURIComponent(name)}`, { method: "DELETE" });
 }
 
 export type ServerSettings = {
@@ -168,15 +168,15 @@ export type Stats = {
 };
 
 export async function getStats(): Promise<Stats> {
-  return apiFetch("/stats").then((r) => r.json());
+  return apiFetch("/api/v1/stats").then((r) => r.json());
 }
 
 export async function getServerSettings(): Promise<ServerSettings> {
-  return apiFetch("/settings").then((r) => r.json());
+  return apiFetch("/api/v1/settings").then((r) => r.json());
 }
 
 export async function deleteJob(requestId: string): Promise<void> {
-  await apiFetch(`/jobs/${encodeURIComponent(requestId)}`, { method: "DELETE" });
+  await apiFetch(`/api/v1/jobs/${encodeURIComponent(requestId)}`, { method: "DELETE" });
 }
 
 type VoicePatch = Partial<
@@ -197,6 +197,6 @@ export async function patchVoice(name: string, patch: VoicePatch): Promise<ApiVo
   // "" signals the server to clear the field; undefined/null = don't touch
   if (patch.display_name !== undefined) fd.append("display_name", patch.display_name ?? "");
   if (patch.icon_data !== undefined)    fd.append("icon_data", patch.icon_data ?? "");
-  const r = await apiFetch(`/voices/${encodeURIComponent(name)}`, { method: "PATCH", body: fd });
+  const r = await apiFetch(`/api/v1/voices/${encodeURIComponent(name)}`, { method: "PATCH", body: fd });
   return r.json();
 }

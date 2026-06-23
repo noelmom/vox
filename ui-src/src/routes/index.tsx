@@ -1059,7 +1059,7 @@ const API_SNIPPETS: Record<
     filename: "request.sh",
     lines: [
       { text: "# generate audio with a named voice profile", color: "muted" },
-      { text: 'curl -X POST http://localhost:8000/tts \\', color: "code" },
+      { text: 'curl -X POST http://localhost:8000/api/v1/tts \\', color: "code" },
       { text: '  -F "text=Hello, this is Vox." \\', color: "string" },
       { text: '  -F "voice_name=noelmo-normal" \\', color: "string" },
       { text: '  -F "preset=youtube" \\', color: "string" },

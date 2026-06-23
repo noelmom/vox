@@ -2,7 +2,7 @@ import asyncio
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import APIRouter, FastAPI
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -42,7 +42,7 @@ app = FastAPI(
     title=settings.app_name,
     lifespan=lifespan,
     servers=[
-        {"url": "/", "description": "Current server"},
+        {"url": "/api/v1", "description": "Current server"},
     ],
     swagger_ui_parameters={"defaultModelsExpandDepth": 0},
     swagger_css_url="data:text/css,.swagger-ui .models { background: #f5f5f5 !important; } .swagger-ui .models h4 { color: #1d1d1f !important; } .swagger-ui .models h5 { color: #1d1d1f !important; } .swagger-ui .models .model-title { color: #1d1d1f !important; } .swagger-ui .models a { color: #0066cc !important; text-decoration: underline !important; } .swagger-ui .models a:hover { color: #004499 !important; } .swagger-ui .models .model-box { background: #fff !important; } .swagger-ui .models .model-box td { color: #1d1d1f !important; } .swagger-ui .models .model-container { border-color: #ccc !important; color: #1d1d1f !important; }",
@@ -50,10 +50,11 @@ app = FastAPI(
 
 app.add_middleware(RequestIDMiddleware)
 
-app.include_router(tts.router)
-app.include_router(voices.router)
-app.include_router(jobs.router)
-app.include_router(presets.router)
+v1 = APIRouter(prefix="/api/v1")
+v1.include_router(tts.router)
+v1.include_router(voices.router)
+v1.include_router(jobs.router)
+v1.include_router(presets.router)
 
 # Serve React SPA built assets
 if _UI_DIST.exists():
@@ -104,7 +105,7 @@ async def health():
     }
 
 
-@app.get("/stats")
+@v1.get("/stats")
 async def get_stats():
     from api.core.db import get_db
     db = await get_db()
@@ -142,7 +143,7 @@ async def get_stats():
     }
 
 
-@app.get("/settings")
+@v1.get("/settings")
 async def get_settings():
     import shutil, platform
     ffmpeg = settings.ffmpeg_path
@@ -172,7 +173,7 @@ async def get_settings():
     }
 
 
-@app.get("/presets")
+@v1.get("/presets")
 async def get_presets():
     from api.core.db import get_db
     db = await get_db()
@@ -187,3 +188,6 @@ async def get_presets():
         name = d.pop("name")
         result[name] = d
     return result
+
+
+app.include_router(v1)
