@@ -66,6 +66,14 @@ def _spa() -> FileResponse:
     return FileResponse(str(_SPA_INDEX), media_type="text/html")
 
 
+@app.get("/favicon.png", include_in_schema=False)
+async def favicon():
+    f = _UI_DIST / "favicon.png"
+    if f.exists():
+        return FileResponse(str(f), media_type="image/png")
+    return FileResponse(str(_SPA_INDEX), media_type="text/html")
+
+
 @app.get("/")
 async def landing():
     if _SPA_INDEX.exists():
