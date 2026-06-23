@@ -971,7 +971,7 @@ function GeneratePage() {
                     <p className="mb-2 text-[11.5px] font-semibold text-foreground/70">
                       Name this preset — it will appear in the Tone chips above.
                     </p>
-                    <div className="flex gap-2">
+                    <div className="flex flex-col gap-2">
                       <input
                         autoFocus
                         value={presetNameInput}
@@ -979,22 +979,24 @@ function GeneratePage() {
                         onKeyDown={(e) => { if (e.key === "Enter") handleSavePreset(); if (e.key === "Escape") setSavePresetOpen(false); }}
                         placeholder="e.g. My Deep Voice"
                         maxLength={40}
-                        className="flex-1 rounded-lg border border-border bg-white px-3 py-2 text-[12px] outline-none focus:border-[oklch(0.55_0.22_260)] focus:ring-2 focus:ring-[oklch(0.55_0.22_260/0.12)]"
+                        className="w-full rounded-lg border border-border bg-white px-3 py-2 text-[12px] outline-none focus:border-[oklch(0.55_0.22_260)] focus:ring-2 focus:ring-[oklch(0.55_0.22_260/0.12)]"
                       />
-                      <button
-                        onClick={handleSavePreset}
-                        disabled={savingPreset || !presetNameInput.trim()}
-                        className="inline-flex items-center gap-1.5 rounded-lg bg-[oklch(0.55_0.22_260)] px-3 py-2 text-[12px] font-bold text-white transition-all hover:brightness-110 disabled:opacity-60"
-                      >
-                        {savingPreset ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
-                        Save
-                      </button>
-                      <button
-                        onClick={() => setSavePresetOpen(false)}
-                        className="rounded-lg border border-border bg-white px-2 py-2 text-foreground/60 hover:bg-muted"
-                      >
-                        <X className="h-3.5 w-3.5" />
-                      </button>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={handleSavePreset}
+                          disabled={savingPreset || !presetNameInput.trim()}
+                          className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-[oklch(0.55_0.22_260)] px-3 py-2 text-[12px] font-bold text-white transition-all hover:brightness-110 disabled:opacity-60"
+                        >
+                          {savingPreset ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
+                          Save
+                        </button>
+                        <button
+                          onClick={() => setSavePresetOpen(false)}
+                          className="rounded-lg border border-border bg-white px-3 py-2 text-[12px] text-foreground/60 hover:bg-muted"
+                        >
+                          Cancel
+                        </button>
+                      </div>
                     </div>
                     {savePresetError && (
                       <p className="mt-1.5 text-[11px] text-[oklch(0.5_0.2_25)]">{savePresetError}</p>
