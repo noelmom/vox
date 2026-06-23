@@ -329,7 +329,7 @@ function UploadPane({ onUploaded }: { onUploaded: () => void }) {
             <button onClick={() => setPlaying((p) => !p)} aria-label={playing ? "Pause" : "Play preview"} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[oklch(0.95_0.04_260)] text-[oklch(0.55_0.22_260)] hover:bg-[oklch(0.92_0.05_260)]">
               {playing ? <Pause className="h-3.5 w-3.5" fill="currentColor" /> : <Play className="ml-0.5 h-3.5 w-3.5" fill="currentColor" />}
             </button>
-            <div style={{ width: 120, height: 36, borderRadius: 8, overflow: "hidden" }}>
+            <div style={{ width: 120, height: 36, borderRadius: 8, overflow: "hidden", background: "rgba(0,0,0,0.25)" }}>
               <AudioVisualizerCanvas ref={uploadVizRef} className="h-full w-full" />
             </div>
             <button onClick={() => { setFile(null); setPreviewUrl(null); setPlaying(false); setVoiceName(""); if (fileRef.current) fileRef.current.value = ""; }} className="ml-1 shrink-0 text-foreground/40 hover:text-foreground" aria-label="Remove file"><X className="h-4 w-4" /></button>
@@ -594,7 +594,7 @@ function RecordPane({ onSaved }: { onSaved: () => void }) {
           </div>
         </div>
       </div>
-      <div className="mt-5 overflow-hidden rounded-xl" style={{ height: 80 }}>
+      <div className="mt-5 overflow-hidden rounded-xl bg-black/30" style={{ height: 80 }}>
         <AudioVisualizerCanvas ref={vizRef} className="h-full w-full" />
       </div>
       <div className="mt-6 grid grid-cols-2 gap-2 sm:grid-cols-[1fr_1fr_1fr_1.4fr]">

@@ -1,35 +1,47 @@
-const LINE_COLOR  = "#3ea6ff";
-const BG_COLOR    = "#0b0f17";
-const WAVE_POINTS = 200;
-const FFT_SIZE    = 256;
-const SMOOTHING   = 0.85;
-const ATTACK      = 0.30;
-const RELEASE     = 0.04;
-const MIN_AMP     = 3;     // px — baseline so the line is never flat
+/**
+ * Bar-based RMS history visualizer.
+ *
+ * Every BAR_INTERVAL_MS the current RMS is sampled and appended as a new bar.
+ * Bars fill left-to-right; once the canvas is full, old bars drop off the left.
+ * The result is the classic "bars grow as you speak/play" pattern.
+ *
+ * Recording pipeline:  MediaStream → MediaStreamAudioSourceNode → AnalyserNode
+ * Playback pipeline:   HTMLAudioElement → MediaElementAudioSourceNode → AnalyserNode → destination
+ */
+
+const BAR_COLOR      = "rgba(255, 255, 255, 0.72)";
+const BAR_WIDTH      = 3;   // px
+const BAR_GAP        = 2;   // px between bars
+const BAR_INTERVAL   = 55;  // ms between bar samples (~18 bars/sec)
+const MIN_BAR_H      = 2;   // px — always visible, even in silence
+const FFT_SIZE       = 256;
+const SMOOTHING      = 0.75;
 
 const elementSourceMap = new WeakMap<HTMLAudioElement, MediaElementAudioSourceNode>();
 
 export class AudioVisualizer {
   private canvas: HTMLCanvasElement;
-  private ctx2d: CanvasRenderingContext2D;
+  private ctx: CanvasRenderingContext2D;
   private audioCtx: AudioContext | null = null;
   private analyser: AnalyserNode | null = null;
   private sourceNode: AudioNode | null = null;
   private dataArray: Uint8Array = new Uint8Array(FFT_SIZE / 2);
+  private bars: number[] = [];          // normalised RMS values [0..1]
   private rafId: number | null = null;
-  private phase = 0;
-  private smoothedRms = 0;
+  private lastBarTime = 0;
   private running = false;
-  private resizeObserver: ResizeObserver;
   private dpr = window.devicePixelRatio || 1;
+  private resizeObserver: ResizeObserver;
 
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas;
-    this.ctx2d = canvas.getContext("2d")!;
+    this.ctx = canvas.getContext("2d")!;
     this.resizeObserver = new ResizeObserver(() => this.resize());
     this.resizeObserver.observe(canvas);
     this.resize();
   }
+
+  // ─── Public API ────────────────────────────────────────────────────────────
 
   async startMicrophone(): Promise<void> {
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
@@ -37,8 +49,8 @@ export class AudioVisualizer {
   }
 
   connectStream(stream: MediaStream): void {
-    this._stop();
-    this._ensureAudioCtx();
+    this._reset();
+    this._ensureCtx();
     const source = this.audioCtx!.createMediaStreamSource(stream);
     this.sourceNode = source;
     source.connect(this.analyser!);
@@ -46,8 +58,8 @@ export class AudioVisualizer {
   }
 
   connectAudioElement(el: HTMLAudioElement): void {
-    this._stop();
-    this._ensureAudioCtx();
+    this._reset();
+    this._ensureCtx();
     let source = elementSourceMap.get(el);
     if (!source) {
       source = this.audioCtx!.createMediaElementSource(el);
@@ -59,20 +71,24 @@ export class AudioVisualizer {
     this._startLoop();
   }
 
+  /** Freeze — stop animating but keep the bars on screen. */
   stop(): void {
-    this._stop();
-    this._clearCanvas();
+    this._stopLoop();
   }
 
+  /** Full teardown for unmount. */
   destroy(): void {
-    this._stop();
+    this._stopLoop();
     this.resizeObserver.disconnect();
     this.audioCtx?.close();
     this.audioCtx = null;
     this.analyser = null;
+    this.bars = [];
   }
 
-  private _ensureAudioCtx(): void {
+  // ─── Private ───────────────────────────────────────────────────────────────
+
+  private _ensureCtx(): void {
     if (!this.audioCtx || this.audioCtx.state === "closed") {
       this.audioCtx = new AudioContext();
     }
@@ -83,97 +99,83 @@ export class AudioVisualizer {
     this.dataArray = new Uint8Array(this.analyser.frequencyBinCount);
   }
 
-  private _stop(): void {
+  private _reset(): void {
+    this._stopLoop();
+    this.bars = [];
+  }
+
+  private _stopLoop(): void {
     this.running = false;
     if (this.rafId != null) { cancelAnimationFrame(this.rafId); this.rafId = null; }
-    try { this.sourceNode?.disconnect(); } catch { /* already disconnected */ }
-    try { this.analyser?.disconnect(); }  catch { /* already disconnected */ }
+    try { this.sourceNode?.disconnect(); } catch { /* ok */ }
+    try { this.analyser?.disconnect(); }  catch { /* ok */ }
     this.sourceNode = null;
   }
 
   private _startLoop(): void {
     this.running = true;
-    this.phase = 0;
-    this.smoothedRms = 0;
-    const tick = () => {
+    this.lastBarTime = performance.now();
+
+    const tick = (now: number) => {
       if (!this.running) return;
       this.rafId = requestAnimationFrame(tick);
-      this._updateRms();
+
+      // Sample a new bar on interval
+      if (now - this.lastBarTime >= BAR_INTERVAL) {
+        this.lastBarTime = now;
+        this.bars.push(this._rms());
+
+        // Trim bars that no longer fit
+        const maxBars = this._maxBars();
+        if (this.bars.length > maxBars) {
+          this.bars = this.bars.slice(this.bars.length - maxBars);
+        }
+      }
+
       this._draw();
-      this.phase += 0.022; // slow horizontal drift
     };
     this.rafId = requestAnimationFrame(tick);
   }
 
-  private _updateRms(): void {
-    if (!this.analyser) return;
+  private _rms(): number {
+    if (!this.analyser) return 0;
     this.analyser.getByteTimeDomainData(this.dataArray);
     let sum = 0;
     for (let i = 0; i < this.dataArray.length; i++) {
-      const norm = (this.dataArray[i] - 128) / 128;
-      sum += norm * norm;
+      const n = (this.dataArray[i] - 128) / 128;
+      sum += n * n;
     }
-    const rms = Math.sqrt(sum / this.dataArray.length);
-    const alpha = rms > this.smoothedRms ? ATTACK : RELEASE;
-    this.smoothedRms = this.smoothedRms + alpha * (rms - this.smoothedRms);
+    return Math.sqrt(sum / this.dataArray.length);
+  }
+
+  private _maxBars(): number {
+    const W = this.canvas.width / this.dpr;
+    return Math.floor(W / (BAR_WIDTH + BAR_GAP));
   }
 
   private _draw(): void {
-    const { canvas, ctx2d: ctx, dpr } = this;
+    const { canvas, ctx, dpr } = this;
     const W  = canvas.width  / dpr;
     const H  = canvas.height / dpr;
     const cy = H / 2;
 
-    ctx.fillStyle = BG_COLOR;
-    ctx.fillRect(0, 0, W, H);
+    // Clear
+    ctx.clearRect(0, 0, W, H);
 
-    // RMS drives amplitude; MIN_AMP keeps it alive at silence
-    const amp = Math.min(MIN_AMP + this.smoothedRms * H * 2.2, H * 0.42);
+    if (this.bars.length === 0) return;
 
-    // Single clean sine — 1.5 cycles across the canvas
-    ctx.beginPath();
-    for (let i = 0; i <= WAVE_POINTS; i++) {
-      const t = i / WAVE_POINTS;
-      const x = t * W;
-      const y = cy + Math.sin(t * Math.PI * 3 + this.phase) * amp;
-      i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    ctx.fillStyle = BAR_COLOR;
+
+    const maxBars = this._maxBars();
+    // Pad left with empty space if bars haven't filled the canvas yet
+    const startX = Math.max(0, (maxBars - this.bars.length)) * (BAR_WIDTH + BAR_GAP);
+
+    for (let i = 0; i < this.bars.length; i++) {
+      const amp = this.bars[i];
+      const h   = Math.max(MIN_BAR_H, amp * H * 0.9);
+      const x   = startX + i * (BAR_WIDTH + BAR_GAP);
+      ctx.fillRect(x, cy - h / 2, BAR_WIDTH, h);
     }
-
-    // Outer glow
-    ctx.save();
-    ctx.shadowColor = LINE_COLOR;
-    ctx.shadowBlur  = 20;
-    ctx.strokeStyle = LINE_COLOR;
-    ctx.lineWidth   = 3;
-    ctx.globalAlpha = 0.15;
-    ctx.stroke();
-    ctx.restore();
-
-    // Mid glow
-    ctx.save();
-    ctx.shadowColor = LINE_COLOR;
-    ctx.shadowBlur  = 8;
-    ctx.strokeStyle = LINE_COLOR;
-    ctx.lineWidth   = 2;
-    ctx.globalAlpha = 0.5;
-    ctx.stroke();
-    ctx.restore();
-
-    // Bright core
-    ctx.save();
-    ctx.shadowColor = "#a8d8ff";
-    ctx.shadowBlur  = 3;
-    ctx.strokeStyle = "#c8e8ff";
-    ctx.lineWidth   = 1.2;
-    ctx.globalAlpha = 1;
-    ctx.stroke();
-    ctx.restore();
-  }
-
-  private _clearCanvas(): void {
-    const { canvas, ctx2d: ctx, dpr } = this;
-    ctx.fillStyle = BG_COLOR;
-    ctx.fillRect(0, 0, canvas.width / dpr, canvas.height / dpr);
   }
 
   private resize(): void {
@@ -182,6 +184,6 @@ export class AudioVisualizer {
     if (rect.width === 0 || rect.height === 0) return;
     this.canvas.width  = rect.width  * this.dpr;
     this.canvas.height = rect.height * this.dpr;
-    this.ctx2d.scale(this.dpr, this.dpr);
+    this.ctx.scale(this.dpr, this.dpr);
   }
 }
