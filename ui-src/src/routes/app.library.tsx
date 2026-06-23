@@ -19,6 +19,7 @@ import {
   AlertCircle,
   Globe,
   ImagePlus,
+  Clipboard,
   Pencil,
 } from "lucide-react";
 import {
@@ -705,21 +706,34 @@ function EditForm({
   const [saveError, setSaveError] = useState("");
   const iconInputRef = useRef<HTMLInputElement>(null);
 
-  const handleIconFile = (file: File) => {
+  const processImageBlob = (blob: Blob) => {
     setIconError("");
-    if (!["image/png", "image/jpeg"].includes(file.type)) { setIconError("Must be PNG or JPG."); return; }
-    if (file.size > 100 * 1024) { setIconError("Must be under 100 KB."); return; }
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const dataUrl = e.target?.result as string;
-      const img = new Image();
-      img.onload = () => {
-        if (Math.abs(img.width - img.height) > 4) { setIconError("Must be square (1:1 ratio)."); return; }
-        setIconPreview(dataUrl);
-      };
-      img.src = dataUrl;
+    if (!blob.type.startsWith("image/")) { setIconError("Clipboard content is not an image."); return; }
+    const url = URL.createObjectURL(blob);
+    const img = new Image();
+    img.onload = () => {
+      const size = Math.min(img.width, img.height);
+      const sx = (img.width - size) / 2;
+      const sy = (img.height - size) / 2;
+      const canvas = document.createElement("canvas");
+      canvas.width = canvas.height = 256;
+      canvas.getContext("2d")!.drawImage(img, sx, sy, size, size, 0, 0, 256, 256);
+      setIconPreview(canvas.toDataURL("image/png"));
+      URL.revokeObjectURL(url);
     };
-    reader.readAsDataURL(file);
+    img.onerror = () => { setIconError("Could not load image."); URL.revokeObjectURL(url); };
+    img.src = url;
+  };
+
+  const handleIconFile = (file: File) => processImageBlob(file);
+
+  const handleIconPaste = (e: React.ClipboardEvent | ClipboardEvent) => {
+    const items = Array.from((e as React.ClipboardEvent).clipboardData?.items ?? []);
+    const imageItem = items.find((item) => item.type.startsWith("image/"));
+    if (!imageItem) return;
+    e.preventDefault();
+    const blob = imageItem.getAsFile();
+    if (blob) processImageBlob(blob);
   };
 
   const handleSave = async () => {
@@ -764,25 +778,44 @@ function EditForm({
         {/* Icon upload */}
         <div className="sm:col-span-2">
           <label className="text-[12px] font-semibold text-foreground">
-            Profile icon <span className="font-normal text-muted-foreground">(optional · PNG/JPG · 1:1 · max 100 KB)</span>
+            Profile icon <span className="font-normal text-muted-foreground">(optional · any image · auto-cropped to square)</span>
           </label>
           <div className="mt-1 flex items-center gap-3">
             {iconPreview ? (
-              <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-full border border-border">
+              <div
+                className="group relative h-12 w-12 shrink-0 cursor-pointer overflow-hidden rounded-full border border-border focus:outline-none focus:ring-2 focus:ring-[oklch(0.55_0.22_260)] focus:ring-offset-1"
+                tabIndex={0}
+                onPaste={handleIconPaste}
+                onContextMenu={(e) => e.currentTarget.focus()}
+                title="Paste image (⌘V) or click × to remove"
+              >
                 <img src={iconPreview} alt="Icon preview" className="h-full w-full object-cover" />
-                <button onClick={() => setIconPreview(null)} className="absolute inset-0 flex items-center justify-center rounded-full bg-black/40 opacity-0 transition-opacity hover:opacity-100" aria-label="Remove icon">
+                <button
+                  onClick={() => setIconPreview(null)}
+                  className="absolute inset-0 flex items-center justify-center rounded-full bg-black/40 opacity-0 transition-opacity group-hover:opacity-100"
+                  aria-label="Remove icon"
+                >
                   <X className="h-4 w-4 text-white" />
                 </button>
               </div>
             ) : (
-              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-dashed border-border bg-white text-foreground/30">
-                <ImagePlus className="h-5 w-5" />
+              <div
+                className="flex h-12 w-12 shrink-0 cursor-pointer flex-col items-center justify-center rounded-full border border-dashed border-border bg-white text-foreground/30 transition-colors hover:border-[oklch(0.55_0.22_260)] hover:text-[oklch(0.55_0.22_260)] focus:outline-none focus:ring-2 focus:ring-[oklch(0.55_0.22_260)] focus:ring-offset-1"
+                tabIndex={0}
+                onPaste={handleIconPaste}
+                onContextMenu={(e) => e.currentTarget.focus()}
+                title="Paste image (⌘V) or click Upload"
+              >
+                <Clipboard className="h-4 w-4" />
               </div>
             )}
-            <input ref={iconInputRef} type="file" accept="image/png,image/jpeg" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) handleIconFile(f); }} />
-            <button onClick={() => iconInputRef.current?.click()} className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-white px-3 py-2 text-[12.5px] font-medium text-foreground/80 hover:bg-muted">
-              <ImagePlus className="h-3.5 w-3.5" />{iconPreview ? "Change icon" : "Upload icon"}
-            </button>
+            <div className="flex flex-col gap-1.5">
+              <input ref={iconInputRef} type="file" accept="image/*" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) handleIconFile(f); }} />
+              <button onClick={() => iconInputRef.current?.click()} className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-white px-3 py-2 text-[12.5px] font-medium text-foreground/80 hover:bg-muted">
+                <ImagePlus className="h-3.5 w-3.5" />{iconPreview ? "Change icon" : "Upload icon"}
+              </button>
+              <p className="text-[11px] text-muted-foreground">or click icon and paste (⌘V)</p>
+            </div>
           </div>
           {iconError && <p className="mt-1.5 text-[11.5px] text-[oklch(0.52_0.18_25)]">{iconError}</p>}
         </div>
