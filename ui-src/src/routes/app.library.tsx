@@ -30,6 +30,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { type ApiVoice, listVoices, listPresets, uploadVoice, deleteVoice, patchVoice } from "@/lib/api";
+import { tagStyle } from "@/lib/utils";
 
 export const Route = createFileRoute("/app/library")({
   head: () => ({ meta: [{ title: "Library — Vox Studio" }] }),
@@ -570,14 +571,6 @@ function nameToHue(name: string): number {
   let h = 0;
   for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) & 0xffffff;
   return h % 360;
-}
-
-function tagStyle(tag: string): React.CSSProperties {
-  const hue = nameToHue(tag);
-  return {
-    background: `oklch(0.94 0.07 ${hue})`,
-    color: `oklch(0.38 0.12 ${hue})`,
-  };
 }
 
 function AvatarPlayButton({

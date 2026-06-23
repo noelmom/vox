@@ -31,6 +31,7 @@ import {
   CheckCircle2,
 } from "lucide-react";
 import { type ApiVoice, type Job, listVoices, listPresets, listJobs, submitTTS, getJob, getJobAudio, savePreset, deletePreset, deleteJob, patchVoice } from "@/lib/api";
+import { tagStyle } from "@/lib/utils";
 
 export const Route = createFileRoute("/app/")({
   head: () => ({
@@ -740,7 +741,7 @@ function GeneratePage() {
                   </span>
                   <span className="mt-1 flex flex-wrap gap-1">
                     {selectedVoice.tags.map((t) => (
-                      <span key={t} className="rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-semibold text-foreground/65">
+                      <span key={t} className="rounded-md px-1.5 py-0.5 text-[10px] font-semibold" style={tagStyle(t)}>
                         {t}
                       </span>
                     ))}
@@ -1219,7 +1220,7 @@ function VoicePicker({
                     </span>
                     <span className="mt-0.5 flex flex-wrap gap-1.5">
                       {v.tags.map((t) => (
-                        <span key={t} className="text-[10.5px] text-foreground/55">
+                        <span key={t} className="rounded-md px-1.5 py-0.5 text-[10.5px] font-semibold" style={tagStyle(t)}>
                           {t}
                         </span>
                       ))}
