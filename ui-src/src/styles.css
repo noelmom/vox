@@ -37,8 +37,8 @@
   --border: oklch(0.92 0.01 240);
   --primary: oklch(0.55 0.22 260);
   --primary-foreground: oklch(1 0 0);
-  --accent: oklch(0.72 0.14 175);
-  --accent-foreground: oklch(0.2 0.04 250);
+  --accent: oklch(0.92 0.06 260);
+  --accent-foreground: oklch(0.25 0.1 260);
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.18 0.04 250);
   --ring: oklch(0.55 0.22 260);
