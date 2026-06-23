@@ -29,7 +29,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { type ApiVoice, listVoices, uploadVoice, deleteVoice, patchVoice } from "@/lib/api";
+import { type ApiVoice, listVoices, listPresets, uploadVoice, deleteVoice, patchVoice } from "@/lib/api";
 
 export const Route = createFileRoute("/app/library")({
   head: () => ({ meta: [{ title: "Library — Vox Studio" }] }),
@@ -190,11 +190,37 @@ function VoicesPage() {
 
 // ─── Upload Pane ────────────────────────────────────────────────────────────
 
+type PresetParams = { temperature?: number; exaggeration?: number; cfg_weight?: number; repetition_penalty?: number; top_p?: number; min_p?: number };
+
+function PresetSelect({ value, onChange }: { value: string; onChange: (name: string) => void }) {
+  const { data: presets = {} } = useQuery({ queryKey: ["presets"], queryFn: listPresets, staleTime: 5 * 60 * 1000 });
+  const names = Object.keys(presets);
+  return (
+    <div>
+      <label className="text-[13px] font-semibold text-foreground">
+        Default tone <span className="font-normal text-muted-foreground">(optional)</span>
+      </label>
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="mt-1.5 w-full rounded-lg border border-border bg-white px-3 py-2.5 text-[14px] text-foreground outline-none focus:border-[oklch(0.55_0.22_260)] capitalize"
+      >
+        <option value="">— Use model defaults —</option>
+        {names.map((name) => (
+          <option key={name} value={name} className="capitalize">{name}</option>
+        ))}
+      </select>
+      <p className="mt-1 text-[11.5px] text-muted-foreground">Applied whenever this voice is used for generation</p>
+    </div>
+  );
+}
+
 function UploadPane({ onUploaded }: { onUploaded: () => void }) {
   const [file, setFile] = useState<File | null>(null);
   const [voiceName, setVoiceName] = useState("");
   const [tags, setTags] = useState("");
   const [description, setDescription] = useState("");
+  const [selectedPreset, setSelectedPreset] = useState("");
   const [dragOver, setDragOver] = useState(false);
   const [status, setStatus] = useState<"idle" | "uploading" | "done" | "error">("idle");
   const [errorMsg, setErrorMsg] = useState("");
@@ -202,6 +228,7 @@ function UploadPane({ onUploaded }: { onUploaded: () => void }) {
   const fileRef = useRef<HTMLInputElement>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
   const [playing, setPlaying] = useState(false);
+  const { data: presets = {} } = useQuery({ queryKey: ["presets"], queryFn: listPresets, staleTime: 5 * 60 * 1000 });
 
   const pickFile = (f: File) => {
     setFile(f);
@@ -237,11 +264,20 @@ function UploadPane({ onUploaded }: { onUploaded: () => void }) {
       fd.append("name", voiceName.trim());
       if (tags.trim()) fd.append("tags", tags.trim());
       if (description.trim()) fd.append("description", description.trim());
+      const presetParams = selectedPreset ? (presets[selectedPreset] as PresetParams | undefined) : undefined;
+      if (presetParams) {
+        if (presetParams.temperature != null) fd.append("temperature", String(presetParams.temperature));
+        if (presetParams.exaggeration != null) fd.append("exaggeration", String(presetParams.exaggeration));
+        if (presetParams.cfg_weight != null) fd.append("cfg_weight", String(presetParams.cfg_weight));
+        if (presetParams.repetition_penalty != null) fd.append("repetition_penalty", String(presetParams.repetition_penalty));
+        if (presetParams.top_p != null) fd.append("top_p", String(presetParams.top_p));
+        if (presetParams.min_p != null) fd.append("min_p", String(presetParams.min_p));
+      }
       await uploadVoice(fd);
       setStatus("done");
       onUploaded();
       setTimeout(() => {
-        setFile(null); setVoiceName(""); setTags(""); setDescription("");
+        setFile(null); setVoiceName(""); setTags(""); setDescription(""); setSelectedPreset("");
         setPreviewUrl(null); setPlaying(false); setStatus("idle");
         if (fileRef.current) fileRef.current.value = "";
       }, 2000);
@@ -303,6 +339,7 @@ function UploadPane({ onUploaded }: { onUploaded: () => void }) {
           <input value={tags} onChange={(e) => setTags(e.target.value)} placeholder="narration, calm, male" className="mt-1.5 w-full rounded-lg border border-border bg-white px-3 py-2.5 text-[14px] outline-none placeholder:text-muted-foreground focus:border-[oklch(0.55_0.22_260)]" />
           <div className="mt-1 text-[11.5px] text-muted-foreground">Comma-separated</div>
         </div>
+        <PresetSelect value={selectedPreset} onChange={setSelectedPreset} />
         {status === "error" && (
           <div className="flex items-center gap-2 rounded-lg border border-[oklch(0.82_0.08_25)] bg-[oklch(0.98_0.02_25)] px-3 py-2 text-[12.5px] text-[oklch(0.52_0.18_25)]">
             <AlertCircle className="h-3.5 w-3.5 shrink-0" />{errorMsg}
@@ -329,8 +366,10 @@ function RecordPane({ onSaved }: { onSaved: () => void }) {
   const [playing, setPlaying] = useState(false);
   const [voiceName, setVoiceName] = useState("");
   const [tags, setTags] = useState("");
+  const [selectedPreset, setSelectedPreset] = useState("");
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "done" | "error">("idle");
   const [saveError, setSaveError] = useState("");
+  const { data: presets = {} } = useQuery({ queryKey: ["presets"], queryFn: listPresets, staleTime: 5 * 60 * 1000 });
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const streamRef = useRef<MediaStream | null>(null);
@@ -403,8 +442,17 @@ function RecordPane({ onSaved }: { onSaved: () => void }) {
       const file = new File([recordedBlob], `recording.${ext}`, { type: recordedBlob.type });
       const fd = new FormData(); fd.append("file", file); fd.append("name", voiceName.trim());
       if (tags.trim()) fd.append("tags", tags.trim());
+      const presetParams = selectedPreset ? (presets[selectedPreset] as PresetParams | undefined) : undefined;
+      if (presetParams) {
+        if (presetParams.temperature != null) fd.append("temperature", String(presetParams.temperature));
+        if (presetParams.exaggeration != null) fd.append("exaggeration", String(presetParams.exaggeration));
+        if (presetParams.cfg_weight != null) fd.append("cfg_weight", String(presetParams.cfg_weight));
+        if (presetParams.repetition_penalty != null) fd.append("repetition_penalty", String(presetParams.repetition_penalty));
+        if (presetParams.top_p != null) fd.append("top_p", String(presetParams.top_p));
+        if (presetParams.min_p != null) fd.append("min_p", String(presetParams.min_p));
+      }
       await uploadVoice(fd); setSaveStatus("done"); onSaved();
-      setTimeout(() => { discard(); setVoiceName(""); setTags(""); setSaveStatus("idle"); }, 2000);
+      setTimeout(() => { discard(); setVoiceName(""); setTags(""); setSelectedPreset(""); setSaveStatus("idle"); }, 2000);
     } catch (err) { setSaveError(err instanceof Error ? err.message : "Save failed"); setSaveStatus("error"); }
   };
 
@@ -499,6 +547,9 @@ function RecordPane({ onSaved }: { onSaved: () => void }) {
           <div>
             <label className="text-[13px] font-semibold text-foreground">Tags <span className="font-normal text-muted-foreground">(optional)</span></label>
             <input value={tags} onChange={(e) => setTags(e.target.value)} placeholder="narration, calm, male" className="mt-1.5 w-full rounded-lg border border-border bg-white px-3 py-2.5 text-[14px] outline-none placeholder:text-muted-foreground focus:border-[oklch(0.55_0.22_260)]" />
+          </div>
+          <div className="col-span-full">
+            <PresetSelect value={selectedPreset} onChange={setSelectedPreset} />
           </div>
           {saveStatus === "error" && (
             <div className="col-span-full flex items-center gap-2 rounded-lg border border-[oklch(0.82_0.08_25)] bg-[oklch(0.98_0.02_25)] px-3 py-2 text-[12.5px] text-[oklch(0.52_0.18_25)]">
