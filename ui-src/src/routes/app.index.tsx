@@ -28,6 +28,7 @@ import {
   AlertCircle,
   Pencil,
   ArrowUpDown,
+  CheckCircle2,
 } from "lucide-react";
 import { type ApiVoice, type Job, listVoices, listPresets, listJobs, submitTTS, getJob, getJobAudio, savePreset, deletePreset, deleteJob, patchVoice } from "@/lib/api";
 
@@ -601,8 +602,16 @@ function GeneratePage() {
         </section>
 
         {/* Output card — current generation only */}
-        <section className="rounded-2xl border border-border bg-white p-6">
-          <h2 className="text-[18px] font-bold text-foreground">Result</h2>
+        <section className={`rounded-2xl border bg-white p-6 transition-colors duration-500 ${genResult && !isGenerating ? "border-[oklch(0.78_0.14_145)]" : "border-border"}`}>
+          <div className="flex items-center justify-between">
+            <h2 className="text-[18px] font-bold text-foreground">Result</h2>
+            {genResult && !isGenerating && (
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-[oklch(0.96_0.08_145)] px-3 py-1 text-[12px] font-semibold text-[oklch(0.38_0.14_145)]">
+                <CheckCircle2 className="h-3.5 w-3.5" />
+                Ready
+              </span>
+            )}
+          </div>
           <div className="mt-4">
             {isGenerating ? (
               <GeneratingRow elapsed={elapsed} />
