@@ -240,10 +240,10 @@ function Index() {
                 <ChevronRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
               </Link>
 
-              <button className="inline-flex items-center gap-2 rounded-lg border border-border bg-white px-5 py-3 text-sm font-semibold text-foreground transition-colors hover:bg-muted">
+              <a href="#api-docs" className="inline-flex items-center gap-2 rounded-lg border border-border bg-white px-5 py-3 text-sm font-semibold text-foreground transition-colors hover:bg-muted">
                 <FileText className="h-4 w-4" />
                 View API Docs
-              </button>
+              </a>
             </div>
           </div>
         </section>
