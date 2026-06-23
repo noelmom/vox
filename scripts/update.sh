@@ -81,8 +81,10 @@ success "Dependencies up to date"
 info "Syncing server code to Application Support…"
 mkdir -p "$APP_SUPPORT/api"
 mkdir -p "$APP_SUPPORT/scripts"
-rsync -a --delete "$ROOT/api/"  "$APP_SUPPORT/api/"
-rsync -a --delete "$ROOT/ui/"   "$APP_SUPPORT/ui/"
+mkdir -p "$APP_SUPPORT/ui-dist"
+rsync -a --delete "$ROOT/api/"     "$APP_SUPPORT/api/"
+rsync -a --delete "$ROOT/ui/"      "$APP_SUPPORT/ui/"
+rsync -a --delete "$ROOT/ui-dist/" "$APP_SUPPORT/ui-dist/"
 success "Code synced"
 
 # ── Re-register agents ────────────────────────────────────────────────────────
