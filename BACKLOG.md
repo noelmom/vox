@@ -693,3 +693,34 @@ Ideas and improvements to revisit. Not bugs — these are enhancements queued fo
   - Update on each completed job — no polling needed if driven by the same SSE stream as queue feedback.
   - Display as a compact, non-interactive stats block near the bottom of the nav sidebar.
 - [ ] Server-sent events for real-time generation progress
+
+---
+
+## Connectivity & Offline Mode
+
+- [ ] **Verify and implement offline mode — auto-fallback to localhost when remote is unreachable**
+
+  When Cloudflare tunnel access is configured, the app should detect network connectivity and automatically fall back to `http://localhost:8000` when the remote URL is unreachable, then switch back when it comes online.
+
+  **Expected behavior:**
+  - **Online:** use the configured remote URL (e.g. Cloudflare tunnel domain)
+  - **Offline / tunnel unreachable:** silently fall back to `http://localhost:8000`
+  - **Recovery:** when connectivity is restored, revert to the remote URL automatically (no page reload required)
+
+  **Where the URL lives today:** `apiFetch` in `ui-src/src/lib/api.ts` resolves relative to `window.location.origin`, which works when the user is already on the right host. If the remote URL is ever stored in settings or localStorage, that needs to feed into the resolution logic.
+
+  **Proposed detection approach:**
+  - On app init (and periodically, e.g. every 30 s), issue a lightweight `GET /health` against the current base URL with a short timeout (~3 s).
+  - If it fails and the current base URL is the remote URL, retry against `http://localhost:8000/health`.
+  - If localhost responds, flip `baseUrl` to localhost and show a subtle "Local mode" badge in the UI.
+  - Use `navigator.onLine` as a fast pre-check to avoid the round-trip when the device is clearly offline.
+
+  **UI indication:**
+  - Small badge or status dot in the nav sidebar showing "Local" vs "Remote" (similar to how the menu bar helper might show this).
+  - No modal or blocking UI — just a passive indicator.
+
+  **Config questions to resolve before implementing:**
+  - Where is the remote tunnel URL stored? (Currently seems implicit from how the page is served.) If the user accesses via the tunnel, `window.location.origin` already is the remote URL — no config needed. But if they bookmark the tunnel URL and open the app while offline, the SPA itself may not load. Clarify: is offline mode purely about API connectivity once the SPA is loaded, or about the page load too?
+  - If it's the latter, a service worker or a cached index.html served locally would be needed — more complex.
+
+  **Priority:** LOW — the app is primarily accessed locally; tunnel access is a convenience feature. Implement after v1.0 unless the tunnel becomes a primary access pattern.
