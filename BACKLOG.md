@@ -57,19 +57,26 @@ Ideas and improvements to revisit. Not bugs — these are enhancements queued fo
 
   This was previously fixed in the original UI but regressed in the React rewrite. The voice recorder currently shows a single generic error regardless of whether the failure is because the device has no microphone at all, or because the user (or macOS) denied microphone permission to the browser.
 
-  These are two different problems requiring two different messages and recovery actions:
+  These are three different problems requiring three different messages and recovery actions:
 
   | Case | Cause | Correct message | Recovery action |
   |---|---|---|---|
   | No device | `navigator.mediaDevices.getUserMedia` throws `NotFoundError` / `DevicesNotFoundError`, or `enumerateDevices()` returns no audio input devices | "No microphone found. Connect a microphone and try again." | "Refresh" button |
   | Access denied | Throws `NotAllowedError` / `PermissionDeniedError` | "Microphone access was denied. Allow access in System Settings → Privacy & Security → Microphone." | Link or button to open System Settings, plus "Try again" button |
+  | Insecure context (HTTP) | `navigator.mediaDevices` is `undefined` — browsers block microphone API entirely on non-`localhost` HTTP origins | "Microphone access requires a secure connection. Open Vox over HTTPS or use it on localhost." | Explain why, no retry possible without switching to HTTPS |
+
+  **The HTTP / insecure context case:**
+  - Browsers (Chrome, Safari, Firefox) restrict `navigator.mediaDevices` and `getUserMedia` to [secure contexts](https://developer.mozilla.org/en-US/docs/Web/Security/Secure_Contexts) only — HTTPS or `localhost`. When accessed via a Cloudflare tunnel the connection is HTTPS so this is fine, but if someone accesses the server directly via `http://192.168.x.x:8000` from another device on the LAN, `navigator.mediaDevices` will be `undefined` and any call to it throws.
+  - Detect by checking `window.isSecureContext` or `navigator.mediaDevices == null` before calling `getUserMedia`.
+  - The error message should explain the root cause clearly — this is not a permission issue and not a hardware issue, it's a browser security policy. The user needs to either: (a) use the Cloudflare tunnel URL (HTTPS), or (b) access via `localhost` directly on the Mac running Vox.
 
   **Implementation notes:**
-  - Catch `getUserMedia` errors by `err.name` — `NotFoundError` = no device, `NotAllowedError` = denied. Also handle `OverconstrainedError` (device exists but doesn't satisfy constraints) gracefully.
+  - Check order: `isSecureContext` first → `NotFoundError` → `NotAllowedError` → fallback generic error. Doing them in this order ensures the HTTP error is caught before even attempting `getUserMedia`.
   - Pre-check with `navigator.permissions.query({ name: 'microphone' })` where supported to detect denied state before even calling `getUserMedia`, so the error shows immediately on component mount rather than after a failed attempt.
   - On macOS, a denied browser permission requires the user to go to System Settings → Privacy & Security → Microphone — make that path explicit in the error copy rather than a vague "check your settings."
+  - Also handle `OverconstrainedError` (device exists but doesn't satisfy constraints) gracefully with a generic fallback.
 
-  File: `ui-src/src/routes/app.voices.tsx` — `RecordPane` component (previously fixed here in the original UI).
+  File: `ui-src/src/routes/app.library.tsx` — `RecordPane` component. The `classifyMicError` function is the right place to add the `isSecureContext` check.
 
 - [ ] **[BLOCKER — v1.0.0] Git not installed — macOS prompts to install Developer Tools and terminal command fails**
 
