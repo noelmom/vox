@@ -17,7 +17,6 @@ voices/*
 # UI sketches — local design references only
 sketches/
 
-# React SPA build output
-ui-dist/
+# React SPA source dependencies (build output ui-dist/ IS committed — needed for vox.sh update)
 ui-src/node_modules/
 ui-src/bun.lock

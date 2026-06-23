@@ -22,7 +22,7 @@ Ideas and improvements to revisit. Not bugs — these are enhancements queued fo
 
   **Linting & formatting**
   - Backend: `ruff` (replaces flake8 + isort + pyupgrade in one tool), `black` for formatting.
-  - Frontend: `eslint` + `prettier` on `ui/*.html` / `ui/*.js` — or just `prettier` if JS is minimal enough.
+  - Frontend: `eslint` + `prettier` on `ui-src/src/**/*.{ts,tsx}` — Vite projects typically pair `eslint` with the `@typescript-eslint` and `eslint-plugin-react-hooks` plugins.
   - Shell scripts: `shellcheck` on everything in `scripts/`.
 
   **Pre-commit hooks**
@@ -52,6 +52,49 @@ Ideas and improvements to revisit. Not bugs — these are enhancements queued fo
 ---
 
 ## Web UI
+
+- [ ] **[BLOCKER — v1.0.0] Real audio waveform visualisation**
+
+  All waveforms in the app (voice profile cards, upload preview, record pane, generate result) are currently fake: static sine-wave bars computed from a fixed formula with no relation to the actual audio signal. They look dead and unconvincing. This must be replaced before v1.0.0 ships.
+
+  **Affected components (all in `ui-src/src/routes/`):**
+  - `app.library.tsx` — `Waveform` (animated flag, used in RecordPane and UploadPane preview) and `MiniWave` (decorative bar in ProfileCard footer)
+  - `app.index.tsx` — waveform / playback visualiser in the Result/output area
+
+  **Recommended approach — Web Audio API + canvas/SVG:**
+  1. For **static previews** (uploaded file, generated clip at rest): decode the audio buffer once with `AudioContext.decodeAudioData`, downsample the PCM into ~120 amplitude buckets, render as an SVG bar chart. This gives a true "fingerprint" of the audio.
+  2. For **live recording** (RecordPane): use `AnalyserNode` fed from the `MediaStream`, `requestAnimationFrame` polling `getByteFrequencyData`, render to a `<canvas>` for smooth real-time animation.
+  3. For **playback scrubbing** (ProfileCard, Result): overlay a progress indicator that advances with `timeupdate` on the `<audio>` element so the static fingerprint doubles as a seek bar.
+
+  **Constraints:**
+  - Keep decode/render off the main thread where possible — use `OfflineAudioContext` for the static decode step.
+  - Waveform colour should follow the existing oklch palette (accent `oklch(0.55 0.22 260)` at ~55% opacity for bars, brighter for the played-through portion).
+  - `MiniWave` in ProfileCard footer can stay decorative but should at least use the real amplitude data from the voice sample if it has already been fetched; fall back to the current fake bars only while the audio hasn't loaded yet.
+
+  **Why a blocker:** the fake waves actively undermine trust in the output quality. Users expect to see their voice reflected in the waveform before committing to "Use" a profile or downloading a clip.
+
+- [ ] **[LOW] Recent scripts history — quick re-use from script box**
+
+  When a user generates a clip, save the script text to a capped local history so they can pull it back up without retyping. A clock/history icon in the script box header opens a small dropdown showing the last N scripts (truncated to one line each), clicking one populates the textarea.
+
+  **Implementation notes:**
+  - Store as a JSON array in `localStorage["vox:script-history"]`, capped at 10 entries (newest first). Trim duplicates before pushing.
+  - Save to history at the moment the Generate button is pressed (inside the existing `handleGenerate` function in `app.index.tsx`).
+  - The trigger button sits in the script box toolbar where the Clock icon was removed; restore the icon + button and wire up a `DropdownMenu` from `@/components/ui/dropdown-menu`.
+  - Each dropdown item shows the first ~80 chars of the script followed by an ellipsis if truncated.
+  - Limit is 10 entries for now; make it configurable via Settings later (low priority).
+
+- [ ] **[LOW] Top-bar header actions — deferred to future release**
+
+  Three buttons were removed from the top-right of the app header (`app.tsx`) pending future implementation. Re-add them when the features are ready. All used `lucide-react` icons and the `IconBtn` helper component (also removed — trivial to restore).
+
+  1. **Dark mode toggle** (`Sun` icon) — switch between light and dark themes. Will require a theme context/provider and Tailwind dark-mode class strategy. Suggested key: `vox:theme` in localStorage.
+
+  2. **Notifications bell** (`Bell` icon) — silence/unmute in-app alerts. Intended to pair with a future alert system that notifies when a generation completes or errors. Backend already has an `/alerts` router stub. Suggested key: `vox:notifications` in localStorage.
+
+  3. **User profile / account** (`ChevronDown` + avatar initials) — not needed for local single-user deployment but useful if multi-user or cloud sync is ever added. Low priority. Would need an auth layer.
+
+---
 
 - [ ] **[HIGH] Rethink error display — replace ephemeral toast with persistent, actionable error UI**
 
@@ -107,11 +150,10 @@ Ideas and improvements to revisit. Not bugs — these are enhancements queued fo
   - Model not yet downloaded / cache missing
   - GPU unavailable, falling back to CPU
 
-- [ ] **Detect missing microphone on page load in the voice recorder**
-  - On page load, call `navigator.mediaDevices.enumerateDevices()` and check for any `audioinput` device.
-  - If none found: hide the record button and show a persistent inline notice — e.g. "No microphone detected. Connect a USB mic or headset to record." with a "Retry" button that re-runs the check.
-  - If found: show the record UI as normal.
-  - This avoids the confusing flow where the user clicks record, nothing happens, and an error appears after the fact. Especially relevant on desktop machines (Mac Mini, Mac Pro) with no built-in mic.
+- [x] **Detect missing microphone on page load in the voice recorder**
+  - Distinct `no-device` vs `denied` states with tailored error UI and "Try again" buttons.
+  - Device selector dropdown when multiple mics available (`enumerateDevices()` after permission grant).
+  - Implemented in `ui-src/src/routes/app.voices.tsx` RecordPane.
 
 
 - [x] Text input with preset selector
@@ -266,6 +308,47 @@ Ideas and improvements to revisit. Not bugs — these are enhancements queued fo
 
 ---
 
+## Voice Sources
+
+- [ ] **[LOW] Remote audio source for voice profiles — URL import with trim**
+
+  Add a third tab to the Voices page ("URL") alongside Upload and Record. The user pastes a direct audio URL, previews the audio in-browser, optionally trims it to a start/end range, then saves it as a voice profile.
+
+  **UI flow:**
+  1. User pastes a URL into a text field and clicks "Load" (or presses Enter).
+  2. App fetches the audio on the server side (avoids CORS) via a new `POST /voices/fetch` endpoint and streams it into a temporary preview slot.
+  3. Trim controls appear — two range handles (start / end) on a waveform scrubber, similar to a video editor trim bar. Default: full clip. User drags handles to select the portion to use.
+  4. Voice name + tags fields below, then "Create Voice Profile" creates the profile from the trimmed audio.
+
+  **Server-side implementation (`POST /voices/fetch`):**
+  - Accept `{ url: str, trim_start_s?: float, trim_end_s?: float }` JSON body.
+  - Validate URL scheme is `http` or `https`; reject non-audio content-types.
+  - Download to a temp file (bounded — refuse > e.g. 50 MB or > 10 min of audio).
+  - If trim params provided, use ffmpeg to cut the segment: `ffmpeg -ss {start} -to {end} -i input.wav -c copy output.wav`.
+  - Convert to WAV via the existing `convert_to_wav` helper.
+  - Register as a voice profile (reuse `_register_voice`).
+
+  **Security considerations:**
+  - Validate URL before fetching — reject `file://`, `ftp://`, private IP ranges (`127.x`, `10.x`, `192.168.x`, `172.16–31.x`, `169.254.x`), and localhost to prevent SSRF.
+  - Cap download size and duration.
+  - Only accept `audio/*` Content-Type from the remote server.
+
+  **Why low priority:** upload and record cover the primary workflows. URL import is a convenience for users who want to pull a clip from a podcast, YouTube download link, or file host without downloading it locally first.
+
+- [ ] **[LOW] Voice profile icon size limit — make configurable**
+
+  The custom icon upload on the Library edit form currently hard-codes a 100 KB max file size. Make this configurable so users with high-res displays can opt in to larger icons without code changes.
+
+  **Implementation notes:**
+  - Add `voice_icon_max_kb: int = 100` to `api/core/config.py` (Settings model).
+  - Expose it via the `GET /settings` endpoint as `"voice_icon_max_kb"`.
+  - Read it in the Library edit form (`EditForm` component in `app.library.tsx`) from the settings query instead of the hard-coded constant.
+  - Update the UI hint text dynamically: `"max ${maxKb} KB"`.
+
+  **Why low priority:** 100 KB is plenty for small circular avatars. This is a polish item for power users.
+
+---
+
 ## Non-Verbal Cues
 
 > ⚠️ **Post-v1.0 roadmap item** — not a launch blocker. Requires voice profile architecture changes before implementation.
@@ -310,7 +393,7 @@ Ideas and improvements to revisit. Not bugs — these are enhancements queued fo
 
 ## Landing Page
 
-- [ ] **Increase nav and footer text contrast** — nav links (`--text-2: #6E6E73`) and footer copy/links (`--text-3: #AEAEB2`) are too light on some screens. Darken `--text-2` and `--text-3` in `ui/css/vox.css`, or override specifically in `ui/index.html` for the nav and footer elements. Target WCAG AA contrast ratio (4.5:1) against the page background.
+- [ ] **Increase nav and footer text contrast** — the landing page nav links and footer copy are too light on some screens. Target WCAG AA contrast ratio (4.5:1) against the page background. Fix in `ui-src/src/routes/index.tsx` (landing page) using Tailwind opacity utilities or updated colour values.
 
 - [ ] **Smooth scroll navigation** — nav links animate to each section instead of jumping. `scroll-behavior: smooth` baseline + JS easing curve. Active link highlight updates as user scrolls past sections.
 
@@ -348,6 +431,39 @@ Ideas and improvements to revisit. Not bugs — these are enhancements queued fo
   - Options to evaluate: export to a single `.zip` archive, iCloud Drive sync, Time Machine exclusion/inclusion guidance, manual rsync to external drive.
   - Restore flow: import archive, verify integrity, restart server.
   - Surface in the web UI (Settings tab) or via a `vox.sh backup` / `vox.sh restore` command.
+
+---
+
+## User Preferences
+
+- [ ] **Server-side preferences store — replace localStorage with DB persistence**
+
+  Currently, UI preferences (selected voice, tone, format, quality, advanced sliders, favorites) are stored in `localStorage`. This works for a single browser but is lost if the user clears browser data, switches browsers, or accesses Vox from a different device on the same network.
+
+  **Proposed approach:**
+  - Add a `user_preferences` table to SQLite:
+    ```sql
+    CREATE TABLE user_preferences (
+        key   TEXT PRIMARY KEY,
+        value TEXT NOT NULL,         -- JSON-encoded
+        updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    ```
+  - Add `GET /preferences` (returns all key-value pairs as a JSON object) and `PATCH /preferences` (upserts one or more keys).
+  - On app load, fetch preferences from the server and hydrate the UI state instead of reading from localStorage.
+  - On any preference change, debounce and `PATCH /preferences` to persist server-side.
+  - Keep localStorage as a write-through cache so the UI feels instant (no round-trip on load if cache is fresh).
+
+  **Keys to persist server-side:**
+  - `voiceId` — selected voice profile
+  - `tone` — selected tone / style preset
+  - `format` — mp3 or wav
+  - `mp3Quality` — selected MP3 bitrate
+  - `wavQuality` — selected WAV bit depth
+  - `advanced` — all 6 slider values
+  - `favorites` — array of starred voice profile names
+
+  **Why:** a single-user local app doesn't need multi-user sessions, but server-side persistence means preferences survive browser resets and work consistently across Safari, Chrome, or any other browser pointed at the local server. Also a prerequisite for any future multi-device or remote access scenario.
 
 ---
 
@@ -456,7 +572,7 @@ Ideas and improvements to revisit. Not bugs — these are enhancements queued fo
 
   Currently version numbers live in at least five separate places and must be updated manually:
   - `scripts/build-apps.sh` — `CFBundleShortVersionString` for VoxHelper.app (×1) and VoxServer.app (×1)
-  - `ui/index.html` — hardcoded footer string (e.g. `v0.3.1-beta`)
+  - `api/main.py` — `vox_version` string in `GET /settings` (already dynamic, just needs single-source-of-truth)
   - `api/main.py` — if a `/health` or `/version` endpoint is added, it should report the same version
   - `CHANGELOG.md` — version header
   - Git tag on `main`
@@ -504,6 +620,21 @@ Ideas and improvements to revisit. Not bugs — these are enhancements queued fo
 ---
 
 ## API & Performance
+
+- [ ] **[HIGH — PRE-v1.0] Version API endpoints under `/v1/`**
+
+  All routes currently live at the root (`/tts`, `/voices`, `/jobs`, `/presets`, `/stats`). Moving them to `/v1/` before the first public release makes the API future-proof: a `/v2/` can introduce breaking changes while `/v1/` stays stable and supported, and users never need to rewrite working integrations.
+
+  **What to do:**
+  - Add `prefix="/v1"` to every router in `api/main.py` (`tts`, `voices`, `jobs`, `presets`) and move the `/health`, `/settings`, and `/stats` inline routes into a versioned router.
+  - Keep unversioned `/health` as a shallow liveness check (no version prefix needed — it's infrastructure, not product API).
+  - Update `ui-src/src/lib/api.ts` — all `apiFetch` paths to use `/v1/...`.
+  - Update the OpenAPI `servers` block in `main.py` and any hardcoded paths in scripts or docs.
+  - Update the landing page code snippets (`API_SNIPPETS` in `index.tsx`) to show `/v1/` URLs.
+
+  **Why to do it now (not later):** versioning is a one-time breaking change. Every integration built against the current unversioned paths will break the moment we add the prefix. The longer we wait, the more users have to update. Doing it before any external integrations exist costs nothing.
+
+  **Do this before the first public/shared release. It is a breaking change if deferred.**
 
 - [ ] Streaming audio response (chunked transfer encoding)
 - [ ] **Generation queue with UI feedback** — replace single `asyncio.Lock` with a proper worker queue.
