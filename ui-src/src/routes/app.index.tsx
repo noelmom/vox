@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Search,
@@ -720,11 +720,8 @@ function GeneratePage() {
         <section className="rounded-2xl border border-border bg-white p-5">
           <h2 className="text-[18px] font-bold text-foreground">Voice Studio</h2>
 
-          <div className="mt-5">
-            <label className="inline-flex items-center gap-1 text-[12px] font-semibold text-foreground/70">
-              Voice Profile <InfoTip text="Choose the voice persona used for generation. Each profile has a unique timbre, accent, and delivery style — e.g. 'Aurora' for warm narration, 'Vox' for crisp announcements." />
-            </label>
-            <div className="relative mt-2">
+          <StudioSection title="Voice Profile" badge={<InfoTip text="Choose the voice persona used for generation. Each profile has a unique timbre, accent, and delivery style — e.g. 'Aurora' for warm narration, 'Vox' for crisp announcements." />}>
+            <div className="relative">
               <button
                 data-voice-picker-trigger
                 onClick={() => setPickerOpen((v) => !v)}
@@ -770,13 +767,10 @@ function GeneratePage() {
               )}
             </div>
             <VoicePreviewPlayer voiceId={voiceId} />
-          </div>
+            </StudioSection>
 
-          <div className="mt-5">
-            <label className="inline-flex items-center gap-1 text-[12px] font-semibold text-foreground/70">
-              Tone / Style <InfoTip text="Sets the emotional delivery and pacing. 'Neutral' reads flat and even; 'Cheerful' adds lift and energy; 'Serious' slows the pace for weight and authority." />
-            </label>
-            <div className="mt-2 flex flex-wrap gap-1.5">
+          <StudioSection title="Tone / Style" badge={<InfoTip text="Sets the emotional delivery and pacing. 'Neutral' reads flat and even; 'Cheerful' adds lift and energy; 'Serious' slows the pace for weight and authority." />}>
+            <div className="flex flex-wrap gap-1.5">
               {tones.map((t) => {
                 const active = t === tone;
                 const isUser = t !== "Custom" && !!toneKeyMap[t] && !BUILTIN_PRESET_KEYS.has(toneKeyMap[t]);
@@ -796,17 +790,14 @@ function GeneratePage() {
                 );
               })}
             </div>
-          </div>
+          </StudioSection>
 
-          <div className="mt-5">
-            <label className="inline-flex items-center gap-1 text-[12px] font-semibold text-foreground/70">
-              Output Format <InfoTip text="Choose the audio file type. MP3 is compressed and small — great for sharing and web playback. WAV is uncompressed 16-bit PCM — best for editing or archival quality." />
-            </label>
-            <div className="mt-2 grid grid-cols-2 gap-2">
+          <StudioSection title="Output Format" defaultOpen={false} badge={<InfoTip text="Choose the audio file type. MP3 is compressed and small — great for sharing and web playback. WAV is uncompressed 16-bit PCM — best for editing or archival quality." />}>
+            <div className="grid grid-cols-2 gap-2">
               <FormatTile active={format === "mp3"} onClick={() => setFormat("mp3")} title="MP3" subtitle={`${mp3Quality} kbps`} />
               <FormatTile active={format === "wav"} onClick={() => setFormat("wav")} title="WAV" subtitle={WAV_PRESETS.find((p) => p.id === wavQuality)?.short ?? "16-bit · 24k"} />
             </div>
-          </div>
+          </StudioSection>
 
 
 
@@ -1411,6 +1402,43 @@ function GeneratingRow({ elapsed }: { elapsed: number }) {
           />
         </div>
       </div>
+    </div>
+  );
+}
+
+function StudioSection({
+  title,
+  badge,
+  defaultOpen = true,
+  children,
+}: {
+  title: string;
+  badge?: React.ReactNode;
+  defaultOpen?: boolean;
+  children: React.ReactNode;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <div className="mt-5">
+      {/* Header — tappable on mobile, purely decorative label on sm+ */}
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="flex w-full items-center justify-between sm:pointer-events-none"
+      >
+        <label className="pointer-events-none inline-flex items-center gap-1.5 text-[12px] font-semibold text-foreground/70">
+          {title}
+          {badge}
+        </label>
+        <ChevronDown
+          className={
+            "h-3.5 w-3.5 text-foreground/40 transition-transform sm:hidden " +
+            (open ? "rotate-180" : "")
+          }
+        />
+      </button>
+      {/* Content — always visible on sm+, toggle-controlled on mobile */}
+      <div className={open ? "mt-2" : "mt-2 hidden sm:block"}>{children}</div>
     </div>
   );
 }
