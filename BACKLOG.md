@@ -73,6 +73,21 @@ Ideas and improvements to revisit. Not bugs — these are enhancements queued fo
 
   **Why a blocker:** the fake waves actively undermine trust in the output quality. Users expect to see their voice reflected in the waveform before committing to "Use" a profile or downloading a clip.
 
+- [ ] **[LOW] Replace timer on "Processing Script…" button with a progress bar or percentage**
+
+  The Generate button cycles through states: `Generate Voice` → `Processing Script…` → result. While processing, the button currently shows an elapsed timer (e.g. "Processing Script… 0:12"). The elapsed time is redundant — the Result pane already shows a timer. The button real estate is better used to show how far along the generation actually is.
+
+  **Proposed behaviour:**
+  - Remove the elapsed clock from the button label entirely.
+  - Replace it with either a progress bar filling the button background left-to-right, or a percentage readout (e.g. "Processing… 34%").
+  - Progress should be derived from real server data. Two options:
+    1. **Chunk-based estimate** — the API already knows `chunks` (total chunks in the script). If the backend emits per-chunk completion events via SSE (`GET /jobs/{id}/stream`), the frontend can show `chunks_done / total_chunks * 100`. This is the most accurate approach and pairs with the SSE backlog item.
+    2. **Elapsed-time heuristic** — use the average RTF from recent jobs in the DB to estimate total duration, then advance a progress bar based on elapsed time. Simpler but less accurate; bar could stall or overshoot.
+  - Option 1 is preferred but requires the SSE work to land first. Until then, option 2 is a usable interim.
+  - The button text while processing should just read `Processing…` (no clock, no percentage if using the bar variant).
+
+  **Files to touch:** `ui-src/src/routes/app.index.tsx` — the generate button state machine and its label/style logic.
+
 - [ ] **[LOW] Recent scripts history — quick re-use from script box**
 
   When a user generates a clip, save the script text to a capped local history so they can pull it back up without retyping. A clock/history icon in the script box header opens a small dropdown showing the last N scripts (truncated to one line each), clicking one populates the textarea.
