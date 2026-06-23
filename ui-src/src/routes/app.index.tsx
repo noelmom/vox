@@ -468,7 +468,7 @@ function GeneratePage() {
   return (
     <div className="mx-auto grid max-w-[1280px] grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
       {/* LEFT: Script + Output */}
-      <div className="flex min-w-0 flex-col gap-6">
+      <div className="order-2 flex min-w-0 flex-col gap-6 lg:order-1">
         {/* Script card */}
         <section className="rounded-2xl border border-border bg-white p-6">
           <div className="flex items-center justify-between">
@@ -716,7 +716,7 @@ function GeneratePage() {
       </div>
 
       {/* RIGHT: Voice Studio + side cards */}
-      <aside className="flex flex-col gap-4">
+      <aside className="order-1 flex flex-col gap-4 lg:order-2">
         <section className="rounded-2xl border border-border bg-white p-5">
           <h2 className="text-[18px] font-bold text-foreground">Voice Studio</h2>
 
