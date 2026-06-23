@@ -76,7 +76,7 @@ export async function submitTTS(params: {
 }): Promise<{ request_id: string }> {
   const fd = new FormData();
   fd.append("text", params.text);
-  fd.append("preset", params.preset ?? "default");
+  fd.append("preset", params.preset ?? "confident");
   fd.append("output_format", params.output_format ?? "mp3");
   if (params.voice_name) fd.append("voice_name", params.voice_name);
   if (params.max_chars != null) fd.append("max_chars", String(params.max_chars));

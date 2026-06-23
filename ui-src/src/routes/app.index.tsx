@@ -164,7 +164,7 @@ function useLocalStorage<T>(key: string, defaultValue: T) {
 }
 
 // Built-in preset keys (lowercase) — cannot be removed by the user
-const BUILTIN_PRESET_KEYS = new Set(["default", "youtube", "hype", "news"]);
+const BUILTIN_PRESET_KEYS = new Set(["confident", "calm", "soft-spoken", "polite", "enthusiastic", "dramatic", "angry", "sarcastic", "newsreader", "storyteller", "default"]);
 
 function presetToAdvanced(p: Record<string, number>): typeof ADVANCED_DEFAULTS {
   return {
