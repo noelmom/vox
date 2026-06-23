@@ -229,16 +229,46 @@ function UploadPane({ onUploaded }: { onUploaded: () => void }) {
   const fileRef = useRef<HTMLInputElement>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
   const [playing, setPlaying] = useState(false);
+  const [uploadBars, setUploadBars] = useState<number[] | null>(null);
   const { data: presets = {} } = useQuery({ queryKey: ["presets"], queryFn: listPresets, staleTime: 5 * 60 * 1000 });
 
   const pickFile = (f: File) => {
     setFile(f);
     setStatus("idle");
+    setUploadBars(null);
     if (previewUrl) URL.revokeObjectURL(previewUrl);
     setPreviewUrl(URL.createObjectURL(f));
     setPlaying(false);
     if (!voiceName) setVoiceName(f.name.replace(/\.[^.]+$/, "").replace(/[-_]/g, " ").slice(0, 40));
   };
+
+  useEffect(() => {
+    if (!file) return;
+    let cancelled = false;
+    file.arrayBuffer().then((ab) => {
+      const ctx = new AudioContext();
+      return ctx.decodeAudioData(ab).then((audioBuffer) => {
+        ctx.close();
+        if (cancelled) return;
+        const BAR_COUNT = 64;
+        const data = audioBuffer.getChannelData(0);
+        const blockSize = Math.floor(data.length / BAR_COUNT);
+        const bars: number[] = [];
+        for (let i = 0; i < BAR_COUNT; i++) {
+          let peak = 0;
+          const start = i * blockSize;
+          for (let j = start; j < start + blockSize; j++) {
+            const abs = Math.abs(data[j]);
+            if (abs > peak) peak = abs;
+          }
+          bars.push(peak);
+        }
+        const max = Math.max(...bars, 0.001);
+        setUploadBars(bars.map((v) => Math.max(0.05, v / max)));
+      });
+    }).catch(() => {});
+    return () => { cancelled = true; };
+  }, [file]);
 
   useEffect(() => {
     const a = audioRef.current;
@@ -321,7 +351,7 @@ function UploadPane({ onUploaded }: { onUploaded: () => void }) {
             <button onClick={() => setPlaying((p) => !p)} aria-label={playing ? "Pause" : "Play preview"} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[oklch(0.95_0.04_260)] text-[oklch(0.55_0.22_260)] hover:bg-[oklch(0.92_0.05_260)]">
               {playing ? <Pause className="h-3.5 w-3.5" fill="currentColor" /> : <Play className="ml-0.5 h-3.5 w-3.5" fill="currentColor" />}
             </button>
-            <Waveform animated={false} />
+            <Waveform liveBars={[]} recordedBars={uploadBars} recording={false} />
             <button onClick={() => { setFile(null); setPreviewUrl(null); setPlaying(false); setVoiceName(""); if (fileRef.current) fileRef.current.value = ""; }} className="ml-1 shrink-0 text-foreground/40 hover:text-foreground" aria-label="Remove file"><X className="h-4 w-4" /></button>
           </div>
         )}
@@ -375,6 +405,10 @@ function RecordPane({ onSaved }: { onSaved: () => void }) {
   const chunksRef = useRef<Blob[]>([]);
   const streamRef = useRef<MediaStream | null>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
+  const analyserRef = useRef<AnalyserNode | null>(null);
+  const rafRef = useRef<number | null>(null);
+  const [liveBars, setLiveBars] = useState<number[]>([]);
+  const [recordedBars, setRecordedBars] = useState<number[] | null>(null);
   const MAX = 5 * 60;
 
   useEffect(() => {
@@ -422,6 +456,13 @@ function RecordPane({ onSaved }: { onSaved: () => void }) {
     catch (err) { classifyMicError(err); }
   };
 
+  const BAR_COUNT = 64;
+
+  const stopAnalyser = () => {
+    if (rafRef.current != null) { cancelAnimationFrame(rafRef.current); rafRef.current = null; }
+    analyserRef.current = null;
+  };
+
   const startRecording = async () => {
     let stream = streamRef.current;
     if (!stream) {
@@ -429,17 +470,80 @@ function RecordPane({ onSaved }: { onSaved: () => void }) {
       catch (err) { classifyMicError(err); return; }
     }
     chunksRef.current = [];
+
+    // Wire analyser for live waveform
+    const ctx = new AudioContext();
+    const source = ctx.createMediaStreamSource(stream);
+    const analyser = ctx.createAnalyser();
+    analyser.fftSize = 256;
+    source.connect(analyser);
+    analyserRef.current = analyser;
+    const buf = new Uint8Array(analyser.frequencyBinCount);
+    const tick = () => {
+      if (!analyserRef.current) return;
+      analyserRef.current.getByteTimeDomainData(buf);
+      // Convert time-domain [0,255] to amplitude [0,1] — 128 is silence
+      const bars: number[] = [];
+      const step = Math.floor(buf.length / BAR_COUNT);
+      for (let i = 0; i < BAR_COUNT; i++) {
+        let peak = 0;
+        for (let j = i * step; j < (i + 1) * step; j++) {
+          const v = Math.abs(buf[j] - 128) / 128;
+          if (v > peak) peak = v;
+        }
+        bars.push(Math.max(0.05, peak));
+      }
+      setLiveBars(bars);
+      rafRef.current = requestAnimationFrame(tick);
+    };
+    rafRef.current = requestAnimationFrame(tick);
+
     const mr = new MediaRecorder(stream);
     mr.ondataavailable = (e) => { if (e.data.size > 0) chunksRef.current.push(e.data); };
-    mr.onstop = () => { const blob = new Blob(chunksRef.current, { type: mr.mimeType || "audio/webm" }); setRecordedBlob(blob); if (recordedUrl) URL.revokeObjectURL(recordedUrl); setRecordedUrl(URL.createObjectURL(blob)); };
+    mr.onstop = () => {
+      const blob = new Blob(chunksRef.current, { type: mr.mimeType || "audio/webm" });
+      setRecordedBlob(blob);
+      if (recordedUrl) URL.revokeObjectURL(recordedUrl);
+      const url = URL.createObjectURL(blob);
+      setRecordedUrl(url);
+      // Decode recorded blob into static waveform bars
+      blob.arrayBuffer().then((ab) => {
+        const dctx = new AudioContext();
+        return dctx.decodeAudioData(ab).then((audioBuffer) => {
+          dctx.close();
+          const data = audioBuffer.getChannelData(0);
+          const blockSize = Math.floor(data.length / BAR_COUNT);
+          const bars: number[] = [];
+          for (let i = 0; i < BAR_COUNT; i++) {
+            let peak = 0;
+            const start = i * blockSize;
+            for (let j = start; j < start + blockSize; j++) {
+              const abs = Math.abs(data[j]);
+              if (abs > peak) peak = abs;
+            }
+            bars.push(peak);
+          }
+          const max = Math.max(...bars, 0.001);
+          setRecordedBars(bars.map((v) => Math.max(0.05, v / max)));
+        });
+      }).catch(() => { /* stay on live bars */ });
+    };
     mediaRecorderRef.current = mr; mr.start(250); setRecordingState("recording"); setElapsed(0); setSaveStatus("idle");
   };
 
-  const stopRecording = () => { mediaRecorderRef.current?.stop(); setRecordingState("done"); setPlaying(false); };
+  const stopRecording = () => {
+    stopAnalyser();
+    mediaRecorderRef.current?.stop();
+    setRecordingState("done");
+    setPlaying(false);
+  };
 
   const discard = () => {
-    mediaRecorderRef.current?.stop(); setRecordingState("idle"); setElapsed(0); setRecordedBlob(null);
+    stopAnalyser();
+    mediaRecorderRef.current?.stop();
+    setRecordingState("idle"); setElapsed(0); setRecordedBlob(null);
     if (recordedUrl) { URL.revokeObjectURL(recordedUrl); setRecordedUrl(null); }
+    setLiveBars([]); setRecordedBars(null);
     setPlaying(false); setSaveStatus("idle");
   };
 
@@ -542,7 +646,7 @@ function RecordPane({ onSaved }: { onSaved: () => void }) {
           </div>
         </div>
       </div>
-      <div className="mt-5"><Waveform animated={recordingState === "recording"} /></div>
+      <div className="mt-5"><Waveform liveBars={liveBars} recordedBars={recordedBars} recording={recordingState === "recording"} /></div>
       <div className="mt-6 grid grid-cols-2 gap-2 sm:grid-cols-[1fr_1fr_1fr_1.4fr]">
         <button onClick={() => setPlaying((p) => !p)} disabled={!recordedUrl} className="inline-flex items-center justify-center gap-2 rounded-xl border border-border bg-white px-4 py-2.5 text-[13.5px] font-semibold text-[oklch(0.55_0.22_260)] hover:bg-muted disabled:cursor-not-allowed disabled:opacity-40">
           {playing ? <><Pause className="h-3.5 w-3.5" fill="currentColor" /> Pause</> : <><Play className="h-3.5 w-3.5" fill="currentColor" /> Play Preview</>}
@@ -950,17 +1054,24 @@ function Meta({ label, value }: { label: string; value: string }) {
   );
 }
 
-function Waveform({ animated = false }: { animated?: boolean }) {
-  const bars = 64;
-  const [tick, setTick] = useState(0);
-  useEffect(() => { if (!animated) return; const id = window.setInterval(() => setTick((t) => t + 1), 120); return () => window.clearInterval(id); }, [animated]);
+function Waveform({ liveBars, recordedBars, recording }: { liveBars: number[]; recordedBars: number[] | null; recording: boolean }) {
+  // While recording: show live mic amplitude bars
+  // After recording: show decoded waveform of the captured audio
+  // Idle (no data yet): show a flat placeholder row
+  const BAR_COUNT = 64;
+  const bars: number[] = recording
+    ? (liveBars.length > 0 ? liveBars : Array(BAR_COUNT).fill(0.05))
+    : (recordedBars ?? Array(BAR_COUNT).fill(0.05));
+
   return (
     <div className="flex h-8 min-w-0 flex-1 items-center gap-[2px]">
-      {Array.from({ length: bars }).map((_, i) => {
-        const seed = animated ? i * 0.7 + tick * 0.4 : i * 0.7;
-        const h = 20 + Math.abs(Math.sin(seed)) * 70 + (i % 5) * 4;
-        return <span key={i} className="block min-w-[2px] flex-1 rounded-full bg-[oklch(0.55_0.22_260)]/55" style={{ height: `${Math.min(100, h)}%` }} />;
-      })}
+      {bars.map((h, i) => (
+        <span
+          key={i}
+          className="block min-w-[2px] flex-1 rounded-full bg-[oklch(0.55_0.22_260)]/55 transition-[height] duration-75"
+          style={{ height: `${Math.round(Math.max(5, h * 100))}%` }}
+        />
+      ))}
     </div>
   );
 }

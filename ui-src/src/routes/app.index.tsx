@@ -1493,6 +1493,7 @@ function JobRow({
   }, [menuOpen]);
   const [muted, setMuted] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [waveformBars, setWaveformBars] = useState<number[] | null>(null);
 
   useEffect(() => {
     if (preloadedUrl && fetchStatus !== "ready") {
@@ -1500,6 +1501,42 @@ function JobRow({
       setFetchStatus("ready");
     }
   }, [preloadedUrl]);
+
+  // Decode audio into amplitude buckets whenever a blob URL becomes available
+  useEffect(() => {
+    if (!blobUrl) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const response = await fetch(blobUrl);
+        const arrayBuffer = await response.arrayBuffer();
+        const ctx = new AudioContext();
+        const audioBuffer = await ctx.decodeAudioData(arrayBuffer);
+        await ctx.close();
+        if (cancelled) return;
+
+        const BAR_COUNT = 48;
+        const data = audioBuffer.getChannelData(0);
+        const blockSize = Math.floor(data.length / BAR_COUNT);
+        const bars: number[] = [];
+        for (let i = 0; i < BAR_COUNT; i++) {
+          let peak = 0;
+          const start = i * blockSize;
+          for (let j = start; j < start + blockSize; j++) {
+            const abs = Math.abs(data[j]);
+            if (abs > peak) peak = abs;
+          }
+          bars.push(peak);
+        }
+        // Normalise to [0.08, 1] so bars are never invisible
+        const max = Math.max(...bars, 0.001);
+        setWaveformBars(bars.map((v) => Math.max(0.08, v / max)));
+      } catch {
+        // decode failure — stay on fallback sine bars
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [blobUrl]);
 
   // Pause when another player becomes active
   useEffect(() => {
@@ -1662,7 +1699,7 @@ function JobRow({
       {fetchStatus === "ready" && (
         <>
           <div className="mt-3 flex items-center gap-3">
-            <BigWaveform progress={progressPct} />
+            <BigWaveform progress={progressPct} bars={waveformBars} />
             <div className="flex shrink-0 flex-col items-end gap-1 text-[12px] text-foreground/65">
               <a
                 href={`/jobs/${encodeURIComponent(job.request_id)}/audio`}
@@ -1747,7 +1784,7 @@ function JobRow({
       {fetchStatus === "idle" && (
         <div className="mt-3 flex items-center gap-3">
           <div className="flex h-12 min-w-0 flex-1 items-center gap-[2px] opacity-25">
-            <BigWaveform progress={0} />
+            <BigWaveform progress={0} bars={waveformBars} />
           </div>
           {onRegenerate && (
             <div className="flex shrink-0 flex-col items-end gap-1 text-[12px] text-foreground/65">
@@ -1764,14 +1801,16 @@ function JobRow({
 }
 
 
-function BigWaveform({ progress }: { progress: number }) {
-  const bars = Array.from({ length: 48 }, (_, i) =>
-    Math.abs(Math.sin(i * 0.35) * 0.6 + Math.cos(i * 0.13) * 0.4) * 0.9 + 0.08,
-  );
-  const playedIdx = Math.floor((progress / 100) * bars.length);
+const FALLBACK_BARS = Array.from({ length: 48 }, (_, i) =>
+  Math.abs(Math.sin(i * 0.35) * 0.6 + Math.cos(i * 0.13) * 0.4) * 0.9 + 0.08,
+);
+
+function BigWaveform({ progress, bars }: { progress: number; bars: number[] | null }) {
+  const heights = bars ?? FALLBACK_BARS;
+  const playedIdx = Math.floor((progress / 100) * heights.length);
   return (
     <div className="flex h-12 min-w-0 flex-1 items-center gap-[2px]">
-      {bars.map((h, i) => (
+      {heights.map((h, i) => (
         <span
           key={i}
           className="h-full min-w-[2px] flex-1 rounded-full transition-colors"
