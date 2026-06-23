@@ -381,11 +381,19 @@ function RecordPane({ onSaved }: { onSaved: () => void }) {
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "done" | "error">("idle");
   const [saveError, setSaveError] = useState("");
   const { data: presets = {} } = useQuery({ queryKey: ["presets"], queryFn: listPresets, staleTime: 5 * 60 * 1000 });
+  const [peaks, setPeaks]             = useState<number[] | null>(null);
+  const [playProgress, setPlayProgress] = useState(0);
+  const [audioDuration, setAudioDuration] = useState(0);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const chunksRef = useRef<Blob[]>([]);
-  const streamRef = useRef<MediaStream | null>(null);
-  const audioRef = useRef<HTMLAudioElement>(null);
-  const vizRef = useRef<AudioVisualizerHandle | null>(null);
+  const chunksRef        = useRef<Blob[]>([]);
+  const streamRef        = useRef<MediaStream | null>(null);
+  const audioRef         = useRef<HTMLAudioElement>(null);
+  const canvasRef        = useRef<HTMLCanvasElement | null>(null);
+  const analyserRef      = useRef<AnalyserNode | null>(null);
+  const vizAudioCtxRef   = useRef<AudioContext | null>(null);
+  const liveDataRef      = useRef<Uint8Array | null>(null);
+  const liveHistoryRef   = useRef<number[]>([]);
+  const rafRef           = useRef<number | null>(null);
   const MAX = 5 * 60;
 
   useEffect(() => {
@@ -394,26 +402,133 @@ function RecordPane({ onSaved }: { onSaved: () => void }) {
     return () => window.clearInterval(id);
   }, [recordingState]);
 
+  // Playback controls
   useEffect(() => {
     const a = audioRef.current;
     if (!a) return;
-    if (playing) {
-      a.play().catch(() => setPlaying(false));
-      // Drive visualizer from the audio element during playback
-      if (vizRef.current) vizRef.current.connectAudioElement(a);
-    } else {
-      a.pause();
-      vizRef.current?.stop();
-    }
+    if (playing) { a.play().catch(() => setPlaying(false)); }
+    else          { a.pause(); }
   }, [playing]);
 
+  // Playback progress + duration
   useEffect(() => {
     const a = audioRef.current;
     if (!a) return;
-    const onEnded = () => { setPlaying(false); vizRef.current?.stop(); };
-    a.addEventListener("ended", onEnded);
-    return () => a.removeEventListener("ended", onEnded);
+    const onTime    = () => { if (a.duration > 0) setPlayProgress(a.currentTime / a.duration); };
+    const onEnded   = () => { setPlaying(false); setPlayProgress(0); };
+    const onLoaded  = () => { if (isFinite(a.duration)) setAudioDuration(a.duration); };
+    a.addEventListener("timeupdate",     onTime);
+    a.addEventListener("ended",          onEnded);
+    a.addEventListener("loadedmetadata", onLoaded);
+    return () => {
+      a.removeEventListener("timeupdate",     onTime);
+      a.removeEventListener("ended",          onEnded);
+      a.removeEventListener("loadedmetadata", onLoaded);
+    };
   }, [recordedUrl]);
+
+  // ── Canvas RAF draw loop ────────────────────────────────────────────────────
+  useEffect(() => {
+    function brandGradient(ctx: CanvasRenderingContext2D, w: number) {
+      const g = ctx.createLinearGradient(0, 0, w, 0);
+      g.addColorStop(0,    "oklch(0.6 0.2 260)");
+      g.addColorStop(0.55, "oklch(0.58 0.22 305)");
+      g.addColorStop(1,    "oklch(0.62 0.22 25)");
+      return g;
+    }
+    function roundedRect(ctx: CanvasRenderingContext2D, x: number, y: number, bw: number, bh: number, r: number) {
+      ctx.beginPath();
+      ctx.moveTo(x + r, y);
+      ctx.arcTo(x + bw, y,      x + bw, y + bh, r);
+      ctx.arcTo(x + bw, y + bh, x,      y + bh, r);
+      ctx.arcTo(x,      y + bh, x,      y,       r);
+      ctx.arcTo(x,      y,      x + bw, y,       r);
+      ctx.closePath();
+    }
+
+    const draw = () => {
+      const canvas = canvasRef.current;
+      const ctx = canvas?.getContext("2d");
+      if (!canvas || !ctx) { rafRef.current = requestAnimationFrame(draw); return; }
+
+      const dpr = window.devicePixelRatio || 1;
+      const w = canvas.clientWidth;
+      const h = canvas.clientHeight;
+      if (canvas.width !== w * dpr || canvas.height !== h * dpr) {
+        canvas.width  = w * dpr;
+        canvas.height = h * dpr;
+      }
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.clearRect(0, 0, w, h);
+
+      // centre line
+      ctx.strokeStyle = "oklch(0.55 0.03 260 / 0.35)";
+      ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(0, h / 2); ctx.lineTo(w, h / 2); ctx.stroke();
+
+      const barW = 2, gap = 2, slot = barW + gap;
+
+      if (recordingState !== "done") {
+        // Live: sample analyser each frame, push to history
+        const analyser = analyserRef.current;
+        if (analyser && recordingState === "recording") {
+          const buf = liveDataRef.current!;
+          analyser.getByteTimeDomainData(buf);
+          let sum = 0;
+          for (let i = 0; i < buf.length; i++) { const v = (buf[i] - 128) / 128; sum += v * v; }
+          const rms = Math.sqrt(sum / buf.length);
+          const maxBars = Math.floor(w / slot);
+          liveHistoryRef.current.push(rms);
+          if (liveHistoryRef.current.length > maxBars) liveHistoryRef.current.splice(0, liveHistoryRef.current.length - maxBars);
+        }
+        const hist = liveHistoryRef.current;
+        const count = Math.floor(w / slot);
+        const startIdx = Math.max(0, hist.length - count);
+        ctx.fillStyle = brandGradient(ctx, w);
+        for (let i = 0; i < count; i++) {
+          const v = hist[startIdx + i] ?? 0;
+          const amp = Math.min(1, v * 3.2);
+          const bh = Math.max(2, amp * h * 0.9);
+          roundedRect(ctx, i * slot, (h - bh) / 2, barW, bh, 1);
+          ctx.fill();
+        }
+        // glow at leading edge
+        if (recordingState === "recording" && hist.length > 0) {
+          const lastX = Math.min(count, hist.length) * slot;
+          const grad = ctx.createRadialGradient(lastX, h / 2, 0, lastX, h / 2, 40);
+          grad.addColorStop(0, "oklch(0.62 0.22 25 / 0.35)");
+          grad.addColorStop(1, "oklch(0.62 0.22 25 / 0)");
+          ctx.fillStyle = grad; ctx.fillRect(lastX - 40, 0, 80, h);
+        }
+      } else {
+        // Static: decoded peaks + playhead
+        const p = peaks;
+        if (!p || p.length === 0) {
+          rafRef.current = requestAnimationFrame(draw); return;
+        }
+        const count   = Math.floor(w / slot);
+        const playedX = playProgress * w;
+        for (let i = 0; i < count; i++) {
+          const amp = p[Math.floor((i / count) * p.length)] ?? 0;
+          const bh  = Math.max(2, amp * h * 0.9);
+          const x   = i * slot;
+          ctx.fillStyle = x < playedX ? brandGradient(ctx, w) : "oklch(0.75 0.04 260 / 0.35)";
+          roundedRect(ctx, x, (h - bh) / 2, barW, bh, 1);
+          ctx.fill();
+        }
+        // playhead
+        ctx.strokeStyle = "oklch(0.62 0.22 25)";
+        ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.moveTo(playedX, 4); ctx.lineTo(playedX, h - 4); ctx.stroke();
+        ctx.fillStyle = "oklch(0.62 0.22 25)";
+        ctx.beginPath(); ctx.arc(playedX, h / 2, 4, 0, Math.PI * 2); ctx.fill();
+      }
+
+      rafRef.current = requestAnimationFrame(draw);
+    };
+    rafRef.current = requestAnimationFrame(draw);
+    return () => { if (rafRef.current) cancelAnimationFrame(rafRef.current); };
+  }, [recordingState, peaks, playProgress]);
 
   const classifyMicError = (err: unknown) => {
     const name = err instanceof Error ? err.name : "";
@@ -451,6 +566,30 @@ function RecordPane({ onSaved }: { onSaved: () => void }) {
     catch (err) { classifyMicError(err); }
   };
 
+  const computePeaks = async (blob: Blob) => {
+    try {
+      const ac  = new AudioContext();
+      const buf = await blob.arrayBuffer();
+      const decoded = await ac.decodeAudioData(buf);
+      setAudioDuration(decoded.duration);
+      const ch     = decoded.getChannelData(0);
+      const target = 800;
+      const block  = Math.max(1, Math.floor(ch.length / target));
+      let maxVal   = 0;
+      const raw: number[] = [];
+      for (let i = 0; i < target; i++) {
+        let sum = 0;
+        const s = i * block, e2 = Math.min(ch.length, s + block);
+        for (let j = s; j < e2; j++) sum += ch[j] * ch[j];
+        const rms = Math.sqrt(sum / (e2 - s));
+        raw.push(rms);
+        if (rms > maxVal) maxVal = rms;
+      }
+      setPeaks(raw.map((v) => (maxVal > 0 ? v / maxVal : 0)));
+      ac.close();
+    } catch { setPeaks([]); }
+  };
+
   const startRecording = async () => {
     let stream = streamRef.current;
     if (!stream) {
@@ -458,9 +597,19 @@ function RecordPane({ onSaved }: { onSaved: () => void }) {
       catch (err) { classifyMicError(err); return; }
     }
     chunksRef.current = [];
+    liveHistoryRef.current = [];
+    setPlayProgress(0);
+    setPeaks(null);
 
-    // Hand the stream to the visualizer — it creates its own AudioContext internally
-    vizRef.current?.connectStream(stream);
+    // Wire up AnalyserNode for live waveform
+    const ac = new AudioContext();
+    vizAudioCtxRef.current = ac;
+    const source  = ac.createMediaStreamSource(stream);
+    const analyser = ac.createAnalyser();
+    analyser.fftSize = 1024;
+    source.connect(analyser);
+    analyserRef.current  = analyser;
+    liveDataRef.current  = new Uint8Array(analyser.fftSize);
 
     const mr = new MediaRecorder(stream);
     mr.ondataavailable = (e) => { if (e.data.size > 0) chunksRef.current.push(e.data); };
@@ -469,25 +618,7 @@ function RecordPane({ onSaved }: { onSaved: () => void }) {
       setRecordedBlob(blob);
       if (recordedUrl) URL.revokeObjectURL(recordedUrl);
       setRecordedUrl(URL.createObjectURL(blob));
-      // Decode blob → full-clip static waveform
-      blob.arrayBuffer().then((ab) => {
-        const tmpCtx = new AudioContext();
-        return tmpCtx.decodeAudioData(ab).then((buf) => {
-          tmpCtx.close();
-          const data = buf.getChannelData(0);
-          const canvasW = vizRef.current ? 300 : 0; // approx; visualizer uses canvas width internally
-          const numBars = Math.max(60, Math.floor(buf.duration * 18)); // ~18 bars/sec
-          const step = Math.floor(data.length / numBars);
-          const peaks: number[] = [];
-          for (let i = 0; i < numBars; i++) {
-            let peak = 0;
-            const start = i * step;
-            for (let j = 0; j < step; j++) peak = Math.max(peak, Math.abs(data[start + j] ?? 0));
-            peaks.push(peak);
-          }
-          vizRef.current?.setStaticBars(peaks);
-        });
-      }).catch(() => { /* decode failed — live bars stay frozen */ });
+      computePeaks(blob);
     };
     mediaRecorderRef.current = mr;
     mr.start(250);
@@ -497,18 +628,24 @@ function RecordPane({ onSaved }: { onSaved: () => void }) {
   };
 
   const stopRecording = () => {
-    vizRef.current?.stop();
     mediaRecorderRef.current?.stop();
+    vizAudioCtxRef.current?.close(); vizAudioCtxRef.current = null;
+    analyserRef.current = null;
     setRecordingState("done");
     setPlaying(false);
   };
 
   const discard = () => {
-    vizRef.current?.stop();
     mediaRecorderRef.current?.stop();
+    vizAudioCtxRef.current?.close(); vizAudioCtxRef.current = null;
+    analyserRef.current = null;
+    liveHistoryRef.current = [];
     setRecordingState("idle");
     setElapsed(0);
     setRecordedBlob(null);
+    setPeaks(null);
+    setPlayProgress(0);
+    setAudioDuration(0);
     if (recordedUrl) { URL.revokeObjectURL(recordedUrl); setRecordedUrl(null); }
     setPlaying(false);
     setSaveStatus("idle");
@@ -613,8 +750,20 @@ function RecordPane({ onSaved }: { onSaved: () => void }) {
           </div>
         </div>
       </div>
-      <div className="mt-5 overflow-hidden rounded-xl bg-black/30" style={{ height: 80 }}>
-        <AudioVisualizerCanvas ref={vizRef} className="h-full w-full" />
+      <div className="relative mt-5 overflow-hidden rounded-xl border border-border bg-[oklch(0.14_0.02_260)]">
+        <div className="pointer-events-none absolute inset-0 opacity-50" style={{ background: "radial-gradient(120% 100% at 0% 50%, oklch(0.25 0.06 260 / 0.5), transparent 60%), radial-gradient(120% 100% at 100% 50%, oklch(0.25 0.06 25 / 0.4), transparent 60%)" }} />
+        <canvas
+          ref={canvasRef}
+          style={{ height: 90, display: "block", width: "100%" }}
+          className={"relative " + (recordingState === "done" && recordedUrl ? "cursor-pointer" : "")}
+          onClick={(e) => {
+            if (recordingState !== "done" || !audioRef.current || !audioDuration) return;
+            const rect = e.currentTarget.getBoundingClientRect();
+            const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+            audioRef.current.currentTime = ratio * audioDuration;
+            setPlayProgress(ratio);
+          }}
+        />
       </div>
       <div className="mt-6 grid grid-cols-2 gap-2 sm:grid-cols-[1fr_1fr_1fr_1.4fr]">
         <button onClick={() => setPlaying((p) => !p)} disabled={!recordedUrl} className="inline-flex items-center justify-center gap-2 rounded-xl border border-border bg-white px-4 py-2.5 text-[13.5px] font-semibold text-[oklch(0.55_0.22_260)] hover:bg-muted disabled:cursor-not-allowed disabled:opacity-40">
