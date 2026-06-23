@@ -21,6 +21,8 @@ import {
   ImagePlus,
   Clipboard,
   Pencil,
+  Disc3,
+  Radio,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -381,9 +383,12 @@ function RecordPane({ onSaved }: { onSaved: () => void }) {
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "done" | "error">("idle");
   const [saveError, setSaveError] = useState("");
   const { data: presets = {} } = useQuery({ queryKey: ["presets"], queryFn: listPresets, staleTime: 5 * 60 * 1000 });
-  const [peaks, setPeaks]             = useState<number[] | null>(null);
-  const [playProgress, setPlayProgress] = useState(0);
+  const [peaks, setPeaks]               = useState<number[] | null>(null);
+  const [playProgress, setPlayProgress]   = useState(0);
   const [audioDuration, setAudioDuration] = useState(0);
+  const [level, setLevel]               = useState(0);
+  const [showSaveForm, setShowSaveForm] = useState(false);
+  const [confirmDiscard, setConfirmDiscard] = useState(false);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef        = useRef<Blob[]>([]);
   const streamRef        = useRef<MediaStream | null>(null);
@@ -477,6 +482,7 @@ function RecordPane({ onSaved }: { onSaved: () => void }) {
           let sum = 0;
           for (let i = 0; i < buf.length; i++) { const v = (buf[i] - 128) / 128; sum += v * v; }
           const rms = Math.sqrt(sum / buf.length);
+          setLevel(Math.min(1, rms * 2.5));
           const maxBars = Math.floor(w / slot);
           liveHistoryRef.current.push(rms);
           if (liveHistoryRef.current.length > maxBars) liveHistoryRef.current.splice(0, liveHistoryRef.current.length - maxBars);
@@ -631,6 +637,7 @@ function RecordPane({ onSaved }: { onSaved: () => void }) {
     mediaRecorderRef.current?.stop();
     vizAudioCtxRef.current?.close(); vizAudioCtxRef.current = null;
     analyserRef.current = null;
+    setLevel(0);
     setRecordingState("done");
     setPlaying(false);
   };
@@ -642,12 +649,15 @@ function RecordPane({ onSaved }: { onSaved: () => void }) {
     liveHistoryRef.current = [];
     setRecordingState("idle");
     setElapsed(0);
+    setLevel(0);
     setRecordedBlob(null);
     setPeaks(null);
     setPlayProgress(0);
     setAudioDuration(0);
     if (recordedUrl) { URL.revokeObjectURL(recordedUrl); setRecordedUrl(null); }
     setPlaying(false);
+    setShowSaveForm(false);
+    setConfirmDiscard(false);
     setSaveStatus("idle");
   };
 
@@ -703,61 +713,82 @@ function RecordPane({ onSaved }: { onSaved: () => void }) {
     </div>
   );
 
+  const mode = recordingState === "done" ? "play" : "record";
+
+  const switchMode = (next: "record" | "play") => {
+    if (next === mode) return;
+    if (next === "record") {
+      // switching back to record = discard; ask for confirmation if blob exists
+      if (recordedBlob) { setConfirmDiscard(true); return; }
+      discard();
+    }
+    // switching to play is only enabled when recordingState === "done" (pill disabled otherwise)
+  };
+
   return (
-    <div className="rounded-xl border border-border bg-[oklch(0.985_0.005_260)] p-6">
-      <div className="flex flex-wrap items-start justify-between gap-3">
+    <div className="rounded-2xl border border-border bg-gradient-to-br from-white to-[oklch(0.985_0.01_280)] p-6 shadow-sm">
+
+      {/* ── Header ─────────────────────────────────────────────── */}
+      <div className="flex items-center justify-between gap-4">
         <div>
-          <h2 className="text-[16px] font-bold text-foreground">Record voice sample</h2>
-          <p className="mt-0.5 text-[13px] text-muted-foreground">Speak clearly in a quiet environment.</p>
+          <h2 className="text-[17px] font-bold text-foreground">
+            {mode === "record" ? "Record voice sample" : "Review recording"}
+          </h2>
+          <p className="mt-0.5 text-[12.5px] text-muted-foreground">
+            {mode === "record" ? "Capture a sample with live waveform." : "Scrub, play, and review your take."}
+          </p>
         </div>
-        {permission === "granted" && (
-          <div className="flex items-center gap-2">
-            {devices.length > 1 ? (
-              <div className="flex items-center gap-1.5 rounded-lg border border-border bg-white px-2.5 py-1.5">
-                <Mic className="h-3.5 w-3.5 shrink-0 text-[oklch(0.55_0.18_145)]" />
-                <select value={selectedDeviceId} onChange={(e) => switchDevice(e.target.value)} disabled={recordingState === "recording"} className="max-w-[200px] bg-transparent text-[12.5px] font-medium text-foreground outline-none disabled:cursor-not-allowed disabled:opacity-60">
-                  {devices.map((d) => <option key={d.deviceId} value={d.deviceId}>{d.label || `Microphone ${devices.indexOf(d) + 1}`}</option>)}
+        <RecordModeSwitch mode={mode} hasRecording={!!recordedBlob} onChange={switchMode} />
+      </div>
+
+      {/* ── Status row ─────────────────────────────────────────── */}
+      <div className="mt-4 flex flex-wrap items-center gap-3">
+        {mode === "record" ? (
+          <>
+            <RecordStatusPill tone={permission === "granted" ? "ok" : "muted"} dot>
+              <Mic className="h-3 w-3" />
+              {permission === "granted" ? "Microphone live" : "Mic idle"}
+            </RecordStatusPill>
+            {recordingState === "recording" && (
+              <RecordStatusPill tone="rec" pulse>
+                <span className="h-1.5 w-1.5 rounded-full bg-white" />
+                REC {fmt(elapsed)} / {fmt(MAX)}
+              </RecordStatusPill>
+            )}
+            <RecordLevelMeter level={recordingState === "recording" ? level : 0} />
+            {/* multi-mic selector */}
+            {permission === "granted" && devices.length > 1 && (
+              <div className="flex items-center gap-1.5 rounded-full border border-border bg-white px-2.5 py-1">
+                <Mic className="h-3 w-3 shrink-0 text-muted-foreground" />
+                <select value={selectedDeviceId} onChange={(e) => switchDevice(e.target.value)} disabled={recordingState === "recording"} className="bg-transparent text-[11.5px] font-medium text-foreground outline-none disabled:cursor-not-allowed disabled:opacity-60">
+                  {devices.map((d) => <option key={d.deviceId} value={d.deviceId}>{d.label || `Mic ${devices.indexOf(d) + 1}`}</option>)}
                 </select>
               </div>
-            ) : (
-              <span className="inline-flex items-center gap-2 text-[12.5px] font-semibold text-[oklch(0.55_0.18_145)]">
-                <Mic className="h-3.5 w-3.5" />{devices[0]?.label || "Mic ready"}
-                <span className="h-1.5 w-1.5 rounded-full bg-[oklch(0.7_0.18_145)]" />
-              </span>
             )}
-          </div>
-        )}
-      </div>
-      <div className="mt-6 flex flex-col items-center">
-        {permission !== "granted" ? (
-          <button onClick={requestMic} className="flex h-28 w-28 flex-col items-center justify-center gap-2 rounded-full border-[6px] border-[oklch(0.94_0.02_260)] bg-white text-[oklch(0.55_0.22_260)] transition-all hover:border-[oklch(0.88_0.06_25)] hover:text-[oklch(0.6_0.22_25)]">
-            <Mic className="h-8 w-8" /><span className="text-[10.5px] font-bold leading-none">Allow mic</span>
-          </button>
+          </>
         ) : (
-          <button onClick={recordingState === "recording" ? stopRecording : startRecording} disabled={recordingState === "done"} aria-label={recordingState === "recording" ? "Stop recording" : "Start recording"} className={"relative flex h-28 w-28 items-center justify-center rounded-full border-[6px] transition-all disabled:cursor-not-allowed disabled:opacity-50 " + (recordingState === "recording" ? "border-[oklch(0.92_0.04_25)] bg-white" : "border-[oklch(0.94_0.02_260)] bg-white hover:border-[oklch(0.9_0.04_25)]")}>
-            {recordingState === "recording" && <span className="absolute inset-0 -m-1 animate-ping rounded-full border-2 border-[oklch(0.65_0.22_25)]/40" />}
-            {recordingState === "recording" ? <span className="h-10 w-10 rounded-md bg-[oklch(0.6_0.22_25)]" /> : <span className="h-14 w-14 rounded-full bg-[oklch(0.6_0.22_25)]" />}
-          </button>
+          <>
+            <RecordStatusPill tone="ok" dot><Disc3 className="h-3 w-3" /> Take ready</RecordStatusPill>
+            <RecordStatusPill tone="muted">
+              <Radio className="h-3 w-3" />
+              {fmt(Math.floor(playProgress * audioDuration))} / {fmt(Math.floor(audioDuration))}
+            </RecordStatusPill>
+          </>
         )}
-        <div className="mt-4 text-center">
-          <div className="text-[18px] font-bold tabular-nums text-foreground">{fmt(elapsed)} <span className="font-medium text-muted-foreground">/ {fmt(MAX)}</span></div>
-          <div className="mt-0.5 inline-flex items-center justify-center gap-1 text-[12px] text-muted-foreground">
-            5 min max
-            <span className="group relative inline-flex">
-              <Info className="h-3 w-3 cursor-help text-muted-foreground/70" />
-              <span className="pointer-events-none absolute left-1/2 top-full z-50 mt-1.5 w-56 -translate-x-1/2 rounded-lg border border-border bg-white px-2.5 py-1.5 text-[11.5px] font-normal leading-snug text-foreground/80 opacity-0 shadow-lg transition-opacity group-hover:opacity-100">A clean ~30 second recording is enough for most use cases.</span>
-            </span>
-          </div>
-        </div>
       </div>
-      <div className="relative mt-5 overflow-hidden rounded-xl border border-border bg-[oklch(0.14_0.02_260)]">
-        <div className="pointer-events-none absolute inset-0 opacity-50" style={{ background: "radial-gradient(120% 100% at 0% 50%, oklch(0.25 0.06 260 / 0.5), transparent 60%), radial-gradient(120% 100% at 100% 50%, oklch(0.25 0.06 25 / 0.4), transparent 60%)" }} />
+
+      {/* ── Waveform canvas ────────────────────────────────────── */}
+      <div className="relative mt-5 overflow-hidden rounded-xl border border-border bg-[oklch(0.99_0.005_280)]">
+        <div
+          className="pointer-events-none absolute inset-0 opacity-60"
+          style={{ background: "radial-gradient(120% 100% at 0% 50%, oklch(0.95 0.04 260 / 0.55), transparent 60%), radial-gradient(120% 100% at 100% 50%, oklch(0.95 0.04 25 / 0.5), transparent 60%)" }}
+        />
         <canvas
           ref={canvasRef}
-          style={{ height: 90, display: "block", width: "100%" }}
-          className={"relative " + (recordingState === "done" && recordedUrl ? "cursor-pointer" : "")}
+          style={{ height: 160, display: "block", width: "100%" }}
+          className={"relative " + (mode === "play" && recordedUrl ? "cursor-pointer" : "")}
           onClick={(e) => {
-            if (recordingState !== "done" || !audioRef.current || !audioDuration) return;
+            if (mode !== "play" || !audioRef.current || !audioDuration) return;
             const rect = e.currentTarget.getBoundingClientRect();
             const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
             audioRef.current.currentTime = ratio * audioDuration;
@@ -765,22 +796,85 @@ function RecordPane({ onSaved }: { onSaved: () => void }) {
           }}
         />
       </div>
-      <div className="mt-6 grid grid-cols-2 gap-2 sm:grid-cols-[1fr_1fr_1fr_1.4fr]">
-        <button onClick={() => setPlaying((p) => !p)} disabled={!recordedUrl} className="inline-flex items-center justify-center gap-2 rounded-xl border border-border bg-white px-4 py-2.5 text-[13.5px] font-semibold text-[oklch(0.55_0.22_260)] hover:bg-muted disabled:cursor-not-allowed disabled:opacity-40">
-          {playing ? <><Pause className="h-3.5 w-3.5" fill="currentColor" /> Pause</> : <><Play className="h-3.5 w-3.5" fill="currentColor" /> Play Preview</>}
-        </button>
-        <button onClick={stopRecording} disabled={recordingState !== "recording"} className="inline-flex items-center justify-center gap-2 rounded-xl border border-border bg-white px-4 py-2.5 text-[13.5px] font-semibold text-[oklch(0.6_0.22_25)] hover:bg-muted disabled:cursor-not-allowed disabled:opacity-40">
-          <Square className="h-3.5 w-3.5" fill="currentColor" />Stop
-        </button>
-        <button onClick={discard} disabled={recordingState === "idle"} className="inline-flex items-center justify-center gap-2 rounded-xl border border-border bg-white px-4 py-2.5 text-[13.5px] font-semibold text-foreground/70 hover:bg-muted disabled:cursor-not-allowed disabled:opacity-40">
-          <Trash2 className="h-3.5 w-3.5" />Discard
-        </button>
-        <button onClick={handleSave} disabled={!recordedBlob || !voiceName.trim() || saveStatus === "saving" || saveStatus === "done"} className="inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-[13.5px] font-bold text-white transition-all hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40" style={{ background: "linear-gradient(135deg, oklch(0.6 0.2 260), oklch(0.5 0.22 270))", boxShadow: "0 10px 24px -10px oklch(0.55 0.22 260 / 0.55), inset 0 1px 0 oklch(1 0 0 / 0.25)" }}>
-          {saveStatus === "saving" ? <><Loader2 className="h-4 w-4 animate-spin" /> Saving…</> : saveStatus === "done" ? <><Check className="h-4 w-4" /> Saved!</> : "Save as Voice Profile"}
-        </button>
+
+      {/* ── Controls ───────────────────────────────────────────── */}
+      <div className="mt-5">
+        {mode === "record" ? (
+          <div className="flex flex-col items-center gap-3">
+            <button
+              onClick={permission !== "granted" ? requestMic : recordingState === "recording" ? stopRecording : startRecording}
+              aria-label={recordingState === "recording" ? "Stop recording" : "Start recording"}
+              className="group relative flex h-16 items-center gap-3 rounded-full pl-4 pr-6 text-[14px] font-bold text-white transition-all hover:brightness-110 active:scale-[0.98]"
+              style={{
+                background: recordingState === "recording"
+                  ? "linear-gradient(135deg, oklch(0.62 0.22 25), oklch(0.5 0.22 15))"
+                  : "linear-gradient(135deg, oklch(0.6 0.2 260), oklch(0.55 0.22 305), oklch(0.6 0.22 25))",
+                boxShadow: "0 16px 36px -14px oklch(0.55 0.22 280 / 0.55), inset 0 1px 0 oklch(1 0 0 / 0.25)",
+              }}
+            >
+              <span className="relative flex h-10 w-10 items-center justify-center rounded-full bg-white/15 backdrop-blur">
+                {recordingState === "recording" && <span className="absolute inset-0 animate-ping rounded-full bg-white/30" />}
+                {recordingState === "recording"
+                  ? <Square className="h-4 w-4" fill="currentColor" />
+                  : permission !== "granted"
+                    ? <Mic className="h-4 w-4" />
+                    : <span className="h-3.5 w-3.5 rounded-full bg-white" />}
+              </span>
+              <span className="tracking-wide">
+                {permission !== "granted" ? "Allow Microphone" : recordingState === "recording" ? "Stop Recording" : "Start Recording"}
+              </span>
+              {recordingState === "recording" && (
+                <span className="ml-2 rounded-md bg-white/15 px-2 py-0.5 text-[11px] tabular-nums backdrop-blur">{fmt(elapsed)}</span>
+              )}
+            </button>
+          </div>
+        ) : (
+          <div className="flex flex-wrap items-center justify-center gap-2">
+            {/* Play / Pause */}
+            <button
+              onClick={() => setPlaying((p) => !p)}
+              disabled={!recordedUrl}
+              className="flex h-14 items-center gap-3 rounded-full pl-3 pr-5 text-[14px] font-bold text-white transition-all hover:brightness-110 active:scale-[0.98] disabled:opacity-50"
+              style={{ background: "linear-gradient(135deg, oklch(0.6 0.2 260), oklch(0.5 0.22 270))", boxShadow: "0 14px 30px -12px oklch(0.55 0.22 260 / 0.55), inset 0 1px 0 oklch(1 0 0 / 0.25)" }}
+            >
+              <span className="flex h-9 w-9 items-center justify-center rounded-full bg-white/15">
+                {playing ? <Pause className="h-4 w-4" fill="currentColor" /> : <Play className="ml-0.5 h-4 w-4" fill="currentColor" />}
+              </span>
+              {playing ? "Pause" : "Play"}
+            </button>
+
+            {/* Save as Profile */}
+            <button
+              onClick={() => setShowSaveForm((v) => !v)}
+              disabled={!recordedBlob}
+              className="inline-flex h-11 items-center gap-2 rounded-full border border-border bg-white px-4 text-[13px] font-semibold text-foreground/80 hover:bg-muted disabled:opacity-50"
+            >
+              <Check className="h-3.5 w-3.5 text-[oklch(0.55_0.22_260)]" /> Save as Profile
+            </button>
+
+            {/* Discard */}
+            {confirmDiscard ? (
+              <div className="flex items-center gap-2 rounded-full border border-[oklch(0.82_0.08_25)] bg-[oklch(0.98_0.02_25)] px-4 py-2">
+                <span className="text-[12.5px] font-medium text-[oklch(0.52_0.18_25)]">Delete recording?</span>
+                <button onClick={discard} className="rounded-full bg-[oklch(0.6_0.22_25)] px-3 py-1 text-[12px] font-bold text-white hover:brightness-110">Yes, delete</button>
+                <button onClick={() => setConfirmDiscard(false)} className="text-[12px] font-medium text-foreground/60 hover:text-foreground">Cancel</button>
+              </div>
+            ) : (
+              <button
+                onClick={() => setConfirmDiscard(true)}
+                disabled={!recordedBlob}
+                className="inline-flex h-11 items-center gap-2 rounded-full border border-border bg-white px-4 text-[13px] font-semibold text-[oklch(0.6_0.22_25)] hover:bg-muted disabled:opacity-50"
+              >
+                <Trash2 className="h-3.5 w-3.5" /> Discard
+              </button>
+            )}
+          </div>
+        )}
       </div>
-      {(recordingState === "done" || recordedBlob) && (
-        <div className="mt-5 grid grid-cols-1 gap-3 border-t border-border pt-5 sm:grid-cols-2">
+
+      {/* ── Save form (shown when Save as Profile is clicked) ─── */}
+      {showSaveForm && mode === "play" && (
+        <div className="mt-5 grid grid-cols-1 gap-3 rounded-xl border border-border bg-white/60 p-4 backdrop-blur sm:grid-cols-2">
           <div>
             <label className="text-[13px] font-semibold text-foreground">Voice name <span className="text-[oklch(0.55_0.22_25)]">*</span></label>
             <input value={voiceName} onChange={(e) => setVoiceName(e.target.value)} placeholder="e.g. My Narrator" className="mt-1.5 w-full rounded-lg border border-border bg-white px-3 py-2.5 text-[14px] outline-none placeholder:text-muted-foreground focus:border-[oklch(0.55_0.22_260)]" />
@@ -797,9 +891,75 @@ function RecordPane({ onSaved }: { onSaved: () => void }) {
               <AlertCircle className="h-3.5 w-3.5 shrink-0" />{saveError}
             </div>
           )}
+          <div className="col-span-full flex justify-end gap-2">
+            <button onClick={() => setShowSaveForm(false)} className="rounded-xl border border-border bg-white px-4 py-2 text-[13px] font-semibold text-foreground/60 hover:bg-muted">Cancel</button>
+            <button onClick={handleSave} disabled={!voiceName.trim() || saveStatus === "saving" || saveStatus === "done"} className="inline-flex items-center gap-2 rounded-xl px-4 py-2 text-[13px] font-bold text-white transition-all hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40" style={{ background: "linear-gradient(135deg, oklch(0.6 0.2 260), oklch(0.5 0.22 270))", boxShadow: "0 10px 24px -10px oklch(0.55 0.22 260 / 0.55)" }}>
+              {saveStatus === "saving" ? <><Loader2 className="h-4 w-4 animate-spin" /> Saving…</> : saveStatus === "done" ? <><Check className="h-4 w-4" /> Saved!</> : "Save Voice Profile"}
+            </button>
+          </div>
         </div>
       )}
+
       {recordedUrl && <audio ref={audioRef} src={recordedUrl} preload="auto" className="hidden" />}
+    </div>
+  );
+}
+
+// ─── RecordPane helper components ────────────────────────────────────────────
+
+function RecordModeSwitch({ mode, hasRecording, onChange }: { mode: "record" | "play"; hasRecording: boolean; onChange: (m: "record" | "play") => void }) {
+  return (
+    <div className="relative flex items-center rounded-full border border-border bg-white p-1 shadow-sm" role="tablist">
+      <span
+        aria-hidden
+        className="absolute top-1 bottom-1 w-[100px] rounded-full transition-all duration-300 ease-out"
+        style={{
+          left: mode === "record" ? 4 : 104,
+          background: mode === "record"
+            ? "linear-gradient(135deg, oklch(0.62 0.22 25), oklch(0.5 0.22 15))"
+            : "linear-gradient(135deg, oklch(0.6 0.2 260), oklch(0.5 0.22 270))",
+          boxShadow: "0 6px 16px -8px oklch(0.5 0.2 280 / 0.6)",
+        }}
+      />
+      <button role="tab" aria-selected={mode === "record"} onClick={() => onChange("record")}
+        className={"relative z-10 inline-flex h-9 w-[100px] items-center justify-center gap-1.5 rounded-full text-[12.5px] font-semibold transition-colors " + (mode === "record" ? "text-white" : "text-foreground/60 hover:text-foreground")}>
+        <Mic className="h-3.5 w-3.5" /> Record
+      </button>
+      <button role="tab" aria-selected={mode === "play"} onClick={() => onChange("play")} disabled={!hasRecording}
+        className={"relative z-10 inline-flex h-9 w-[100px] items-center justify-center gap-1.5 rounded-full text-[12.5px] font-semibold transition-colors disabled:cursor-not-allowed " + (mode === "play" ? "text-white" : "text-foreground/60 hover:text-foreground disabled:text-foreground/30")}>
+        <Play className="h-3.5 w-3.5" fill="currentColor" /> Play
+      </button>
+    </div>
+  );
+}
+
+function RecordStatusPill({ children, tone = "muted", dot, pulse }: { children: React.ReactNode; tone?: "ok" | "rec" | "muted"; dot?: boolean; pulse?: boolean }) {
+  const styles = tone === "ok"
+    ? "bg-[oklch(0.96_0.05_150)] text-[oklch(0.42_0.16_150)] border-[oklch(0.88_0.06_150)]"
+    : tone === "rec"
+      ? "text-white border-transparent"
+      : "bg-muted text-foreground/70 border-border";
+  return (
+    <span className={"inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11.5px] font-semibold " + styles + (pulse ? " animate-pulse" : "")}
+      style={tone === "rec" ? { background: "linear-gradient(135deg, oklch(0.62 0.22 25), oklch(0.5 0.22 15))" } : undefined}>
+      {dot && tone === "ok" && <span className="h-1.5 w-1.5 rounded-full bg-[oklch(0.55_0.2_150)]" />}
+      {children}
+    </span>
+  );
+}
+
+function RecordLevelMeter({ level }: { level: number }) {
+  const segs = 16;
+  const active = Math.round(level * segs);
+  return (
+    <div className="flex items-center gap-[3px] rounded-full border border-border bg-white px-2.5 py-1.5">
+      {Array.from({ length: segs }).map((_, i) => {
+        const hue = 260 - (i / segs) * 235;
+        return (
+          <span key={i} className="block h-3 w-[3px] rounded-full transition-opacity"
+            style={{ opacity: i < active ? 1 : 0.15, background: `oklch(0.6 0.22 ${hue < 25 ? 25 : hue})` }} />
+        );
+      })}
     </div>
   );
 }
