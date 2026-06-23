@@ -53,6 +53,24 @@ Ideas and improvements to revisit. Not bugs — these are enhancements queued fo
 
 ## Web UI
 
+- [ ] **[REGRESSION] Voice recorder — no distinction between "no microphone device" and "microphone access denied"**
+
+  This was previously fixed in the original UI but regressed in the React rewrite. The voice recorder currently shows a single generic error regardless of whether the failure is because the device has no microphone at all, or because the user (or macOS) denied microphone permission to the browser.
+
+  These are two different problems requiring two different messages and recovery actions:
+
+  | Case | Cause | Correct message | Recovery action |
+  |---|---|---|---|
+  | No device | `navigator.mediaDevices.getUserMedia` throws `NotFoundError` / `DevicesNotFoundError`, or `enumerateDevices()` returns no audio input devices | "No microphone found. Connect a microphone and try again." | "Refresh" button |
+  | Access denied | Throws `NotAllowedError` / `PermissionDeniedError` | "Microphone access was denied. Allow access in System Settings → Privacy & Security → Microphone." | Link or button to open System Settings, plus "Try again" button |
+
+  **Implementation notes:**
+  - Catch `getUserMedia` errors by `err.name` — `NotFoundError` = no device, `NotAllowedError` = denied. Also handle `OverconstrainedError` (device exists but doesn't satisfy constraints) gracefully.
+  - Pre-check with `navigator.permissions.query({ name: 'microphone' })` where supported to detect denied state before even calling `getUserMedia`, so the error shows immediately on component mount rather than after a failed attempt.
+  - On macOS, a denied browser permission requires the user to go to System Settings → Privacy & Security → Microphone — make that path explicit in the error copy rather than a vague "check your settings."
+
+  File: `ui-src/src/routes/app.voices.tsx` — `RecordPane` component (previously fixed here in the original UI).
+
 - [ ] **[BLOCKER — v1.0.0] Git not installed — macOS prompts to install Developer Tools and terminal command fails**
 
   On a fresh macOS machine without Xcode Command Line Tools, running any `git` command (including `bash vox.sh install` or `bash vox.sh update`) triggers a system dialog: *"The git command requires the command line developer tools. Would you like to install the tools now?"*. The terminal command hangs waiting for the dialog, and if the user dismisses it, the install fails with a confusing error.
