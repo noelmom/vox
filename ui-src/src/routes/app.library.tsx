@@ -469,6 +469,25 @@ function RecordPane({ onSaved }: { onSaved: () => void }) {
       setRecordedBlob(blob);
       if (recordedUrl) URL.revokeObjectURL(recordedUrl);
       setRecordedUrl(URL.createObjectURL(blob));
+      // Decode blob → full-clip static waveform
+      blob.arrayBuffer().then((ab) => {
+        const tmpCtx = new AudioContext();
+        return tmpCtx.decodeAudioData(ab).then((buf) => {
+          tmpCtx.close();
+          const data = buf.getChannelData(0);
+          const canvasW = vizRef.current ? 300 : 0; // approx; visualizer uses canvas width internally
+          const numBars = Math.max(60, Math.floor(buf.duration * 18)); // ~18 bars/sec
+          const step = Math.floor(data.length / numBars);
+          const peaks: number[] = [];
+          for (let i = 0; i < numBars; i++) {
+            let peak = 0;
+            const start = i * step;
+            for (let j = 0; j < step; j++) peak = Math.max(peak, Math.abs(data[start + j] ?? 0));
+            peaks.push(peak);
+          }
+          vizRef.current?.setStaticBars(peaks);
+        });
+      }).catch(() => { /* decode failed — live bars stay frozen */ });
     };
     mediaRecorderRef.current = mr;
     mr.start(250);

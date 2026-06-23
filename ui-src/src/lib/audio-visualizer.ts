@@ -27,6 +27,7 @@ export class AudioVisualizer {
   private sourceNode: AudioNode | null = null;
   private dataArray: Uint8Array = new Uint8Array(FFT_SIZE / 2);
   private bars: number[] = [];          // normalised RMS values [0..1]
+  private staticBars: number[] | null = null; // decoded full-clip peaks
   private rafId: number | null = null;
   private lastBarTime = 0;
   private running = false;
@@ -76,6 +77,17 @@ export class AudioVisualizer {
     this._stopLoop();
   }
 
+  /**
+   * Render a pre-decoded full-clip waveform spread across the full canvas width.
+   * Pass normalised peak values [0..1] — one per bar bucket.
+   * Call after recording/upload is complete so the user sees the whole clip at once.
+   */
+  setStaticBars(peaks: number[]): void {
+    this._stopLoop();
+    this.staticBars = peaks;
+    this._drawStatic();
+  }
+
   /** Full teardown for unmount. */
   destroy(): void {
     this._stopLoop();
@@ -102,6 +114,7 @@ export class AudioVisualizer {
   private _reset(): void {
     this._stopLoop();
     this.bars = [];
+    this.staticBars = null;
   }
 
   private _stopLoop(): void {
@@ -178,6 +191,28 @@ export class AudioVisualizer {
     }
   }
 
+  private _drawStatic(): void {
+    const { canvas, ctx, dpr } = this;
+    const W  = canvas.width  / dpr;
+    const H  = canvas.height / dpr;
+    const cy = H / 2;
+    const peaks = this.staticBars!;
+
+    ctx.clearRect(0, 0, W, H);
+    if (!peaks.length) return;
+
+    // Spread bars to fill the full width
+    const totalGap = (peaks.length - 1) * BAR_GAP;
+    const barW = Math.max(1, (W - totalGap) / peaks.length);
+
+    ctx.fillStyle = BAR_COLOR;
+    for (let i = 0; i < peaks.length; i++) {
+      const h = Math.max(MIN_BAR_H, peaks[i] * H * 0.9);
+      const x = i * (barW + BAR_GAP);
+      ctx.fillRect(x, cy - h / 2, barW, h);
+    }
+  }
+
   private resize(): void {
     this.dpr = window.devicePixelRatio || 1;
     const rect = this.canvas.getBoundingClientRect();
@@ -185,5 +220,7 @@ export class AudioVisualizer {
     this.canvas.width  = rect.width  * this.dpr;
     this.canvas.height = rect.height * this.dpr;
     this.ctx.scale(this.dpr, this.dpr);
+    // Redraw static frame after resize clears the canvas
+    if (this.staticBars && !this.running) this._drawStatic();
   }
 }

@@ -6,6 +6,7 @@ export interface AudioVisualizerHandle {
   connectStream(stream: MediaStream): void;
   connectAudioElement(el: HTMLAudioElement): void;
   stop(): void;
+  setStaticBars(peaks: number[]): void;
   destroy(): void;
 }
 
@@ -29,11 +30,12 @@ const AudioVisualizerCanvas = forwardRef<AudioVisualizerHandle, Props>(
     }, []);
 
     useImperativeHandle(ref, () => ({
-      startMicrophone:     ()     => vizRef.current!.startMicrophone(),
-      connectStream:       (s)    => vizRef.current?.connectStream(s),
-      connectAudioElement: (el)   => vizRef.current?.connectAudioElement(el),
-      stop:                ()     => vizRef.current?.stop(),
-      destroy:             ()     => vizRef.current?.destroy(),
+      startMicrophone:     ()       => vizRef.current!.startMicrophone(),
+      connectStream:       (s)      => vizRef.current?.connectStream(s),
+      connectAudioElement: (el)     => vizRef.current?.connectAudioElement(el),
+      stop:                ()       => vizRef.current?.stop(),
+      setStaticBars:       (peaks)  => vizRef.current?.setStaticBars(peaks),
+      destroy:             ()       => vizRef.current?.destroy(),
     }));
 
     return (
