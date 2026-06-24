@@ -237,10 +237,10 @@ Ideas and improvements to revisit. Not bugs — these are enhancements queued fo
   - Model not yet downloaded / cache missing
   - GPU unavailable, falling back to CPU
 
-- [x] **Detect missing microphone on page load in the voice recorder**
-  - Distinct `no-device` vs `denied` states with tailored error UI and "Try again" buttons.
+- [ ] **Detect missing microphone on page load in the voice recorder** *(regressed in React rewrite — see full spec above)*
+  - Distinct `no-device` vs `denied` vs `insecure-context` states with tailored error UI and "Try again" buttons.
   - Device selector dropdown when multiple mics available (`enumerateDevices()` after permission grant).
-  - Implemented in `ui-src/src/routes/app.voices.tsx` RecordPane.
+  - Was implemented in the original vanilla-JS UI; must be re-implemented in `ui-src/src/routes/app.library.tsx` `RecordPane`.
 
 
 - [x] Text input with preset selector
@@ -770,20 +770,9 @@ Ideas and improvements to revisit. Not bugs — these are enhancements queued fo
 
 ## API & Performance
 
-- [ ] **[HIGH — PRE-v1.0] Version API endpoints under `/v1/`**
+- [x] **[DONE] Version API endpoints under `/api/v1/`**
 
-  All routes currently live at the root (`/tts`, `/voices`, `/jobs`, `/presets`, `/stats`). Moving them to `/v1/` before the first public release makes the API future-proof: a `/v2/` can introduce breaking changes while `/v1/` stays stable and supported, and users never need to rewrite working integrations.
-
-  **What to do:**
-  - Add `prefix="/v1"` to every router in `api/main.py` (`tts`, `voices`, `jobs`, `presets`) and move the `/health`, `/settings`, and `/stats` inline routes into a versioned router.
-  - Keep unversioned `/health` as a shallow liveness check (no version prefix needed — it's infrastructure, not product API).
-  - Update `ui-src/src/lib/api.ts` — all `apiFetch` paths to use `/v1/...`.
-  - Update the OpenAPI `servers` block in `main.py` and any hardcoded paths in scripts or docs.
-  - Update the landing page code snippets (`API_SNIPPETS` in `index.tsx`) to show `/v1/` URLs.
-
-  **Why to do it now (not later):** versioning is a one-time breaking change. Every integration built against the current unversioned paths will break the moment we add the prefix. The longer we wait, the more users have to update. Doing it before any external integrations exist costs nothing.
-
-  **Do this before the first public/shared release. It is a breaking change if deferred.**
+  All product routes are now served under `/api/v1/` prefix (`/api/v1/tts`, `/api/v1/voices`, `/api/v1/jobs`, `/api/v1/presets`, `/api/v1/stats`, `/api/v1/settings`). The unversioned `/health` endpoint remains at the root as a shallow liveness check. Frontend `api.ts` updated to match. Landing page code snippets updated. README API reference updated.
 
 - [ ] Streaming audio response (chunked transfer encoding)
 - [ ] **Generation queue with UI feedback** — replace single `asyncio.Lock` with a proper worker queue.

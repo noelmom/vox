@@ -5,7 +5,7 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
-## [Unreleased]
+## [Unreleased] — development branch
 
 ### Added
 - **React 19 SPA — Generate page history panel** — previous completed jobs load from `GET /jobs` below the current Output card. Newest First / Oldest sort toggle and a live filter search bar. Shows 5 jobs initially; "Load more" reveals 3 more per click. Current Output job is excluded from History to avoid duplicates.
@@ -30,6 +30,18 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   **Root cause 2 — blocked event loop:** Even with the async job approach, `model.generate()` is a blocking CPU/GPU-bound call that froze the entire asyncio event loop during inference. This prevented the polling requests from being served while generation was running — same timeout symptom, different layer.
 
   **Fix:** `model.generate()` is now dispatched via `asyncio.get_running_loop().run_in_executor(None, ...)`, running inference in a thread pool so the event loop remains free to serve status polls throughout generation.
+
+- **Canvas waveform players across all screens** — all audio playback surfaces replaced with an `OutputPlayer`-style canvas player: `JobRow` in the Generate result and Recent list, `ClipCard` in Recordings, `ProfileCard` in Library, the Upload preview pane, and the voice preview player. Each renders a seeded-random peak waveform with a progress overlay, interactive seek, volume/speed controls, and time display. Single-player coordination via lifted `activePlayerId` state.
+
+- **Real mic waveform in RecordPane** — replaced the decorative sine-wave visualizer with a live RMS-driven canvas bar history while recording, and a decoded amplitude waveform shown during playback preview. Includes a playhead that advances with the audio element's `timeupdate` event.
+
+- **`RecordPane` UI rewrite** — matches the AudioStudio design: live waveform above control strip, full-width stop/pause controls, elapsed timer, and preview player after recording completes.
+
+### Fixed
+
+- **API URL paths corrected in frontend** — `api.ts` was calling `/jobs/{id}/audio` and `/voices/{id}` (wrong base paths); corrected to `/api/v1/jobs/{id}/audio` and `/api/v1/voices/{id}` to match the versioned backend router prefixes.
+
+- **Transport bar layout — always fully visible** — replaced `flex-wrap` on the `JobRow` transport bar with an explicit two-row layout (`flex-col` on mobile, `flex-row sm:`) so the card height is deterministic at every viewport width. Eliminates a Safari/WebKit bug where `flex-wrap + align-items: center` failed to expand the container height when items wrapped to a second line.
 
 ---
 
@@ -88,7 +100,7 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
-## [Unreleased]
+## [0.2.0-beta] — 2026-06-18 to 2026-06-20
 
 ### Added
 - **macOS menu bar helper** — `menubar/vox_helper.py` (rumps-based). Shows ●/○ server status, LAN IP or localhost depending on `VOX_HOST` config, CPU %, RAM used/total, Start/Stop/Restart server via launchctl, Open in Browser, View Logs. Auto-starts on login via its own LaunchAgent. No Dock icon — menu bar only.

@@ -11,7 +11,7 @@ It exposes a clean REST API and a web UI for generating high-quality audio from 
 - **Apple Silicon MPS acceleration** — Chatterbox runs on the Metal Performance Shaders backend for fast on-device inference
 - **Voice profiles** — store named voices with reference audio and per-voice TTS defaults
 - **Smart presets** — `default`, `youtube`, `hype`, `news` with full per-request parameter overrides
-- **Flexible audio ingest** — upload `.wav`, `.m4a`, `.mp3`, `.aiff`, `.flac`, or `.ogg`; all converted to WAV automatically
+- **Flexible audio ingest** — upload `.wav`, `.m4a`, `.mp3`, `.aiff`, `.flac`, `.ogg`, or `.webm`; all converted to WAV automatically
 - **Input folder watcher** — drop a voice recording into `input/` and it registers itself automatically
 - **Job history** — every generation is logged to SQLite with timing, RTF, and output path
 - **Request ID tracing** — `X-Request-ID` on every request and response, tied to DB records and logs for easy HAR-file debugging
@@ -49,9 +49,10 @@ codename-vox/
 │   │   ├── cleanup.py           # Background task: TTL-based output file pruning
 │   │   └── logger.py            # Structured logging with request_id context
 │   ├── routers/
-│   │   ├── tts.py               # POST /tts — generate audio
-│   │   ├── voices.py            # CRUD /voices — manage voice profiles
-│   │   └── jobs.py              # GET /jobs — generation history
+│   │   ├── tts.py               # POST /api/v1/tts — async generation (202 Accepted)
+│   │   ├── voices.py            # CRUD /api/v1/voices — manage voice profiles
+│   │   ├── jobs.py              # GET /api/v1/jobs — history, status, audio download
+│   │   └── presets.py           # GET /api/v1/presets — built-in + custom tone definitions
 │   └── models/
 │       ├── voice.py             # VoiceOut, VoiceParams, VoiceCreate schemas
 │       └── job.py               # JobOut schema
@@ -218,21 +219,23 @@ You can supply your own request ID by passing `X-Request-ID` as a request header
 ### Health
 
 ```
-GET /
+GET /health
 ```
 
-Returns server status, active device, presets list, and config summary.
+Returns a shallow liveness check (`{"status":"ok"}`). Use this for health polling — it is not versioned and always available.
 
 ```bash
-curl http://localhost:8000/
+curl http://localhost:8000/health
 ```
 
 ---
 
 ### TTS — Generate Audio
 
+Generation is **asynchronous**. `POST /api/v1/tts` returns `202 Accepted` immediately with a `request_id`. Poll `GET /api/v1/jobs/{request_id}` until `status` is `completed` or `failed`, then download the audio from `GET /api/v1/jobs/{request_id}/audio`.
+
 ```
-POST /tts
+POST /api/v1/tts
 Content-Type: multipart/form-data
 ```
 
@@ -255,76 +258,77 @@ Content-Type: multipart/form-data
 
 **Parameter precedence:** `preset defaults → voice profile defaults → request overrides`
 
-**Response headers:**
+**202 response body:**
+
+```json
+{ "request_id": "abc123-..." }
+```
+
+Poll `GET /api/v1/jobs/{request_id}` until `status` is `completed`, then fetch `GET /api/v1/jobs/{request_id}/audio` to download the file.
+
+**Response headers (on the 202):**
 
 | Header | Description |
 |--------|-------------|
 | `X-Request-ID` | Unique ID for this request — matches the DB job record |
-| `X-Preset` | Preset used |
-| `X-Device` | Inference device (`mps` or `cpu`) |
-| `X-Chunks` | Number of text chunks processed |
-| `X-Audio-Duration-Seconds` | Length of generated audio |
-| `X-Generation-Seconds` | Time spent in Chatterbox inference |
-| `X-Total-Seconds` | Total request time including encoding |
-| `X-RTF` | Real-time factor (generation time / audio duration, lower is faster) |
-| `X-MP3-Encode-Seconds` | ffmpeg encode time (MP3 only) |
 
 **Examples:**
 
 ```bash
-# Generate WAV with a stored voice profile
-curl -X POST http://localhost:8000/tts \
+# Queue a generation with a stored voice profile
+curl -X POST http://localhost:8000/api/v1/tts \
   -F "text=Hello, this is Vox speaking." \
   -F "preset=default" \
-  -F "voice_name=noelmo-normal" \
-  --output output.wav
+  -F "voice_name=noelmo-normal"
+# → { "request_id": "abc123-..." }
 
-# Generate MP3 with the hype preset
-curl -X POST http://localhost:8000/tts \
-  -F "text=This is going to be huge!" \
-  -F "preset=hype" \
-  -F "output_format=mp3" \
+# Poll until completed, then download
+curl http://localhost:8000/api/v1/jobs/abc123-...          # check status
+curl http://localhost:8000/api/v1/jobs/abc123-.../audio \  # download when completed
   --output output.mp3
 
+# Generate with the hype preset
+curl -X POST http://localhost:8000/api/v1/tts \
+  -F "text=This is going to be huge!" \
+  -F "preset=hype" \
+  -F "output_format=mp3"
+
 # Upload a voice file inline (M4A from iPhone Voice Memos)
-curl -X POST http://localhost:8000/tts \
+curl -X POST http://localhost:8000/api/v1/tts \
   -F "text=Testing my own voice clone." \
-  -F "voice=@/path/to/recording.m4a" \
-  --output output.wav
+  -F "voice=@/path/to/recording.m4a"
 
 # Override individual params
-curl -X POST http://localhost:8000/tts \
+curl -X POST http://localhost:8000/api/v1/tts \
   -F "text=Calm and measured delivery." \
   -F "preset=news" \
   -F "exaggeration=0.1" \
-  -F "cfg_weight=0.8" \
-  --output output.wav
+  -F "cfg_weight=0.8"
 
 # Supply your own request ID for tracing
-curl -X POST http://localhost:8000/tts \
+curl -X POST http://localhost:8000/api/v1/tts \
   -H "X-Request-ID: my-trace-id-001" \
-  -F "text=Traceable request." \
-  --output output.wav
+  -F "text=Traceable request."
 ```
 
 ---
 
 ### Voices — Manage Voice Profiles
 
-Voice profiles store a reference WAV file plus optional TTS parameter defaults. When a voice is used in `/tts`, its stored defaults sit between the preset and any per-request overrides.
+Voice profiles store a reference WAV file plus optional TTS parameter defaults. When a voice is used in `/api/v1/tts`, its stored defaults sit between the preset and any per-request overrides.
 
 ```
-GET    /voices              List all voice profiles
-GET    /voices/{name}       Get a single voice profile
-POST   /voices              Upload and register a voice
-PATCH  /voices/{name}       Update description or TTS defaults (no re-upload needed)
-DELETE /voices/{name}       Delete voice profile and its WAV file
+GET    /api/v1/voices              List all voice profiles
+GET    /api/v1/voices/{name}       Get a single voice profile (includes file_available bool)
+POST   /api/v1/voices              Upload and register a voice
+PATCH  /api/v1/voices/{name}       Update description or TTS defaults (no re-upload needed)
+DELETE /api/v1/voices/{name}       Delete voice profile and its WAV file
 ```
 
-**Upload a voice (WAV, M4A, MP3, AIFF, FLAC, OGG accepted):**
+**Upload a voice (WAV, M4A, MP3, AIFF, FLAC, OGG, WebM accepted):**
 
 ```bash
-curl -X POST http://localhost:8000/voices \
+curl -X POST http://localhost:8000/api/v1/voices \
   -F "name=my-voice" \
   -F "description=Calm narrator, recorded in quiet room" \
   -F "exaggeration=0.4" \
@@ -337,49 +341,53 @@ Non-WAV files are automatically converted to 16-bit 44.1 kHz mono WAV on ingest.
 **Update TTS defaults without re-uploading:**
 
 ```bash
-curl -X PATCH http://localhost:8000/voices/my-voice \
+curl -X PATCH http://localhost:8000/api/v1/voices/my-voice \
   -F "exaggeration=0.6" \
   -F "description=Updated description"
 ```
 
 **Drop-folder ingest:**
 
-Any audio file placed in the `input/` folder is automatically detected (polled every 10 seconds), converted to WAV, and registered as a voice profile using the filename stem as the voice name. The original file is moved to `input/processed/` on success.
+Any audio file placed in the `input/` folder is automatically detected (polled every 10 seconds), converted to WAV, and registered as a voice profile using the filename stem as the voice name. The original file is moved to `input/processed/` on success. Accepted formats: WAV, M4A, MP3, AIFF, FLAC, OGG, WebM.
 
 ```bash
 # Example: iPhone Voice Memo dropped into input/
 cp ~/Downloads/Voice\ Memo.m4a ./input/my-voice.m4a
-# → voice "my-voice" appears in /voices within 10 seconds
+# → voice "my-voice" appears in /api/v1/voices within 10 seconds
 ```
 
 ---
 
-### Jobs — Generation History
+### Jobs — Generation History & Audio Download
 
 ```
-GET /jobs                   List recent jobs (newest first)
-GET /jobs/{request_id}      Get a specific job by request ID
+GET /api/v1/jobs                          List recent jobs (newest first)
+GET /api/v1/jobs/{request_id}             Get a specific job (includes file_available bool)
+GET /api/v1/jobs/{request_id}/audio       Download the generated audio file
 ```
 
 ```bash
 # List last 50 jobs
-curl http://localhost:8000/jobs
+curl http://localhost:8000/api/v1/jobs
 
-# Look up a specific job
-curl http://localhost:8000/jobs/abc123-...
+# Poll a specific job until completed
+curl http://localhost:8000/api/v1/jobs/abc123-...
+
+# Download audio once status == "completed"
+curl http://localhost:8000/api/v1/jobs/abc123-.../audio --output output.mp3
 
 # Paginate
-curl "http://localhost:8000/jobs?limit=20&offset=40"
+curl "http://localhost:8000/api/v1/jobs?limit=20&offset=40"
 ```
 
-Job fields include: `status`, `text`, `preset`, `output_path`, `chunks`, `audio_duration_s`, `generation_s`, `rtf`, `error`, `created_at`, `completed_at`.
+Job fields include: `request_id`, `status`, `text`, `voice_name`, `preset`, `output_format`, `output_path`, `file_available`, `chunks`, `audio_duration_s`, `generation_s`, `total_s`, `rtf`, `device`, `error`, `created_at`, `completed_at`.
 
 ---
 
 ### Presets
 
 ```
-GET /presets                Return all preset definitions
+GET /api/v1/presets         Return all preset definitions (built-in + user-saved)
 ```
 
 Built-in presets:
@@ -439,7 +447,7 @@ This means you can:
 
 To inspect the database directly:
 ```bash
-sqlite3 vox.db
+sqlite3 ~/Library/Application\ Support/Vox/data/vox.db
 > SELECT request_id, status, preset, audio_duration_s, rtf, created_at FROM jobs ORDER BY created_at DESC LIMIT 10;
 ```
 
@@ -494,7 +502,8 @@ sqlite3 vox.db
 - [x] LaunchAgent for server (manual start, crash-restart, structured logs)
 - [x] LaunchAgent for helper (auto-starts on login)
 - [x] Swift menu bar rewrite — native AppKit, eliminates Python/PyObjC issues on macOS Sequoia
-- [ ] Real audio waveform visualisation (currently decorative — v1.0.0 blocker)
+- [ ] Real audio waveform visualisation (canvas players use seeded-random peaks — v1.0.0 blocker)
+- [ ] Microphone error classification — distinct UI for no-device / access-denied / insecure context (regressed in React rewrite — v1.0.0 blocker)
 - [ ] Persistent error UI (replace ephemeral toasts with inline error cards)
 - [ ] Named custom tone profiles (save/delete user-defined presets)
 - [ ] Streaming audio response (chunked transfer)
