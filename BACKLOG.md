@@ -717,14 +717,14 @@ Ideas and improvements to revisit. Not bugs — these are enhancements queued fo
 
 ## Version Tracking
 
-- [ ] **Unified release workflow — eliminate version number discrepancies before v1.0.0**
+- [ ] **[PRE-RELEASE BLOCKER] Unified release workflow — eliminate version number discrepancies before v1.0.0**
 
-  Currently version numbers live in at least five separate places and must be updated manually:
-  - `scripts/build-apps.sh` — `CFBundleShortVersionString` for VoxHelper.app (×1) and VoxServer.app (×1)
-  - `api/main.py` — `vox_version` string in `GET /settings` (already dynamic, just needs single-source-of-truth)
-  - `api/main.py` — if a `/health` or `/version` endpoint is added, it should report the same version
-  - `CHANGELOG.md` — version header
-  - Git tag on `main`
+  Version numbers currently live in at least five separate places and must be updated manually on every release. Missing any one of them causes the footer or build artifacts to show a stale version (e.g. footer showed `0.4.0` when tagging `v0.4.2-beta`):
+  - `api/main.py:341` — `"vox_version"` string returned by `GET /api/v1/settings` (what the app footer reads)
+  - `scripts/build-apps.sh` — `CFBundleShortVersionString` for VoxHelper.app and VoxServer.app
+  - `CHANGELOG.md` — version header for the new release section
+  - Git tag on `main` / `development`
+  - (future) landing page, `/health` response, installer banner
 
   **Goal:** single source of truth. Options:
   - A `VERSION` file at repo root that `build-apps.sh`, the landing page build step, and the API all read from.

@@ -338,7 +338,7 @@ async def get_settings():
         "default_max_chars": settings.default_max_chars,
         "macos_version": mac_ver,
         "chip": chip,
-        "vox_version": "0.4.0",
+        "vox_version": "0.4.2-beta",
     }
 
 
