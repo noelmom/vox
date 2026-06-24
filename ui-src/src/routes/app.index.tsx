@@ -29,6 +29,7 @@ import {
   Pencil,
   ArrowUpDown,
   CheckCircle2,
+  Gauge,
 } from "lucide-react";
 import { type ApiVoice, type Job, listVoices, listPresets, listJobs, submitTTS, getJob, getJobAudio, savePreset, deletePreset, deleteJob, patchVoice } from "@/lib/api";
 import { tagStyle } from "@/lib/utils";
@@ -1481,7 +1482,9 @@ function JobRow({
   const [volume, setVolume] = useState(0.8);
   const [speed, setSpeed] = useState<number>(1);
   const [menuOpen, setMenuOpen] = useState(false);
-  const menuRef = useRef<HTMLDivElement>(null);
+  const [hover, setHover]     = useState<number | null>(null);
+  const menuRef  = useRef<HTMLDivElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -1578,6 +1581,67 @@ function JobRow({
     if (audioRef.current) audioRef.current.playbackRate = speed;
   }, [speed]);
 
+  // Canvas draw loop
+  const peaks = waveformBars ?? jobPeaks;
+  useEffect(() => {
+    let raf = 0;
+    const progressRatio = audioDuration > 0 ? progress / audioDuration : 0;
+    const draw = () => {
+      const canvas = canvasRef.current;
+      const ctx = canvas?.getContext("2d");
+      if (canvas && ctx) {
+        const dpr = window.devicePixelRatio || 1;
+        const w = canvas.clientWidth;
+        const h = canvas.clientHeight;
+        if (canvas.width !== w * dpr || canvas.height !== h * dpr) {
+          canvas.width = w * dpr; canvas.height = h * dpr;
+        }
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        ctx.clearRect(0, 0, w, h);
+
+        ctx.strokeStyle = "oklch(0.92 0.01 260)";
+        ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(0, h / 2); ctx.lineTo(w, h / 2); ctx.stroke();
+
+        const barW = 2, gap = 2, slot = barW + gap;
+        const count = Math.floor(w / slot);
+        const playedX = progressRatio * w;
+        const hoverX = hover != null ? hover * w : null;
+        const grad = ctx.createLinearGradient(0, 0, w, 0);
+        grad.addColorStop(0,    "oklch(0.6 0.2 260)");
+        grad.addColorStop(0.55, "oklch(0.58 0.22 305)");
+        grad.addColorStop(1,    "oklch(0.62 0.22 25)");
+
+        const dim = fetchStatus !== "ready";
+        for (let i = 0; i < count; i++) {
+          const p = peaks[Math.floor((i / count) * peaks.length)] ?? 0;
+          const bh = Math.max(2, p * (h * 0.9));
+          const x = i * slot;
+          const isPlayed = x < playedX;
+          const inHover = hoverX != null && x >= playedX && x < hoverX;
+          ctx.globalAlpha = dim ? 0.22 : 1;
+          if (isPlayed && !dim)      ctx.fillStyle = grad;
+          else if (inHover && !dim)  ctx.fillStyle = "oklch(0.55 0.22 260 / 0.35)";
+          else                       ctx.fillStyle = "oklch(0.55 0.04 260 / 0.32)";
+          jobRoundedRect(ctx, x, (h - bh) / 2, barW, bh, 1);
+          ctx.fill();
+          ctx.globalAlpha = 1;
+        }
+
+        if (!dim) {
+          ctx.strokeStyle = "oklch(0.62 0.22 25)";
+          ctx.lineWidth = 2;
+          ctx.beginPath(); ctx.moveTo(playedX, 4); ctx.lineTo(playedX, h - 4); ctx.stroke();
+          ctx.fillStyle = "oklch(0.62 0.22 25)";
+          ctx.beginPath(); ctx.arc(playedX, h / 2, 3.5, 0, Math.PI * 2); ctx.fill();
+        }
+      }
+      raf = requestAnimationFrame(draw);
+    };
+    raf = requestAnimationFrame(draw);
+    return () => cancelAnimationFrame(raf);
+  }, [peaks, progress, audioDuration, hover, fetchStatus]);
+
   const handlePlayClick = async () => {
     if (fetchStatus === "loading") return;
     if (fetchStatus === "idle") {
@@ -1610,7 +1674,10 @@ function JobRow({
 
   const audioDuration = duration || (job.audio_duration_s ?? 0);
   const progressPct = audioDuration > 0 ? (progress / audioDuration) * 100 : 0;
-  const titlePreview = job.text.slice(0, 48) + (job.text.length > 48 ? "…" : "");
+  const titlePreview = job.text.slice(0, 60) + (job.text.length > 60 ? "…" : "");
+  // Deterministic placeholder peaks seeded from job text (replaced by real peaks after decode)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const jobPeaks = useMemo(() => jobSpeechPeaks(300, job.request_id), [job.request_id]);
   const voiceLabel = job.voice_name ?? "Generic";
   const presetLabel = job.preset.charAt(0).toUpperCase() + job.preset.slice(1);
   const formatLabel = job.output_format.toUpperCase();
@@ -1620,75 +1687,68 @@ function JobRow({
     ? `Today, ${ts.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}`
     : ts.toLocaleDateString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
 
+  const badges = [
+    ...(audioDuration > 0 ? [fmtTime(audioDuration)] : []),
+    job.output_format.toUpperCase(),
+    ...(job.rtf != null ? [`RTF ${job.rtf.toFixed(2)}x`] : []),
+  ];
+
   return (
-    <div className="rounded-xl border border-border bg-[oklch(0.99_0.003_260)] p-4">
+    <div className="overflow-hidden rounded-xl border border-border bg-gradient-to-br from-white to-[oklch(0.985_0.01_280)]">
       {blobUrl && <audio ref={audioRef} src={blobUrl} preload="auto" />}
 
-      <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-3 sm:gap-4">
+      {/* ── Header ── */}
+      <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-3 px-4 pb-3 pt-4 sm:gap-4">
         <button
           onClick={handlePlayClick}
           disabled={fetchStatus === "expired"}
-          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[oklch(0.95_0.04_260)] text-[oklch(0.55_0.22_260)] transition-transform hover:scale-105 disabled:cursor-not-allowed disabled:opacity-35"
           aria-label={playing ? "Pause" : "Play"}
+          className="group relative flex h-12 w-12 shrink-0 items-center justify-center rounded-full text-white transition-transform hover:scale-105 active:scale-95 disabled:cursor-not-allowed disabled:opacity-35"
+          style={{ background: "linear-gradient(135deg, oklch(0.6 0.2 260), oklch(0.55 0.22 305), oklch(0.6 0.22 25))", boxShadow: "0 10px 24px -10px oklch(0.55 0.22 280 / 0.6), inset 0 1px 0 oklch(1 0 0 / 0.3)" }}
         >
-          {fetchStatus === "loading"
-            ? <Loader2 className="h-4 w-4 animate-spin" />
-            : playing
-              ? <Pause className="h-4 w-4" fill="currentColor" />
-              : <Play className="h-4 w-4" fill="currentColor" />}
+          {playing && <span className="absolute inset-0 -m-1 animate-ping rounded-full border-2 border-[oklch(0.6_0.22_280)]/30" />}
+          {fetchStatus === "loading" ? <Loader2 className="h-4 w-4 animate-spin" />
+            : playing ? <Pause className="h-4 w-4" fill="currentColor" />
+            : <Play className="ml-0.5 h-4 w-4" fill="currentColor" />}
         </button>
+
         <div className="min-w-0">
-          <div className={`truncate text-[14px] font-bold ${fetchStatus === "expired" ? "text-foreground/45" : "text-foreground"}`}>{titlePreview}</div>
-          <div className="mt-0.5 truncate text-[11.5px] text-foreground/45">
+          <div className="flex items-center gap-1.5">
+            <Disc3 className="h-3.5 w-3.5 shrink-0 text-[oklch(0.55_0.22_260)]" />
+            <div className={`truncate text-[14px] font-bold ${fetchStatus === "expired" ? "text-foreground/45" : "text-foreground"}`}>{titlePreview}</div>
+          </div>
+          <div className="mt-0.5 truncate text-[11.5px] text-foreground/50">
             {voiceLabel} · {presetLabel} · {formatLabel} · {timeLabel}
           </div>
-          {/* Generation metrics strip — word/char counts derived from stored text */}
           {(job.generation_s != null || job.device != null) && (
-            <div className="mt-1 flex flex-wrap gap-x-2.5 gap-y-0.5 text-[11px] text-foreground/40">
+            <div className="mt-1 flex flex-wrap gap-x-2.5 gap-y-0.5 text-[11px] text-foreground/35">
               <span>{job.text.split(/\s+/).filter(Boolean).length.toLocaleString()} words</span>
-              <span>{job.text.length.toLocaleString()} chars</span>
               {job.generation_s != null && <span>gen {job.generation_s.toFixed(1)}s</span>}
               {job.total_s != null && <span>total {job.total_s.toFixed(1)}s</span>}
               {job.device != null && <span className="uppercase">{job.device}</span>}
             </div>
           )}
-          <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[11.5px] text-foreground/65 sm:hidden">
-            {audioDuration > 0 && <span className="rounded-md bg-muted px-2 py-0.5 font-semibold">{fmtTime(audioDuration)}</span>}
-            {job.rtf != null && <span className="rounded-md bg-muted px-2 py-0.5 font-semibold">RTF {job.rtf.toFixed(2)}x</span>}
+          <div className="mt-1.5 flex flex-wrap items-center gap-1.5 sm:hidden">
+            {badges.map((b) => <span key={b} className="rounded-md bg-muted px-2 py-0.5 text-[11px] font-semibold text-foreground/65">{b}</span>)}
           </div>
         </div>
-        <div className="flex shrink-0 items-center gap-2 text-[11.5px] text-foreground/65">
-          {audioDuration > 0 && <span className="hidden rounded-md bg-muted px-2 py-1 font-semibold sm:inline">{fmtTime(audioDuration)}</span>}
-          {job.rtf != null && <span className="hidden rounded-md bg-muted px-2 py-1 font-semibold sm:inline">RTF {job.rtf.toFixed(2)}x</span>}
+
+        <div className="flex shrink-0 items-center gap-2">
+          {badges.map((b) => <span key={b} className="hidden rounded-md bg-muted px-2 py-1 text-[11.5px] font-semibold text-foreground/65 sm:inline">{b}</span>)}
           <div ref={menuRef} className="relative">
-            <button
-              onClick={() => setMenuOpen((v) => !v)}
-              className="rounded p-1 hover:bg-muted"
-              aria-label="More options"
-            >
-              <MoreVertical className="h-4 w-4" />
+            <button onClick={() => setMenuOpen((v) => !v)} className="rounded p-1 hover:bg-muted" aria-label="More options">
+              <MoreVertical className="h-4 w-4 text-foreground/60" />
             </button>
             {menuOpen && (
-              <div className="absolute right-0 top-[calc(100%+4px)] z-30 w-36 overflow-hidden rounded-xl border border-border bg-white shadow-[0_8px_24px_-8px_oklch(0.16_0.02_260/0.18)]">
-                <a
-                  href={`/jobs/${encodeURIComponent(job.request_id)}/audio`}
-                  download={`vox-${job.request_id.slice(0, 8)}.${job.output_format}`}
-                  onClick={() => setMenuOpen(false)}
-                  className={`flex items-center gap-2.5 px-3.5 py-2.5 text-[13px] font-medium text-foreground transition-colors hover:bg-muted ${!job.file_available ? "pointer-events-none opacity-40" : ""}`}
-                >
-                  <Download className="h-3.5 w-3.5 shrink-0" />
-                  Download
+              <div className="absolute right-0 top-[calc(100%+4px)] z-30 w-36 overflow-hidden rounded-xl border border-border bg-white shadow-lg">
+                <a href={`/jobs/${encodeURIComponent(job.request_id)}/audio`} download={`vox-${job.request_id.slice(0, 8)}.${job.output_format}`} onClick={() => setMenuOpen(false)}
+                  className={`flex items-center gap-2.5 px-3.5 py-2.5 text-[13px] font-medium text-foreground hover:bg-muted ${!job.file_available ? "pointer-events-none opacity-40" : ""}`}>
+                  <Download className="h-3.5 w-3.5 shrink-0" /> Download
                 </a>
                 <div className="h-px bg-border" />
-                <button
-                  onClick={() => {
-                    setMenuOpen(false);
-                    onDelete?.();
-                  }}
-                  className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-[13px] font-medium text-[oklch(0.5_0.2_25)] transition-colors hover:bg-[oklch(0.97_0.02_25)]"
-                >
-                  <Trash2 className="h-3.5 w-3.5 shrink-0" />
-                  Delete
+                <button onClick={() => { setMenuOpen(false); onDelete?.(); }}
+                  className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-[13px] font-medium text-[oklch(0.5_0.2_25)] hover:bg-[oklch(0.97_0.02_25)]">
+                  <Trash2 className="h-3.5 w-3.5 shrink-0" /> Delete
                 </button>
               </div>
             )}
@@ -1696,104 +1756,69 @@ function JobRow({
         </div>
       </div>
 
-      {fetchStatus === "ready" && (
-        <>
-          <div className="mt-3 flex items-center gap-3">
-            <BigWaveform progress={progressPct} bars={waveformBars} />
-            <div className="flex shrink-0 flex-col items-end gap-1 text-[12px] text-foreground/65">
-              <a
-                href={`/jobs/${encodeURIComponent(job.request_id)}/audio`}
-                download={`vox-${job.request_id.slice(0, 8)}.${job.output_format}`}
-                className="inline-flex items-center gap-1.5 hover:text-foreground"
-              >
-                <Download className="h-3.5 w-3.5" />
-                Download
-              </a>
-              {onRegenerate && (
-                <button onClick={onRegenerate} className="inline-flex items-center gap-1.5 hover:text-foreground">
-                  <RefreshCw className="h-3.5 w-3.5" />
-                  Regenerate
-                </button>
-              )}
-            </div>
+      {/* ── Waveform canvas ── */}
+      <div className="relative mx-4 overflow-hidden rounded-lg border border-border bg-[oklch(0.99_0.005_280)]">
+        <div className="pointer-events-none absolute inset-0 opacity-60"
+          style={{ background: "radial-gradient(120% 100% at 0% 50%, oklch(0.95 0.04 260 / 0.5), transparent 60%), radial-gradient(120% 100% at 100% 50%, oklch(0.95 0.04 25 / 0.45), transparent 60%)" }} />
+        <canvas
+          ref={canvasRef}
+          onMouseMove={(e) => { const r = e.currentTarget.getBoundingClientRect(); setHover(Math.min(1, Math.max(0, (e.clientX - r.left) / r.width))); }}
+          onMouseLeave={() => setHover(null)}
+          onClick={(e) => {
+            if (fetchStatus !== "ready") { handlePlayClick(); return; }
+            const r = e.currentTarget.getBoundingClientRect();
+            const ratio = Math.min(1, Math.max(0, (e.clientX - r.left) / r.width));
+            const t = ratio * audioDuration;
+            setProgress(t);
+            if (audioRef.current) audioRef.current.currentTime = t;
+          }}
+          className={"relative block h-[88px] w-full " + (fetchStatus === "ready" ? "cursor-pointer" : fetchStatus !== "expired" ? "cursor-pointer" : "")}
+        />
+        {hover != null && fetchStatus === "ready" && (
+          <div className="pointer-events-none absolute -top-1 z-10 -translate-x-1/2 -translate-y-full rounded-md bg-foreground px-1.5 py-0.5 font-mono text-[10px] tabular-nums text-background shadow"
+            style={{ left: `${hover * 100}%` }}>
+            {fmtTime(hover * audioDuration)}
           </div>
-          <div className="mt-2 flex items-center gap-3">
-            <button
-              onClick={() => setMuted((m) => !m)}
-              aria-label={muted ? "Unmute" : "Mute"}
-              className="flex shrink-0 items-center gap-1 text-foreground/55 hover:text-foreground"
-            >
-              {muted ? <VolumeX className="h-3.5 w-3.5" /> : <Volume2 className="h-3.5 w-3.5" />}
-            </button>
-            <input
-              type="range" min={0} max={1} step={0.01} value={muted ? 0 : volume}
-              onChange={(e) => { setVolume(Number(e.target.value)); setMuted(false); }}
-              aria-label="Volume"
-              className="w-20 h-1 cursor-pointer appearance-none rounded-full"
-              style={{
-                background: `linear-gradient(to right, oklch(0.55 0.22 260) 0%, oklch(0.55 0.22 260) ${(muted ? 0 : volume) * 100}%, oklch(0.6 0.01 260) ${(muted ? 0 : volume) * 100}%, oklch(0.6 0.01 260) 100%)`,
-              }}
-            />
-            <input
-              type="range" min={0} max={audioDuration || 1} step={0.1} value={progress}
-              onChange={(e) => {
-                const v = Number(e.target.value);
-                setProgress(v);
-                if (audioRef.current) audioRef.current.currentTime = v;
-              }}
-              aria-label="Seek"
-              className="h-1 flex-1 cursor-pointer appearance-none rounded-full"
-              style={{
-                background: `linear-gradient(to right, oklch(0.55 0.22 260) 0%, oklch(0.55 0.22 260) ${progressPct}%, oklch(0.6 0.01 260) ${progressPct}%, oklch(0.6 0.01 260) 100%)`,
-              }}
-            />
-            <SpeedControl value={speed} onChange={setSpeed} />
-            <span className="ml-auto shrink-0 font-mono text-[11px] tabular-nums text-foreground/55">
-              {fmtTime(progress)} <span className="text-foreground/35">/ {fmtTime(audioDuration)}</span>
-            </span>
-          </div>
-        </>
-      )}
+        )}
+      </div>
 
-      {fetchStatus === "expired" && (
-        <div className="mt-3 flex items-center gap-3 rounded-lg border border-dashed border-[oklch(0.82_0.08_40)] bg-[oklch(0.98_0.02_40)] px-3 py-2.5">
-          <div className="flex-1 text-[12px] text-[oklch(0.52_0.12_40)]">
-            File expired — audio no longer available on disk
-          </div>
-          <div className="flex shrink-0 items-center gap-2">
-            <button
-              onClick={handleCopyScript}
-              className="inline-flex items-center gap-1.5 rounded-md border border-[oklch(0.82_0.08_40)] bg-white px-2.5 py-1.5 text-[12px] font-medium text-[oklch(0.45_0.12_40)] transition-colors hover:bg-[oklch(0.96_0.04_40)]"
-            >
-              {copied ? <Check className="h-3.5 w-3.5" /> : <Keyboard className="h-3.5 w-3.5" />}
-              {copied ? "Copied!" : "Copy Script"}
-            </button>
+      {/* ── Transport bar ── */}
+      {fetchStatus === "ready" && (
+        <div className="flex flex-wrap items-center gap-3 px-4 py-3">
+          <JobVolumeControl value={volume} muted={muted} onChange={(v) => { setVolume(v); setMuted(false); }} onToggleMute={() => setMuted((m) => !m)} />
+          <SpeedControl value={speed} onChange={setSpeed} />
+          <span className="ml-auto font-mono text-[11px] tabular-nums text-foreground/60">
+            {fmtTime(progress)} <span className="text-foreground/35">/ {fmtTime(audioDuration)}</span>
+          </span>
+          <div className="flex items-center gap-1">
+            <a href={`/jobs/${encodeURIComponent(job.request_id)}/audio`} download={`vox-${job.request_id.slice(0, 8)}.${job.output_format}`}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-white px-2.5 py-1.5 text-[12px] font-semibold text-foreground/75 hover:bg-muted">
+              <Download className="h-3.5 w-3.5" /> Download
+            </a>
             {onRegenerate && (
-              <button
-                onClick={onRegenerate}
-                className="inline-flex items-center gap-1.5 rounded-md border border-[oklch(0.75_0.15_260)] bg-[oklch(0.55_0.22_260)] px-2.5 py-1.5 text-[12px] font-medium text-white transition-colors hover:brightness-110"
-              >
-                <RefreshCw className="h-3.5 w-3.5" />
-                Regenerate
+              <button onClick={onRegenerate} className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-white px-2.5 py-1.5 text-[12px] font-semibold text-foreground/75 hover:bg-muted">
+                <RefreshCw className="h-3.5 w-3.5" /> Regenerate
               </button>
             )}
           </div>
         </div>
       )}
 
-      {fetchStatus === "idle" && (
-        <div className="mt-3 flex items-center gap-3">
-          <div className="flex h-12 min-w-0 flex-1 items-center gap-[2px] opacity-25">
-            <BigWaveform progress={0} bars={waveformBars} />
-          </div>
-          {onRegenerate && (
-            <div className="flex shrink-0 flex-col items-end gap-1 text-[12px] text-foreground/65">
-              <button onClick={onRegenerate} className="inline-flex items-center gap-1.5 hover:text-foreground">
-                <RefreshCw className="h-3.5 w-3.5" />
-                Regenerate
+      {/* ── Expired banner ── */}
+      {fetchStatus === "expired" && (
+        <div className="mx-4 mb-4 mt-3 flex items-center gap-3 rounded-lg border border-dashed border-[oklch(0.82_0.08_40)] bg-[oklch(0.98_0.02_40)] px-3 py-2.5">
+          <div className="flex-1 text-[12px] text-[oklch(0.52_0.12_40)]">File expired — audio no longer available on disk</div>
+          <div className="flex shrink-0 items-center gap-2">
+            <button onClick={handleCopyScript} className="inline-flex items-center gap-1.5 rounded-md border border-[oklch(0.82_0.08_40)] bg-white px-2.5 py-1.5 text-[12px] font-medium text-[oklch(0.45_0.12_40)] hover:bg-[oklch(0.96_0.04_40)]">
+              {copied ? <Check className="h-3.5 w-3.5" /> : <Keyboard className="h-3.5 w-3.5" />}
+              {copied ? "Copied!" : "Copy Script"}
+            </button>
+            {onRegenerate && (
+              <button onClick={onRegenerate} className="inline-flex items-center gap-1.5 rounded-md border border-[oklch(0.75_0.15_260)] bg-[oklch(0.55_0.22_260)] px-2.5 py-1.5 text-[12px] font-medium text-white hover:brightness-110">
+                <RefreshCw className="h-3.5 w-3.5" /> Regenerate
               </button>
-            </div>
-          )}
+            )}
+          </div>
         </div>
       )}
     </div>
@@ -1801,25 +1826,48 @@ function JobRow({
 }
 
 
-const FALLBACK_BARS = Array.from({ length: 48 }, (_, i) =>
-  Math.abs(Math.sin(i * 0.35) * 0.6 + Math.cos(i * 0.13) * 0.4) * 0.9 + 0.08,
-);
+// ─── JobRow helpers ───────────────────────────────────────────────────────────
 
-function BigWaveform({ progress, bars }: { progress: number; bars: number[] | null }) {
-  const heights = bars ?? FALLBACK_BARS;
-  const playedIdx = Math.floor((progress / 100) * heights.length);
+function jobRoundedRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
+}
+
+function jobSpeechPeaks(n: number, seed: string): number[] {
+  let h = 2166136261;
+  for (let i = 0; i < seed.length; i++) { h ^= seed.charCodeAt(i); h = Math.imul(h, 16777619); }
+  const rand = () => { h ^= h << 13; h ^= h >>> 17; h ^= h << 5; return ((h >>> 0) % 10000) / 10000; };
+  const out: number[] = [];
+  let i = 0;
+  while (i < n) {
+    const silence = rand() < 0.18;
+    const len  = silence ? 3 + Math.floor(rand() * 8) : 10 + Math.floor(rand() * 30);
+    const peak = silence ? 0.05 : 0.4 + rand() * 0.6;
+    for (let j = 0; j < len && i < n; j++, i++) {
+      out.push(Math.max(0.03, peak * Math.sin(Math.PI * (j / len)) * (0.7 + rand() * 0.6)));
+    }
+  }
+  return out;
+}
+
+function JobVolumeControl({ value, muted, onChange, onToggleMute }: { value: number; muted: boolean; onChange: (v: number) => void; onToggleMute: () => void }) {
   return (
-    <div className="flex h-12 min-w-0 flex-1 items-center gap-[2px]">
-      {heights.map((h, i) => (
-        <span
-          key={i}
-          className="h-full min-w-[2px] flex-1 rounded-full transition-colors"
-          style={{
-            background: i <= playedIdx ? "oklch(0.55 0.22 260)" : "oklch(0.82 0.04 260)",
-            transform: `scaleY(${h})`,
-          }}
-        />
-      ))}
+    <div className="flex items-center gap-2 rounded-full border border-border bg-white px-2 py-1">
+      <button onClick={onToggleMute} className="text-foreground/60 hover:text-foreground" aria-label={muted ? "Unmute" : "Mute"}>
+        {muted ? <VolumeX className="h-3.5 w-3.5" /> : <Volume2 className="h-3.5 w-3.5" />}
+      </button>
+      <div className="relative h-1 w-20 rounded-full bg-muted">
+        <div className="absolute left-0 top-0 h-full rounded-full" style={{ width: `${(muted ? 0 : value) * 100}%`, background: "linear-gradient(90deg, oklch(0.6 0.2 260), oklch(0.62 0.22 25))" }} />
+        <input type="range" min={0} max={1} step={0.01} value={muted ? 0 : value} onChange={(e) => onChange(Number(e.target.value))}
+          className="absolute inset-0 h-full w-full cursor-pointer appearance-none bg-transparent opacity-0" aria-label="Volume" />
+        <span className="pointer-events-none absolute top-1/2 h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full border border-white bg-[oklch(0.6_0.2_265)] shadow"
+          style={{ left: `${(muted ? 0 : value) * 100}%` }} />
+      </div>
     </div>
   );
 }
