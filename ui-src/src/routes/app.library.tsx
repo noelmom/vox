@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Search,
@@ -46,6 +46,10 @@ export const Route = createFileRoute("/app/library")({
 
 function slugToTitle(slug: string): string {
   return slug.split("-").map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(" ");
+}
+
+function capitalize(s: string): string {
+  return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
 function voiceDisplayLabel(v: ApiVoice): string {
@@ -1181,58 +1185,180 @@ function ProfileCard({
   onSaved: () => void;
 }) {
   const audioRef = useRef<HTMLAudioElement>(null);
-  const [audioStatus, setAudioStatus] = useState<"idle" | "loading" | "ready">("idle");
-  const [blobUrl, setBlobUrl] = useState<string | null>(null);
-  const [playing, setPlaying] = useState(false);
-  const [confirmDelete, setConfirmDelete] = useState(false);
-  const [editing, setEditing] = useState(false);
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const onActivateRef = useRef(onActivate);
   onActivateRef.current = onActivate;
 
-  useEffect(() => { if (activeVoiceId !== voice.name && playing) setPlaying(false); }, [activeVoiceId, voice.name]);
-  useEffect(() => { const a = audioRef.current; if (!a) return; if (playing) a.play().catch(() => setPlaying(false)); else a.pause(); }, [playing]);
-  useEffect(() => { const a = audioRef.current; if (!a) return; const onEnded = () => { setPlaying(false); onActivateRef.current(null); }; a.addEventListener("ended", onEnded); return () => a.removeEventListener("ended", onEnded); }, [blobUrl]);
+  const [audioStatus, setAudioStatus] = useState<"idle" | "loading" | "ready">("idle");
+  const [blobUrl, setBlobUrl] = useState<string | null>(null);
+  const [playing, setPlaying] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [duration, setDuration] = useState(0);
+  const [waveformBars, setWaveformBars] = useState<number[] | null>(null);
+  const [volume, setVolume] = useState(0.8);
+  const [hover, setHover] = useState<number | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [editing, setEditing] = useState(false);
+
+  const displayLabel = voiceDisplayLabel(voice);
+  const peaks = useMemo(() => {
+    if (waveformBars) return waveformBars;
+    // Deterministic placeholder seeded from voice name
+    let h = 2166136261;
+    for (let i = 0; i < voice.name.length; i++) { h ^= voice.name.charCodeAt(i); h = Math.imul(h, 16777619); }
+    const rand = () => { h ^= h << 13; h ^= h >>> 17; h ^= h << 5; return ((h >>> 0) % 10000) / 10000; };
+    const out: number[] = [];
+    let i = 0;
+    while (i < 220) {
+      const silence = rand() < 0.18;
+      const len = silence ? 3 + Math.floor(rand() * 8) : 10 + Math.floor(rand() * 30);
+      const peak = silence ? 0.05 : 0.4 + rand() * 0.6;
+      for (let j = 0; j < len && i < 220; j++, i++) {
+        out.push(Math.max(0.03, peak * Math.sin(Math.PI * (j / len)) * (0.7 + rand() * 0.6)));
+      }
+    }
+    return out;
+  }, [voice.name, waveformBars]);
+
+  useEffect(() => { if (activeVoiceId !== voice.name && playing) setPlaying(false); }, [activeVoiceId, voice.name, playing]);
+
+  useEffect(() => {
+    const a = audioRef.current;
+    if (!a || !blobUrl) return;
+    const onTime = () => setProgress(a.currentTime);
+    const onDur = () => { if (isFinite(a.duration)) setDuration(a.duration); };
+    const onEnded = () => { setPlaying(false); setProgress(0); onActivateRef.current(null); };
+    a.addEventListener("timeupdate", onTime);
+    a.addEventListener("durationchange", onDur);
+    a.addEventListener("loadedmetadata", onDur);
+    a.addEventListener("ended", onEnded);
+    return () => {
+      a.removeEventListener("timeupdate", onTime);
+      a.removeEventListener("durationchange", onDur);
+      a.removeEventListener("loadedmetadata", onDur);
+      a.removeEventListener("ended", onEnded);
+    };
+  }, [blobUrl]);
+
+  useEffect(() => {
+    const a = audioRef.current;
+    if (!a) return;
+    if (playing) a.play().catch(() => setPlaying(false));
+    else a.pause();
+  }, [playing]);
+
+  useEffect(() => { if (audioRef.current) audioRef.current.volume = volume; }, [volume]);
+
+  // Canvas draw loop
+  useEffect(() => {
+    let raf = 0;
+    const draw = () => {
+      const canvas = canvasRef.current;
+      const ctx = canvas?.getContext("2d");
+      if (canvas && ctx) {
+        const dpr = window.devicePixelRatio || 1;
+        const w = canvas.clientWidth;
+        const h = canvas.clientHeight;
+        if (canvas.width !== w * dpr || canvas.height !== h * dpr) {
+          canvas.width = w * dpr;
+          canvas.height = h * dpr;
+        }
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        ctx.clearRect(0, 0, w, h);
+        const barW = 2;
+        const gap = 2;
+        const slot = barW + gap;
+        const count = Math.floor(w / slot);
+        const playedX = duration > 0 ? (progress / duration) * w : 0;
+        const hoverX = hover != null ? hover * w : null;
+        const grad = ctx.createLinearGradient(0, 0, w, 0);
+        grad.addColorStop(0, "oklch(0.6 0.2 260)");
+        grad.addColorStop(0.55, "oklch(0.58 0.22 305)");
+        grad.addColorStop(1, "oklch(0.62 0.22 25)");
+        for (let i = 0; i < count; i++) {
+          const p = peaks[Math.floor((i / count) * peaks.length)] ?? 0;
+          const bh = Math.max(2, p * (h * 0.85));
+          const x = i * slot;
+          const y = (h - bh) / 2;
+          const isPlayed = audioStatus === "ready" && x < playedX;
+          const inHover = audioStatus === "ready" && hoverX != null && x >= playedX && x < hoverX;
+          ctx.globalAlpha = audioStatus === "loading" ? 0.22 : 1;
+          ctx.fillStyle = isPlayed ? grad : inHover ? "oklch(0.55 0.22 260 / 0.35)" : "oklch(0.55 0.04 260 / 0.3)";
+          ctx.globalAlpha = 1;
+          ctx.beginPath();
+          ctx.moveTo(x + 1, y); ctx.arcTo(x + barW, y, x + barW, y + bh, 1);
+          ctx.arcTo(x + barW, y + bh, x, y + bh, 1); ctx.arcTo(x, y + bh, x, y, 1);
+          ctx.arcTo(x, y, x + barW, y, 1); ctx.closePath(); ctx.fill();
+        }
+        if (audioStatus === "ready" && duration > 0) {
+          ctx.strokeStyle = "oklch(0.62 0.22 25)";
+          ctx.lineWidth = 1.5;
+          ctx.beginPath(); ctx.moveTo(playedX, 3); ctx.lineTo(playedX, h - 3); ctx.stroke();
+          ctx.fillStyle = "oklch(0.62 0.22 25)";
+          ctx.beginPath(); ctx.arc(playedX, h / 2, 2.5, 0, Math.PI * 2); ctx.fill();
+        }
+      }
+      raf = requestAnimationFrame(draw);
+    };
+    raf = requestAnimationFrame(draw);
+    return () => cancelAnimationFrame(raf);
+  }, [peaks, progress, duration, hover, audioStatus]);
 
   const handlePlay = async () => {
     if (audioStatus === "loading") return;
     if (audioStatus === "idle") {
-      onActivate(voice.name); setAudioStatus("loading");
+      onActivate(voice.name);
+      setAudioStatus("loading");
       try {
         const r = await fetch(`/voices/${encodeURIComponent(voice.name)}/audio`);
         if (!r.ok) throw new Error("Not found");
         const blob = await r.blob();
+        // Decode PCM for real waveform
+        blob.arrayBuffer().then((ab) => {
+          const tmp = new AudioContext();
+          tmp.decodeAudioData(ab, (buf) => {
+            const ch = buf.getChannelData(0);
+            const buckets = 220;
+            const size = Math.max(1, Math.floor(ch.length / buckets));
+            const raw: number[] = [];
+            for (let i = 0; i < buckets; i++) {
+              let sum = 0;
+              for (let j = 0; j < size; j++) sum += ch[i * size + j] ** 2;
+              raw.push(Math.sqrt(sum / size));
+            }
+            const mx = Math.max(...raw, 0.001);
+            setWaveformBars(raw.map((p) => p / mx));
+            tmp.close();
+          });
+        });
         const url = URL.createObjectURL(blob);
-        setBlobUrl(url); setAudioStatus("ready");
+        setBlobUrl(url);
+        setAudioStatus("ready");
         setTimeout(() => setPlaying(true), 30);
-      } catch { setAudioStatus("idle"); onActivate(null); }
+      } catch {
+        setAudioStatus("idle");
+        onActivate(null);
+      }
       return;
     }
-    const next = !playing; setPlaying(next); onActivate(next ? voice.name : null);
+    const next = !playing;
+    setPlaying(next);
+    onActivate(next ? voice.name : null);
   };
 
   const ts = new Date(voice.created_at);
   const dateLabel = ts.toLocaleDateString([], { month: "short", day: "numeric", year: "numeric" });
-  const displayLabel = voiceDisplayLabel(voice);
+  const defaultTone = voice.tags[0] ? capitalize(voice.tags[0]) : "—";
+  const fmt = (s: number) => { const t = Math.max(0, Math.floor(s)); return `${Math.floor(t / 60)}:${String(t % 60).padStart(2, "0")}`; };
 
   return (
     <div className="rounded-2xl border border-border bg-white p-4">
       {blobUrl && <audio ref={audioRef} src={blobUrl} preload="auto" className="hidden" />}
 
+      {/* Header: name + tags + actions */}
       <div className="flex items-start gap-3">
-        <AvatarPlayButton
-          name={voice.name}
-          iconUrl={voice.icon_data}
-          audioStatus={audioStatus}
-          playing={playing}
-          displayLabel={displayLabel}
-          onClick={handlePlay}
-        />
-
         <div className="min-w-0 flex-1">
-          <div className="truncate text-[14px] font-bold text-foreground">{displayLabel}</div>
-          {voice.name !== displayLabel.toLowerCase().replace(/\s+/g, "-") && (
-            <div className="text-[11px] text-muted-foreground/60 font-mono">{voice.name}</div>
-          )}
+          <div className="text-[15px] font-black tracking-tight text-foreground">{displayLabel}</div>
           {voice.description && <div className="mt-0.5 truncate text-[12px] text-muted-foreground">{voice.description}</div>}
           {voice.tags.length > 0 && (
             <div className="mt-1.5 flex flex-wrap gap-1.5">
@@ -1240,7 +1366,6 @@ function ProfileCard({
             </div>
           )}
         </div>
-
         <div className="flex shrink-0 items-center gap-1.5">
           <button onClick={onUse} className="rounded-lg border border-border bg-white px-3 py-1.5 text-[12.5px] font-semibold text-foreground/80 hover:bg-muted">Use</button>
           <DropdownMenu>
@@ -1273,6 +1398,13 @@ function ProfileCard({
         </div>
       </div>
 
+      {/* Meta row */}
+      <div className="mt-3 grid grid-cols-3 gap-3">
+        <Meta label="Source" value="Local" />
+        <Meta label="Added" value={dateLabel} />
+        <Meta label="Default Tone" value={defaultTone} />
+      </div>
+
       {editing && (
         <EditForm
           voice={voice}
@@ -1281,9 +1413,86 @@ function ProfileCard({
         />
       )}
 
-      <div className="mt-3 grid grid-cols-[1fr_1fr] items-end gap-3">
-        <Meta label="Added" value={dateLabel} />
-        <Meta label="Source" value="Local" />
+      {/* Mini player */}
+      <div className="mt-3 flex items-center gap-3 overflow-hidden rounded-xl border border-border bg-gradient-to-br from-white to-[oklch(0.985_0.01_280)] px-3 py-2.5">
+        {/* Gradient play button */}
+        <button
+          onClick={handlePlay}
+          aria-label={playing ? `Pause ${displayLabel}` : `Play ${displayLabel}`}
+          className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-white transition-transform hover:scale-105 active:scale-95"
+          style={{
+            background: "linear-gradient(135deg, oklch(0.6 0.2 260), oklch(0.55 0.22 305), oklch(0.6 0.22 25))",
+            boxShadow: "0 8px 18px -10px oklch(0.55 0.22 280 / 0.6), inset 0 1px 0 oklch(1 0 0 / 0.3)",
+          }}
+        >
+          {playing && <span className="absolute inset-0 -m-0.5 animate-ping rounded-full border-2 border-[oklch(0.6_0.22_280)]/30" />}
+          {audioStatus === "loading" ? (
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          ) : playing ? (
+            <Pause className="h-3.5 w-3.5" fill="currentColor" />
+          ) : (
+            <Play className="ml-0.5 h-3.5 w-3.5" fill="currentColor" />
+          )}
+        </button>
+
+        {/* Time */}
+        <span className="shrink-0 font-mono text-[11px] tabular-nums text-foreground/55">{fmt(progress)}</span>
+
+        {/* Waveform canvas */}
+        <div className="relative min-w-0 flex-1 overflow-hidden rounded-md bg-[oklch(0.99_0.005_280)]">
+          <div
+            className="pointer-events-none absolute inset-0 opacity-60"
+            style={{ background: "radial-gradient(120% 100% at 0% 50%, oklch(0.95 0.04 260 / 0.5), transparent 60%), radial-gradient(120% 100% at 100% 50%, oklch(0.95 0.04 25 / 0.45), transparent 60%)" }}
+          />
+          <canvas
+            ref={canvasRef}
+            onMouseMove={(e) => {
+              const r = e.currentTarget.getBoundingClientRect();
+              setHover(Math.min(1, Math.max(0, (e.clientX - r.left) / r.width)));
+            }}
+            onMouseLeave={() => setHover(null)}
+            onClick={(e) => {
+              if (audioStatus !== "ready" || !duration) { void handlePlay(); return; }
+              const r = e.currentTarget.getBoundingClientRect();
+              const pct = Math.min(1, Math.max(0, (e.clientX - r.left) / r.width));
+              const a = audioRef.current;
+              if (a) { a.currentTime = pct * duration; setProgress(pct * duration); }
+            }}
+            className="relative block h-9 w-full cursor-pointer"
+          />
+        </div>
+
+        {/* Duration */}
+        <span className="shrink-0 font-mono text-[11px] tabular-nums text-foreground/40">
+          {duration > 0 ? fmt(duration) : "—:——"}
+        </span>
+
+        {/* Volume pill */}
+        <div className="flex shrink-0 items-center gap-1.5 rounded-full border border-border bg-white px-1.5 py-1">
+          <button
+            onClick={() => setVolume((v) => v === 0 ? 0.8 : 0)}
+            className="text-foreground/60 hover:text-foreground"
+            aria-label={volume === 0 ? "Unmute" : "Mute"}
+          >
+            {volume === 0 ? <VolumeX className="h-3.5 w-3.5" /> : <Volume2 className="h-3.5 w-3.5" />}
+          </button>
+          <div className="relative hidden h-1 w-16 rounded-full bg-muted sm:block">
+            <div
+              className="absolute left-0 top-0 h-full rounded-full"
+              style={{ width: `${volume * 100}%`, background: "linear-gradient(90deg, oklch(0.6 0.2 260), oklch(0.62 0.22 25))" }}
+            />
+            <input
+              type="range" min={0} max={1} step={0.01} value={volume}
+              onChange={(e) => setVolume(Number(e.target.value))}
+              className="absolute inset-0 h-full w-full cursor-pointer appearance-none bg-transparent opacity-0"
+              aria-label="Volume"
+            />
+            <span
+              className="pointer-events-none absolute top-1/2 h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full border border-white bg-[oklch(0.6_0.2_265)] shadow"
+              style={{ left: `${volume * 100}%` }}
+            />
+          </div>
+        </div>
       </div>
     </div>
   );
