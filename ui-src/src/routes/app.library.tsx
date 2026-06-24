@@ -23,6 +23,8 @@ import {
   Pencil,
   Disc3,
   Radio,
+  Volume2,
+  VolumeX,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -231,39 +233,135 @@ function UploadPane({ onUploaded }: { onUploaded: () => void }) {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
+  const uploadCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const [playing, setPlaying] = useState(false);
-  const uploadVizRef = useRef<AudioVisualizerHandle | null>(null);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [uploadDuration, setUploadDuration] = useState(0);
+  const [uploadHover, setUploadHover] = useState<number | null>(null);
+  const [uploadVolume, setUploadVolume] = useState(0.8);
+  const [uploadPeaks, setUploadPeaks] = useState<number[] | null>(null);
   const { data: presets = {} } = useQuery({ queryKey: ["presets"], queryFn: listPresets, staleTime: 5 * 60 * 1000 });
 
   const pickFile = (f: File) => {
     setFile(f);
     setStatus("idle");
-    uploadVizRef.current?.stop();
     if (previewUrl) URL.revokeObjectURL(previewUrl);
     setPreviewUrl(URL.createObjectURL(f));
     setPlaying(false);
+    setUploadProgress(0);
+    setUploadDuration(0);
+    setUploadPeaks(null);
     if (!voiceName) setVoiceName(f.name.replace(/\.[^.]+$/, "").replace(/[-_]/g, " ").slice(0, 40));
+    f.arrayBuffer().then((ab) => {
+      const tmpCtx = new AudioContext();
+      tmpCtx.decodeAudioData(ab, (buf) => {
+        const ch = buf.getChannelData(0);
+        const buckets = 220;
+        const size = Math.max(1, Math.floor(ch.length / buckets));
+        const raw: number[] = [];
+        for (let i = 0; i < buckets; i++) {
+          let sum = 0;
+          for (let j = 0; j < size; j++) sum += ch[i * size + j] ** 2;
+          raw.push(Math.sqrt(sum / size));
+        }
+        const mx = Math.max(...raw, 0.001);
+        setUploadPeaks(raw.map((p) => p / mx));
+        tmpCtx.close();
+      });
+    }).catch(() => {});
   };
 
   useEffect(() => {
     const a = audioRef.current;
     if (!a) return;
-    if (playing) {
-      a.play().catch(() => setPlaying(false));
-      if (uploadVizRef.current) uploadVizRef.current.connectAudioElement(a);
-    } else {
-      a.pause();
-      uploadVizRef.current?.stop();
-    }
-  }, [playing]);
+    a.volume = uploadVolume;
+  }, [uploadVolume]);
 
   useEffect(() => {
     const a = audioRef.current;
     if (!a) return;
-    const onEnded = () => { setPlaying(false); uploadVizRef.current?.stop(); };
+    if (playing) a.play().catch(() => setPlaying(false));
+    else a.pause();
+  }, [playing]);
+
+  useEffect(() => {
+    const a = audioRef.current;
+    if (!a || !previewUrl) return;
+    const onTime = () => setUploadProgress(a.currentTime);
+    const onDur = () => { if (isFinite(a.duration)) setUploadDuration(a.duration); };
+    const onEnded = () => { setPlaying(false); setUploadProgress(0); };
+    a.addEventListener("timeupdate", onTime);
+    a.addEventListener("durationchange", onDur);
+    a.addEventListener("loadedmetadata", onDur);
     a.addEventListener("ended", onEnded);
-    return () => a.removeEventListener("ended", onEnded);
+    return () => {
+      a.removeEventListener("timeupdate", onTime);
+      a.removeEventListener("durationchange", onDur);
+      a.removeEventListener("loadedmetadata", onDur);
+      a.removeEventListener("ended", onEnded);
+    };
   }, [previewUrl]);
+
+  // Canvas draw loop for upload mini player
+  useEffect(() => {
+    if (!previewUrl) return;
+    let raf = 0;
+    const draw = () => {
+      const canvas = uploadCanvasRef.current;
+      const ctx = canvas?.getContext("2d");
+      if (canvas && ctx && uploadPeaks) {
+        const dpr = window.devicePixelRatio || 1;
+        const w = canvas.clientWidth;
+        const h = canvas.clientHeight;
+        if (canvas.width !== w * dpr || canvas.height !== h * dpr) {
+          canvas.width = w * dpr;
+          canvas.height = h * dpr;
+        }
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        ctx.clearRect(0, 0, w, h);
+        const barW = 2;
+        const gap = 2;
+        const slot = barW + gap;
+        const count = Math.floor(w / slot);
+        const playedX = uploadDuration > 0 ? (uploadProgress / uploadDuration) * w : 0;
+        const hoverX = uploadHover != null ? uploadHover * w : null;
+        const grad = ctx.createLinearGradient(0, 0, w, 0);
+        grad.addColorStop(0, "oklch(0.6 0.2 260)");
+        grad.addColorStop(0.55, "oklch(0.58 0.22 305)");
+        grad.addColorStop(1, "oklch(0.62 0.22 25)");
+        for (let i = 0; i < count; i++) {
+          const p = uploadPeaks[Math.floor((i / count) * uploadPeaks.length)] ?? 0;
+          const bh = Math.max(2, p * (h * 0.85));
+          const x = i * slot;
+          const y = (h - bh) / 2;
+          const isPlayed = x < playedX;
+          const inHover = hoverX != null && x >= playedX && x < hoverX;
+          ctx.fillStyle = isPlayed ? grad : inHover ? "oklch(0.55 0.22 260 / 0.35)" : "oklch(0.55 0.04 260 / 0.3)";
+          ctx.beginPath();
+          ctx.moveTo(x + 1, y);
+          ctx.arcTo(x + barW, y, x + barW, y + bh, 1);
+          ctx.arcTo(x + barW, y + bh, x, y + bh, 1);
+          ctx.arcTo(x, y + bh, x, y, 1);
+          ctx.arcTo(x, y, x + barW, y, 1);
+          ctx.closePath();
+          ctx.fill();
+        }
+        ctx.strokeStyle = "oklch(0.62 0.22 25)";
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(playedX, 3);
+        ctx.lineTo(playedX, h - 3);
+        ctx.stroke();
+        ctx.fillStyle = "oklch(0.62 0.22 25)";
+        ctx.beginPath();
+        ctx.arc(playedX, h / 2, 2.5, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      raf = requestAnimationFrame(draw);
+    };
+    raf = requestAnimationFrame(draw);
+    return () => cancelAnimationFrame(raf);
+  }, [previewUrl, uploadPeaks, uploadProgress, uploadDuration, uploadHover]);
 
   const handleCreate = async () => {
     if (!file || !voiceName.trim()) return;
@@ -290,6 +388,7 @@ function UploadPane({ onUploaded }: { onUploaded: () => void }) {
       setTimeout(() => {
         setFile(null); setVoiceName(""); setTags(""); setDescription(""); setSelectedPreset("");
         setPreviewUrl(null); setPlaying(false); setStatus("idle");
+        setUploadProgress(0); setUploadDuration(0); setUploadPeaks(null);
         if (fileRef.current) fileRef.current.value = "";
       }, 2000);
     } catch (err) {
@@ -326,15 +425,66 @@ function UploadPane({ onUploaded }: { onUploaded: () => void }) {
           )}
         </label>
         {previewUrl && (
-          <div className="flex items-center gap-3 rounded-xl border border-border bg-[oklch(0.985_0.005_260)] px-3 py-3">
+          <div className="flex items-center gap-3 overflow-hidden rounded-xl border border-border bg-gradient-to-br from-white to-[oklch(0.985_0.01_280)] px-3 py-2.5">
             <audio ref={audioRef} src={previewUrl} preload="auto" />
-            <button onClick={() => setPlaying((p) => !p)} aria-label={playing ? "Pause" : "Play preview"} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[oklch(0.95_0.04_260)] text-[oklch(0.55_0.22_260)] hover:bg-[oklch(0.92_0.05_260)]">
+            {/* Gradient play button */}
+            <button
+              onClick={() => setPlaying((p) => !p)}
+              aria-label={playing ? "Pause" : "Play preview"}
+              className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-white transition-transform hover:scale-105 active:scale-95"
+              style={{
+                background: "linear-gradient(135deg, oklch(0.6 0.2 260), oklch(0.55 0.22 305), oklch(0.6 0.22 25))",
+                boxShadow: "0 8px 18px -10px oklch(0.55 0.22 280 / 0.6), inset 0 1px 0 oklch(1 0 0 / 0.3)",
+              }}
+            >
+              {playing && <span className="absolute inset-0 -m-0.5 animate-ping rounded-full border-2 border-[oklch(0.6_0.22_280)]/30" />}
               {playing ? <Pause className="h-3.5 w-3.5" fill="currentColor" /> : <Play className="ml-0.5 h-3.5 w-3.5" fill="currentColor" />}
             </button>
-            <div style={{ width: 120, height: 36, borderRadius: 8, overflow: "hidden", background: "rgba(0,0,0,0.25)" }}>
-              <AudioVisualizerCanvas ref={uploadVizRef} className="h-full w-full" />
+            {/* Time */}
+            <span className="shrink-0 font-mono text-[11px] tabular-nums text-foreground/55">
+              {(() => { const t = Math.max(0, Math.floor(uploadProgress)); return `${Math.floor(t/60)}:${String(t%60).padStart(2,"0")}`; })()}
+            </span>
+            {/* Waveform canvas */}
+            <div className="relative min-w-0 flex-1 overflow-hidden rounded-md bg-[oklch(0.99_0.005_280)]">
+              <div
+                className="pointer-events-none absolute inset-0 opacity-60"
+                style={{ background: "radial-gradient(120% 100% at 0% 50%, oklch(0.95 0.04 260 / 0.5), transparent 60%), radial-gradient(120% 100% at 100% 50%, oklch(0.95 0.04 25 / 0.45), transparent 60%)" }}
+              />
+              <canvas
+                ref={uploadCanvasRef}
+                onMouseMove={(e) => { const r = e.currentTarget.getBoundingClientRect(); setUploadHover(Math.min(1, Math.max(0, (e.clientX - r.left) / r.width))); }}
+                onMouseLeave={() => setUploadHover(null)}
+                onClick={(e) => {
+                  const r = e.currentTarget.getBoundingClientRect();
+                  const pct = Math.min(1, Math.max(0, (e.clientX - r.left) / r.width));
+                  const a = audioRef.current;
+                  if (a && uploadDuration > 0) { a.currentTime = pct * uploadDuration; setUploadProgress(pct * uploadDuration); }
+                }}
+                className="relative block h-9 w-full cursor-pointer"
+              />
             </div>
-            <button onClick={() => { setFile(null); setPreviewUrl(null); setPlaying(false); setVoiceName(""); if (fileRef.current) fileRef.current.value = ""; }} className="ml-1 shrink-0 text-foreground/40 hover:text-foreground" aria-label="Remove file"><X className="h-4 w-4" /></button>
+            {/* Duration */}
+            <span className="shrink-0 font-mono text-[11px] tabular-nums text-foreground/40">
+              {(() => { const t = Math.max(0, Math.floor(uploadDuration)); return `${Math.floor(t/60)}:${String(t%60).padStart(2,"0")}`; })()}
+            </span>
+            {/* Volume pill */}
+            <div className="flex shrink-0 items-center gap-1.5 rounded-full border border-border bg-white px-1.5 py-1">
+              <button onClick={() => setUploadVolume((v) => v === 0 ? 0.8 : 0)} className="text-foreground/60 hover:text-foreground" aria-label={uploadVolume === 0 ? "Unmute" : "Mute"}>
+                {uploadVolume === 0 ? <VolumeX className="h-3.5 w-3.5" /> : <Volume2 className="h-3.5 w-3.5" />}
+              </button>
+              <div className="relative hidden h-1 w-14 rounded-full bg-muted sm:block">
+                <div className="absolute left-0 top-0 h-full rounded-full" style={{ width: `${uploadVolume * 100}%`, background: "linear-gradient(90deg, oklch(0.6 0.2 260), oklch(0.62 0.22 25))" }} />
+                <input type="range" min={0} max={1} step={0.01} value={uploadVolume} onChange={(e) => setUploadVolume(Number(e.target.value))} className="absolute inset-0 h-full w-full cursor-pointer appearance-none bg-transparent opacity-0" aria-label="Volume" />
+              </div>
+            </div>
+            {/* Remove */}
+            <button
+              onClick={() => { setFile(null); setPreviewUrl(null); setPlaying(false); setVoiceName(""); setUploadProgress(0); setUploadDuration(0); setUploadPeaks(null); if (fileRef.current) fileRef.current.value = ""; }}
+              className="shrink-0 text-foreground/40 hover:text-foreground"
+              aria-label="Remove file"
+            >
+              <X className="h-4 w-4" />
+            </button>
           </div>
         )}
       </div>
