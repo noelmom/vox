@@ -1739,7 +1739,7 @@ function JobRow({
             </button>
             {menuOpen && (
               <div className="absolute right-0 top-[calc(100%+4px)] z-30 w-36 overflow-hidden rounded-xl border border-border bg-white shadow-lg">
-                <a href={`/jobs/${encodeURIComponent(job.request_id)}/audio`} download={`vox-${job.request_id.slice(0, 8)}.${job.output_format}`} onClick={() => setMenuOpen(false)}
+                <a href={`/api/v1/jobs/${encodeURIComponent(job.request_id)}/audio`} download={`vox-${job.request_id.slice(0, 8)}.${job.output_format}`} onClick={() => setMenuOpen(false)}
                   className={`flex items-center gap-2.5 px-3.5 py-2.5 text-[13px] font-medium text-foreground hover:bg-muted ${!job.file_available ? "pointer-events-none opacity-40" : ""}`}>
                   <Download className="h-3.5 w-3.5 shrink-0" /> Download
                 </a>
@@ -1789,7 +1789,7 @@ function JobRow({
             {fmtTime(progress)} <span className="text-foreground/35">/ {fmtTime(audioDuration)}</span>
           </span>
           <div className="flex items-center gap-1">
-            <a href={`/jobs/${encodeURIComponent(job.request_id)}/audio`} download={`vox-${job.request_id.slice(0, 8)}.${job.output_format}`}
+            <a href={`/api/v1/jobs/${encodeURIComponent(job.request_id)}/audio`} download={`vox-${job.request_id.slice(0, 8)}.${job.output_format}`}
               className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-white px-2.5 py-1.5 text-[12px] font-semibold text-foreground/75 hover:bg-muted">
               <Download className="h-3.5 w-3.5" /> Download
             </a>
