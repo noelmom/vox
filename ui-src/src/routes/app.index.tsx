@@ -1692,7 +1692,7 @@ function JobRow({
   ];
 
   return (
-    <div className="overflow-hidden rounded-xl border border-border bg-gradient-to-br from-white to-[oklch(0.985_0.01_280)]">
+    <div className="rounded-xl border border-border bg-gradient-to-br from-white to-[oklch(0.985_0.01_280)]">
       {blobUrl && <audio ref={audioRef} src={blobUrl} preload="auto" />}
 
       {/* ── Header ── */}
