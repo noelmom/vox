@@ -143,7 +143,7 @@ function AppLayout() {
         </header>
 
         {/* Content */}
-        <main className="flex-1 overflow-y-auto px-4 py-6 sm:px-8">
+        <main className="flex-1 overflow-y-auto px-4 pb-12 pt-6 sm:px-8">
           <Outlet />
         </main>
 
