@@ -1873,20 +1873,22 @@ function JobVolumeControl({ value, muted, onChange, onToggleMute }: { value: num
 function VoicePreviewPlayer({ voiceId }: { voiceId: string }) {
   const isGeneric = voiceId === "";
   const audioRef = useRef<HTMLAudioElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [playing, setPlaying] = useState(false);
   const [progress, setProgress] = useState(0);
   const [duration, setDuration] = useState(0);
   const [volume, setVolume] = useState(0.7);
-  const [muted, setMuted] = useState(false);
+  const [hover, setHover] = useState<number | null>(null);
 
-  // Reset player when voice changes
+  const peaks = useMemo(() => jobSpeechPeaks(220, voiceId || "generic"), [voiceId]);
+
+  // Reset when voice changes
   useEffect(() => {
     setPlaying(false);
     setProgress(0);
     setDuration(0);
   }, [voiceId]);
 
-  // Wire audio element events
   useEffect(() => {
     const a = audioRef.current;
     if (!a) return;
@@ -1913,90 +1915,162 @@ function VoicePreviewPlayer({ voiceId }: { voiceId: string }) {
   }, [playing, isGeneric]);
 
   useEffect(() => {
-    if (audioRef.current) audioRef.current.volume = muted ? 0 : volume;
-  }, [volume, muted]);
+    if (audioRef.current) audioRef.current.volume = volume;
+  }, [volume]);
 
-  const pct = duration > 0 ? (progress / duration) * 100 : 0;
+  // Canvas draw loop
+  useEffect(() => {
+    let raf = 0;
+    const draw = () => {
+      const canvas = canvasRef.current;
+      const ctx = canvas?.getContext("2d");
+      if (canvas && ctx) {
+        const dpr = window.devicePixelRatio || 1;
+        const w = canvas.clientWidth;
+        const h = canvas.clientHeight;
+        if (canvas.width !== w * dpr || canvas.height !== h * dpr) {
+          canvas.width = w * dpr;
+          canvas.height = h * dpr;
+        }
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        ctx.clearRect(0, 0, w, h);
+        const barW = 2;
+        const gap = 2;
+        const slot = barW + gap;
+        const count = Math.floor(w / slot);
+        const playedX = duration > 0 ? (progress / duration) * w : 0;
+        const hoverX = hover != null ? hover * w : null;
+        const grad = ctx.createLinearGradient(0, 0, w, 0);
+        grad.addColorStop(0, "oklch(0.6 0.2 260)");
+        grad.addColorStop(0.55, "oklch(0.58 0.22 305)");
+        grad.addColorStop(1, "oklch(0.62 0.22 25)");
+        for (let i = 0; i < count; i++) {
+          const p = peaks[Math.floor((i / count) * peaks.length)] ?? 0;
+          const bh = Math.max(2, p * (h * 0.85));
+          const x = i * slot;
+          const y = (h - bh) / 2;
+          const isPlayed = !isGeneric && x < playedX;
+          const inHover = !isGeneric && hoverX != null && x >= playedX && x < hoverX;
+          ctx.globalAlpha = isGeneric ? 0.35 : 1;
+          ctx.fillStyle = isPlayed ? grad : inHover ? "oklch(0.55 0.22 260 / 0.35)" : "oklch(0.55 0.04 260 / 0.3)";
+          ctx.globalAlpha = 1;
+          ctx.beginPath();
+          ctx.moveTo(x + 1, y);
+          ctx.arcTo(x + barW, y, x + barW, y + bh, 1);
+          ctx.arcTo(x + barW, y + bh, x, y + bh, 1);
+          ctx.arcTo(x, y + bh, x, y, 1);
+          ctx.arcTo(x, y, x + barW, y, 1);
+          ctx.closePath();
+          ctx.fill();
+        }
+        if (!isGeneric && duration > 0) {
+          ctx.strokeStyle = "oklch(0.62 0.22 25)";
+          ctx.lineWidth = 1.5;
+          ctx.beginPath();
+          ctx.moveTo(playedX, 3);
+          ctx.lineTo(playedX, h - 3);
+          ctx.stroke();
+          ctx.fillStyle = "oklch(0.62 0.22 25)";
+          ctx.beginPath();
+          ctx.arc(playedX, h / 2, 2.5, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+      raf = requestAnimationFrame(draw);
+    };
+    raf = requestAnimationFrame(draw);
+    return () => cancelAnimationFrame(raf);
+  }, [peaks, progress, duration, hover, isGeneric]);
+
   const src = voiceId ? `/voices/${encodeURIComponent(voiceId)}/audio` : "";
-
-  if (isGeneric) {
-    return (
-      <div className="mt-2.5">
-        <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-foreground/35">Preview</p>
-        <div className="flex items-center gap-2 rounded-xl border border-border bg-muted/40 px-2.5 py-2 opacity-50 select-none">
-          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-muted text-foreground/40">
-            <Play className="ml-0.5 h-3.5 w-3.5" />
-          </span>
-          <span className="w-8 text-center text-[10px] font-mono tabular-nums text-foreground/40">0:00</span>
-          <div className="h-1 flex-1 rounded-full bg-foreground/20" />
-          <span className="w-8 text-center text-[10px] font-mono tabular-nums text-foreground/40">—:——</span>
-          <Volume2 className="h-3.5 w-3.5 text-foreground/40" />
-        </div>
-      </div>
-    );
-  }
+  const fmt = (s: number) => { const t = Math.max(0, Math.floor(s)); return `${Math.floor(t / 60)}:${String(t % 60).padStart(2, "0")}`; };
 
   return (
     <div className="mt-2.5">
-      <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-foreground/40">Preview</p>
-      <div className="flex items-center gap-2 rounded-xl border border-border bg-[oklch(0.99_0.003_260)] px-2.5 py-2">
-      <audio ref={audioRef} src={src} preload="metadata" />
+      <p className={`mb-1 text-[11px] font-semibold uppercase tracking-wide ${isGeneric ? "text-foreground/35" : "text-foreground/40"}`}>Preview</p>
+      <div className={`flex items-center gap-3 overflow-hidden rounded-xl border border-border bg-gradient-to-br from-white to-[oklch(0.985_0.01_280)] px-3 py-2.5 ${isGeneric ? "opacity-50 select-none" : ""}`}>
+        {!isGeneric && <audio ref={audioRef} src={src} preload="metadata" />}
 
-      <button
-        onClick={() => setPlaying((p) => !p)}
-        aria-label={playing ? "Pause preview" : "Play preview"}
-        className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-white transition-transform hover:scale-105"
-        style={{ background: "oklch(0.55 0.22 260)" }}
-      >
-        {playing ? <Pause className="h-3.5 w-3.5" /> : <Play className="ml-0.5 h-3.5 w-3.5" />}
-      </button>
+        {/* Gradient play button */}
+        <button
+          onClick={() => !isGeneric && setPlaying((p) => !p)}
+          disabled={isGeneric}
+          aria-label={playing ? "Pause preview" : "Play preview"}
+          className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-white transition-transform hover:scale-105 active:scale-95 disabled:cursor-default disabled:opacity-70"
+          style={{
+            background: "linear-gradient(135deg, oklch(0.6 0.2 260), oklch(0.55 0.22 305), oklch(0.6 0.22 25))",
+            boxShadow: "0 8px 18px -10px oklch(0.55 0.22 280 / 0.6), inset 0 1px 0 oklch(1 0 0 / 0.3)",
+          }}
+        >
+          {playing && <span className="absolute inset-0 -m-0.5 animate-ping rounded-full border-2 border-[oklch(0.6_0.22_280)]/30" />}
+          {playing ? <Pause className="h-3.5 w-3.5" fill="currentColor" /> : <Play className="ml-0.5 h-3.5 w-3.5" fill="currentColor" />}
+        </button>
 
-      <span className="w-8 text-center text-[10px] font-mono tabular-nums text-foreground/60">
-        {fmtTime(progress)}
-      </span>
+        {/* Time */}
+        <span className="shrink-0 font-mono text-[11px] tabular-nums text-foreground/55">{fmt(progress)}</span>
 
-      <input
-        type="range"
-        min={0}
-        max={duration || 1}
-        step={0.01}
-        value={progress}
-        onChange={(e) => {
-          const v = Number(e.target.value);
-          setProgress(v);
-          if (audioRef.current) audioRef.current.currentTime = v;
-        }}
-        aria-label="Seek"
-        className="h-1 flex-1 cursor-pointer appearance-none rounded-full"
-        style={{
-          background: `linear-gradient(to right, oklch(0.55 0.22 260) 0%, oklch(0.55 0.22 260) ${pct}%, oklch(0.6 0.01 260) ${pct}%, oklch(0.6 0.01 260) 100%)`,
-        }}
-      />
+        {/* Waveform canvas */}
+        <div className="relative min-w-0 flex-1 overflow-hidden rounded-md bg-[oklch(0.99_0.005_280)]">
+          <div
+            className="pointer-events-none absolute inset-0 opacity-60"
+            style={{ background: "radial-gradient(120% 100% at 0% 50%, oklch(0.95 0.04 260 / 0.5), transparent 60%), radial-gradient(120% 100% at 100% 50%, oklch(0.95 0.04 25 / 0.45), transparent 60%)" }}
+          />
+          <canvas
+            ref={canvasRef}
+            onMouseMove={(e) => {
+              if (isGeneric) return;
+              const r = e.currentTarget.getBoundingClientRect();
+              setHover(Math.min(1, Math.max(0, (e.clientX - r.left) / r.width)));
+            }}
+            onMouseLeave={() => setHover(null)}
+            onClick={(e) => {
+              if (isGeneric || !duration) return;
+              const r = e.currentTarget.getBoundingClientRect();
+              const pct = Math.min(1, Math.max(0, (e.clientX - r.left) / r.width));
+              const a = audioRef.current;
+              if (a) { a.currentTime = pct * duration; setProgress(pct * duration); }
+            }}
+            className={`relative block h-9 w-full ${isGeneric ? "cursor-default" : "cursor-pointer"}`}
+          />
+        </div>
 
-      <span className="w-8 text-center text-[10px] font-mono tabular-nums text-foreground/60">
-        {duration > 0 ? fmtTime(duration) : "—:——"}
-      </span>
+        {/* Duration */}
+        <span className="shrink-0 font-mono text-[11px] tabular-nums text-foreground/40">
+          {duration > 0 ? fmt(duration) : "—:——"}
+        </span>
 
-      <button
-        onClick={() => setMuted((m) => !m)}
-        aria-label={muted ? "Unmute" : "Mute"}
-        className="shrink-0 text-foreground/60 hover:text-foreground"
-      >
-        {muted ? <VolumeX className="h-3.5 w-3.5" /> : <Volume2 className="h-3.5 w-3.5" />}
-      </button>
-      <input
-        type="range"
-        min={0}
-        max={1}
-        step={0.01}
-        value={muted ? 0 : volume}
-        onChange={(e) => { setVolume(Number(e.target.value)); setMuted(false); }}
-        aria-label="Volume"
-        className="w-12 h-1 cursor-pointer appearance-none rounded-full"
-        style={{
-          background: `linear-gradient(to right, oklch(0.55 0.22 260) 0%, oklch(0.55 0.22 260) ${(muted ? 0 : volume) * 100}%, oklch(0.6 0.01 260) ${(muted ? 0 : volume) * 100}%, oklch(0.6 0.01 260) 100%)`,
-        }}
-      />
+        {/* Volume pill */}
+        <div className="flex shrink-0 items-center gap-1.5 rounded-full border border-border bg-white px-1.5 py-1">
+          <button
+            onClick={() => setVolume((v) => v === 0 ? 0.7 : 0)}
+            disabled={isGeneric}
+            className="text-foreground/60 hover:text-foreground disabled:pointer-events-none"
+            aria-label={volume === 0 ? "Unmute" : "Mute"}
+          >
+            {volume === 0 ? <VolumeX className="h-3.5 w-3.5" /> : <Volume2 className="h-3.5 w-3.5" />}
+          </button>
+          <div className="relative hidden h-1 w-14 rounded-full bg-muted sm:block">
+            <div
+              className="absolute left-0 top-0 h-full rounded-full"
+              style={{ width: `${volume * 100}%`, background: "linear-gradient(90deg, oklch(0.6 0.2 260), oklch(0.62 0.22 25))" }}
+            />
+            <input
+              type="range"
+              min={0}
+              max={1}
+              step={0.01}
+              value={volume}
+              disabled={isGeneric}
+              onChange={(e) => setVolume(Number(e.target.value))}
+              className="absolute inset-0 h-full w-full cursor-pointer appearance-none bg-transparent opacity-0 disabled:pointer-events-none"
+              aria-label="Volume"
+            />
+            <span
+              className="pointer-events-none absolute top-1/2 h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full border border-white bg-[oklch(0.6_0.2_265)] shadow"
+              style={{ left: `${volume * 100}%` }}
+            />
+          </div>
+        </div>
       </div>
     </div>
   );
