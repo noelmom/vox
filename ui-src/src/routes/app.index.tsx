@@ -1782,13 +1782,15 @@ function JobRow({
 
       {/* ── Transport bar ── */}
       {fetchStatus === "ready" && (
-        <div className="flex flex-wrap items-center gap-3 px-4 py-3">
-          <JobVolumeControl value={volume} muted={muted} onChange={(v) => { setVolume(v); setMuted(false); }} onToggleMute={() => setMuted((m) => !m)} />
-          <SpeedControl value={speed} onChange={setSpeed} />
-          <span className="ml-auto font-mono text-[11px] tabular-nums text-foreground/60">
-            {fmtTime(progress)} <span className="text-foreground/35">/ {fmtTime(audioDuration)}</span>
-          </span>
-          <div className="flex items-center gap-1">
+        <div className="flex flex-col gap-2 px-4 pb-3 pt-3 sm:flex-row sm:items-center sm:gap-3 sm:py-3">
+          <div className="flex items-center gap-3">
+            <JobVolumeControl value={volume} muted={muted} onChange={(v) => { setVolume(v); setMuted(false); }} onToggleMute={() => setMuted((m) => !m)} />
+            <SpeedControl value={speed} onChange={setSpeed} />
+          </div>
+          <div className="flex items-center gap-1 sm:ml-auto">
+            <span className="mr-auto font-mono text-[11px] tabular-nums text-foreground/60 sm:mr-0">
+              {fmtTime(progress)} <span className="text-foreground/35">/ {fmtTime(audioDuration)}</span>
+            </span>
             <a href={`/api/v1/jobs/${encodeURIComponent(job.request_id)}/audio`} download={`vox-${job.request_id.slice(0, 8)}.${job.output_format}`}
               className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-white px-2.5 py-1.5 text-[12px] font-semibold text-foreground/75 hover:bg-muted">
               <Download className="h-3.5 w-3.5" /> Download
