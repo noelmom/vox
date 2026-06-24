@@ -1581,7 +1581,9 @@ function JobRow({
     if (audioRef.current) audioRef.current.playbackRate = speed;
   }, [speed]);
 
-  // Canvas draw loop
+  // Derived values needed by both the draw loop and JSX — declared before the draw loop
+  const audioDuration = duration || (job.audio_duration_s ?? 0);
+  const jobPeaks = useMemo(() => jobSpeechPeaks(300, job.request_id), [job.request_id]);
   const peaks = waveformBars ?? jobPeaks;
   useEffect(() => {
     let raf = 0;
@@ -1672,12 +1674,8 @@ function JobRow({
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const audioDuration = duration || (job.audio_duration_s ?? 0);
   const progressPct = audioDuration > 0 ? (progress / audioDuration) * 100 : 0;
   const titlePreview = job.text.slice(0, 60) + (job.text.length > 60 ? "…" : "");
-  // Deterministic placeholder peaks seeded from job text (replaced by real peaks after decode)
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  const jobPeaks = useMemo(() => jobSpeechPeaks(300, job.request_id), [job.request_id]);
   const voiceLabel = job.voice_name ?? "Generic";
   const presetLabel = job.preset.charAt(0).toUpperCase() + job.preset.slice(1);
   const formatLabel = job.output_format.toUpperCase();
