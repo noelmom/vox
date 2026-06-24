@@ -1982,7 +1982,7 @@ function VoicePreviewPlayer({ voiceId }: { voiceId: string }) {
     return () => cancelAnimationFrame(raf);
   }, [peaks, progress, duration, hover, isGeneric]);
 
-  const src = voiceId ? `/voices/${encodeURIComponent(voiceId)}/audio` : "";
+  const src = voiceId ? `/api/v1/voices/${encodeURIComponent(voiceId)}/audio` : "";
   const fmt = (s: number) => { const t = Math.max(0, Math.floor(s)); return `${Math.floor(t / 60)}:${String(t % 60).padStart(2, "0")}`; };
 
   return (

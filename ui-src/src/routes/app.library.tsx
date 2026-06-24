@@ -1310,7 +1310,7 @@ function ProfileCard({
       onActivate(voice.name);
       setAudioStatus("loading");
       try {
-        const r = await fetch(`/voices/${encodeURIComponent(voice.name)}/audio`);
+        const r = await fetch(`/api/v1/voices/${encodeURIComponent(voice.name)}/audio`);
         if (!r.ok) throw new Error("Not found");
         const blob = await r.blob();
         // Decode PCM for real waveform
@@ -1380,7 +1380,7 @@ function ProfileCard({
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem asChild>
-                <a href={`/voices/${encodeURIComponent(voice.name)}/audio`} download={`${voice.name}.wav`} className="flex cursor-pointer items-center">
+                <a href={`/api/v1/voices/${encodeURIComponent(voice.name)}/audio`} download={`${voice.name}.wav`} className="flex cursor-pointer items-center">
                   <Download className="mr-2 h-3.5 w-3.5" />Download sample
                 </a>
               </DropdownMenuItem>
