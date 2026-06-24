@@ -22,6 +22,10 @@ import {
   Ban,
   Loader2,
   X,
+  Disc3,
+  Gauge,
+  Volume2,
+  VolumeX,
 } from "lucide-react";
 import { type Job, type ApiVoice, listJobs, listVoices, getJobAudio, deleteJob } from "@/lib/api";
 
@@ -54,9 +58,8 @@ function fmtDuration(s: number | null | undefined): string {
 }
 
 function fmtTime(s: number): string {
-  const m = Math.floor(s / 60);
-  const sec = Math.floor(s % 60);
-  return `${m}:${sec.toString().padStart(2, "0")}`;
+  const t = Math.max(0, Math.floor(s));
+  return `${Math.floor(t / 60)}:${String(t % 60).padStart(2, "0")}`;
 }
 
 function fmtJobDate(isoStr: string): string {
@@ -74,13 +77,57 @@ function capitalize(s: string) {
 
 const BUCKET_ORDER: DateBucket[] = ["Today", "Yesterday", "This Week", "Earlier"];
 
+function clipRoundedRect(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  r: number,
+) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
+}
+
+function clipSpeechPeaks(n: number, seed: string): number[] {
+  let h = 2166136261;
+  for (let i = 0; i < seed.length; i++) {
+    h ^= seed.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  const rand = () => {
+    h ^= h << 13;
+    h ^= h >>> 17;
+    h ^= h << 5;
+    return ((h >>> 0) % 10000) / 10000;
+  };
+  const out: number[] = [];
+  let i = 0;
+  while (i < n) {
+    const silence = rand() < 0.18;
+    const len = silence ? 3 + Math.floor(rand() * 8) : 10 + Math.floor(rand() * 30);
+    const peak = silence ? 0.05 : 0.4 + rand() * 0.6;
+    for (let j = 0; j < len && i < n; j++, i++) {
+      const env = Math.sin(Math.PI * (j / len));
+      const jitter = 0.7 + rand() * 0.6;
+      out.push(Math.max(0.03, peak * env * jitter));
+    }
+  }
+  return out;
+}
+
 // ─── page ───────────────────────────────────────────────────────────────────
 
 function HistoryPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
-  const { data: jobs = [], isFetching, refetch } = useQuery({
+  const { data: jobs = [], isFetching } = useQuery({
     queryKey: ["jobs"],
     queryFn: () => listJobs({ limit: 200 }),
   });
@@ -105,7 +152,6 @@ function HistoryPage() {
     [jobs],
   );
 
-  // Unique filter options derived from loaded jobs
   const voiceOptions = useMemo(() => {
     const names = new Set(completedJobs.map((j) => j.voice_name ?? "Generic"));
     return ["All Voices", ...Array.from(names).sort()];
@@ -147,7 +193,6 @@ function HistoryPage() {
     [completedJobs],
   );
 
-  // Group and paginate
   const { groups, total, showing } = useMemo(() => {
     const bucketMap = new Map<DateBucket, Job[]>();
     for (const j of filtered) {
@@ -244,30 +289,10 @@ function HistoryPage() {
           <span className="inline-flex items-center gap-1.5 text-[12px] text-muted-foreground">
             <Filter className="h-3.5 w-3.5" /> Filter
           </span>
-          <FilterChip
-            label="All Voices"
-            value={filterVoice}
-            options={voiceOptions}
-            onChange={(v) => { setFilterVoice(v); setVisibleCount(25); }}
-          />
-          <FilterChip
-            label="All Tones"
-            value={filterTone}
-            options={toneOptions}
-            onChange={(v) => { setFilterTone(v); setVisibleCount(25); }}
-          />
-          <FilterChip
-            label="All Formats"
-            value={filterFormat}
-            options={formatOptions}
-            onChange={(v) => { setFilterFormat(v); setVisibleCount(25); }}
-          />
-          <FilterChip
-            label="All Dates"
-            value={filterDate}
-            options={dateOptions}
-            onChange={(v) => { setFilterDate(v); setVisibleCount(25); }}
-          />
+          <FilterChip label="All Voices" value={filterVoice} options={voiceOptions} onChange={(v) => { setFilterVoice(v); setVisibleCount(25); }} />
+          <FilterChip label="All Tones" value={filterTone} options={toneOptions} onChange={(v) => { setFilterTone(v); setVisibleCount(25); }} />
+          <FilterChip label="All Formats" value={filterFormat} options={formatOptions} onChange={(v) => { setFilterFormat(v); setVisibleCount(25); }} />
+          <FilterChip label="All Dates" value={filterDate} options={dateOptions} onChange={(v) => { setFilterDate(v); setVisibleCount(25); }} />
           {hasActiveFilters && (
             <button
               onClick={clearFilters}
@@ -417,6 +442,7 @@ function ClipCard({
   onDelete: () => void;
 }) {
   const audioRef = useRef<HTMLAudioElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const onActivateRef = useRef(onActivate);
   onActivateRef.current = onActivate;
 
@@ -428,16 +454,24 @@ function ClipCard({
   const [playing, setPlaying] = useState(false);
   const [progress, setProgress] = useState(0);
   const [audioDuration, setAudioDuration] = useState(0);
+  const [waveformBars, setWaveformBars] = useState<number[] | null>(null);
+  const [volume, setVolume] = useState(0.8);
+  const [speed, setSpeed] = useState(1);
+  const [hover, setHover] = useState<number | null>(null);
   const [expanded, setExpanded] = useState(false);
   const [copied, setCopied] = useState(false);
   const [copiedId, setCopiedId] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
+  const jobPeaks = useMemo(() => clipSpeechPeaks(300, job.request_id), [job.request_id]);
+  const peaks = waveformBars ?? jobPeaks;
+  const displayDuration = audioDuration || (job.audio_duration_s ?? 0);
+
   // Pause when another player becomes active
   useEffect(() => {
     if (activePlayerId !== job.request_id && playing) setPlaying(false);
-  }, [activePlayerId, job.request_id]);
+  }, [activePlayerId, job.request_id, playing]);
 
   useEffect(() => {
     const a = audioRef.current;
@@ -459,16 +493,130 @@ function ClipCard({
 
   useEffect(() => {
     const a = audioRef.current;
+    if (a) a.volume = volume;
+  }, [volume]);
+
+  useEffect(() => {
+    const a = audioRef.current;
+    if (a) a.playbackRate = speed;
+  }, [speed]);
+
+  useEffect(() => {
+    const a = audioRef.current;
     if (!a) return;
     if (playing) a.play().catch(() => setPlaying(false));
     else a.pause();
   }, [playing]);
+
+  // Canvas draw loop
+  useEffect(() => {
+    let raf = 0;
+    const draw = () => {
+      const canvas = canvasRef.current;
+      const ctx = canvas?.getContext("2d");
+      if (canvas && ctx) {
+        const dpr = window.devicePixelRatio || 1;
+        const w = canvas.clientWidth;
+        const h = canvas.clientHeight;
+        if (canvas.width !== w * dpr || canvas.height !== h * dpr) {
+          canvas.width = w * dpr;
+          canvas.height = h * dpr;
+        }
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        ctx.clearRect(0, 0, w, h);
+
+        ctx.strokeStyle = "oklch(0.92 0.01 260)";
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(0, h / 2);
+        ctx.lineTo(w, h / 2);
+        ctx.stroke();
+
+        const barW = 2;
+        const gap = 2;
+        const slot = barW + gap;
+        const count = Math.floor(w / slot);
+        const progressPct = displayDuration > 0 ? progress / displayDuration : 0;
+        const playedX = progressPct * w;
+        const hoverX = hover != null ? hover * w : null;
+
+        const grad = ctx.createLinearGradient(0, 0, w, 0);
+        grad.addColorStop(0, "oklch(0.6 0.2 260)");
+        grad.addColorStop(0.55, "oklch(0.58 0.22 305)");
+        grad.addColorStop(1, "oklch(0.62 0.22 25)");
+
+        for (let i = 0; i < count; i++) {
+          const p = peaks[Math.floor((i / count) * peaks.length)] ?? 0;
+          const bh = Math.max(2, p * (h * 0.9));
+          const x = i * slot;
+          const y = (h - bh) / 2;
+          const isPlayed = fetchStatus === "ready" && x < playedX;
+          const inHoverPreview = fetchStatus === "ready" && hoverX != null && x >= playedX && x < hoverX;
+          if (isPlayed) {
+            ctx.fillStyle = grad;
+          } else if (inHoverPreview) {
+            ctx.fillStyle = "oklch(0.55 0.22 260 / 0.35)";
+          } else {
+            ctx.globalAlpha = fetchStatus === "loading" ? 0.22 : 1;
+            ctx.fillStyle = "oklch(0.55 0.04 260 / 0.32)";
+            ctx.globalAlpha = 1;
+          }
+          clipRoundedRect(ctx, x, y, barW, bh, 1);
+          ctx.fill();
+        }
+
+        if (fetchStatus === "ready" && displayDuration > 0) {
+          ctx.strokeStyle = "oklch(0.62 0.22 25)";
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.moveTo(playedX, 4);
+          ctx.lineTo(playedX, h - 4);
+          ctx.stroke();
+          ctx.fillStyle = "oklch(0.62 0.22 25)";
+          ctx.beginPath();
+          ctx.arc(playedX, h / 2, 3.5, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+      raf = requestAnimationFrame(draw);
+    };
+    raf = requestAnimationFrame(draw);
+    return () => cancelAnimationFrame(raf);
+  }, [peaks, progress, displayDuration, hover, fetchStatus]);
+
+  const noAudio = fetchStatus === "expired";
+  const longScript = job.text.length > 120;
+  const voiceLabel = job.voice_name ?? "Generic";
+  const toneLabel = capitalize(job.preset);
+  const formatLabel = job.output_format.toUpperCase();
+  const badges = [
+    fmtDuration(displayDuration || job.audio_duration_s),
+    formatLabel,
+    ...(job.rtf != null ? [`RTF ${job.rtf.toFixed(2)}x`] : []),
+  ];
 
   const fetchAudio = async (): Promise<string | null> => {
     if (blobUrl) return blobUrl;
     setFetchStatus("loading");
     try {
       const blob = await getJobAudio(job.request_id);
+      blob.arrayBuffer().then((ab) => {
+        const tmpCtx = new AudioContext();
+        tmpCtx.decodeAudioData(ab, (buf) => {
+          const ch = buf.getChannelData(0);
+          const buckets = 300;
+          const size = Math.max(1, Math.floor(ch.length / buckets));
+          const raw: number[] = [];
+          for (let i = 0; i < buckets; i++) {
+            let sum = 0;
+            for (let j = 0; j < size; j++) sum += ch[i * size + j] ** 2;
+            raw.push(Math.sqrt(sum / size));
+          }
+          const mx = Math.max(...raw, 0.001);
+          setWaveformBars(raw.map((p) => p / mx));
+          tmpCtx.close();
+        });
+      });
       const url = URL.createObjectURL(blob);
       setBlobUrl(url);
       setFetchStatus("ready");
@@ -492,14 +640,24 @@ function ClipCard({
     onActivate(next ? job.request_id : null);
   };
 
+  const handleCanvasClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    if (fetchStatus !== "ready") { void handlePlayClick(); return; }
+    const r = e.currentTarget.getBoundingClientRect();
+    const pct = Math.min(1, Math.max(0, (e.clientX - r.left) / r.width));
+    const a = audioRef.current;
+    if (a && displayDuration > 0) {
+      a.currentTime = pct * displayDuration;
+      setProgress(pct * displayDuration);
+    }
+  };
+
   const handleDownload = async () => {
     const url = await fetchAudio();
     if (!url) return;
     const ext = job.output_format === "wav" ? "wav" : "mp3";
-    const name = `${job.voice_name ?? "generic"}-${job.request_id.slice(0, 8)}.${ext}`;
     const a = document.createElement("a");
     a.href = url;
-    a.download = name;
+    a.download = `${voiceLabel}-${job.request_id.slice(0, 8)}.${ext}`;
     a.click();
   };
 
@@ -524,14 +682,6 @@ function ClipCard({
       setConfirmDelete(false);
     }
   };
-
-  const noAudio = fetchStatus === "expired";
-  const longScript = job.text.length > 120;
-  const displayDuration = audioDuration || (job.audio_duration_s ?? 0);
-  const progressPct = displayDuration > 0 ? (progress / displayDuration) * 100 : 0;
-  const voiceLabel = job.voice_name ?? "Generic";
-  const toneLabel = capitalize(job.preset);
-  const formatLabel = job.output_format.toUpperCase();
 
   return (
     <article
@@ -560,57 +710,14 @@ function ClipCard({
       {blobUrl && <audio ref={audioRef} src={blobUrl} preload="auto" />}
 
       <div className="flex flex-col gap-4 p-4 pl-5 sm:p-5 sm:pl-6">
-        {/* Top row */}
+        {/* Top row: status badges + actions */}
         <div className="flex items-start gap-3">
-          {/* Play button */}
-          <button
-            onClick={handlePlayClick}
-            disabled={noAudio || failed}
-            aria-label={failed ? "Generation failed" : noAudio ? "Audio expired" : playing ? "Pause" : "Play"}
-            className={
-              "flex h-11 w-11 shrink-0 items-center justify-center rounded-full transition-all " +
-              (failed
-                ? "cursor-not-allowed bg-[oklch(0.96_0.04_25)] text-[oklch(0.6_0.22_25)]"
-                : noAudio
-                  ? "cursor-not-allowed bg-muted text-muted-foreground"
-                  : fetchStatus === "loading"
-                    ? "cursor-wait bg-[oklch(0.95_0.04_260)] text-[oklch(0.55_0.22_260)]"
-                    : "bg-[oklch(0.95_0.04_260)] text-[oklch(0.55_0.22_260)] hover:bg-[oklch(0.92_0.05_260)] hover:scale-105")
-            }
-          >
-            {failed ? (
-              <XCircle className="h-4 w-4" />
-            ) : noAudio ? (
-              <AlertTriangle className="h-4 w-4" />
-            ) : fetchStatus === "loading" ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : playing ? (
-              <Pause className="h-4 w-4" fill="currentColor" />
-            ) : (
-              <Play className="ml-0.5 h-4 w-4" fill="currentColor" />
-            )}
-          </button>
-
-          {/* Meta */}
           <div className="min-w-0 flex-1">
-            <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[12px] text-muted-foreground">
-              <span className="font-semibold text-foreground/85">{voiceLabel}</span>
-              <Dot />
-              <span>{toneLabel}</span>
-              <Dot />
-              <span>{formatLabel}</span>
-              <Dot />
-              <span>{fmtJobDate(job.created_at)}</span>
-            </div>
-            <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+            <div className="flex flex-wrap items-center gap-1.5">
               {failed ? (
                 <Badge tone="error"><XCircle className="h-3 w-3" /> Failed</Badge>
               ) : (
                 <Badge tone="ok"><CheckCircle2 className="h-3 w-3" /> Complete</Badge>
-              )}
-              <Badge tone="neutral">{formatLabel}</Badge>
-              {job.audio_duration_s && (
-                <Badge tone="neutral">{fmtDuration(job.audio_duration_s)}</Badge>
               )}
               {noAudio && !failed && (
                 <Badge tone="warn"><Clock className="h-3 w-3" /> Audio expired</Badge>
@@ -618,16 +725,12 @@ function ClipCard({
               {voiceMissing && (
                 <Badge tone="error"><Ban className="h-3 w-3" /> Voice missing</Badge>
               )}
-              {!failed && !noAudio && job.rtf != null && (
-                <Badge tone="neutral">RTF {job.rtf.toFixed(2)}x</Badge>
-              )}
             </div>
             {failed && job.error && (
               <div className="mt-1.5 text-[11.5px] text-[oklch(0.5_0.22_25)]">{job.error}</div>
             )}
           </div>
 
-          {/* Actions */}
           <div className="flex shrink-0 items-center gap-1">
             {confirmDelete ? (
               <>
@@ -647,16 +750,7 @@ function ClipCard({
               </>
             ) : (
               <>
-                {!noAudio && !failed && (
-                  <>
-                    <IconAction label="Download" onClick={handleDownload}>
-                      <Download className="h-3.5 w-3.5" />
-                    </IconAction>
-                    <IconAction label="Regenerate" onClick={onRegenerate}>
-                      <RefreshCw className="h-3.5 w-3.5" />
-                    </IconAction>
-                  </>
-                )}
+                {noAudio && <RegenerateButton voiceMissing={voiceMissing} onRegenerate={onRegenerate} />}
                 <IconAction label="Delete" destructive onClick={() => setConfirmDelete(true)}>
                   <Trash2 className="h-3.5 w-3.5" />
                 </IconAction>
@@ -664,6 +758,134 @@ function ClipCard({
             )}
           </div>
         </div>
+
+        {/* Player or no-audio placeholder */}
+        {noAudio ? (
+          <div className="flex items-center gap-3 rounded-xl border border-dashed border-[oklch(0.9_0.02_260)] bg-[oklch(0.985_0.005_260)] p-4">
+            <span
+              className={
+                "flex h-11 w-11 shrink-0 items-center justify-center rounded-full " +
+                (failed
+                  ? "bg-[oklch(0.96_0.04_25)] text-[oklch(0.6_0.22_25)]"
+                  : "bg-muted text-muted-foreground")
+              }
+            >
+              {failed ? <XCircle className="h-4 w-4" /> : <AlertTriangle className="h-4 w-4" />}
+            </span>
+            <div className="min-w-0 flex-1">
+              <div className="truncate text-[13px] font-bold text-foreground/85">{voiceLabel}</div>
+              <div className="truncate text-[11.5px] text-muted-foreground">
+                {toneLabel} · {formatLabel} · {fmtJobDate(job.created_at)}
+              </div>
+            </div>
+            <span className="text-[11.5px] font-medium text-muted-foreground">
+              {failed ? "No audio generated" : "Audio cleaned up"}
+            </span>
+          </div>
+        ) : (
+          <div className="overflow-hidden rounded-xl border border-border bg-gradient-to-br from-white to-[oklch(0.985_0.01_280)]">
+            {/* Player header */}
+            <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-3 px-4 pb-3 pt-4 sm:gap-4">
+              <button
+                onClick={handlePlayClick}
+                aria-label={playing ? "Pause" : "Play"}
+                disabled={fetchStatus === "loading"}
+                className="group/btn relative flex h-12 w-12 shrink-0 items-center justify-center rounded-full text-white transition-transform hover:scale-105 active:scale-95 disabled:cursor-wait disabled:opacity-80"
+                style={{
+                  background: "linear-gradient(135deg, oklch(0.6 0.2 260), oklch(0.55 0.22 305), oklch(0.6 0.22 25))",
+                  boxShadow: "0 10px 24px -10px oklch(0.55 0.22 280 / 0.6), inset 0 1px 0 oklch(1 0 0 / 0.3)",
+                }}
+              >
+                {playing && (
+                  <span className="absolute inset-0 -m-1 animate-ping rounded-full border-2 border-[oklch(0.6_0.22_280)]/30" />
+                )}
+                {fetchStatus === "loading" ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : playing ? (
+                  <Pause className="h-4 w-4" fill="currentColor" />
+                ) : (
+                  <Play className="ml-0.5 h-4 w-4" fill="currentColor" />
+                )}
+              </button>
+
+              <div className="min-w-0">
+                <div className="flex items-center gap-1.5">
+                  <Disc3 className="h-3.5 w-3.5 shrink-0 text-[oklch(0.55_0.22_260)]" />
+                  <div className="truncate text-[14px] font-bold text-foreground">{voiceLabel}</div>
+                </div>
+                <div className="mt-0.5 truncate text-[11.5px] text-foreground/55">
+                  {toneLabel} · {formatLabel} · {fmtJobDate(job.created_at)}
+                </div>
+                <div className="mt-1.5 flex flex-wrap items-center gap-1.5 sm:hidden">
+                  {badges.map((b) => (
+                    <span key={b} className="rounded-md bg-muted px-2 py-0.5 text-[11px] font-semibold text-foreground/65">{b}</span>
+                  ))}
+                </div>
+              </div>
+
+              <div className="hidden shrink-0 items-center gap-2 text-[11.5px] text-foreground/65 sm:flex">
+                {badges.map((b) => (
+                  <span key={b} className="rounded-md bg-muted px-2 py-1 font-semibold">{b}</span>
+                ))}
+              </div>
+            </div>
+
+            {/* Waveform canvas */}
+            <div className="relative mx-4 overflow-hidden rounded-lg border border-border bg-[oklch(0.99_0.005_280)]">
+              <div
+                className="pointer-events-none absolute inset-0 opacity-60"
+                style={{
+                  background:
+                    "radial-gradient(120% 100% at 0% 50%, oklch(0.95 0.04 260 / 0.5), transparent 60%), radial-gradient(120% 100% at 100% 50%, oklch(0.95 0.04 25 / 0.45), transparent 60%)",
+                }}
+              />
+              <canvas
+                ref={canvasRef}
+                onMouseMove={(e) => {
+                  const r = e.currentTarget.getBoundingClientRect();
+                  setHover(Math.min(1, Math.max(0, (e.clientX - r.left) / r.width)));
+                }}
+                onMouseLeave={() => setHover(null)}
+                onClick={handleCanvasClick}
+                className="relative block h-[88px] w-full cursor-pointer"
+              />
+              {hover != null && (
+                <div
+                  className="pointer-events-none absolute -top-1 z-10 -translate-x-1/2 -translate-y-full rounded-md bg-foreground px-1.5 py-0.5 font-mono text-[10px] tabular-nums text-background shadow"
+                  style={{ left: `${hover * 100}%` }}
+                >
+                  {fmtTime(hover * displayDuration)}
+                </div>
+              )}
+            </div>
+
+            {/* Transport bar */}
+            <div className="flex flex-wrap items-center gap-3 px-4 py-3">
+              <ClipVolumeControl value={volume} onChange={setVolume} />
+              <ClipSpeedControl value={speed} onChange={setSpeed} />
+              <span className="ml-auto font-mono text-[11px] tabular-nums text-foreground/60">
+                {fmtTime(progress)}{" "}
+                <span className="text-foreground/35">/ {fmtTime(displayDuration)}</span>
+              </span>
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={handleDownload}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-white px-2.5 py-1.5 text-[12px] font-semibold text-foreground/75 hover:bg-muted"
+                >
+                  <Download className="h-3.5 w-3.5" />
+                  Download
+                </button>
+                <button
+                  onClick={onRegenerate}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-white px-2.5 py-1.5 text-[12px] font-semibold text-foreground/75 hover:bg-muted"
+                >
+                  <RefreshCw className="h-3.5 w-3.5" />
+                  Regenerate
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Script */}
         <div className="relative rounded-xl border border-[oklch(0.94_0.02_260)] bg-gradient-to-br from-[oklch(0.985_0.01_260)] to-[oklch(0.97_0.02_260)] p-3.5 pl-10">
@@ -713,17 +935,6 @@ function ClipCard({
           </div>
         </div>
 
-        {/* Waveform / progress row */}
-        <div className="flex items-center gap-3">
-          <span className="shrink-0 whitespace-nowrap text-[11px] tabular-nums text-muted-foreground">
-            {playing || progress > 0 ? fmtTime(progress) : "0:00"}
-          </span>
-          <Waveform muted={noAudio} progress={progressPct} />
-          <span className="shrink-0 whitespace-nowrap text-[11px] tabular-nums text-muted-foreground">
-            {fmtDuration(displayDuration || job.audio_duration_s)}
-          </span>
-        </div>
-
         {/* Footer */}
         <div className="flex items-center justify-between text-[11.5px] text-muted-foreground">
           <span className="inline-flex items-center gap-1.5">
@@ -749,10 +960,6 @@ function ClipCard({
 }
 
 // ─── sub-components ──────────────────────────────────────────────────────────
-
-function Dot() {
-  return <span className="text-muted-foreground/50">·</span>;
-}
 
 function Badge({
   children,
@@ -837,28 +1044,74 @@ function RegenerateButton({
   );
 }
 
-function Waveform({ muted, progress }: { muted?: boolean; progress: number }) {
-  const bars = 64;
+function ClipVolumeControl({ value, onChange }: { value: number; onChange: (v: number) => void }) {
+  const muted = value === 0;
   return (
-    <div className="flex h-8 min-w-0 flex-1 items-center gap-[2px]">
-      {Array.from({ length: bars }).map((_, i) => {
-        const h = 20 + Math.abs(Math.sin(i * 0.7)) * 70 + (i % 5) * 4;
-        const played = progress > 0 && (i / bars) * 100 <= progress;
-        return (
-          <span
-            key={i}
-            className={
-              "block min-w-[2px] flex-1 rounded-full " +
-              (muted
-                ? "bg-[oklch(0.88_0.01_260)]"
-                : played
-                  ? "bg-[oklch(0.55_0.22_260)]"
-                  : "bg-[oklch(0.55_0.22_260)]/30")
-            }
-            style={{ height: `${Math.min(100, h)}%` }}
-          />
-        );
-      })}
+    <div className="flex items-center gap-2 rounded-full border border-border bg-white px-2 py-1">
+      <button
+        onClick={() => onChange(muted ? 0.8 : 0)}
+        className="text-foreground/60 hover:text-foreground"
+        aria-label={muted ? "Unmute" : "Mute"}
+      >
+        {muted ? <VolumeX className="h-3.5 w-3.5" /> : <Volume2 className="h-3.5 w-3.5" />}
+      </button>
+      <div className="relative h-1 w-20 rounded-full bg-muted">
+        <div
+          className="absolute left-0 top-0 h-full rounded-full"
+          style={{
+            width: `${value * 100}%`,
+            background: "linear-gradient(90deg, oklch(0.6 0.2 260), oklch(0.62 0.22 25))",
+          }}
+        />
+        <input
+          type="range"
+          min={0}
+          max={1}
+          step={0.01}
+          value={value}
+          onChange={(e) => onChange(Number(e.target.value))}
+          className="absolute inset-0 h-full w-full cursor-pointer appearance-none bg-transparent opacity-0"
+          aria-label="Volume"
+        />
+        <span
+          className="pointer-events-none absolute top-1/2 h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full border border-white bg-[oklch(0.6_0.2_265)] shadow"
+          style={{ left: `${value * 100}%` }}
+        />
+      </div>
+    </div>
+  );
+}
+
+function ClipSpeedControl({ value, onChange }: { value: number; onChange: (v: number) => void }) {
+  const speeds = [0.5, 0.75, 1, 1.25, 1.5, 2];
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="relative">
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className="inline-flex items-center gap-1.5 rounded-full border border-border bg-white px-2.5 py-1 text-[12px] font-semibold text-foreground/70 hover:bg-muted"
+      >
+        <Gauge className="h-3.5 w-3.5" />
+        {value}x
+      </button>
+      {open && (
+        <div className="absolute bottom-full left-0 z-20 mb-1.5 flex gap-1 rounded-lg border border-border bg-white p-1 shadow-lg">
+          {speeds.map((s) => (
+            <button
+              key={s}
+              onClick={() => { onChange(s); setOpen(false); }}
+              className={
+                "rounded-md px-2 py-1 text-[11.5px] font-semibold " +
+                (s === value
+                  ? "bg-[oklch(0.55_0.22_260)] text-white"
+                  : "text-foreground/70 hover:bg-muted")
+              }
+            >
+              {s}x
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
