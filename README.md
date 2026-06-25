@@ -403,7 +403,7 @@ Built-in presets:
 
 ## Configuration
 
-All settings are controlled via environment variables with a `VOX_` prefix, or by editing `.env` in the project root. The `.env` file is git-ignored and created automatically by `setup.sh`.
+All settings are controlled via environment variables with a `VOX_` prefix, or by editing `.env` in the project root. Start from [`.env.example`](./.env.example) and copy it to `.env` if you want a ready-made template. The `.env` file is git-ignored and created automatically by `setup.sh`.
 
 | Variable | Default | Description |
 |----------|---------|-------------|
@@ -417,6 +417,8 @@ All settings are controlled via environment variables with a `VOX_` prefix, or b
 | `VOX_DEFAULT_MAX_CHARS` | `450` | Default text chunk size |
 | `VOX_MIN_MAX_CHARS` | `100` | Minimum allowed chunk size |
 | `VOX_MAX_MAX_CHARS` | `3000` | Maximum allowed chunk size |
+| `VOX_CHUNK_HEADROOM_CHARS` | `40` | Breathing room reserved below the hard chunk limit so sentence endings are less likely to be cut off. Invalid or empty values fall back to 40. |
+| `VOX_MAX_VOICE_CLIP_DURATION_S` | `120` | Maximum allowed uploaded/recorded voice clip length in seconds. Invalid or empty values fall back to 120. |
 | `HF_TOKEN` | *(none)* | HuggingFace access token. Only needed the first time the model is downloaded — without it, downloads are anonymous and subject to HuggingFace rate limits. Has no effect on generation speed once the model is cached locally. Uses the standard HF convention (no `VOX_` prefix). Generate a read-only token at [huggingface.co/settings/tokens](https://huggingface.co/settings/tokens). **Never commit this value to git.** |
 
 > **Note:** The menu bar helper (`VoxHelper.app`) reads `.env` on startup and uses the configured `VOX_PORT` for all health checks and API calls. If you change `VOX_PORT`, restart the helper for the change to take effect.
@@ -427,9 +429,13 @@ All settings are controlled via environment variables with a `VOX_` prefix, or b
 VOX_HOST=0.0.0.0
 VOX_PORT=8000
 VOX_OUTPUT_TTL_HOURS=48
+VOX_CHUNK_HEADROOM_CHARS=40
+VOX_MAX_VOICE_CLIP_DURATION_S=120
 VOX_DEVICE=mps
 HF_TOKEN=hf_xxxxxxxxxxxxx
 ```
+
+The same template lives in [`.env.example`](./.env.example) for easy copying and reference.
 
 ---
 

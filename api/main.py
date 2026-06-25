@@ -81,6 +81,10 @@ All six Chatterbox parameters can be tuned per-request or saved as a named **pre
 
 **Override priority** (lowest → highest): built-in preset → voice profile defaults → per-request values.
 
+## Chunking
+
+Long text is split at sentence boundaries. `max_chars` sets the hard chunk limit (default 450, range 100–3000). Vox also reserves `VOX_CHUNK_HEADROOM_CHARS` of extra breathing room below that limit so sentence endings are less likely to get cut off or hallucinate at chunk boundaries.
+
 ## Response headers
 
 Every TTS response includes timing telemetry:
@@ -230,6 +234,7 @@ async def health():
         "presets": list(PRESETS.keys()),
         "input_dir": str(settings.input_dir),
         "output_ttl_hours": settings.output_ttl_hours,
+        "max_voice_clip_duration_s": settings.max_voice_clip_duration_s,
     }
 
 
@@ -332,10 +337,13 @@ async def get_settings():
         "voice_dir": str(settings.voice_dir.resolve()),
         "input_dir": str(settings.input_dir.resolve()),
         "output_ttl_hours": settings.output_ttl_hours,
+        "chunk_headroom_chars": settings.chunk_headroom_chars,
         "ffmpeg_available": ffmpeg_ok,
         "ffmpeg_path": ffmpeg,
         "model_name": "Chatterbox Turbo",
         "default_max_chars": settings.default_max_chars,
+        "chunk_headroom_chars": settings.chunk_headroom_chars,
+        "max_voice_clip_duration_s": settings.max_voice_clip_duration_s,
         "macos_version": mac_ver,
         "chip": chip,
         "vox_version": "0.4.2-beta",

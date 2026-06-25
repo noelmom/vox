@@ -153,6 +153,13 @@ if [[ ! -f "$ENV_FILE" ]]; then
 # Output file cleanup — how many hours to keep generated audio (0 = keep forever)
 # VOX_OUTPUT_TTL_HOURS=24
 
+# Chunking headroom — reserve this many characters below the hard max so
+# sentence endings are less likely to be cut off at a chunk boundary.
+# VOX_CHUNK_HEADROOM_CHARS=40
+
+# Voice clip length limit for uploads/recordings, in seconds (invalid or empty -> 120)
+# VOX_MAX_VOICE_CLIP_DURATION_S=120
+
 # Text chunking limits
 # VOX_DEFAULT_MAX_CHARS=450
 # VOX_MIN_MAX_CHARS=100

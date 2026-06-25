@@ -42,6 +42,7 @@ import {
   Heart,
   Package,
 } from "lucide-react";
+import { BRAND, BRAND_GRADIENT, BRAND_SECONDARY, BRAND_WARM } from "@/lib/theme";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -71,7 +72,7 @@ function Logo({ className = "" }: { className?: string }) {
   );
 }
 
-function StatusDot({ color = "oklch(0.7 0.18 145)" }: { color?: string }) {
+function StatusDot({ color = BRAND }: { color?: string }) {
   return (
     <span
       className="inline-block h-1.5 w-1.5 rounded-full"
@@ -80,6 +81,11 @@ function StatusDot({ color = "oklch(0.7 0.18 145)" }: { color?: string }) {
   );
 }
 
+const PRIMARY_CTA_STYLE = {
+  background: "var(--brand-gradient)",
+  boxShadow: "var(--shadow-btn)",
+};
+
 function GithubBadge() {
   return (
     <a
@@ -87,11 +93,11 @@ function GithubBadge() {
       target="_blank"
       rel="noreferrer noopener"
       aria-label="Star on GitHub"
-      className="group inline-flex items-center gap-2 rounded-full border border-border bg-white/80 px-3 py-1.5 text-xs font-semibold text-foreground/80 shadow-sm backdrop-blur transition-all hover:border-[oklch(0.55_0.22_260)/0.4] hover:text-foreground hover:shadow-md"
+      className="group inline-flex items-center gap-2 rounded-full border border-border bg-white/80 px-3 py-1.5 text-xs font-semibold text-foreground/80 shadow-sm backdrop-blur transition-all hover:border-[var(--brand)] hover:text-foreground hover:shadow-md"
     >
       <Github className="h-3.5 w-3.5" strokeWidth={2.25} />
       <span className="hidden sm:inline">Star on GitHub</span>
-      <span className="flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[11px] font-bold text-foreground/70 transition-colors group-hover:bg-[oklch(0.95_0.04_260)] group-hover:text-[oklch(0.55_0.22_260)]">
+      <span className="flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[11px] font-bold text-foreground/70 transition-colors group-hover:bg-[var(--brand-soft)] group-hover:text-[var(--brand)]">
         <Star className="h-3 w-3" fill="currentColor" />
         2.4k
       </span>
@@ -110,7 +116,7 @@ function Index() {
     <div
       id="top"
       className="relative min-h-screen w-full overflow-hidden"
-      style={{ background: "var(--hero-bg)" }}
+      style={{ background: "var(--page-bg)" }}
     >
       {/* Sticky nav */}
       <header className="sticky top-0 z-50 border-b border-border/40 bg-white/70 backdrop-blur-xl supports-[backdrop-filter]:bg-white/60">
@@ -135,8 +141,8 @@ function Index() {
                 <GithubBadge />
                 <Link
                   to="/app"
-                  className="rounded-lg bg-[oklch(0.55_0.22_260)] px-5 py-2.5 text-sm font-semibold text-white transition-all hover:brightness-110"
-                  style={{ boxShadow: "var(--shadow-btn)" }}
+                  className="rounded-lg px-5 py-2.5 text-sm font-semibold text-white transition-all hover:-translate-y-0.5 hover:brightness-110"
+                  style={PRIMARY_CTA_STYLE}
                 >
                   Open App
                 </Link>
@@ -189,8 +195,8 @@ function Index() {
                   <Link
                     to="/app"
                     onClick={() => setMenuOpen(false)}
-                    className="w-full rounded-lg bg-[oklch(0.55_0.22_260)] px-5 py-2.5 text-center text-sm font-semibold text-white transition-all hover:brightness-110"
-                    style={{ boxShadow: "var(--shadow-btn)" }}
+                    className="w-full rounded-lg px-5 py-2.5 text-center text-sm font-semibold text-white transition-all hover:-translate-y-0.5 hover:brightness-110"
+                    style={PRIMARY_CTA_STYLE}
                   >
                     Open App
                   </Link>
@@ -217,11 +223,11 @@ function Index() {
 
           <div className="relative max-w-[560px]">
             <div className="inline-flex items-center gap-2 rounded-full border border-border bg-white/70 px-3 py-1 text-[11px] font-semibold tracking-wider text-foreground/70 backdrop-blur">
-              <StatusDot />
+              <StatusDot color="var(--brand)" />
               LOCAL · PRIVATE · FREE
             </div>
             <h1 className="mt-6 max-w-[540px] text-[56px] font-black leading-[1.02] tracking-tight text-foreground sm:text-[64px]">
-              <span className="text-[oklch(0.62_0.13_175)]">Private</span>{" "}
+              <span className="text-[var(--brand-secondary)]">Private</span>{" "}
               voice generation on your machine.
             </h1>
             <p className="mt-5 max-w-[440px] text-[15px] leading-relaxed text-muted-foreground">
@@ -232,8 +238,8 @@ function Index() {
             <div className="mt-7 flex flex-wrap items-center gap-3">
               <Link
                 to="/app"
-                className="group inline-flex items-center gap-2 rounded-lg bg-[oklch(0.55_0.22_260)] px-5 py-3 text-sm font-semibold text-white transition-all hover:brightness-110"
-                style={{ boxShadow: "var(--shadow-btn)" }}
+                className="group inline-flex items-center gap-2 rounded-lg px-5 py-3 text-sm font-semibold text-white transition-all hover:-translate-y-0.5 hover:brightness-110"
+                style={PRIMARY_CTA_STYLE}
               >
                 <AudioLines className="h-4 w-4" />
                 Open Studio
@@ -278,7 +284,7 @@ function Index() {
             },
           ].map(({ Icon, title, desc }) => (
             <div key={title}>
-              <Icon className="h-7 w-7 text-[oklch(0.55_0.22_260)]" strokeWidth={1.75} />
+              <Icon className="h-7 w-7 text-[var(--brand)]" strokeWidth={1.75} />
               <h3 className="mt-3 text-[15px] font-bold text-foreground">{title}</h3>
               <p className="mt-1.5 text-[13px] leading-relaxed text-muted-foreground">
                 {desc}
@@ -291,7 +297,7 @@ function Index() {
         <section id="how-it-works" className="mt-24 scroll-mt-24">
           <div className="text-center">
             <div className="inline-flex items-center gap-2 rounded-full border border-border bg-white/70 px-3 py-1 text-[11px] font-semibold tracking-wider text-foreground/70 backdrop-blur">
-              <StatusDot color="oklch(0.55 0.22 260)" />
+              <StatusDot color="var(--brand)" />
               HOW IT WORKS
             </div>
             <h2 className="mt-4 text-[40px] font-black leading-[1.05] tracking-tight text-foreground">
@@ -309,7 +315,7 @@ function Index() {
               className="pointer-events-none absolute left-[16.66%] right-[16.66%] top-[28px] hidden h-px md:block"
               style={{
                 background:
-                  "linear-gradient(to right, transparent, oklch(0.55 0.22 260 / 0.25), oklch(0.62 0.13 175 / 0.25), transparent)",
+                  "linear-gradient(to right, transparent, color-mix(in oklch, var(--brand) 25%, transparent), color-mix(in oklch, var(--brand-secondary) 25%, transparent), transparent)",
               }}
             />
             {[
@@ -342,7 +348,7 @@ function Index() {
                     className="inline-flex h-9 w-9 items-center justify-center rounded-full text-[12px] font-bold text-white"
                     style={{
                       background:
-                        "linear-gradient(135deg, oklch(0.55 0.22 260), oklch(0.62 0.13 175))",
+                        "var(--brand-gradient)",
                       boxShadow: "var(--shadow-btn)",
                     }}
                   >
@@ -350,7 +356,7 @@ function Index() {
                   </span>
                   <span className="h-px flex-1 bg-border" />
                   <Icon
-                    className="h-5 w-5 text-[oklch(0.55_0.22_260)]"
+                    className="h-5 w-5 text-[var(--brand)]"
                     strokeWidth={2}
                   />
                 </div>
@@ -397,9 +403,9 @@ function Waveform() {
     >
       <defs>
         <linearGradient id="wgrad" x1="0" x2="1">
-          <stop offset="0" stopColor="oklch(0.55 0.22 260)" stopOpacity="0" />
-          <stop offset="0.4" stopColor="oklch(0.55 0.22 260)" stopOpacity="0.9" />
-          <stop offset="1" stopColor="oklch(0.62 0.13 175)" stopOpacity="0.9" />
+          <stop offset="0" stopColor="var(--brand)" stopOpacity="0" />
+          <stop offset="0.4" stopColor="var(--brand)" stopOpacity="0.9" />
+          <stop offset="1" stopColor="var(--brand-secondary)" stopOpacity="0.9" />
         </linearGradient>
       </defs>
       {lines.map((i) => {
@@ -439,12 +445,12 @@ function StudioScreenshot() {
         className="pointer-events-none absolute -inset-6 -z-10 rounded-[28px] opacity-70 blur-2xl"
         style={{
           background:
-            "radial-gradient(60% 60% at 30% 30%, oklch(0.78 0.16 260 / 0.35), transparent 70%), radial-gradient(50% 50% at 80% 70%, oklch(0.82 0.14 200 / 0.30), transparent 70%)",
+            "radial-gradient(60% 60% at 30% 30%, color-mix(in oklch, var(--brand) 35%, transparent), transparent 70%), radial-gradient(50% 50% at 80% 70%, color-mix(in oklch, var(--brand-secondary) 30%, transparent), transparent 70%)",
         }}
       />
 
       <div
-        className="relative overflow-hidden rounded-2xl border border-border bg-white"
+        className="relative overflow-hidden rounded-2xl border border-border bg-white/90"
         style={{ boxShadow: "var(--shadow-card)" }}
       >
         {/* macOS-style title bar */}
@@ -470,8 +476,8 @@ function StudioScreenshot() {
 
 function StudioPreview() {
   return (
-    <div
-      className="overflow-hidden rounded-2xl border border-border bg-white"
+      <div
+      className="overflow-hidden rounded-2xl border border-border bg-white/90"
       style={{ boxShadow: "var(--shadow-card)" }}
     >
       {/* Top bar */}
@@ -479,8 +485,8 @@ function StudioPreview() {
         <Logo />
         <div className="flex items-center gap-5 text-xs font-medium text-foreground/70">
           <span className="inline-flex items-center gap-1.5"><StatusDot />Ready</span>
-          <span className="inline-flex items-center gap-1.5"><StatusDot color="oklch(0.55 0.22 260)" />Apple MPS</span>
-          <span className="inline-flex items-center gap-1.5"><StatusDot color="oklch(0.55 0.22 260)" />Chatterbox Turbo</span>
+          <span className="inline-flex items-center gap-1.5"><StatusDot color="var(--brand)" />Apple MPS</span>
+          <span className="inline-flex items-center gap-1.5"><StatusDot color="var(--brand)" />Chatterbox Turbo</span>
         </div>
       </div>
 
@@ -497,7 +503,7 @@ function StudioPreview() {
               key={label}
               className={`flex w-full items-center gap-2.5 px-5 py-2.5 text-[13px] font-medium transition-colors ${
                 active
-                  ? "bg-[oklch(0.95_0.04_260)] text-[oklch(0.55_0.22_260)]"
+                  ? "bg-[var(--brand-soft)] text-[var(--brand)]"
                   : "text-foreground/70 hover:bg-muted"
               }`}
             >
@@ -520,8 +526,8 @@ function StudioPreview() {
             <span>Est. 22 sec</span>
           </div>
           <button
-            className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-[oklch(0.55_0.22_260)] py-3 text-sm font-semibold text-white transition-all hover:brightness-110"
-            style={{ boxShadow: "var(--shadow-btn)" }}
+            className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-lg py-3 text-sm font-semibold text-white transition-all hover:-translate-y-0.5 hover:brightness-110"
+            style={{ background: BRAND_GRADIENT, boxShadow: "var(--shadow-btn)" }}
           >
             <AudioLines className="h-4 w-4" />
             Generate Voice
@@ -531,9 +537,9 @@ function StudioPreview() {
           {/* Recent output */}
           <div className="mt-6">
             <h4 className="text-[13px] font-semibold text-foreground">Recent Output</h4>
-            <div className="mt-2 rounded-lg border border-border p-3">
+              <div className="mt-2 rounded-lg border border-border p-3">
               <div className="flex items-center gap-2.5">
-                <button className="flex h-7 w-7 items-center justify-center rounded-full bg-[oklch(0.95_0.04_260)] text-[oklch(0.55_0.22_260)]">
+                <button className="flex h-7 w-7 items-center justify-center rounded-full bg-[var(--brand-soft)] text-[var(--brand)]">
                   <Play className="h-3.5 w-3.5" fill="currentColor" />
                 </button>
                 <div className="min-w-0 flex-1">
@@ -571,7 +577,7 @@ function StudioPreview() {
           <div className="mt-1.5 flex items-center gap-2 rounded-lg border border-border px-2.5 py-2">
             <Search className="h-3.5 w-3.5 text-muted-foreground" />
             <span className="flex-1 text-[12px] text-foreground">Noelmo Normal</span>
-            <AudioLines className="h-3.5 w-3.5 text-[oklch(0.55_0.22_260)]" />
+              <AudioLines className="h-3.5 w-3.5 text-[var(--brand)]" />
           </div>
 
           <label className="mt-3 block text-[11px] font-medium text-muted-foreground">Tone</label>
@@ -594,7 +600,7 @@ function StudioPreview() {
           <div className="mt-1.5 grid grid-cols-2 gap-1.5">
             <button
               className="rounded-md py-1.5 text-[12px] font-semibold text-white"
-              style={{ background: "oklch(0.55 0.22 260)" }}
+              style={{ background: BRAND_GRADIENT }}
             >
               MP3
             </button>
@@ -604,7 +610,7 @@ function StudioPreview() {
           </div>
 
           <div className="mt-3 flex items-center gap-2 rounded-lg border border-border px-2.5 py-2 text-[11px] text-foreground/70">
-            <StatusDot color="oklch(0.55 0.22 260)" />
+            <StatusDot color={BRAND} />
             Chatterbox Turbo
             <span className="ml-auto inline-flex items-center gap-1">
               Apple MPS <StatusDot />
@@ -629,7 +635,7 @@ function MiniWaveform() {
           style={{
             height: `${h * 100}%`,
             backgroundColor:
-              i < 18 ? "oklch(0.55 0.22 260)" : "oklch(0.55 0.22 260 / 0.35)",
+              i < 18 ? "var(--brand)" : "color-mix(in oklch, var(--brand) 35%, transparent)",
           }}
         />
       ))}
@@ -681,7 +687,7 @@ function GetStarted() {
         className="pointer-events-none absolute -top-32 left-1/2 h-[480px] w-[900px] -translate-x-1/2 rounded-full opacity-40 blur-3xl"
         style={{
           background:
-            "radial-gradient(closest-side, oklch(0.55 0.22 260 / 0.5), transparent)",
+            "radial-gradient(closest-side, color-mix(in oklch, var(--brand) 55%, transparent), transparent)",
         }}
       />
       <div
@@ -689,7 +695,7 @@ function GetStarted() {
         className="pointer-events-none absolute bottom-0 right-0 h-[320px] w-[520px] rounded-full opacity-30 blur-3xl"
         style={{
           background:
-            "radial-gradient(closest-side, oklch(0.62 0.13 175 / 0.4), transparent)",
+            "radial-gradient(closest-side, color-mix(in oklch, var(--brand-secondary) 40%, transparent), transparent)",
         }}
       />
 
@@ -722,16 +728,14 @@ function GetStarted() {
                 aria-pressed={active}
                 className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-[13px] font-semibold transition-all ${
                   active
-                    ? "text-[oklch(0.18_0.02_260)]"
+                    ? "text-white"
                     : "text-white/65 hover:text-white"
                 }`}
                 style={
                   active
                     ? {
-                        background:
-                          "linear-gradient(135deg, oklch(0.98 0 0), oklch(0.92 0.02 260))",
-                        boxShadow:
-                          "0 6px 18px -6px oklch(0 0 0 / 0.5), inset 0 1px 0 oklch(1 0 0 / 0.8)",
+                        background: BRAND_GRADIENT,
+                        boxShadow: "var(--shadow-btn)",
                       }
                     : undefined
                 }
@@ -754,11 +758,11 @@ function GetStarted() {
           >
             {/* Window chrome */}
             <div className="flex items-center justify-between border-b border-black/10 px-4 py-3">
-              <div className="flex items-center gap-1.5">
-                <span className="h-2.5 w-2.5 rounded-full bg-[oklch(0.65_0.18_25)]" />
-                <span className="h-2.5 w-2.5 rounded-full bg-[oklch(0.78_0.15_85)]" />
-                <span className="h-2.5 w-2.5 rounded-full bg-[oklch(0.7_0.18_145)]" />
-              </div>
+            <div className="flex items-center gap-1.5">
+              <span className="h-2.5 w-2.5 rounded-full bg-[var(--brand)]" />
+              <span className="h-2.5 w-2.5 rounded-full bg-[var(--brand-secondary)]" />
+              <span className="h-2.5 w-2.5 rounded-full bg-[var(--brand-warm)]" />
+            </div>
               <div className="flex items-center gap-2 text-[11px] font-medium text-black/55">
                 {tab === "manual" ? (
                   <>
@@ -805,7 +809,7 @@ function GetStarted() {
                   "bash vox.sh install",
                 ].map((line) => (
                   <div key={line} className="flex items-start gap-3">
-                    <span className="select-none text-[oklch(0.45_0.15_175)]">$</span>
+                    <span className="select-none text-[var(--brand-secondary)]">$</span>
                     <span className="break-all">{line}</span>
                   </div>
                 ))}
@@ -839,7 +843,7 @@ function GetStarted() {
                         Notarized
                       </span>
                       <span className="inline-flex items-center gap-1.5">
-                        <span className="font-mono text-[oklch(0.55_0.17_150)]">SHA256 a1b2…f9c4</span>
+                        <span className="font-mono text-[var(--brand-secondary)]">SHA256 a1b2…f9c4</span>
 
                         <button
                           type="button"
@@ -870,9 +874,9 @@ function GetStarted() {
                   className="group mt-6 inline-flex w-full items-center justify-center gap-2 rounded-lg px-6 py-3 text-sm font-bold text-white transition-all hover:brightness-110"
                   style={{
                     background:
-                      "linear-gradient(135deg, oklch(0.55 0.22 260), oklch(0.62 0.13 175))",
+                      "var(--brand-gradient)",
                     boxShadow:
-                      "0 14px 34px -10px oklch(0.55 0.22 260 / 0.6), inset 0 1px 0 oklch(1 0 0 / 0.25)",
+                      "var(--shadow-btn)",
                   }}
                 >
                   <Download className="h-4 w-4" />
@@ -930,7 +934,7 @@ function Footer() {
         className="pointer-events-none absolute -top-24 left-1/2 h-[260px] w-[680px] -translate-x-1/2 rounded-full opacity-30 blur-3xl"
         style={{
           background:
-            "radial-gradient(closest-side, oklch(0.55 0.22 260 / 0.55), transparent)",
+            "radial-gradient(closest-side, color-mix(in oklch, var(--brand) 55%, transparent), transparent)",
         }}
       />
       <div
@@ -938,7 +942,7 @@ function Footer() {
         className="pointer-events-none absolute -bottom-24 right-0 h-[220px] w-[420px] rounded-full opacity-25 blur-3xl"
         style={{
           background:
-            "radial-gradient(closest-side, oklch(0.62 0.13 175 / 0.5), transparent)",
+            "radial-gradient(closest-side, color-mix(in oklch, var(--brand-secondary) 40%, transparent), transparent)",
         }}
       />
 
@@ -984,7 +988,7 @@ function Footer() {
             <div className="inline-flex items-center gap-1.5">
               <span>Made with</span>
               <Heart
-                className="h-3.5 w-3.5 text-[oklch(0.7_0.22_25)]"
+                className="h-3.5 w-3.5 text-[var(--brand-warm)]"
                 fill="currentColor"
                 strokeWidth={0}
               />
@@ -1019,18 +1023,18 @@ function CoffeeCup() {
       <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none">
         <path
           d="M4 9h12v6a4 4 0 0 1-4 4H8a4 4 0 0 1-4-4V9Z"
-          fill="oklch(0.7 0.3 0)"
-          stroke="oklch(0.32 0.08 10)"
+          fill={BRAND_WARM}
+          stroke={BRAND}
           strokeWidth="1.5"
           strokeLinejoin="round"
         />
         <path
           d="M16 10h1.5a2.5 2.5 0 0 1 0 5H16"
-          stroke="oklch(0.32 0.08 10)"
+          stroke={BRAND}
           strokeWidth="1.5"
           strokeLinecap="round"
         />
-        <ellipse cx="10" cy="11.5" rx="4.2" ry="0.9" fill="oklch(0.85 0.18 5 / 0.6)" />
+        <ellipse cx="10" cy="11.5" rx="4.2" ry="0.9" fill={`color-mix(in oklch, ${BRAND_WARM} 60%, white)`} />
       </svg>
       <style>{`@keyframes voxSteam {0%{transform:translateY(2px) scaleY(0.6);opacity:0}30%{opacity:0.9}100%{transform:translateY(-6px) scaleY(1.1);opacity:0}}`}</style>
     </span>
@@ -1106,11 +1110,11 @@ function colorClass(c?: string) {
     case "muted":
       return "text-white/35";
     case "string":
-      return "text-[oklch(0.78_0.16_145)]";
+      return "text-[var(--brand-secondary)]";
     case "keyword":
-      return "text-[oklch(0.72_0.18_300)]";
+      return "text-[var(--brand)]";
     case "header":
-      return "text-[oklch(0.7_0.16_220)]";
+      return "text-[var(--brand-warm)]";
     default:
       return "text-white/85";
   }
@@ -1133,8 +1137,8 @@ function ApiSection() {
 
   return (
     <section id="api-docs" className="mt-20 scroll-mt-24 pb-24 text-center">
-      <div className="inline-flex items-center gap-2 rounded-full border border-border bg-white/70 px-3 py-1 text-[11px] font-semibold tracking-[0.18em] text-foreground/70 backdrop-blur">
-        <StatusDot color="oklch(0.55 0.22 260)" />
+          <div className="inline-flex items-center gap-2 rounded-full border border-border bg-white/70 px-3 py-1 text-[11px] font-semibold tracking-[0.18em] text-foreground/70 backdrop-blur">
+        <StatusDot color="var(--brand)" />
         USE IT YOUR WAY
       </div>
       <h2 className="mt-4 text-[40px] font-black leading-[1.05] tracking-tight text-foreground">
@@ -1161,7 +1165,7 @@ function ApiSection() {
                 active
                   ? {
                       background:
-                        "linear-gradient(135deg, oklch(0.55 0.22 260), oklch(0.62 0.13 175))",
+                      "var(--brand-gradient)",
                       boxShadow: "var(--shadow-btn)",
                     }
                   : undefined
@@ -1184,10 +1188,10 @@ function ApiSection() {
           }}
         >
           <div className="flex items-center justify-between border-b border-white/5 px-4 py-3">
-            <div className="flex items-center gap-1.5">
-              <span className="h-2.5 w-2.5 rounded-full bg-[oklch(0.65_0.18_25)]" />
-              <span className="h-2.5 w-2.5 rounded-full bg-[oklch(0.78_0.15_85)]" />
-              <span className="h-2.5 w-2.5 rounded-full bg-[oklch(0.7_0.18_145)]" />
+          <div className="flex items-center gap-1.5">
+              <span className="h-2.5 w-2.5 rounded-full bg-[var(--brand)]" />
+              <span className="h-2.5 w-2.5 rounded-full bg-[var(--brand-secondary)]" />
+              <span className="h-2.5 w-2.5 rounded-full bg-[var(--brand-warm)]" />
             </div>
             <div className="flex items-center gap-2 text-[11px] font-medium text-white/40">
               <Terminal className="h-3.5 w-3.5" />
@@ -1227,9 +1231,9 @@ function ApiSection() {
           className="group relative inline-flex items-center gap-2.5 overflow-hidden rounded-xl px-7 py-3.5 text-sm font-bold text-white transition-all hover:-translate-y-0.5"
           style={{
             background:
-              "linear-gradient(135deg, oklch(0.55 0.22 260) 0%, oklch(0.62 0.13 175) 100%)",
+              "var(--brand-gradient)",
             boxShadow:
-              "0 18px 40px -12px oklch(0.55 0.22 260 / 0.55), inset 0 1px 0 oklch(1 0 0 / 0.25)",
+              "var(--shadow-btn)",
           }}
         >
           <span

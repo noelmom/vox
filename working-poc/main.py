@@ -126,6 +126,61 @@ def split_text(text: str, max_chars: int):
     return chunks
 
 
+def trim_edge_silence(audio: np.ndarray, sample_rate: int):
+    if audio.size == 0:
+        return audio
+
+    peak = float(np.max(np.abs(audio)))
+    if peak <= 0.0:
+        return audio[:0]
+
+    threshold = max(3e-4, peak * 0.02)
+    silent = np.abs(audio) <= threshold
+    if not silent.any():
+        return audio
+
+    start = 0
+    end = audio.size
+
+    while start < end and silent[start]:
+        start += 1
+    while end > start and silent[end - 1]:
+        end -= 1
+
+    if start >= end:
+        return audio[:0]
+
+    pad = int(sample_rate * 0.005)
+    return audio[max(0, start - pad): min(audio.size, end + pad)]
+
+
+def stitch_chunks(chunks: list[np.ndarray], sample_rate: int):
+    if not chunks:
+        return np.array([], dtype=np.float32)
+
+    output = chunks[0]
+    crossfade = int(sample_rate * 0.08)
+
+    for chunk in chunks[1:]:
+        if output.size == 0:
+            output = chunk
+            continue
+        if chunk.size == 0:
+            continue
+
+        overlap = min(crossfade, output.size, chunk.size)
+        if overlap <= 0:
+            output = np.concatenate([output, chunk])
+            continue
+
+        fade_out = np.linspace(1.0, 0.0, overlap, endpoint=False, dtype=output.dtype)
+        fade_in = 1.0 - fade_out
+        blended = output[-overlap:] * fade_out + chunk[:overlap] * fade_in
+        output = np.concatenate([output[:-overlap], blended, chunk[overlap:]])
+
+    return output
+
+
 def list_voices():
     return sorted(
         [
@@ -299,17 +354,12 @@ async def generate_tts(
             )
 
             audio = wav.squeeze().cpu().numpy()
+            audio = trim_edge_silence(audio, model.sr)
             audio_segments.append(audio)
-
-            silence = np.zeros(
-                int(model.sr * 0.25),
-                dtype=audio.dtype,
-            )
-            audio_segments.append(silence)
 
         generation_seconds = time.time() - generation_start
 
-        final_audio = np.concatenate(audio_segments)
+        final_audio = stitch_chunks(audio_segments, model.sr)
 
         output_id = uuid.uuid4()
         wav_path = OUTPUT_DIR / f"{output_id}.wav"

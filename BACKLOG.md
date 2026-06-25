@@ -776,14 +776,21 @@ Ideas and improvements to revisit. Not bugs — these are enhancements queued fo
 
 - [ ] Streaming audio response (chunked transfer encoding)
 - [ ] **Generation queue with UI feedback** — replace single `asyncio.Lock` with a proper worker queue.
-  - Backend: queue incoming requests when a generation is already in progress; return a job ID immediately with `202 Accepted` and expose `GET /jobs/{id}/status` for polling or SSE.
+  - Backend: queue incoming requests when a generation is already in progress instead of letting overlapping jobs stack up; return a job ID immediately with `202 Accepted` and expose `GET /jobs/{id}/status` for polling or SSE.
   - UI: when a request is queued, show the position in queue ("⏳ Queued — position 2") in the generate button area and update live as position changes. Transition to a progress indicator once generation starts.
-  - Pair with the sidebar stats item below.
+  - UI: consider a compact queue-status widget in the sidebar or top bar that shows `Queued`, `Running`, and `Next up` states plus the current position.
+  - Pair with the sidebar stats item below so queue depth can live alongside session metrics.
+  - Recovery: if the app restarts while a job is in flight, reconcile the persisted job state on startup so the UI does not show duplicate or orphaned runs.
+- [ ] **Kill switch for in-flight jobs** — add an explicit way to stop work that is already running.
+  - Backend: expose a cancel/terminate path that marks the job as aborted, interrupts any active generation loop, and cleans up partial outputs safely.
+  - UI: add a prominent stop button on the generating state and a lighter-weight global control for maintenance windows.
+  - Operations: use this before `vox.sh update`, agent restarts, or any shutdown where a long-running generation would otherwise keep the model busy.
+  - Safety: ensure canceling a job leaves the queue and job history in a consistent state so the next generation can start cleanly.
 - [ ] **Sidebar stats panel** — use the empty space in the left navigation bar to surface live server stats.
   - Candidates: requests processed (session + all-time), audio minutes generated (session + all-time), current queue depth, average generation time.
   - Pull from existing SQLite job history for all-time counts; track session counts in memory.
   - Update on each completed job — no polling needed if driven by the same SSE stream as queue feedback.
-  - Display as a compact, non-interactive stats block near the bottom of the nav sidebar.
+  - Display as a compact, non-interactive stats block near the bottom of the nav sidebar, and reserve one slot for queue state if the widget idea lands first.
 - [ ] Server-sent events for real-time generation progress
 
 ---

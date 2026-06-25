@@ -150,6 +150,8 @@ export type ServerSettings = {
   voice_dir: string;
   input_dir: string;
   output_ttl_hours: number;
+  chunk_headroom_chars: number;
+  max_voice_clip_duration_s: number;
   ffmpeg_available: boolean;
   ffmpeg_path: string;
   model_name: string;

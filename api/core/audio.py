@@ -1,6 +1,8 @@
 import subprocess
 from pathlib import Path
 
+import numpy as np
+import soundfile as sf
 from fastapi import HTTPException
 
 from api.core.config import settings
@@ -35,6 +37,42 @@ def convert_to_wav(src: Path, dest: Path):
         "-c:a", "pcm_s16le",
         str(dest),
     )
+
+
+def audio_duration_seconds(path: Path) -> float:
+    """Return the duration of an audio file in seconds."""
+    return float(sf.info(str(path)).duration)
+
+
+def trim_wav_edges(path: Path, threshold_ratio: float = 0.02, pad_ms: float = 5.0):
+    """Trim near-silent samples from the start/end of a WAV file in place."""
+    audio, sample_rate = sf.read(str(path), always_2d=False)
+    if audio.size == 0:
+        return
+
+    peak = float(np.max(np.abs(audio)))
+    if peak <= 0.0:
+        return
+
+    threshold = max(3e-4, peak * threshold_ratio)
+    silent = np.abs(audio) <= threshold
+    if not silent.any():
+        return
+
+    start = 0
+    end = audio.size
+
+    while start < end and silent[start]:
+        start += 1
+    while end > start and silent[end - 1]:
+        end -= 1
+
+    if start >= end:
+        return
+
+    pad = int(sample_rate * (pad_ms / 1000.0))
+    trimmed = audio[max(0, start - pad) : min(audio.size, end + pad)]
+    sf.write(str(path), trimmed, sample_rate, subtype="PCM_16")
 
 
 VALID_MP3_BITRATES = {96, 128, 192, 256, 320}

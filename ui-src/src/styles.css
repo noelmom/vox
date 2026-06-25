@@ -28,6 +28,13 @@
 
 :root {
   --radius: 0.625rem;
+  --brand: oklch(0.55 0.22 260);
+  --brand-secondary: oklch(0.62 0.13 175);
+  --brand-warm: oklch(0.62 0.22 25);
+  --brand-soft: oklch(0.92 0.06 260);
+  --brand-gradient: linear-gradient(135deg, var(--brand) 0%, var(--brand-secondary) 100%);
+  --page-bg: radial-gradient(ellipse at top right, oklch(0.95 0.05 250 / 0.6), transparent 60%),
+             linear-gradient(180deg, oklch(0.99 0.005 240), oklch(0.97 0.01 240));
   --background: oklch(0.995 0.002 240);
   --foreground: oklch(0.18 0.04 250);
   --card: oklch(1 0 0);
@@ -35,16 +42,17 @@
   --muted: oklch(0.97 0.01 240);
   --muted-foreground: oklch(0.5 0.02 250);
   --border: oklch(0.92 0.01 240);
-  --primary: oklch(0.55 0.22 260);
+  --primary: var(--brand);
   --primary-foreground: oklch(1 0 0);
-  --accent: oklch(0.92 0.06 260);
+  --accent: var(--brand-soft);
   --accent-foreground: oklch(0.25 0.1 260);
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.18 0.04 250);
-  --ring: oklch(0.55 0.22 260);
-
-  --hero-bg: radial-gradient(ellipse at top right, oklch(0.95 0.05 250 / 0.6), transparent 60%),
-             linear-gradient(180deg, oklch(0.99 0.005 240), oklch(0.97 0.01 240));
+  --ring: var(--brand);
+  --hero-bg: var(--page-bg);
+  --surface: oklch(1 0 0 / 0.72);
+  --surface-elevated: oklch(1 0 0 / 0.86);
+  --surface-solid: oklch(1 0 0);
   --shadow-card: 0 1px 2px oklch(0.2 0.04 250 / 0.04), 0 8px 24px -8px oklch(0.2 0.04 250 / 0.08);
   --shadow-btn: 0 1px 2px oklch(0.2 0.04 250 / 0.1), 0 8px 20px -8px oklch(0.55 0.22 260 / 0.5);
 }
@@ -52,7 +60,7 @@
 @layer base {
   * { border-color: var(--color-border); }
   body {
-    background-color: var(--color-background);
+    background: var(--page-bg);
     color: var(--color-foreground);
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;

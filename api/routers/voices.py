@@ -4,7 +4,7 @@ from pathlib import Path
 from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse
 
-from api.core.audio import INGESTABLE_EXTENSIONS, convert_to_wav
+from api.core.audio import audio_duration_seconds, INGESTABLE_EXTENSIONS, convert_to_wav, trim_wav_edges
 from api.core.config import settings
 from api.core.db import get_db
 from api.core.logger import get_logger
@@ -16,6 +16,16 @@ log = get_logger(__name__)
 
 def _safe_name(raw: str) -> str:
     return raw.strip().lower().replace(" ", "-")
+
+
+def _enforce_duration_limit(wav_path: Path):
+    duration_s = audio_duration_seconds(wav_path)
+    max_s = settings.max_voice_clip_duration_s
+    if duration_s > max_s:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Voice clip is {duration_s:.1f}s, which exceeds the configured limit of {max_s}s. Trim it and try again.",
+        )
 
 
 async def _register_voice(
@@ -139,19 +149,35 @@ async def create_voice(
 
     safe = _safe_name(name)
     wav_dest = settings.voice_dir / f"{safe}.wav"
+    tmp_paths: list[Path] = []
 
     raw_bytes = await file.read()
 
     if suffix == ".wav":
-        wav_dest.write_bytes(raw_bytes)
+        tmp_wav = settings.voice_dir / f"tmp_{uuid.uuid4()}.wav"
+        tmp_wav.write_bytes(raw_bytes)
+        tmp_paths.append(tmp_wav)
     else:
         tmp = settings.voice_dir / f"tmp_{uuid.uuid4()}{suffix}"
         tmp.write_bytes(raw_bytes)
+        tmp_paths.append(tmp)
         try:
-            convert_to_wav(tmp, wav_dest)
+            tmp_wav = settings.voice_dir / f"tmp_{uuid.uuid4()}.wav"
+            tmp_paths.append(tmp_wav)
+            convert_to_wav(tmp, tmp_wav)
         finally:
             tmp.unlink(missing_ok=True)
         log.info("Converted %s -> %s", original_filename, wav_dest.name, extra={"request_id": rid})
+
+    try:
+        trim_wav_edges(tmp_wav)
+        _enforce_duration_limit(tmp_wav)
+        tmp_wav.replace(wav_dest)
+        tmp_paths.remove(tmp_wav)
+    except Exception:
+        for p in tmp_paths:
+            p.unlink(missing_ok=True)
+        raise
 
     params = VoiceParams(
         exaggeration=exaggeration,

@@ -11,7 +11,7 @@ from fastapi.responses import JSONResponse
 
 from api.core.audio import (
     INGESTABLE_EXTENSIONS, VALID_MP3_BITRATES, VALID_WAV_DEPTHS, WAV_SUBTYPES,
-    convert_to_wav, export_mp3,
+    audio_duration_seconds, convert_to_wav, export_mp3, trim_wav_edges,
 )
 from api.core.chunker import clamp_max_chars, split_text
 from api.core.config import settings
@@ -22,6 +22,75 @@ from api.core.presets import PRESETS
 
 router = APIRouter(prefix="/tts", tags=["tts"])
 log = get_logger(__name__)
+
+EDGE_TRIM_PAD_S = 0.005
+
+
+def _trim_edge_silence(audio: np.ndarray, sample_rate: int) -> np.ndarray:
+    """Trim near-silent samples from the beginning and end of a chunk.
+
+    This keeps the model's internal pauses intact while removing the dead air
+    that can appear around chunk boundaries.
+    """
+    if audio.size == 0:
+        return audio
+
+    peak = float(np.max(np.abs(audio)))
+    if peak <= 0.0:
+        return audio[:0]
+
+    threshold = max(3e-4, peak * 0.02)
+    silent = np.abs(audio) <= threshold
+    if not silent.any():
+        return audio
+
+    start = 0
+    end = audio.size
+
+    while start < end and silent[start]:
+        start += 1
+    while end > start and silent[end - 1]:
+        end -= 1
+
+    if start >= end:
+        return audio[:0]
+
+    # Keep a tiny cushion so we do not clip the first/last phoneme too tightly.
+    pad = int(sample_rate * EDGE_TRIM_PAD_S)
+    return audio[max(0, start - pad) : min(audio.size, end + pad)]
+
+
+def _stitch_chunks(chunks: list[tuple[np.ndarray, float]], sample_rate: int) -> np.ndarray:
+    """Join generated chunks and restore a small pause where the text boundary needs it."""
+    if not chunks:
+        return np.array([], dtype=np.float32)
+
+    output = chunks[0][0]
+
+    for chunk, pause_after_s in chunks[1:]:
+        if output.size == 0:
+            output = chunk
+            continue
+        if chunk.size == 0:
+            continue
+
+        if pause_after_s > 0:
+            silence = np.zeros(int(sample_rate * pause_after_s), dtype=output.dtype)
+            output = np.concatenate([output, silence, chunk])
+        else:
+            output = np.concatenate([output, chunk])
+
+    return output
+
+
+def _enforce_duration_limit(wav_path: Path):
+    duration_s = audio_duration_seconds(wav_path)
+    max_s = settings.max_voice_clip_duration_s
+    if duration_s > max_s:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Voice clip is {duration_s:.1f}s, which exceeds the configured limit of {max_s}s. Trim it and try again.",
+        )
 
 
 async def _resolve_voice(voice_name: str | None, rid: str, db) -> tuple[Path | None, str | None]:
@@ -71,7 +140,7 @@ async def _run_generation(
     db = await get_db()
 
     try:
-        chunks = split_text(text, chunk_max_chars)
+        chunks = split_text(text, chunk_max_chars, settings.chunk_headroom_chars)
         if not chunks:
             await db.execute(
                 "UPDATE jobs SET status='failed', error=?, completed_at=datetime('now') WHERE request_id=?",
@@ -92,25 +161,25 @@ async def _run_generation(
             generation_start = time.time()
             audio_segments = []
 
-            for chunk in chunks:
+            for i, chunk in enumerate(chunks):
                 prompt_path = str(audio_prompt_path) if audio_prompt_path else None
                 # Run blocking model inference in a thread so the event loop stays
                 # free to serve status-poll requests while generation is in progress.
                 wav = await loop.run_in_executor(
                     None,
-                    lambda c=chunk, p=prompt_path: model.generate(
+                    lambda c=chunk.text, p=prompt_path: model.generate(
                         text=c,
                         audio_prompt_path=p,
                         **params,
                     ),
                 )
                 audio = wav.squeeze().cpu().numpy()
-                audio_segments.append(audio)
-                audio_segments.append(np.zeros(int(model.sr * 0.25), dtype=audio.dtype))
+                audio = _trim_edge_silence(audio, model.sr)
+                audio_segments.append((audio, chunk.pause_after_s if i < len(chunks) - 1 else 0.0))
 
             generation_s = time.time() - generation_start
 
-        final_audio = np.concatenate(audio_segments)
+        final_audio = _stitch_chunks(audio_segments, model.sr)
         audio_duration_s = len(final_audio) / model.sr
         rtf = generation_s / audio_duration_s if audio_duration_s > 0 else 0
 
@@ -187,7 +256,7 @@ Pass `voice_name` to clone a pre-uploaded profile, or upload a one-off reference
 
 **Chunking**
 
-Long text is split at sentence boundaries. `max_chars` sets the maximum chunk length (default 450, range 100–3000). Shorter chunks generate faster but prosody may vary at boundaries.
+Long text is split at sentence boundaries. `max_chars` sets the maximum chunk length (default 450, range 100–3000). Vox also reserves `VOX_CHUNK_HEADROOM_CHARS` of breathing room below that limit so sentence endings are less likely to be cut off or hallucinate at chunk boundaries. Shorter chunks generate faster but prosody may vary at boundaries.
 
 **Parameter override order** (lowest → highest priority)
 
@@ -283,31 +352,41 @@ async def generate_tts(
     # Handle inline voice file upload — write to disk before returning
     tmp_paths: list[Path] = []
     if voice:
-        suffix = Path(voice.filename or "").suffix.lower()
-        if suffix not in INGESTABLE_EXTENSIONS:
-            await db.execute(
-                "UPDATE jobs SET status='failed', error=?, completed_at=datetime('now') WHERE request_id=?",
-                (f"Unsupported voice format '{suffix}'.", rid),
-            )
-            await db.commit()
-            raise HTTPException(
-                status_code=400,
-                detail=f"Unsupported voice format '{suffix}'. Accepted: {sorted(INGESTABLE_EXTENSIONS)}",
-            )
-        raw = await voice.read()
-        if suffix == ".wav":
-            tmp_path = settings.output_dir / f"tmp_voice_{uuid.uuid4()}.wav"
-            tmp_path.write_bytes(raw)
-            audio_prompt_path = tmp_path
-            tmp_paths.append(tmp_path)
-        else:
-            tmp_src = settings.output_dir / f"tmp_voice_{uuid.uuid4()}{suffix}"
-            tmp_wav = tmp_src.with_suffix(".wav")
-            tmp_src.write_bytes(raw)
-            convert_to_wav(tmp_src, tmp_wav)
-            tmp_src.unlink(missing_ok=True)
-            audio_prompt_path = tmp_wav
-            tmp_paths.append(tmp_wav)
+        try:
+            suffix = Path(voice.filename or "").suffix.lower()
+            if suffix not in INGESTABLE_EXTENSIONS:
+                await db.execute(
+                    "UPDATE jobs SET status='failed', error=?, completed_at=datetime('now') WHERE request_id=?",
+                    (f"Unsupported voice format '{suffix}'.", rid),
+                )
+                await db.commit()
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Unsupported voice format '{suffix}'. Accepted: {sorted(INGESTABLE_EXTENSIONS)}",
+                )
+            raw = await voice.read()
+            if suffix == ".wav":
+                tmp_path = settings.output_dir / f"tmp_voice_{uuid.uuid4()}.wav"
+                tmp_path.write_bytes(raw)
+                tmp_paths.append(tmp_path)
+                trim_wav_edges(tmp_path)
+                _enforce_duration_limit(tmp_path)
+                audio_prompt_path = tmp_path
+            else:
+                tmp_src = settings.output_dir / f"tmp_voice_{uuid.uuid4()}{suffix}"
+                tmp_wav = tmp_src.with_suffix(".wav")
+                tmp_src.write_bytes(raw)
+                tmp_paths.extend([tmp_src, tmp_wav])
+                convert_to_wav(tmp_src, tmp_wav)
+                tmp_src.unlink(missing_ok=True)
+                tmp_paths.remove(tmp_src)
+                trim_wav_edges(tmp_wav)
+                _enforce_duration_limit(tmp_wav)
+                audio_prompt_path = tmp_wav
+        except Exception:
+            for p in tmp_paths:
+                p.unlink(missing_ok=True)
+            raise
 
     await db.execute(
         "UPDATE jobs SET status='processing' WHERE request_id=?", (rid,)

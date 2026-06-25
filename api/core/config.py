@@ -1,4 +1,6 @@
 from pathlib import Path
+
+from pydantic import field_validator
 from pydantic_settings import BaseSettings
 
 
@@ -19,6 +21,8 @@ class Settings(BaseSettings):
     default_max_chars: int = 450
     min_max_chars: int = 100
     max_max_chars: int = 3000
+    chunk_headroom_chars: int = 40
+    max_voice_clip_duration_s: int = 120
 
     # Hugging Face token — optional, enables authenticated downloads (faster + gated models).
     # Set via HF_TOKEN env var or .env file. Never commit the value to git.
@@ -35,6 +39,38 @@ class Settings(BaseSettings):
         env_file = ".env"
         # HF_TOKEN is also read without the prefix in engine.py since it's
         # a standard HuggingFace convention used by the huggingface_hub library.
+
+    @field_validator("max_voice_clip_duration_s", mode="before")
+    @classmethod
+    def _parse_max_voice_clip_duration_s(cls, value):
+        default = 120
+        if value is None:
+            return default
+        if isinstance(value, str):
+            value = value.strip()
+            if not value:
+                return default
+        try:
+            parsed = int(value)
+        except (TypeError, ValueError):
+            return default
+        return parsed if parsed > 0 else default
+
+    @field_validator("chunk_headroom_chars", mode="before")
+    @classmethod
+    def _parse_chunk_headroom_chars(cls, value):
+        default = 40
+        if value is None:
+            return default
+        if isinstance(value, str):
+            value = value.strip()
+            if not value:
+                return default
+        try:
+            parsed = int(value)
+        except (TypeError, ValueError):
+            return default
+        return parsed if parsed >= 0 else default
 
 
 settings = Settings()

@@ -33,9 +33,22 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { type ApiVoice, listVoices, listPresets, uploadVoice, deleteVoice, patchVoice } from "@/lib/api";
+import { type ApiVoice, listVoices, listPresets, uploadVoice, deleteVoice, patchVoice, getServerSettings } from "@/lib/api";
 import AudioVisualizerCanvas, { type AudioVisualizerHandle } from "@/components/AudioVisualizerCanvas";
+import TrimWaveform from "@/components/TrimWaveform";
 import { tagStyle } from "@/lib/utils";
+import { BRAND, BRAND_GRADIENT, BRAND_SECONDARY, BRAND_WARM } from "@/lib/theme";
+import {
+  DEFAULT_MAX_VOICE_CLIP_DURATION_S,
+  buildPeaks,
+  clampTrimRange,
+  decodeAudioBlob,
+  exportTrimmedWavBlob,
+  fullTrimRange,
+  isFullTrimRange,
+  trimmedDuration,
+  type TrimRange,
+} from "@/lib/audio-trim";
 
 export const Route = createFileRoute("/app/library")({
   head: () => ({ meta: [{ title: "Library — Vox Studio" }] }),
@@ -69,6 +82,12 @@ function VoicesPage() {
     queryKey: ["voices"],
     queryFn: listVoices,
   });
+  const { data: serverSettings } = useQuery({
+    queryKey: ["settings"],
+    queryFn: getServerSettings,
+    staleTime: 5 * 60 * 1000,
+  });
+  const maxVoiceClipDurationSeconds = serverSettings?.max_voice_clip_duration_s ?? DEFAULT_MAX_VOICE_CLIP_DURATION_S;
 
   const filtered = voices.filter(
     (v) =>
@@ -97,66 +116,65 @@ function VoicesPage() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-[28px] font-black tracking-tight text-foreground">Library</h1>
         <div className="inline-flex rounded-xl border border-border bg-white p-1 shadow-sm">
-          <button
-            onClick={() => setTab("upload")}
-            className={
-              "inline-flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-[13px] font-semibold transition-all " +
-              (tab === "upload"
-                ? "bg-gradient-to-br from-[oklch(0.72_0.17_150)] to-[oklch(0.55_0.18_150)] text-white shadow-[0_2px_8px_oklch(0.55_0.18_150/0.35)]"
-                : "text-foreground/60 hover:bg-[oklch(0.96_0.04_150)] hover:text-[oklch(0.5_0.18_150)]")
-            }
-          >
-            <UploadCloud className="h-3.5 w-3.5" />
-            Upload
-          </button>
-          <button
-            onClick={() => setTab("record")}
-            className={
-              "inline-flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-[13px] font-semibold transition-all " +
-              (tab === "record"
-                ? "bg-gradient-to-br from-[oklch(0.7_0.2_25)] to-[oklch(0.55_0.22_25)] text-white shadow-[0_2px_8px_oklch(0.55_0.22_25/0.4)]"
-                : "text-foreground/60 hover:bg-[oklch(0.96_0.04_25)] hover:text-[oklch(0.55_0.22_25)]")
-            }
-          >
-            <span className="relative flex h-2 w-2">
-              {tab === "record" && <span className="absolute inset-0 animate-ping rounded-full bg-white/70" />}
-              <span className={"relative h-2 w-2 rounded-full " + (tab === "record" ? "bg-white" : "bg-[oklch(0.6_0.22_25)]")} />
-            </span>
-            Record
-          </button>
-          <button
-            disabled
-            title="Coming soon"
-            className="inline-flex cursor-not-allowed items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-[13px] font-semibold text-[oklch(0.55_0.22_260)]/40"
-          >
-            <Globe className="h-3.5 w-3.5" />
-            URL
-            <span className="rounded-md bg-[oklch(0.95_0.04_260)] px-1 py-0.5 text-[9px] font-bold uppercase tracking-wide text-[oklch(0.55_0.22_260)]">
-              Soon
-            </span>
-          </button>
+            <button
+              onClick={() => setTab("upload")}
+              className={
+                "inline-flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-[13px] font-semibold transition-all " +
+                (tab === "upload"
+                  ? "bg-gradient-to-br from-[var(--brand)] to-[var(--brand-secondary)] text-white shadow-[0_2px_8px_color-mix(in_oklch,var(--brand)_35%,transparent)]"
+                  : "text-foreground/60 hover:bg-[var(--brand-soft)] hover:text-[var(--brand)]")
+              }
+            >
+              <UploadCloud className="h-3.5 w-3.5" />
+              Upload
+            </button>
+            <button
+              onClick={() => setTab("record")}
+              className={
+                "inline-flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-[13px] font-semibold transition-all " +
+                (tab === "record"
+                  ? "bg-[var(--brand-soft)] text-[var(--brand)] shadow-[0_2px_8px_color-mix(in_oklch,var(--brand)_18%,transparent)]"
+                  : "text-foreground/60 hover:bg-[var(--brand-soft)] hover:text-[var(--brand)]")
+              }
+            >
+              <span className="relative flex h-2 w-2">
+                {tab === "record" && <span className="absolute inset-0 animate-ping rounded-full bg-[var(--brand)]/50" />}
+                <span className={"relative h-2 w-2 rounded-full " + (tab === "record" ? "bg-[var(--brand)]" : "bg-[var(--brand-secondary)]")} />
+              </span>
+              Start Recording
+            </button>
+            <button
+              disabled
+              title="Coming soon"
+              className="inline-flex cursor-not-allowed items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-[13px] font-semibold text-[var(--brand)]/40"
+            >
+              <Globe className="h-3.5 w-3.5" />
+              URL
+              <span className="rounded-md bg-[var(--brand-soft)] px-1 py-0.5 text-[9px] font-bold uppercase tracking-wide text-[var(--brand)]">
+                Soon
+              </span>
+            </button>
         </div>
       </div>
-
       {/* Panel */}
       <section className="rounded-2xl border border-border bg-white p-6">
         {tab === "upload" ? (
-          <UploadPane onUploaded={handleUploaded} />
+          <UploadPane onUploaded={handleUploaded} maxVoiceClipDurationSeconds={maxVoiceClipDurationSeconds} />
         ) : (
-          <RecordPane onSaved={handleUploaded} />
+          <RecordPane onSaved={handleUploaded} maxVoiceClipDurationSeconds={maxVoiceClipDurationSeconds} />
         )}
       </section>
 
       {/* Search */}
       <div className="relative">
         <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-        <input
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search voice profiles…"
-          className="w-full rounded-2xl border border-border bg-white py-3 pl-10 pr-4 text-[14px] outline-none placeholder:text-muted-foreground focus:border-[oklch(0.55_0.22_260)]"
-        />
-      </div>
+          <input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search voice profiles…"
+            className="w-full rounded-2xl border border-border bg-white py-3 pl-10 pr-4 text-[14px] outline-none placeholder:text-muted-foreground focus:border-[var(--brand)]"
+          />
+        </div>
 
       {/* Grid */}
       {isLoading ? (
@@ -225,7 +243,13 @@ function PresetSelect({ value, onChange }: { value: string; onChange: (name: str
   );
 }
 
-function UploadPane({ onUploaded }: { onUploaded: () => void }) {
+function UploadPane({
+  onUploaded,
+  maxVoiceClipDurationSeconds,
+}: {
+  onUploaded: () => void;
+  maxVoiceClipDurationSeconds: number;
+}) {
   const [file, setFile] = useState<File | null>(null);
   const [voiceName, setVoiceName] = useState("");
   const [tags, setTags] = useState("");
@@ -244,9 +268,10 @@ function UploadPane({ onUploaded }: { onUploaded: () => void }) {
   const [uploadHover, setUploadHover] = useState<number | null>(null);
   const [uploadVolume, setUploadVolume] = useState(0.8);
   const [uploadPeaks, setUploadPeaks] = useState<number[] | null>(null);
+  const [trimRange, setTrimRange] = useState<TrimRange>({ start: 0, end: 0 });
   const { data: presets = {} } = useQuery({ queryKey: ["presets"], queryFn: listPresets, staleTime: 5 * 60 * 1000 });
 
-  const pickFile = (f: File) => {
+  const pickFile = async (f: File) => {
     setFile(f);
     setStatus("idle");
     if (previewUrl) URL.revokeObjectURL(previewUrl);
@@ -255,24 +280,16 @@ function UploadPane({ onUploaded }: { onUploaded: () => void }) {
     setUploadProgress(0);
     setUploadDuration(0);
     setUploadPeaks(null);
+    setTrimRange({ start: 0, end: 0 });
     if (!voiceName) setVoiceName(f.name.replace(/\.[^.]+$/, "").replace(/[-_]/g, " ").slice(0, 40));
-    f.arrayBuffer().then((ab) => {
-      const tmpCtx = new AudioContext();
-      tmpCtx.decodeAudioData(ab, (buf) => {
-        const ch = buf.getChannelData(0);
-        const buckets = 220;
-        const size = Math.max(1, Math.floor(ch.length / buckets));
-        const raw: number[] = [];
-        for (let i = 0; i < buckets; i++) {
-          let sum = 0;
-          for (let j = 0; j < size; j++) sum += ch[i * size + j] ** 2;
-          raw.push(Math.sqrt(sum / size));
-        }
-        const mx = Math.max(...raw, 0.001);
-        setUploadPeaks(raw.map((p) => p / mx));
-        tmpCtx.close();
-      });
-    }).catch(() => {});
+    try {
+      const decoded = await decodeAudioBlob(f);
+      setUploadDuration(decoded.duration);
+      setTrimRange(fullTrimRange(decoded.duration));
+      setUploadPeaks(buildPeaks(decoded));
+    } catch {
+      setUploadPeaks([]);
+    }
   };
 
   useEffect(() => {
@@ -329,18 +346,26 @@ function UploadPane({ onUploaded }: { onUploaded: () => void }) {
         const count = Math.floor(w / slot);
         const playedX = uploadDuration > 0 ? (uploadProgress / uploadDuration) * w : 0;
         const hoverX = uploadHover != null ? uploadHover * w : null;
+        const trimStartX = uploadDuration > 0 ? (trimRange.start / uploadDuration) * w : 0;
+        const trimEndX = uploadDuration > 0 ? (trimRange.end / uploadDuration) * w : w;
         const grad = ctx.createLinearGradient(0, 0, w, 0);
-        grad.addColorStop(0, "oklch(0.6 0.2 260)");
-        grad.addColorStop(0.55, "oklch(0.58 0.22 305)");
-        grad.addColorStop(1, "oklch(0.62 0.22 25)");
+        grad.addColorStop(0, BRAND);
+        grad.addColorStop(0.55, BRAND_SECONDARY);
+        grad.addColorStop(1, BRAND_WARM);
+        ctx.fillStyle = "oklch(0.98 0.01 260)";
+        ctx.fillRect(0, 0, w, h);
+        ctx.fillStyle = "oklch(0.55 0.04 240 / 0.08)";
+        ctx.fillRect(0, 0, trimStartX, h);
+        ctx.fillRect(trimEndX, 0, Math.max(0, w - trimEndX), h);
         for (let i = 0; i < count; i++) {
           const p = uploadPeaks[Math.floor((i / count) * uploadPeaks.length)] ?? 0;
           const bh = Math.max(2, p * (h * 0.85));
           const x = i * slot;
           const y = (h - bh) / 2;
           const isPlayed = x < playedX;
+          const inTrim = x >= trimStartX && x <= trimEndX;
           const inHover = hoverX != null && x >= playedX && x < hoverX;
-          ctx.fillStyle = isPlayed ? grad : inHover ? "oklch(0.55 0.22 260 / 0.35)" : "oklch(0.55 0.04 260 / 0.3)";
+          ctx.fillStyle = inTrim ? (isPlayed ? grad : inHover ? BRAND : "oklch(0.55 0.04 240 / 0.3)") : "oklch(0.55 0.04 240 / 0.14)";
           ctx.beginPath();
           ctx.moveTo(x + 1, y);
           ctx.arcTo(x + barW, y, x + barW, y + bh, 1);
@@ -350,13 +375,13 @@ function UploadPane({ onUploaded }: { onUploaded: () => void }) {
           ctx.closePath();
           ctx.fill();
         }
-        ctx.strokeStyle = "oklch(0.62 0.22 25)";
+        ctx.strokeStyle = BRAND_WARM;
         ctx.lineWidth = 1.5;
         ctx.beginPath();
         ctx.moveTo(playedX, 3);
         ctx.lineTo(playedX, h - 3);
         ctx.stroke();
-        ctx.fillStyle = "oklch(0.62 0.22 25)";
+        ctx.fillStyle = BRAND_WARM;
         ctx.beginPath();
         ctx.arc(playedX, h / 2, 2.5, 0, Math.PI * 2);
         ctx.fill();
@@ -365,7 +390,7 @@ function UploadPane({ onUploaded }: { onUploaded: () => void }) {
     };
     raf = requestAnimationFrame(draw);
     return () => cancelAnimationFrame(raf);
-  }, [previewUrl, uploadPeaks, uploadProgress, uploadDuration, uploadHover]);
+  }, [previewUrl, uploadPeaks, uploadProgress, uploadDuration, uploadHover, trimRange.end, trimRange.start]);
 
   const handleCreate = async () => {
     if (!file || !voiceName.trim()) return;
@@ -373,7 +398,13 @@ function UploadPane({ onUploaded }: { onUploaded: () => void }) {
     setErrorMsg("");
     try {
       const fd = new FormData();
-      fd.append("file", file);
+      let uploadFile: File = file;
+      if (!isFullTrimRange(trimRange, uploadDuration)) {
+        const trimmed = await exportTrimmedWavBlob(file, trimRange);
+        const base = file.name.replace(/\.[^.]+$/, "");
+        uploadFile = new File([trimmed], `${base}-trimmed.wav`, { type: "audio/wav" });
+      }
+      fd.append("file", uploadFile);
       fd.append("name", voiceName.trim());
       if (tags.trim()) fd.append("tags", tags.trim());
       if (description.trim()) fd.append("description", description.trim());
@@ -392,7 +423,7 @@ function UploadPane({ onUploaded }: { onUploaded: () => void }) {
       setTimeout(() => {
         setFile(null); setVoiceName(""); setTags(""); setDescription(""); setSelectedPreset("");
         setPreviewUrl(null); setPlaying(false); setStatus("idle");
-        setUploadProgress(0); setUploadDuration(0); setUploadPeaks(null);
+        setUploadProgress(0); setUploadDuration(0); setUploadPeaks(null); setTrimRange({ start: 0, end: 0 });
         if (fileRef.current) fileRef.current.value = "";
       }, 2000);
     } catch (err) {
@@ -401,7 +432,15 @@ function UploadPane({ onUploaded }: { onUploaded: () => void }) {
     }
   };
 
-  const canCreate = !!file && !!voiceName.trim() && status !== "uploading";
+  const selectedDuration = trimmedDuration(trimRange);
+  const canCreate =
+    !!file &&
+    !!voiceName.trim() &&
+    status !== "uploading" &&
+    status !== "done" &&
+    selectedDuration > 0 &&
+    selectedDuration <= maxVoiceClipDurationSeconds &&
+    (uploadDuration <= maxVoiceClipDurationSeconds || !isFullTrimRange(trimRange, uploadDuration));
 
   return (
     <div className="grid grid-cols-1 gap-6 md:grid-cols-[1fr_300px]">
@@ -409,19 +448,19 @@ function UploadPane({ onUploaded }: { onUploaded: () => void }) {
         <label
           onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
           onDragLeave={() => setDragOver(false)}
-          onDrop={(e) => { e.preventDefault(); setDragOver(false); const f = e.dataTransfer.files?.[0]; if (f) pickFile(f); }}
-          className={"flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed px-6 py-10 text-center transition-colors " + (dragOver ? "border-[oklch(0.55_0.22_260)] bg-[oklch(0.98_0.02_260)]" : file ? "border-[oklch(0.7_0.15_150)] bg-[oklch(0.98_0.02_150)]" : "border-border bg-[oklch(0.985_0.005_260)] hover:bg-muted/40")}
+          onDrop={(e) => { e.preventDefault(); setDragOver(false); const f = e.dataTransfer.files?.[0]; if (f) void pickFile(f); }}
+          className={"flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed px-6 py-10 text-center transition-colors " + (dragOver ? "border-[var(--brand)] bg-[var(--brand-soft)]" : file ? "border-[var(--brand-secondary)] bg-[color-mix(in oklch, var(--brand-soft) 55%, white)]" : "border-border bg-[oklch(0.985_0.005_260)] hover:bg-muted/40")}
         >
-          <input ref={fileRef} type="file" accept=".wav,.m4a,.mp3,.aiff,.flac,.ogg,audio/*" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) pickFile(f); }} />
+          <input ref={fileRef} type="file" accept=".wav,.m4a,.mp3,.aiff,.flac,.ogg,audio/*" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) void pickFile(f); }} />
           {file ? (
             <>
-              <span className="flex h-12 w-12 items-center justify-center rounded-full bg-[oklch(0.93_0.08_150)]"><Check className="h-5 w-5 text-[oklch(0.5_0.18_150)]" /></span>
+              <span className="flex h-12 w-12 items-center justify-center rounded-full bg-[var(--brand-soft)]"><Check className="h-5 w-5 text-[var(--brand)]" /></span>
               <div className="mt-3 text-[15px] font-semibold text-foreground">{file.name}</div>
               <div className="mt-1 text-[12px] text-muted-foreground">{(file.size / 1024 / 1024).toFixed(1)} MB · Click to change</div>
             </>
           ) : (
             <>
-              <span className="flex h-12 w-12 items-center justify-center rounded-full bg-[oklch(0.95_0.04_260)]"><UploadCloud className="h-5 w-5 text-[oklch(0.55_0.22_260)]" /></span>
+              <span className="flex h-12 w-12 items-center justify-center rounded-full bg-[var(--brand-soft)]"><UploadCloud className="h-5 w-5 text-[var(--brand)]" /></span>
               <div className="mt-4 text-[15px] font-semibold text-foreground">Upload voice sample</div>
               <div className="mt-1 text-[13px] text-muted-foreground">Drag and drop, or click to browse</div>
               <div className="mt-3 text-[12px] tracking-wide text-muted-foreground/70">WAV · M4A · MP3 · AIFF · FLAC · OGG</div>
@@ -429,7 +468,7 @@ function UploadPane({ onUploaded }: { onUploaded: () => void }) {
           )}
         </label>
         {previewUrl && (
-          <div className="flex items-center gap-3 overflow-hidden rounded-xl border border-border bg-gradient-to-br from-white to-[oklch(0.985_0.01_280)] px-3 py-2.5">
+          <div className="flex items-center gap-3 overflow-hidden rounded-xl border border-border bg-gradient-to-br from-white to-[var(--background)] px-3 py-2.5">
             <audio ref={audioRef} src={previewUrl} preload="auto" />
             {/* Gradient play button */}
             <button
@@ -437,11 +476,11 @@ function UploadPane({ onUploaded }: { onUploaded: () => void }) {
               aria-label={playing ? "Pause" : "Play preview"}
               className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-white transition-transform hover:scale-105 active:scale-95"
               style={{
-                background: "linear-gradient(135deg, oklch(0.6 0.2 260), oklch(0.55 0.22 305), oklch(0.6 0.22 25))",
-                boxShadow: "0 8px 18px -10px oklch(0.55 0.22 280 / 0.6), inset 0 1px 0 oklch(1 0 0 / 0.3)",
+                background: BRAND_GRADIENT,
+                boxShadow: "var(--shadow-btn)",
               }}
             >
-              {playing && <span className="absolute inset-0 -m-0.5 animate-ping rounded-full border-2 border-[oklch(0.6_0.22_280)]/30" />}
+              {playing && <span className="absolute inset-0 -m-0.5 animate-ping rounded-full border-2 border-[var(--brand)]/30" />}
               {playing ? <Pause className="h-3.5 w-3.5" fill="currentColor" /> : <Play className="ml-0.5 h-3.5 w-3.5" fill="currentColor" />}
             </button>
             {/* Time */}
@@ -477,13 +516,13 @@ function UploadPane({ onUploaded }: { onUploaded: () => void }) {
                 {uploadVolume === 0 ? <VolumeX className="h-3.5 w-3.5" /> : <Volume2 className="h-3.5 w-3.5" />}
               </button>
               <div className="relative hidden h-1 w-14 rounded-full bg-muted sm:block">
-                <div className="absolute left-0 top-0 h-full rounded-full" style={{ width: `${uploadVolume * 100}%`, background: "linear-gradient(90deg, oklch(0.6 0.2 260), oklch(0.62 0.22 25))" }} />
+                <div className="absolute left-0 top-0 h-full rounded-full" style={{ width: `${uploadVolume * 100}%`, background: "linear-gradient(90deg, var(--brand), var(--brand-warm))" }} />
                 <input type="range" min={0} max={1} step={0.01} value={uploadVolume} onChange={(e) => setUploadVolume(Number(e.target.value))} className="absolute inset-0 h-full w-full cursor-pointer appearance-none bg-transparent opacity-0" aria-label="Volume" />
               </div>
             </div>
             {/* Remove */}
             <button
-              onClick={() => { setFile(null); setPreviewUrl(null); setPlaying(false); setVoiceName(""); setUploadProgress(0); setUploadDuration(0); setUploadPeaks(null); if (fileRef.current) fileRef.current.value = ""; }}
+              onClick={() => { setFile(null); setPreviewUrl(null); setPlaying(false); setVoiceName(""); setUploadProgress(0); setUploadDuration(0); setUploadPeaks(null); setTrimRange({ start: 0, end: 0 }); if (fileRef.current) fileRef.current.value = ""; }}
               className="shrink-0 text-foreground/40 hover:text-foreground"
               aria-label="Remove file"
             >
@@ -491,28 +530,39 @@ function UploadPane({ onUploaded }: { onUploaded: () => void }) {
             </button>
           </div>
         )}
+        {previewUrl && uploadDuration > 0 && (
+          <TrimWaveform
+            className="mt-1"
+            peaks={uploadPeaks ?? []}
+            duration={uploadDuration}
+            selection={trimRange}
+            onChange={setTrimRange}
+            maxDurationSeconds={maxVoiceClipDurationSeconds}
+            playheadSeconds={uploadProgress}
+          />
+        )}
       </div>
       <div className="flex flex-col gap-4">
         <div>
-          <label className="text-[13px] font-semibold text-foreground">Voice name <span className="text-[oklch(0.55_0.22_25)]">*</span></label>
-          <input value={voiceName} onChange={(e) => setVoiceName(e.target.value)} placeholder="e.g. My Narrator" className="mt-1.5 w-full rounded-lg border border-border bg-white px-3 py-2.5 text-[14px] outline-none placeholder:text-muted-foreground focus:border-[oklch(0.55_0.22_260)]" />
+          <label className="text-[13px] font-semibold text-foreground">Voice name <span className="text-[var(--brand-warm)]">*</span></label>
+          <input value={voiceName} onChange={(e) => setVoiceName(e.target.value)} placeholder="e.g. My Narrator" className="mt-1.5 w-full rounded-lg border border-border bg-white px-3 py-2.5 text-[14px] outline-none placeholder:text-muted-foreground focus:border-[var(--brand)]" />
         </div>
         <div>
           <label className="text-[13px] font-semibold text-foreground">Description <span className="font-normal text-muted-foreground">(optional)</span></label>
-          <input value={description} onChange={(e) => setDescription(e.target.value)} placeholder="e.g. Calm narrator for long-form content" className="mt-1.5 w-full rounded-lg border border-border bg-white px-3 py-2.5 text-[14px] outline-none placeholder:text-muted-foreground focus:border-[oklch(0.55_0.22_260)]" />
+          <input value={description} onChange={(e) => setDescription(e.target.value)} placeholder="e.g. Calm narrator for long-form content" className="mt-1.5 w-full rounded-lg border border-border bg-white px-3 py-2.5 text-[14px] outline-none placeholder:text-muted-foreground focus:border-[var(--brand)]" />
         </div>
         <div>
           <label className="text-[13px] font-semibold text-foreground">Tags <span className="font-normal text-muted-foreground">(optional)</span></label>
-          <input value={tags} onChange={(e) => setTags(e.target.value)} placeholder="narration, calm, male" className="mt-1.5 w-full rounded-lg border border-border bg-white px-3 py-2.5 text-[14px] outline-none placeholder:text-muted-foreground focus:border-[oklch(0.55_0.22_260)]" />
+          <input value={tags} onChange={(e) => setTags(e.target.value)} placeholder="narration, calm, male" className="mt-1.5 w-full rounded-lg border border-border bg-white px-3 py-2.5 text-[14px] outline-none placeholder:text-muted-foreground focus:border-[var(--brand)]" />
           <div className="mt-1 text-[11.5px] text-muted-foreground">Comma-separated</div>
         </div>
         <PresetSelect value={selectedPreset} onChange={setSelectedPreset} />
         {status === "error" && (
-          <div className="flex items-center gap-2 rounded-lg border border-[oklch(0.82_0.08_25)] bg-[oklch(0.98_0.02_25)] px-3 py-2 text-[12.5px] text-[oklch(0.52_0.18_25)]">
+          <div className="flex items-center gap-2 rounded-lg border border-[color-mix(in oklch, var(--brand-warm) 20%, white)] bg-[color-mix(in oklch, var(--brand-warm) 8%, white)] px-3 py-2 text-[12.5px] text-[var(--brand-warm)]">
             <AlertCircle className="h-3.5 w-3.5 shrink-0" />{errorMsg}
           </div>
         )}
-        <button onClick={handleCreate} disabled={!canCreate} className="mt-auto inline-flex items-center justify-center gap-1.5 rounded-xl px-4 py-2.5 text-[14px] font-bold text-white transition-all hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40" style={{ background: "linear-gradient(135deg, oklch(0.6 0.2 260), oklch(0.5 0.22 270))", boxShadow: "0 10px 24px -10px oklch(0.55 0.22 260 / 0.55), inset 0 1px 0 oklch(1 0 0 / 0.25)" }}>
+        <button onClick={handleCreate} disabled={!canCreate} className="mt-auto inline-flex items-center justify-center gap-1.5 rounded-xl px-4 py-2.5 text-[14px] font-bold text-white transition-all hover:-translate-y-0.5 hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40" style={{ background: BRAND_GRADIENT, boxShadow: "var(--shadow-btn)" }}>
           {status === "uploading" ? <><Loader2 className="h-4 w-4 animate-spin" /> Uploading…</> : status === "done" ? <><Check className="h-4 w-4" /> Profile created!</> : "Create Voice Profile"}
         </button>
       </div>
@@ -522,7 +572,13 @@ function UploadPane({ onUploaded }: { onUploaded: () => void }) {
 
 // ─── Record Pane ────────────────────────────────────────────────────────────
 
-function RecordPane({ onSaved }: { onSaved: () => void }) {
+function RecordPane({
+  onSaved,
+  maxVoiceClipDurationSeconds,
+}: {
+  onSaved: () => void;
+  maxVoiceClipDurationSeconds: number;
+}) {
   const [permission, setPermission] = useState<"unknown" | "granted" | "denied" | "no-device" | "insecure-context">("unknown");
   const [devices, setDevices] = useState<MediaDeviceInfo[]>([]);
   const [selectedDeviceId, setSelectedDeviceId] = useState<string>("");
@@ -540,6 +596,7 @@ function RecordPane({ onSaved }: { onSaved: () => void }) {
   const [peaks, setPeaks]               = useState<number[] | null>(null);
   const [playProgress, setPlayProgress]   = useState(0);
   const [audioDuration, setAudioDuration] = useState(0);
+  const [trimRange, setTrimRange] = useState<TrimRange>({ start: 0, end: 0 });
   const [level, setLevel]               = useState(0);
   const [showSaveForm, setShowSaveForm] = useState(false);
   const [confirmDiscard, setConfirmDiscard] = useState(false);
@@ -553,13 +610,13 @@ function RecordPane({ onSaved }: { onSaved: () => void }) {
   const liveDataRef      = useRef<Uint8Array | null>(null);
   const liveHistoryRef   = useRef<number[]>([]);
   const rafRef           = useRef<number | null>(null);
-  const MAX = 5 * 60;
+  const MAX = maxVoiceClipDurationSeconds;
 
   useEffect(() => {
     if (recordingState !== "recording") return;
     const id = window.setInterval(() => { setElapsed((e) => { if (e + 1 >= MAX) { stopRecording(); return MAX; } return e + 1; }); }, 1000);
     return () => window.clearInterval(id);
-  }, [recordingState]);
+  }, [MAX, recordingState]);
 
   // Playback controls
   useEffect(() => {
@@ -590,9 +647,9 @@ function RecordPane({ onSaved }: { onSaved: () => void }) {
   useEffect(() => {
     function brandGradient(ctx: CanvasRenderingContext2D, w: number) {
       const g = ctx.createLinearGradient(0, 0, w, 0);
-      g.addColorStop(0,    "oklch(0.6 0.2 260)");
-      g.addColorStop(0.55, "oklch(0.58 0.22 305)");
-      g.addColorStop(1,    "oklch(0.62 0.22 25)");
+      g.addColorStop(0, BRAND);
+      g.addColorStop(0.55, BRAND_SECONDARY);
+      g.addColorStop(1, BRAND_WARM);
       return g;
     }
     function roundedRect(ctx: CanvasRenderingContext2D, x: number, y: number, bw: number, bh: number, r: number) {
@@ -677,10 +734,10 @@ function RecordPane({ onSaved }: { onSaved: () => void }) {
           ctx.fill();
         }
         // playhead
-        ctx.strokeStyle = "oklch(0.62 0.22 25)";
+        ctx.strokeStyle = BRAND_WARM;
         ctx.lineWidth = 2;
         ctx.beginPath(); ctx.moveTo(playedX, 4); ctx.lineTo(playedX, h - 4); ctx.stroke();
-        ctx.fillStyle = "oklch(0.62 0.22 25)";
+        ctx.fillStyle = BRAND_WARM;
         ctx.beginPath(); ctx.arc(playedX, h / 2, 4, 0, Math.PI * 2); ctx.fill();
       }
 
@@ -728,10 +785,9 @@ function RecordPane({ onSaved }: { onSaved: () => void }) {
 
   const computePeaks = async (blob: Blob) => {
     try {
-      const ac  = new AudioContext();
-      const buf = await blob.arrayBuffer();
-      const decoded = await ac.decodeAudioData(buf);
+      const decoded = await decodeAudioBlob(blob);
       setAudioDuration(decoded.duration);
+      setTrimRange(fullTrimRange(decoded.duration));
       const ch     = decoded.getChannelData(0);
       const target = 800;
       const block  = Math.max(1, Math.floor(ch.length / target));
@@ -746,7 +802,6 @@ function RecordPane({ onSaved }: { onSaved: () => void }) {
         if (rms > maxVal) maxVal = rms;
       }
       setPeaks(raw.map((v) => (maxVal > 0 ? v / maxVal : 0)));
-      ac.close();
     } catch { setPeaks([]); }
   };
 
@@ -760,6 +815,7 @@ function RecordPane({ onSaved }: { onSaved: () => void }) {
     liveHistoryRef.current = [];
     setPlayProgress(0);
     setPeaks(null);
+    setTrimRange({ start: 0, end: 0 });
 
     // Wire up AnalyserNode for live waveform
     const ac = new AudioContext();
@@ -808,6 +864,7 @@ function RecordPane({ onSaved }: { onSaved: () => void }) {
     setPeaks(null);
     setPlayProgress(0);
     setAudioDuration(0);
+    setTrimRange({ start: 0, end: 0 });
     if (recordedUrl) { URL.revokeObjectURL(recordedUrl); setRecordedUrl(null); }
     setPlaying(false);
     setShowSaveForm(false);
@@ -819,8 +876,14 @@ function RecordPane({ onSaved }: { onSaved: () => void }) {
     if (!recordedBlob || !voiceName.trim()) return;
     setSaveStatus("saving"); setSaveError("");
     try {
-      const ext = recordedBlob.type.includes("ogg") ? "ogg" : recordedBlob.type.includes("mp4") ? "m4a" : "webm";
-      const file = new File([recordedBlob], `recording.${ext}`, { type: recordedBlob.type });
+      let file: File;
+      if (!isFullTrimRange(trimRange, audioDuration)) {
+        const trimmed = await exportTrimmedWavBlob(recordedBlob, trimRange);
+        file = new File([trimmed], "recording-trimmed.wav", { type: "audio/wav" });
+      } else {
+        const ext = recordedBlob.type.includes("ogg") ? "ogg" : recordedBlob.type.includes("mp4") ? "m4a" : "webm";
+        file = new File([recordedBlob], `recording.${ext}`, { type: recordedBlob.type });
+      }
       const fd = new FormData(); fd.append("file", file); fd.append("name", voiceName.trim());
       if (tags.trim()) fd.append("tags", tags.trim());
       const presetParams = selectedPreset ? (presets[selectedPreset] as PresetParams | undefined) : undefined;
@@ -838,6 +901,8 @@ function RecordPane({ onSaved }: { onSaved: () => void }) {
   };
 
   const fmt = (s: number) => `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
+  const selectedDuration = trimmedDuration(trimRange);
+  const canSave = !!recordedBlob && !!voiceName.trim() && saveStatus !== "saving" && selectedDuration > 0 && selectedDuration <= maxVoiceClipDurationSeconds;
 
   if (permission === "no-device") return (
     <div className="flex flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-[oklch(0.82_0.08_40)] bg-[oklch(0.985_0.01_40)] py-12 text-center">
@@ -880,7 +945,7 @@ function RecordPane({ onSaved }: { onSaved: () => void }) {
   };
 
   return (
-    <div className="rounded-2xl border border-border bg-gradient-to-br from-white to-[oklch(0.985_0.01_280)] p-6 shadow-sm">
+    <div className="rounded-2xl border border-border bg-gradient-to-br from-white to-[var(--background)] p-6 shadow-sm">
 
       {/* ── Header ─────────────────────────────────────────────── */}
       <div className="flex items-center justify-between gap-4">
@@ -951,6 +1016,18 @@ function RecordPane({ onSaved }: { onSaved: () => void }) {
         />
       </div>
 
+      {mode === "play" && recordedBlob && audioDuration > 0 && (
+        <TrimWaveform
+          className="mt-4"
+          peaks={peaks ?? []}
+          duration={audioDuration}
+          selection={trimRange}
+          onChange={setTrimRange}
+          maxDurationSeconds={maxVoiceClipDurationSeconds}
+          playheadSeconds={playProgress * audioDuration}
+        />
+      )}
+
       {/* ── Controls ───────────────────────────────────────────── */}
       <div className="mt-5">
         {mode === "record" ? (
@@ -961,8 +1038,8 @@ function RecordPane({ onSaved }: { onSaved: () => void }) {
               className="group relative flex h-16 items-center gap-3 rounded-full pl-4 pr-6 text-[14px] font-bold text-white transition-all hover:brightness-110 active:scale-[0.98]"
               style={{
                 background: recordingState === "recording"
-                  ? "linear-gradient(135deg, oklch(0.62 0.22 25), oklch(0.5 0.22 15))"
-                  : "linear-gradient(135deg, oklch(0.6 0.2 260), oklch(0.55 0.22 305), oklch(0.6 0.22 25))",
+                  ? "linear-gradient(135deg, var(--brand-warm), oklch(0.5 0.22 15))"
+                  : "linear-gradient(135deg, var(--brand), var(--brand-secondary), oklch(0.6 0.22 25))",
                 boxShadow: "0 16px 36px -14px oklch(0.55 0.22 280 / 0.55), inset 0 1px 0 oklch(1 0 0 / 0.25)",
               }}
             >
@@ -975,7 +1052,7 @@ function RecordPane({ onSaved }: { onSaved: () => void }) {
                     : <span className="h-3.5 w-3.5 rounded-full bg-white" />}
               </span>
               <span className="tracking-wide">
-                {permission !== "granted" ? "Allow Microphone" : recordingState === "recording" ? "Stop Recording" : "Start Recording"}
+                {permission !== "granted" ? "Allow Microphone" : recordingState === "recording" ? "Stop Recording" : "Begin Capture"}
               </span>
               {recordingState === "recording" && (
                 <span className="ml-2 rounded-md bg-white/15 px-2 py-0.5 text-[11px] tabular-nums backdrop-blur">{fmt(elapsed)}</span>
@@ -989,7 +1066,7 @@ function RecordPane({ onSaved }: { onSaved: () => void }) {
               onClick={() => setPlaying((p) => !p)}
               disabled={!recordedUrl}
               className="flex h-14 items-center gap-3 rounded-full pl-3 pr-5 text-[14px] font-bold text-white transition-all hover:brightness-110 active:scale-[0.98] disabled:opacity-50"
-              style={{ background: "linear-gradient(135deg, oklch(0.6 0.2 260), oklch(0.5 0.22 270))", boxShadow: "0 14px 30px -12px oklch(0.55 0.22 260 / 0.55), inset 0 1px 0 oklch(1 0 0 / 0.25)" }}
+              style={{ background: "linear-gradient(135deg, var(--brand), var(--brand-secondary))", boxShadow: "var(--shadow-btn)" }}
             >
               <span className="flex h-9 w-9 items-center justify-center rounded-full bg-white/15">
                 {playing ? <Pause className="h-4 w-4" fill="currentColor" /> : <Play className="ml-0.5 h-4 w-4" fill="currentColor" />}
@@ -1008,7 +1085,7 @@ function RecordPane({ onSaved }: { onSaved: () => void }) {
 
             {/* Discard */}
             {confirmDiscard ? (
-              <div className="flex items-center gap-2 rounded-full border border-[oklch(0.82_0.08_25)] bg-[oklch(0.98_0.02_25)] px-4 py-2">
+              <div className="flex items-center gap-2 rounded-full border border-[oklch(0.82_0.08_25)] bg-[var(--brand-soft)] px-4 py-2">
                 <span className="text-[12.5px] font-medium text-[oklch(0.52_0.18_25)]">Delete recording?</span>
                 <button onClick={discard} className="rounded-full bg-[oklch(0.6_0.22_25)] px-3 py-1 text-[12px] font-bold text-white hover:brightness-110">Yes, delete</button>
                 <button onClick={() => setConfirmDiscard(false)} className="text-[12px] font-medium text-foreground/60 hover:text-foreground">Cancel</button>
@@ -1041,13 +1118,13 @@ function RecordPane({ onSaved }: { onSaved: () => void }) {
             <PresetSelect value={selectedPreset} onChange={setSelectedPreset} />
           </div>
           {saveStatus === "error" && (
-            <div className="col-span-full flex items-center gap-2 rounded-lg border border-[oklch(0.82_0.08_25)] bg-[oklch(0.98_0.02_25)] px-3 py-2 text-[12.5px] text-[oklch(0.52_0.18_25)]">
+            <div className="col-span-full flex items-center gap-2 rounded-lg border border-[oklch(0.82_0.08_25)] bg-[var(--brand-soft)] px-3 py-2 text-[12.5px] text-[oklch(0.52_0.18_25)]">
               <AlertCircle className="h-3.5 w-3.5 shrink-0" />{saveError}
             </div>
           )}
           <div className="col-span-full flex justify-end gap-2">
             <button onClick={() => setShowSaveForm(false)} className="rounded-xl border border-border bg-white px-4 py-2 text-[13px] font-semibold text-foreground/60 hover:bg-muted">Cancel</button>
-            <button onClick={handleSave} disabled={!voiceName.trim() || saveStatus === "saving" || saveStatus === "done"} className="inline-flex items-center gap-2 rounded-xl px-4 py-2 text-[13px] font-bold text-white transition-all hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40" style={{ background: "linear-gradient(135deg, oklch(0.6 0.2 260), oklch(0.5 0.22 270))", boxShadow: "0 10px 24px -10px oklch(0.55 0.22 260 / 0.55)" }}>
+            <button onClick={handleSave} disabled={!canSave || saveStatus === "done"} className="inline-flex items-center gap-2 rounded-xl px-4 py-2 text-[13px] font-bold text-white transition-all hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40" style={{ background: "linear-gradient(135deg, var(--brand), var(--brand-secondary))", boxShadow: "var(--shadow-btn)" }}>
               {saveStatus === "saving" ? <><Loader2 className="h-4 w-4 animate-spin" /> Saving…</> : saveStatus === "done" ? <><Check className="h-4 w-4" /> Saved!</> : "Save Voice Profile"}
             </button>
           </div>
@@ -1070,8 +1147,8 @@ function RecordModeSwitch({ mode, hasRecording, onChange }: { mode: "record" | "
         style={{
           left: mode === "record" ? 4 : 104,
           background: mode === "record"
-            ? "linear-gradient(135deg, oklch(0.62 0.22 25), oklch(0.5 0.22 15))"
-            : "linear-gradient(135deg, oklch(0.6 0.2 260), oklch(0.5 0.22 270))",
+            ? "linear-gradient(135deg, var(--brand-warm), oklch(0.5 0.22 15))"
+            : "linear-gradient(135deg, var(--brand), var(--brand-secondary))",
           boxShadow: "0 6px 16px -8px oklch(0.5 0.2 280 / 0.6)",
         }}
       />
@@ -1095,7 +1172,7 @@ function RecordStatusPill({ children, tone = "muted", dot, pulse }: { children: 
       : "bg-muted text-foreground/70 border-border";
   return (
     <span className={"inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11.5px] font-semibold " + styles + (pulse ? " animate-pulse" : "")}
-      style={tone === "rec" ? { background: "linear-gradient(135deg, oklch(0.62 0.22 25), oklch(0.5 0.22 15))" } : undefined}>
+      style={tone === "rec" ? { background: "linear-gradient(135deg, var(--brand-warm), oklch(0.5 0.22 15))" } : undefined}>
       {dot && tone === "ok" && <span className="h-1.5 w-1.5 rounded-full bg-[oklch(0.55_0.2_150)]" />}
       {children}
     </span>
@@ -1272,9 +1349,9 @@ function ProfileCard({
         const playedX = duration > 0 ? (progress / duration) * w : 0;
         const hoverX = hover != null ? hover * w : null;
         const grad = ctx.createLinearGradient(0, 0, w, 0);
-        grad.addColorStop(0, "oklch(0.6 0.2 260)");
-        grad.addColorStop(0.55, "oklch(0.58 0.22 305)");
-        grad.addColorStop(1, "oklch(0.62 0.22 25)");
+        grad.addColorStop(0, BRAND);
+        grad.addColorStop(0.55, BRAND_SECONDARY);
+        grad.addColorStop(1, BRAND_WARM);
         for (let i = 0; i < count; i++) {
           const p = peaks[Math.floor((i / count) * peaks.length)] ?? 0;
           const bh = Math.max(2, p * (h * 0.85));
@@ -1283,7 +1360,7 @@ function ProfileCard({
           const isPlayed = audioStatus === "ready" && x < playedX;
           const inHover = audioStatus === "ready" && hoverX != null && x >= playedX && x < hoverX;
           ctx.globalAlpha = audioStatus === "loading" ? 0.22 : 1;
-          ctx.fillStyle = isPlayed ? grad : inHover ? "oklch(0.55 0.22 260 / 0.35)" : "oklch(0.55 0.04 260 / 0.3)";
+          ctx.fillStyle = isPlayed ? grad : inHover ? BRAND : "oklch(0.55 0.04 240 / 0.3)";
           ctx.globalAlpha = 1;
           ctx.beginPath();
           ctx.moveTo(x + 1, y); ctx.arcTo(x + barW, y, x + barW, y + bh, 1);
@@ -1291,10 +1368,10 @@ function ProfileCard({
           ctx.arcTo(x, y, x + barW, y, 1); ctx.closePath(); ctx.fill();
         }
         if (audioStatus === "ready" && duration > 0) {
-          ctx.strokeStyle = "oklch(0.62 0.22 25)";
+          ctx.strokeStyle = BRAND_WARM;
           ctx.lineWidth = 1.5;
           ctx.beginPath(); ctx.moveTo(playedX, 3); ctx.lineTo(playedX, h - 3); ctx.stroke();
-          ctx.fillStyle = "oklch(0.62 0.22 25)";
+          ctx.fillStyle = BRAND_WARM;
           ctx.beginPath(); ctx.arc(playedX, h / 2, 2.5, 0, Math.PI * 2); ctx.fill();
         }
       }
@@ -1414,14 +1491,14 @@ function ProfileCard({
       )}
 
       {/* Mini player */}
-      <div className="mt-3 flex items-center gap-3 overflow-hidden rounded-xl border border-border bg-gradient-to-br from-white to-[oklch(0.985_0.01_280)] px-3 py-2.5">
+      <div className="mt-3 flex items-center gap-3 overflow-hidden rounded-xl border border-border bg-gradient-to-br from-white to-[var(--background)] px-3 py-2.5">
         {/* Gradient play button */}
         <button
           onClick={handlePlay}
           aria-label={playing ? `Pause ${displayLabel}` : `Play ${displayLabel}`}
           className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-white transition-transform hover:scale-105 active:scale-95"
           style={{
-            background: "linear-gradient(135deg, oklch(0.6 0.2 260), oklch(0.55 0.22 305), oklch(0.6 0.22 25))",
+            background: "linear-gradient(135deg, var(--brand), var(--brand-secondary), oklch(0.6 0.22 25))",
             boxShadow: "0 8px 18px -10px oklch(0.55 0.22 280 / 0.6), inset 0 1px 0 oklch(1 0 0 / 0.3)",
           }}
         >
@@ -1479,7 +1556,7 @@ function ProfileCard({
           <div className="relative hidden h-1 w-16 rounded-full bg-muted sm:block">
             <div
               className="absolute left-0 top-0 h-full rounded-full"
-              style={{ width: `${volume * 100}%`, background: "linear-gradient(90deg, oklch(0.6 0.2 260), oklch(0.62 0.22 25))" }}
+              style={{ width: `${volume * 100}%`, background: "linear-gradient(90deg, var(--brand), var(--brand-warm))" }}
             />
             <input
               type="range" min={0} max={1} step={0.01} value={volume}
@@ -1664,14 +1741,14 @@ function EditForm({
       </div>
 
       {saveError && (
-        <div className="mt-3 flex items-center gap-2 rounded-lg border border-[oklch(0.82_0.08_25)] bg-[oklch(0.98_0.02_25)] px-3 py-2 text-[12px] text-[oklch(0.52_0.18_25)]">
+        <div className="mt-3 flex items-center gap-2 rounded-lg border border-[oklch(0.82_0.08_25)] bg-[var(--brand-soft)] px-3 py-2 text-[12px] text-[oklch(0.52_0.18_25)]">
           <AlertCircle className="h-3.5 w-3.5 shrink-0" />{saveError}
         </div>
       )}
 
       <div className="mt-4 flex justify-end gap-2">
         <button onClick={onCancel} className="rounded-lg border border-border bg-white px-3.5 py-2 text-[12.5px] font-semibold text-foreground/70 hover:bg-muted">Cancel</button>
-        <button onClick={handleSave} disabled={saving} className="inline-flex items-center gap-1.5 rounded-lg px-3.5 py-2 text-[12.5px] font-bold text-white transition-all hover:brightness-110 disabled:opacity-60" style={{ background: "linear-gradient(135deg, oklch(0.6 0.2 260), oklch(0.5 0.22 270))" }}>
+        <button onClick={handleSave} disabled={saving} className="inline-flex items-center gap-1.5 rounded-lg px-3.5 py-2 text-[12.5px] font-bold text-white transition-all hover:brightness-110 disabled:opacity-60" style={{ background: "linear-gradient(135deg, var(--brand), var(--brand-secondary))" }}>
           {saving ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Saving…</> : <><Check className="h-3.5 w-3.5" /> Save changes</>}
         </button>
       </div>
@@ -1689,4 +1766,3 @@ function Meta({ label, value }: { label: string; value: string }) {
     </div>
   );
 }
-

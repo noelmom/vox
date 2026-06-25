@@ -33,6 +33,7 @@ import {
 } from "lucide-react";
 import { type ApiVoice, type Job, listVoices, listPresets, listJobs, submitTTS, getJob, getJobAudio, savePreset, deletePreset, deleteJob, patchVoice } from "@/lib/api";
 import { tagStyle } from "@/lib/utils";
+import { BRAND, BRAND_GRADIENT, BRAND_SECONDARY, BRAND_WARM } from "@/lib/theme";
 
 export const Route = createFileRoute("/app/")({
   head: () => ({
@@ -92,12 +93,12 @@ function toDisplayVoice(v: ApiVoice, idx: number): Voice {
 }
 
 const ACCENT_BG: Record<Voice["accent"], string> = {
-  indigo: "oklch(0.55 0.22 260)",
-  teal: "oklch(0.62 0.13 175)",
+  indigo: BRAND,
+  teal: BRAND_SECONDARY,
   amber: "oklch(0.72 0.16 70)",
   rose: "oklch(0.62 0.20 15)",
   violet: "oklch(0.55 0.20 300)",
-  slate: "oklch(0.16 0.02 260)",
+  slate: "oklch(0.16 0.02 240)",
 };
 
 const VOICE_FILTERS: ("All" | VoiceCategory)[] = ["All", "Narration", "Conversational", "Character", "Custom"];
@@ -467,9 +468,16 @@ function GeneratePage() {
   };
 
   return (
-    <div className="mx-auto grid max-w-[1280px] grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
-      {/* LEFT: Script + Output */}
-      <div className="order-2 flex min-w-0 flex-col gap-6 lg:order-1">
+    <div className="mx-auto flex max-w-[1280px] flex-col gap-5">
+      <div>
+        <h1 className="text-[28px] font-black tracking-tight text-foreground">Create</h1>
+        <p className="mt-1 text-[14px] text-muted-foreground">
+          Write your script, shape the voice, and render audio locally on your Mac.
+        </p>
+      </div>
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
+        {/* LEFT: Script + Output */}
+        <div className="order-2 flex min-w-0 flex-col gap-6 lg:order-1">
         {/* Script card */}
         <section className="rounded-2xl border border-border bg-white p-6">
           <div className="flex items-center justify-between">
@@ -491,12 +499,7 @@ function GeneratePage() {
               <button
                 onClick={() => importInputRef.current?.click()}
                 className="group inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[13px] font-semibold text-white transition-all hover:brightness-110"
-                style={{
-                  background:
-                    "linear-gradient(135deg, oklch(0.6 0.2 260), oklch(0.5 0.22 270))",
-                  boxShadow:
-                    "0 6px 14px -6px oklch(0.55 0.22 260 / 0.5), inset 0 1px 0 oklch(1 0 0 / 0.25)",
-                }}
+                style={{ background: BRAND_GRADIENT, boxShadow: "var(--shadow-btn)" }}
               >
                 <Upload className="h-3.5 w-3.5 transition-transform group-hover:-translate-y-0.5" />
                 Import
@@ -504,7 +507,7 @@ function GeneratePage() {
               <button
                 onClick={() => setScript("")}
                 disabled={!script.length}
-                className="group inline-flex items-center gap-1.5 rounded-lg border border-border bg-white px-3 py-1.5 text-[13px] font-medium text-foreground/70 transition-all hover:border-[oklch(0.62_0.2_25/0.4)] hover:bg-[oklch(0.98_0.02_25)] hover:text-[oklch(0.55_0.22_25)] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-border disabled:hover:bg-white disabled:hover:text-foreground/70"
+                className="group inline-flex items-center gap-1.5 rounded-lg border border-border bg-white px-3 py-1.5 text-[13px] font-medium text-foreground/70 transition-all hover:border-[var(--brand)] hover:bg-[var(--brand-soft)] hover:text-[var(--brand)] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-border disabled:hover:bg-white disabled:hover:text-foreground/70"
               >
                 <Trash2 className="h-3.5 w-3.5 transition-transform group-hover:rotate-6 group-disabled:group-hover:rotate-0" />
                 Clear
@@ -518,7 +521,7 @@ function GeneratePage() {
               onChange={(e) => setScript(e.target.value.slice(0, max))}
               onClick={(e) => { if (script === SAMPLE_SCRIPT) (e.target as HTMLTextAreaElement).select(); }}
               placeholder="Type or paste your script..."
-              className="h-[360px] w-full resize-none rounded-xl border border-border bg-[oklch(0.99_0.003_260)] px-5 py-4 text-[15px] leading-relaxed text-foreground placeholder:text-foreground/35 focus:border-[oklch(0.55_0.22_260)] focus:outline-none focus:ring-4 focus:ring-[oklch(0.55_0.22_260)/0.08]"
+              className="h-[360px] w-full resize-none rounded-xl border border-border bg-[var(--background)] px-5 py-4 text-[15px] leading-relaxed text-foreground placeholder:text-foreground/35 focus:border-[var(--brand)] focus:outline-none focus:ring-4 focus:ring-[color-mix(in oklch, var(--brand) 8%, transparent)]"
             />
             <div className="mt-3 flex items-center justify-between text-[12px] text-muted-foreground">
               <span>
@@ -568,7 +571,7 @@ function GeneratePage() {
           </div>
 
           {genState.phase === "error" && (
-            <div className="mt-4 flex items-start gap-2 rounded-xl border border-[oklch(0.62_0.2_25/0.3)] bg-[oklch(0.98_0.02_25)] px-4 py-3 text-[13px] text-[oklch(0.45_0.2_25)]">
+            <div className="mt-4 flex items-start gap-2 rounded-xl border border-[oklch(0.62_0.2_25/0.3)] bg-[var(--brand-soft)] px-4 py-3 text-[13px] text-[oklch(0.45_0.2_25)]">
               <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
               <span className="flex-1">{genState.message}</span>
               <button onClick={() => setGenState({ phase: "idle" })} className="shrink-0 opacity-60 hover:opacity-100">
@@ -580,19 +583,17 @@ function GeneratePage() {
           <button
             onClick={handleGenerate}
             disabled={isGenerating || !script.trim()}
-            className="group mt-5 flex w-full items-center justify-center gap-3 rounded-xl px-6 py-4 text-[15px] font-bold text-white transition-all hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-70 disabled:hover:brightness-100"
-            style={{
-              background:
-                "linear-gradient(135deg, oklch(0.6 0.2 260), oklch(0.5 0.22 270))",
-              boxShadow:
-                "0 18px 36px -14px oklch(0.55 0.22 260 / 0.55), inset 0 1px 0 oklch(1 0 0 / 0.25)",
-            }}
+            className="group mt-5 flex w-full items-center justify-center gap-3 rounded-xl px-6 py-4 text-[15px] font-bold text-white transition-all hover:-translate-y-0.5 hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-70 disabled:hover:translate-y-0 disabled:hover:brightness-100"
+            style={{ background: BRAND_GRADIENT, boxShadow: "var(--shadow-btn)" }}
           >
             {isGenerating ? (
-              <>
+              <span className="flex items-center gap-3 text-left">
                 <Loader2 className="h-5 w-5 animate-spin" />
-                {genState.phase === "submitting" ? "Processing Script…" : `Processing Script… ${fmtTime(elapsed)}`}
-              </>
+                <span className="flex flex-col">
+                  <span className="leading-tight">Running on-device…</span>
+                  <span className="text-[11.5px] font-medium text-white/70">This may take a while</span>
+                </span>
+              </span>
             ) : (
               <>
                 <AudioLines className="h-5 w-5" />
@@ -633,19 +634,24 @@ function GeneratePage() {
 
         {/* History card — previous recordings */}
         <section className="rounded-2xl border border-border bg-white p-6">
-          <div className="flex items-center justify-between">
-            <h2 className="text-[18px] font-bold text-foreground">Recent</h2>
+          <div className="flex flex-wrap items-end justify-between gap-3">
+            <div>
+              <h2 className="text-[18px] font-bold text-foreground">Recent</h2>
+              <p className="mt-1 text-[13px] text-muted-foreground">
+                A clean timeline of your latest renders, ready to replay, reuse, or download.
+              </p>
+            </div>
             <div className="flex items-center gap-2">
               <button
                 onClick={() => setOutputSort((s) => (s === "desc" ? "asc" : "desc"))}
-                className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-[13px] font-medium transition-colors ${outputSort === "asc" ? "border-[oklch(0.55_0.22_260/0.3)] bg-[oklch(0.97_0.02_260)] text-[oklch(0.45_0.22_260)]" : "border-border bg-white text-foreground/80 hover:bg-muted"}`}
+                className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-[13px] font-medium transition-colors ${outputSort === "asc" ? "border-[var(--brand)] bg-[var(--brand-soft)] text-[var(--brand)]" : "border-border bg-white text-foreground/80 hover:bg-muted"}`}
               >
                 {outputSort === "desc" ? "Newest First" : "Oldest First"}
                 <ArrowUpDown className="h-3.5 w-3.5 opacity-60" />
               </button>
               <button
                 onClick={() => setFilterOpen((v) => !v)}
-                className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-[13px] font-medium transition-colors ${filterOpen ? "border-[oklch(0.55_0.22_260/0.3)] bg-[oklch(0.97_0.02_260)] text-[oklch(0.45_0.22_260)]" : "border-border bg-white text-foreground/80 hover:bg-muted"}`}
+                className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-[13px] font-medium transition-colors ${filterOpen ? "border-[var(--brand)] bg-[var(--brand-soft)] text-[var(--brand)]" : "border-border bg-white text-foreground/80 hover:bg-muted"}`}
               >
                 <Filter className="h-3.5 w-3.5" />
                 Filter
@@ -655,7 +661,7 @@ function GeneratePage() {
 
           <div className="mt-4 flex flex-col gap-3">
             {filterOpen && (
-              <div className="flex items-center gap-2 rounded-xl border border-border bg-[oklch(0.99_0.003_260)] px-3 py-2">
+              <div className="flex items-center gap-2 rounded-xl border border-border bg-[var(--background)] px-3 py-2">
                 <Search className="h-3.5 w-3.5 shrink-0 text-foreground/40" />
                 <input
                   autoFocus
@@ -673,20 +679,22 @@ function GeneratePage() {
             )}
 
             {filteredJobs.length === 0 ? (
-              <div className="flex flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-border bg-[oklch(0.99_0.003_260)] py-8 text-center">
+              <div className="flex flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-border bg-[var(--background)] py-8 text-center">
                 <AudioLines className="h-7 w-7 text-foreground/20" />
                 <p className="text-[13px] font-medium text-foreground/40">No recordings yet</p>
                 <p className="text-[12px] text-foreground/30">Generated files will appear here</p>
               </div>
             ) : (
               <>
-                {filteredJobs.slice(0, visibleCount).map((job) => (
+                {filteredJobs.slice(0, visibleCount).map((job, idx) => (
                   <JobRow
                     key={job.request_id}
                     job={job}
                     preloadedUrl={genResult?.job.request_id === job.request_id ? genResult.url : undefined}
                     activePlayerId={activePlayerId}
                     onActivate={setActivePlayerId}
+                    timelineStyle
+                    isLatest={idx === 0 && outputSort === "desc"}
                     onRegenerate={() => setScript(job.text)}
                     onDelete={async () => {
                       await deleteJob(job.request_id).catch(() => {});
@@ -714,10 +722,10 @@ function GeneratePage() {
             </a>
           </div>
         </section>
-      </div>
+        </div>
 
-      {/* RIGHT: Voice Studio + side cards */}
-      <aside className="order-1 flex flex-col gap-4 lg:order-2">
+        {/* RIGHT: Voice Studio + side cards */}
+        <aside className="order-1 flex flex-col gap-4 lg:order-2">
         <section className="rounded-2xl border border-border bg-white p-5">
           <h2 className="text-[18px] font-bold text-foreground">Voice Studio</h2>
 
@@ -824,7 +832,7 @@ function GeneratePage() {
 
           {advancedOpen && (
             <div
-              className="mt-3 rounded-xl border border-border bg-[oklch(0.99_0.003_260)] p-4"
+              className="mt-3 rounded-xl border border-border bg-[var(--background)] p-4"
               style={{
                 boxShadow:
                   "inset 0 1px 0 oklch(1 0 0 / 0.6), 0 1px 2px oklch(0.16 0.02 260 / 0.04)",
@@ -898,7 +906,7 @@ function GeneratePage() {
                       <button
                         onClick={handleRemovePreset}
                         disabled={removingPreset}
-                        className="group inline-flex items-center gap-1.5 rounded-lg border border-border bg-white px-3 py-2 text-[12px] font-semibold text-foreground/70 transition-all hover:border-[oklch(0.62_0.2_25/0.4)] hover:bg-[oklch(0.98_0.02_25)] hover:text-[oklch(0.55_0.22_25)] disabled:cursor-not-allowed disabled:opacity-50"
+                        className="group inline-flex items-center gap-1.5 rounded-lg border border-border bg-white px-3 py-2 text-[12px] font-semibold text-foreground/70 transition-all hover:border-[oklch(0.62_0.2_25/0.4)] hover:bg-[var(--brand-soft)] hover:text-[oklch(0.55_0.22_25)] disabled:cursor-not-allowed disabled:opacity-50"
                       >
                         {removingPreset
                           ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -923,7 +931,7 @@ function GeneratePage() {
                     <button
                       onClick={() => { setSavePresetOpen((v) => !v); setSavePresetError(""); }}
                       className="inline-flex items-center gap-1.5 rounded-lg bg-[oklch(0.55_0.22_260)] px-3 py-2 text-[12px] font-bold text-white transition-all hover:brightness-110"
-                      style={{ boxShadow: "0 10px 20px -10px oklch(0.55 0.22 260 / 0.55), inset 0 1px 0 oklch(1 0 0 / 0.25)" }}
+                      style={{ boxShadow: "var(--shadow-btn)" }}
                     >
                       <Sparkles className="h-3.5 w-3.5" />
                       Save Preset
@@ -933,7 +941,7 @@ function GeneratePage() {
 
                 {/* Edit panel for user presets */}
                 {isUserPreset && editPresetOpen && (
-                  <div className="mt-3 rounded-xl border border-[oklch(0.55_0.22_260/0.25)] bg-[oklch(0.97_0.025_260)] p-3">
+                  <div className="mt-3 rounded-xl border border-[oklch(0.55_0.22_260/0.25)] bg-[var(--brand-soft)] p-3">
                     <p className="mb-2 text-[11.5px] font-semibold text-foreground/70">
                       Rename or update settings — current slider values will be saved.
                     </p>
@@ -969,7 +977,7 @@ function GeneratePage() {
                 )}
 
                 {tone === "Custom" && savePresetOpen && (
-                  <div className="mt-3 rounded-xl border border-[oklch(0.55_0.22_260/0.25)] bg-[oklch(0.97_0.025_260)] p-3">
+                  <div className="mt-3 rounded-xl border border-[oklch(0.55_0.22_260/0.25)] bg-[var(--brand-soft)] p-3">
                     <p className="mb-2 text-[11.5px] font-semibold text-foreground/70">
                       Name this preset — it will appear in the Tone chips above.
                     </p>
@@ -1021,7 +1029,8 @@ function GeneratePage() {
           )}
         </section>
 
-      </aside>
+        </aside>
+      </div>
     </div>
   );
 }
@@ -1132,7 +1141,7 @@ function VoicePicker({
       }}
     >
       <div className="border-b border-border p-3">
-        <div className="flex items-center rounded-lg border border-border bg-[oklch(0.99_0.003_260)] px-3 py-2 focus-within:border-[oklch(0.55_0.22_260)] focus-within:ring-4 focus-within:ring-[oklch(0.55_0.22_260/0.08)]">
+        <div className="flex items-center rounded-lg border border-border bg-[var(--background)] px-3 py-2 focus-within:border-[oklch(0.55_0.22_260)] focus-within:ring-4 focus-within:ring-[oklch(0.55_0.22_260/0.08)]">
           <Search className="h-3.5 w-3.5 text-foreground/40" />
           <input
             ref={inputRef}
@@ -1186,7 +1195,7 @@ function VoicePicker({
                 key={v.id}
                 className={
                   "group flex items-center gap-2 rounded-lg px-2 py-2 transition-colors " +
-                  (isSelected ? "bg-[oklch(0.97_0.025_260)]" : "hover:bg-muted")
+                  (isSelected ? "bg-[var(--brand-soft)]" : "hover:bg-muted")
                 }
               >
                 <button
@@ -1247,7 +1256,7 @@ function VoicePicker({
 
       <a
         href="/app/library"
-        className="flex items-center justify-between border-t border-border bg-[oklch(0.99_0.003_260)] px-4 py-3 text-[12px] font-semibold text-[oklch(0.55_0.22_260)] transition-colors hover:bg-[oklch(0.97_0.025_260)]"
+        className="flex items-center justify-between border-t border-border bg-[var(--background)] px-4 py-3 text-[12px] font-semibold text-[oklch(0.55_0.22_260)] transition-colors hover:bg-[var(--brand-soft)]"
       >
         <span className="inline-flex items-center gap-1.5">
           <Plus className="h-3.5 w-3.5" />
@@ -1285,9 +1294,9 @@ function FormatTile({
         active
           ? {
               background:
-                "linear-gradient(135deg, oklch(0.6 0.2 260), oklch(0.5 0.22 270))",
+                "linear-gradient(135deg, var(--brand), var(--brand-secondary))",
               boxShadow:
-                "0 10px 22px -10px oklch(0.55 0.22 260 / 0.55), inset 0 1px 0 oklch(1 0 0 / 0.25)",
+                "var(--shadow-btn)",
             }
           : undefined
       }
@@ -1387,20 +1396,106 @@ function fmtTime(s: number) {
   return `${m}:${r.toString().padStart(2, "0")}`;
 }
 
+const GENERATION_STEPS = [
+  {
+    label: "Script accepted",
+    detail: "Queued locally",
+    icon: Sparkles,
+  },
+  {
+    label: "Synthesizing voice",
+    detail: "Rendering speech",
+    icon: AudioLines,
+  },
+  {
+    label: "Finalizing audio",
+    detail: "Encoding the clip",
+    icon: Disc3,
+  },
+] as const;
+
+function getGenerationStep(elapsed: number) {
+  if (elapsed < 6) return 1;
+  if (elapsed < 45) return 2;
+  return 3;
+}
+
+function getGenerationStatus(elapsed: number) {
+  const step = getGenerationStep(elapsed);
+  return GENERATION_STEPS[step - 1];
+}
+
 function GeneratingRow({ elapsed }: { elapsed: number }) {
+  const activeStep = getGenerationStep(elapsed);
+  const activeStatus = getGenerationStatus(elapsed);
+  const progressPct = Math.min(92, (elapsed / 240) * 100);
+
   return (
-    <div className="flex items-center gap-4 rounded-xl border border-border bg-[oklch(0.99_0.003_260)] p-4">
-      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[oklch(0.96_0.04_260)]">
-        <Loader2 className="h-5 w-5 animate-spin text-[oklch(0.55_0.22_260)]" />
+    <div className="overflow-hidden rounded-2xl border border-[color-mix(in oklch, var(--brand) 16%, white)] bg-[linear-gradient(180deg,var(--brand-soft)_0%,white_26%,var(--background)_100%)] shadow-[0_18px_36px_-28px_oklch(0.16_0.02_260/0.28)]">
+      <div className="flex items-start gap-4 p-4 sm:p-5">
+        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[radial-gradient(circle_at_30%_30%,white_0%,var(--brand-soft)_58%,color-mix(in_oklch,var(--brand)_20%,white)_100%)] text-[var(--brand)] shadow-sm">
+          <Loader2 className="h-5 w-5 animate-spin" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+            <div className="text-[15px] font-bold tracking-tight text-foreground">Generating audio…</div>
+            <span className="rounded-full border border-[color-mix(in oklch, var(--brand) 20%, white)] bg-white/90 px-2.5 py-0.5 text-[11px] font-semibold text-[var(--brand)] shadow-sm">
+              {activeStatus.label}
+            </span>
+          </div>
+          <div className="mt-1 text-[12.5px] text-foreground/60">
+            {activeStatus.detail} · {fmtTime(elapsed)} elapsed
+          </div>
+        </div>
       </div>
-      <div className="min-w-0 flex-1">
-        <div className="text-[14px] font-bold text-foreground">Generating audio…</div>
-        <div className="mt-0.5 text-[12px] text-foreground/55">Running on-device · {fmtTime(elapsed)} elapsed</div>
-        <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-muted">
-          <div
-            className="h-full rounded-full bg-[oklch(0.55_0.22_260)]"
-            style={{ width: `${Math.min(95, (elapsed / 60) * 100)}%`, transition: "width 0.5s linear" }}
-          />
+      <div className="border-t border-[color-mix(in oklch, var(--brand) 10%, white)] px-4 py-4 sm:px-5">
+        <div className="grid gap-3 md:grid-cols-3">
+          {GENERATION_STEPS.map((step, idx) => {
+            const stepNumber = idx + 1;
+            const isDone = stepNumber < activeStep;
+            const isActive = stepNumber === activeStep;
+            const Icon = step.icon;
+            return (
+              <div
+                key={step.label}
+                className={`rounded-xl border px-3 py-3 transition-colors ${
+                  isActive
+                    ? "border-[color-mix(in oklch, var(--brand) 22%, white)] bg-white shadow-sm"
+                    : isDone
+                      ? "border-[color-mix(in oklch, var(--brand-secondary) 22%, white)] bg-[var(--brand-soft)]/40"
+                      : "border-border bg-white/70"
+                }`}
+              >
+                <div className="flex items-start gap-2.5">
+                  <div
+                    className={`mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full ${
+                      isActive
+                        ? "bg-[var(--brand)] text-white"
+                        : isDone
+                          ? "bg-[var(--brand-secondary)] text-white"
+                          : "bg-muted text-foreground/45"
+                    }`}
+                  >
+                    {isDone ? <CheckCircle2 className="h-3.5 w-3.5" /> : <Icon className="h-3.5 w-3.5" />}
+                  </div>
+                  <div className="min-w-0">
+                    <div className="text-[13px] font-semibold text-foreground">{step.label}</div>
+                    <div className="mt-0.5 text-[11.5px] leading-snug text-foreground/55">
+                      {isActive ? `${step.detail} now` : step.detail}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+        <div className="mt-4 flex items-center gap-3">
+          <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-white/80">
+            <div
+              className="h-full rounded-full bg-[linear-gradient(90deg,var(--brand),var(--brand-secondary),var(--brand-warm))]"
+              style={{ width: `${progressPct}%`, transition: "width 0.6s linear" }}
+            />
+          </div>
         </div>
       </div>
     </div>
@@ -1446,7 +1541,7 @@ function StudioSection({
 
 function EmptyOutputState() {
   return (
-    <div className="flex flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-border bg-[oklch(0.99_0.003_260)] py-10 text-center">
+    <div className="flex flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-border bg-[var(--background)] py-10 text-center">
       <AudioLines className="h-8 w-8 text-foreground/20" />
       <p className="text-[13px] font-medium text-foreground/40">Your result will appear here</p>
       <p className="text-[12px] text-foreground/30">Generated audio will appear here</p>
@@ -1461,6 +1556,8 @@ function JobRow({
   onActivate,
   onRegenerate,
   onDelete,
+  timelineStyle = false,
+  isLatest = false,
 }: {
   job: Job;
   preloadedUrl?: string;
@@ -1468,6 +1565,8 @@ function JobRow({
   onActivate: (id: string | null) => void;
   onRegenerate?: () => void;
   onDelete?: () => void;
+  timelineStyle?: boolean;
+  isLatest?: boolean;
 }) {
   const audioRef = useRef<HTMLAudioElement>(null);
   const onActivateRef = useRef(onActivate);
@@ -1586,7 +1685,6 @@ function JobRow({
   const jobPeaks = useMemo(() => jobSpeechPeaks(300, job.request_id), [job.request_id]);
   const peaks = waveformBars ?? jobPeaks;
   useEffect(() => {
-    let raf = 0;
     const progressRatio = audioDuration > 0 ? progress / audioDuration : 0;
     const draw = () => {
       const canvas = canvasRef.current;
@@ -1610,9 +1708,9 @@ function JobRow({
         const playedX = progressRatio * w;
         const hoverX = hover != null ? hover * w : null;
         const grad = ctx.createLinearGradient(0, 0, w, 0);
-        grad.addColorStop(0,    "oklch(0.6 0.2 260)");
-        grad.addColorStop(0.55, "oklch(0.58 0.22 305)");
-        grad.addColorStop(1,    "oklch(0.62 0.22 25)");
+        grad.addColorStop(0, BRAND);
+        grad.addColorStop(0.55, BRAND_SECONDARY);
+        grad.addColorStop(1, BRAND_WARM);
 
         const dim = fetchStatus !== "ready";
         for (let i = 0; i < count; i++) {
@@ -1623,7 +1721,7 @@ function JobRow({
           const inHover = hoverX != null && x >= playedX && x < hoverX;
           ctx.globalAlpha = dim ? 0.22 : 1;
           if (isPlayed && !dim)      ctx.fillStyle = grad;
-          else if (inHover && !dim)  ctx.fillStyle = "oklch(0.55 0.22 260 / 0.35)";
+          else if (inHover && !dim)  ctx.fillStyle = BRAND;
           else                       ctx.fillStyle = "oklch(0.55 0.04 260 / 0.32)";
           jobRoundedRect(ctx, x, (h - bh) / 2, barW, bh, 1);
           ctx.fill();
@@ -1631,17 +1729,18 @@ function JobRow({
         }
 
         if (!dim) {
-          ctx.strokeStyle = "oklch(0.62 0.22 25)";
+          ctx.strokeStyle = BRAND_WARM;
           ctx.lineWidth = 2;
           ctx.beginPath(); ctx.moveTo(playedX, 4); ctx.lineTo(playedX, h - 4); ctx.stroke();
-          ctx.fillStyle = "oklch(0.62 0.22 25)";
+          ctx.fillStyle = BRAND_WARM;
           ctx.beginPath(); ctx.arc(playedX, h / 2, 3.5, 0, Math.PI * 2); ctx.fill();
         }
       }
-      raf = requestAnimationFrame(draw);
     };
-    raf = requestAnimationFrame(draw);
-    return () => cancelAnimationFrame(raf);
+    draw();
+    const onResize = () => draw();
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
   }, [peaks, progress, audioDuration, hover, fetchStatus]);
 
   const handlePlayClick = async () => {
@@ -1690,9 +1789,20 @@ function JobRow({
     job.output_format.toUpperCase(),
     ...(job.rtf != null ? [`RTF ${job.rtf.toFixed(2)}x`] : []),
   ];
+  const activitySteps = [
+    { label: "Generated", active: true },
+    { label: "Saved", active: job.file_available !== false },
+    { label: "Ready", active: fetchStatus !== "loading" && fetchStatus !== "expired" },
+  ];
 
   return (
-    <div className="rounded-xl border border-border bg-gradient-to-br from-white to-[oklch(0.985_0.01_280)]">
+    <div
+      className={`rounded-xl border bg-gradient-to-br from-white to-[var(--background)] ${
+        timelineStyle
+          ? "border-[color-mix(in_oklch,var(--brand)_12%,var(--border))] shadow-[0_14px_30px_-24px_oklch(0.16_0.02_260/0.35)]"
+          : "border-border"
+      }`}
+    >
       {blobUrl && <audio ref={audioRef} src={blobUrl} preload="auto" />}
 
       {/* ── Header ── */}
@@ -1702,7 +1812,7 @@ function JobRow({
           disabled={fetchStatus === "expired"}
           aria-label={playing ? "Pause" : "Play"}
           className="group relative flex h-12 w-12 shrink-0 items-center justify-center rounded-full text-white transition-transform hover:scale-105 active:scale-95 disabled:cursor-not-allowed disabled:opacity-35"
-          style={{ background: "linear-gradient(135deg, oklch(0.6 0.2 260), oklch(0.55 0.22 305), oklch(0.6 0.22 25))", boxShadow: "0 10px 24px -10px oklch(0.55 0.22 280 / 0.6), inset 0 1px 0 oklch(1 0 0 / 0.3)" }}
+          style={{ background: BRAND_GRADIENT, boxShadow: "var(--shadow-btn)" }}
         >
           {playing && <span className="absolute inset-0 -m-1 animate-ping rounded-full border-2 border-[oklch(0.6_0.22_280)]/30" />}
           {fetchStatus === "loading" ? <Loader2 className="h-4 w-4 animate-spin" />
@@ -1711,13 +1821,33 @@ function JobRow({
         </button>
 
         <div className="min-w-0">
-          <div className="flex items-center gap-1.5">
+          <div className="flex flex-wrap items-center gap-1.5">
             <Disc3 className="h-3.5 w-3.5 shrink-0 text-[oklch(0.55_0.22_260)]" />
             <div className={`truncate text-[14px] font-bold ${fetchStatus === "expired" ? "text-foreground/45" : "text-foreground"}`}>{titlePreview}</div>
+            {isLatest && (
+              <span className="rounded-full bg-[var(--brand-soft)] px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-[var(--brand)]">
+                Latest
+              </span>
+            )}
           </div>
           <div className="mt-0.5 truncate text-[11.5px] text-foreground/50">
             {voiceLabel} · {presetLabel} · {formatLabel} · {timeLabel}
           </div>
+          {timelineStyle && (
+            <div className="mt-2 flex flex-wrap items-center gap-2 text-[10.5px] font-semibold uppercase tracking-wide text-foreground/45">
+              {activitySteps.map((step) => (
+                <span
+                  key={step.label}
+                  className={`inline-flex items-center gap-1.5 rounded-full px-2 py-1 ${
+                    step.active ? "bg-[var(--brand-soft)] text-[var(--brand)]" : "bg-muted text-foreground/40"
+                  }`}
+                >
+                  <span className={`h-1.5 w-1.5 rounded-full ${step.active ? "bg-[var(--brand-secondary)]" : "bg-foreground/20"}`} />
+                  {step.label}
+                </span>
+              ))}
+            </div>
+          )}
           {(job.generation_s != null || job.device != null) && (
             <div className="mt-1 flex flex-wrap gap-x-2.5 gap-y-0.5 text-[11px] text-foreground/35">
               <span>{job.text.split(/\s+/).filter(Boolean).length.toLocaleString()} words</span>
@@ -1797,7 +1927,7 @@ function JobRow({
             </a>
             {onRegenerate && (
               <button onClick={onRegenerate} className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-white px-2.5 py-1.5 text-[12px] font-semibold text-foreground/75 hover:bg-muted">
-                <RefreshCw className="h-3.5 w-3.5" /> Regenerate
+                <RefreshCw className="h-3.5 w-3.5" /> Reuse Script
               </button>
             )}
           </div>
@@ -1862,7 +1992,7 @@ function JobVolumeControl({ value, muted, onChange, onToggleMute }: { value: num
         {muted ? <VolumeX className="h-3.5 w-3.5" /> : <Volume2 className="h-3.5 w-3.5" />}
       </button>
       <div className="relative h-1 w-20 rounded-full bg-muted">
-        <div className="absolute left-0 top-0 h-full rounded-full" style={{ width: `${(muted ? 0 : value) * 100}%`, background: "linear-gradient(90deg, oklch(0.6 0.2 260), oklch(0.62 0.22 25))" }} />
+        <div className="absolute left-0 top-0 h-full rounded-full" style={{ width: `${(muted ? 0 : value) * 100}%`, background: "linear-gradient(90deg, var(--brand), var(--brand-warm))" }} />
         <input type="range" min={0} max={1} step={0.01} value={muted ? 0 : value} onChange={(e) => onChange(Number(e.target.value))}
           className="absolute inset-0 h-full w-full cursor-pointer appearance-none bg-transparent opacity-0" aria-label="Volume" />
         <span className="pointer-events-none absolute top-1/2 h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full border border-white bg-[oklch(0.6_0.2_265)] shadow"
@@ -1922,7 +2052,6 @@ function VoicePreviewPlayer({ voiceId }: { voiceId: string }) {
 
   // Canvas draw loop
   useEffect(() => {
-    let raf = 0;
     const draw = () => {
       const canvas = canvasRef.current;
       const ctx = canvas?.getContext("2d");
@@ -1943,9 +2072,9 @@ function VoicePreviewPlayer({ voiceId }: { voiceId: string }) {
         const playedX = duration > 0 ? (progress / duration) * w : 0;
         const hoverX = hover != null ? hover * w : null;
         const grad = ctx.createLinearGradient(0, 0, w, 0);
-        grad.addColorStop(0, "oklch(0.6 0.2 260)");
-        grad.addColorStop(0.55, "oklch(0.58 0.22 305)");
-        grad.addColorStop(1, "oklch(0.62 0.22 25)");
+        grad.addColorStop(0, BRAND);
+        grad.addColorStop(0.55, BRAND_SECONDARY);
+        grad.addColorStop(1, BRAND_WARM);
         for (let i = 0; i < count; i++) {
           const p = peaks[Math.floor((i / count) * peaks.length)] ?? 0;
           const bh = Math.max(2, p * (h * 0.85));
@@ -1954,7 +2083,7 @@ function VoicePreviewPlayer({ voiceId }: { voiceId: string }) {
           const isPlayed = !isGeneric && x < playedX;
           const inHover = !isGeneric && hoverX != null && x >= playedX && x < hoverX;
           ctx.globalAlpha = isGeneric ? 0.35 : 1;
-          ctx.fillStyle = isPlayed ? grad : inHover ? "oklch(0.55 0.22 260 / 0.35)" : "oklch(0.55 0.04 260 / 0.3)";
+          ctx.fillStyle = isPlayed ? grad : inHover ? BRAND : "oklch(0.55 0.04 260 / 0.3)";
           ctx.globalAlpha = 1;
           ctx.beginPath();
           ctx.moveTo(x + 1, y);
@@ -1966,22 +2095,23 @@ function VoicePreviewPlayer({ voiceId }: { voiceId: string }) {
           ctx.fill();
         }
         if (!isGeneric && duration > 0) {
-          ctx.strokeStyle = "oklch(0.62 0.22 25)";
+          ctx.strokeStyle = BRAND_WARM;
           ctx.lineWidth = 1.5;
           ctx.beginPath();
           ctx.moveTo(playedX, 3);
           ctx.lineTo(playedX, h - 3);
           ctx.stroke();
-          ctx.fillStyle = "oklch(0.62 0.22 25)";
+          ctx.fillStyle = BRAND_WARM;
           ctx.beginPath();
           ctx.arc(playedX, h / 2, 2.5, 0, Math.PI * 2);
           ctx.fill();
         }
       }
-      raf = requestAnimationFrame(draw);
     };
-    raf = requestAnimationFrame(draw);
-    return () => cancelAnimationFrame(raf);
+    draw();
+    const onResize = () => draw();
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
   }, [peaks, progress, duration, hover, isGeneric]);
 
   const src = voiceId ? `/api/v1/voices/${encodeURIComponent(voiceId)}/audio` : "";
@@ -1990,7 +2120,7 @@ function VoicePreviewPlayer({ voiceId }: { voiceId: string }) {
   return (
     <div className="mt-2.5">
       <p className={`mb-1 text-[11px] font-semibold uppercase tracking-wide ${isGeneric ? "text-foreground/35" : "text-foreground/40"}`}>Preview</p>
-      <div className={`flex items-center gap-3 overflow-hidden rounded-xl border border-border bg-gradient-to-br from-white to-[oklch(0.985_0.01_280)] px-3 py-2.5 ${isGeneric ? "opacity-50 select-none" : ""}`}>
+      <div className={`flex items-center gap-3 overflow-hidden rounded-xl border border-border bg-gradient-to-br from-white to-[var(--background)] px-3 py-2.5 ${isGeneric ? "opacity-50 select-none" : ""}`}>
         {!isGeneric && <audio ref={audioRef} src={src} preload="metadata" />}
 
         {/* Gradient play button */}
@@ -2000,7 +2130,7 @@ function VoicePreviewPlayer({ voiceId }: { voiceId: string }) {
           aria-label={playing ? "Pause preview" : "Play preview"}
           className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-white transition-transform hover:scale-105 active:scale-95 disabled:cursor-default disabled:opacity-70"
           style={{
-            background: "linear-gradient(135deg, oklch(0.6 0.2 260), oklch(0.55 0.22 305), oklch(0.6 0.22 25))",
+            background: "linear-gradient(135deg, var(--brand), var(--brand-secondary), oklch(0.6 0.22 25))",
             boxShadow: "0 8px 18px -10px oklch(0.55 0.22 280 / 0.6), inset 0 1px 0 oklch(1 0 0 / 0.3)",
           }}
         >
@@ -2054,7 +2184,7 @@ function VoicePreviewPlayer({ voiceId }: { voiceId: string }) {
           <div className="relative hidden h-1 w-14 rounded-full bg-muted sm:block">
             <div
               className="absolute left-0 top-0 h-full rounded-full"
-              style={{ width: `${volume * 100}%`, background: "linear-gradient(90deg, oklch(0.6 0.2 260), oklch(0.62 0.22 25))" }}
+              style={{ width: `${volume * 100}%`, background: "linear-gradient(90deg, var(--brand), var(--brand-warm))" }}
             />
             <input
               type="range"

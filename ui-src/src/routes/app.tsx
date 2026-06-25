@@ -69,10 +69,10 @@ function AppLayout() {
   }, [collapsed]);
 
   return (
-    <div className="flex min-h-screen w-full bg-[oklch(0.985_0.005_260)] text-foreground">
+    <div className="flex min-h-screen w-full bg-transparent text-foreground">
       {/* Desktop sidebar */}
       <aside
-        className={`sticky top-0 hidden h-screen shrink-0 flex-col border-r border-border bg-white py-5 transition-[width] duration-200 lg:flex ${
+        className={`sticky top-0 hidden h-screen shrink-0 flex-col border-r border-border/60 bg-white/75 py-5 backdrop-blur-xl transition-[width] duration-200 lg:flex ${
           collapsed ? "w-[68px] px-2" : "w-[232px] px-4"
         }`}
       >
@@ -87,10 +87,10 @@ function AppLayout() {
       {mobileOpen && (
         <>
           <div
-            className="fixed inset-0 z-40 bg-foreground/30 backdrop-blur-sm lg:hidden"
+            className="fixed inset-0 z-40 bg-foreground/20 backdrop-blur-sm lg:hidden"
             onClick={() => setMobileOpen(false)}
           />
-          <aside className="fixed inset-y-0 left-0 z-50 flex w-[260px] flex-col border-r border-border bg-white px-4 py-5 shadow-xl lg:hidden">
+          <aside className="fixed inset-y-0 left-0 z-50 flex w-[260px] flex-col border-r border-border/60 bg-white/90 px-4 py-5 shadow-xl backdrop-blur-xl lg:hidden">
             <button
               type="button"
               onClick={() => setMobileOpen(false)}
@@ -107,7 +107,7 @@ function AppLayout() {
       {/* Main column */}
       <div className="flex min-w-0 flex-1 flex-col">
         {/* Top bar */}
-        <header className="flex h-[64px] shrink-0 items-center justify-between gap-3 border-b border-border bg-white px-4 sm:px-8">
+        <header className="flex h-[64px] shrink-0 items-center justify-between gap-3 border-b border-border/60 bg-white/70 px-4 backdrop-blur-xl sm:px-8">
           <div className="flex items-center gap-3">
             <button
               type="button"
@@ -148,20 +148,27 @@ function AppLayout() {
         </main>
 
         {/* Footer */}
-        <footer className="shrink-0 border-t border-border bg-white px-4 py-3 sm:px-8">
+        <footer className="shrink-0 border-t border-border/60 bg-white/70 px-4 py-3 backdrop-blur-xl sm:px-8">
           <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 text-[11.5px] text-foreground/55">
             <span className="inline-flex items-center gap-1">
               Made with
-              <Heart className="h-3 w-3 fill-[oklch(0.62_0.22_25)] text-[oklch(0.62_0.22_25)]" />
+              <Heart className="h-3 w-3 fill-[var(--brand-warm)] text-[var(--brand-warm)]" />
               from South Florida
             </span>
             <div className="flex items-center gap-2">
+              <Link
+                to="/"
+                aria-label="Go to landing page"
+                className="inline-flex items-center justify-center transition-all hover:-translate-y-0.5"
+              >
+                <img src={voxLogoDark} alt="Vox" className="h-6 w-auto" />
+              </Link>
               <a
                 href="https://github.com"
                 target="_blank"
                 rel="noopener noreferrer"
                 aria-label="GitHub"
-                className="inline-flex items-center gap-1.5 rounded-md border border-foreground/15 bg-white px-2 py-1 text-[11px] font-semibold text-foreground transition-colors hover:bg-foreground hover:text-white"
+                className="inline-flex items-center gap-1.5 rounded-md border border-foreground/15 bg-white/80 px-2 py-1 text-[11px] font-semibold text-foreground transition-colors hover:border-[var(--brand)] hover:text-[var(--brand)] hover:shadow-sm"
               >
                 <svg viewBox="0 0 24 24" className="h-3 w-3" fill="currentColor" aria-hidden="true">
                   <path d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.39 7.86 10.91.58.1.79-.25.79-.56v-2c-3.2.69-3.87-1.37-3.87-1.37-.52-1.32-1.27-1.67-1.27-1.67-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.18 1.76 1.18 1.02 1.75 2.69 1.25 3.35.96.1-.74.4-1.25.72-1.54-2.55-.29-5.24-1.28-5.24-5.7 0-1.26.45-2.29 1.18-3.1-.12-.29-.51-1.46.11-3.05 0 0 .97-.31 3.18 1.18a11 11 0 0 1 5.79 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.12 3.05.74.81 1.18 1.84 1.18 3.1 0 4.43-2.7 5.4-5.26 5.69.41.36.78 1.06.78 2.14v3.17c0 .31.21.67.8.56A11.51 11.51 0 0 0 23.5 12C23.5 5.65 18.35.5 12 .5Z" />
@@ -173,7 +180,7 @@ function AppLayout() {
                 target="_blank"
                 rel="noopener noreferrer"
                 aria-label="Buy me a coffee"
-                className="inline-flex items-center gap-1.5 rounded-md bg-[#FFDD00] px-2 py-1 text-[11px] font-semibold text-black transition-colors hover:bg-[#FFD400]"
+                className="inline-flex items-center gap-1.5 rounded-md border border-border bg-white/80 px-2 py-1 text-[11px] font-semibold text-foreground/80 transition-colors hover:border-[var(--brand)] hover:bg-white hover:text-foreground"
               >
                 <svg viewBox="0 0 24 24" className="h-3 w-3" fill="currentColor" aria-hidden="true">
                   <path d="M20 3H6a1 1 0 0 0-1 1v9a5 5 0 0 0 5 5h2a5 5 0 0 0 5-5v-1h3a3 3 0 0 0 0-6Zm0 4v2h-3V7h3ZM4 20h14v2H4z" />
@@ -277,7 +284,7 @@ function SidebarContent({
                 aria-label={label}
                 className={
                   active
-                    ? `${base} bg-[oklch(0.96_0.03_260)] text-[14px] font-semibold text-[oklch(0.55_0.22_260)]`
+                    ? `${base} bg-[var(--brand-soft)] text-[14px] font-semibold text-[var(--brand)]`
                     : `${base} text-[14px] font-medium text-foreground/70 transition-colors hover:bg-muted hover:text-foreground`
                 }
               >
@@ -305,7 +312,7 @@ function SidebarContent({
                   </div>
                   <div className="text-right">
                     <div className="text-[10px] font-semibold uppercase tracking-wide text-foreground/50">Today</div>
-                    <div className="mt-0.5 text-[22px] font-black leading-none text-[oklch(0.55_0.22_260)] tabular-nums">
+                    <div className="mt-0.5 text-[22px] font-black leading-none text-[var(--brand)] tabular-nums">
                       {stats.today_requests}
                     </div>
                   </div>
@@ -313,7 +320,7 @@ function SidebarContent({
                 <div className="mt-3">
                   <Sparkline
                     points={stats.sparkline_requests.length > 0 ? stats.sparkline_requests : [0]}
-                    color="oklch(0.62 0.13 175)"
+                    color="var(--brand-secondary)"
                   />
                 </div>
               </section>
@@ -331,7 +338,7 @@ function SidebarContent({
                   </div>
                   <div className="text-right">
                     <div className="text-[10px] font-semibold uppercase tracking-wide text-foreground/50">Today</div>
-                    <div className="mt-0.5 text-[22px] font-black leading-none text-[oklch(0.55_0.22_260)] tabular-nums">
+                    <div className="mt-0.5 text-[22px] font-black leading-none text-[var(--brand)] tabular-nums">
                       {stats.today_minutes < 10 ? stats.today_minutes.toFixed(1) : Math.round(stats.today_minutes)}
                     </div>
                   </div>
@@ -339,7 +346,7 @@ function SidebarContent({
                 <div className="mt-3">
                   <Sparkline
                     points={stats.sparkline_minutes.length > 0 ? stats.sparkline_minutes : [0]}
-                    color="oklch(0.55 0.22 260)"
+                    color="var(--brand)"
                   />
                 </div>
               </section>
@@ -367,17 +374,6 @@ function SidebarContent({
               </section>
             )}
 
-            <Link
-              to="/"
-              className="flex items-center justify-center"
-              aria-label="Go to landing page"
-            >
-              <img
-                src={voxLogoDark}
-                alt="Vox"
-                className="h-12 w-auto opacity-75 transition-all hover:-translate-y-0.5 hover:opacity-100"
-              />
-            </Link>
           </>
         )}
 
@@ -409,19 +405,19 @@ function SidebarContent({
 function StatusPill({ status, label }: { status: "ok" | "loading" | "error"; label: string }) {
   const styles = {
     ok: {
-      wrap: "border-[oklch(0.88_0.1_145)] bg-[oklch(0.97_0.04_145)] text-[oklch(0.38_0.14_145)]",
-      ping: "bg-[oklch(0.65_0.18_145)]",
-      dot: "bg-[oklch(0.55_0.18_145)]",
+      wrap: "border-[color-mix(in oklch, var(--brand-secondary) 30%, white)] bg-[var(--brand-soft)] text-[var(--brand)]",
+      ping: "bg-[var(--brand-secondary)]",
+      dot: "bg-[var(--brand)]",
     },
     loading: {
-      wrap: "border-[oklch(0.88_0.1_75)] bg-[oklch(0.97_0.04_75)] text-[oklch(0.45_0.12_75)]",
-      ping: "bg-[oklch(0.7_0.15_75)]",
-      dot: "bg-[oklch(0.6_0.15_75)]",
+      wrap: "border-[color-mix(in oklch, var(--brand-secondary) 24%, white)] bg-[color-mix(in oklch, var(--brand-soft) 65%, white)] text-[var(--brand-secondary)]",
+      ping: "bg-[var(--brand-secondary)]",
+      dot: "bg-[var(--brand-secondary)]",
     },
     error: {
-      wrap: "border-[oklch(0.88_0.1_25)] bg-[oklch(0.97_0.04_25)] text-[oklch(0.45_0.18_25)]",
+      wrap: "border-[color-mix(in oklch, var(--brand-warm) 28%, white)] bg-[color-mix(in oklch, var(--brand-warm) 10%, white)] text-[var(--brand-warm)]",
       ping: "",
-      dot: "bg-[oklch(0.6_0.2_25)]",
+      dot: "bg-[var(--brand-warm)]",
     },
   }[status];
 
@@ -470,4 +466,3 @@ function Sparkline({
     </svg>
   );
 }
-

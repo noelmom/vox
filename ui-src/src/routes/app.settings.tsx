@@ -20,6 +20,7 @@ import {
   LayoutGrid,
 } from "lucide-react";
 import { type ServerSettings, getServerSettings, listVoices, listPresets } from "@/lib/api";
+import { BRAND, BRAND_GRADIENT, BRAND_SECONDARY, BRAND_WARM } from "@/lib/theme";
 
 export const Route = createFileRoute("/app/settings")({
   head: () => ({ meta: [{ title: "Settings — Vox Studio" }] }),
@@ -180,7 +181,7 @@ function SettingsPage() {
             </InfoRow>
             <InfoRow label="Model" hint="Active TTS model.">
               <div className="flex items-center gap-1.5">
-                <Zap className="h-3.5 w-3.5 text-[oklch(0.55_0.22_260)]" />
+                <Zap className="h-3.5 w-3.5 text-[var(--brand)]" />
                 <span className="text-[13.5px] font-semibold text-foreground">{server.model_name}</span>
               </div>
             </InfoRow>
@@ -192,21 +193,27 @@ function SettingsPage() {
             <InfoRow label="ffmpeg" hint="Required for audio conversion (MP3 export, WebM recording).">
               {server.ffmpeg_available ? (
                 <div className="flex items-center gap-1.5 text-[13px]">
-                  <CheckCircle2 className="h-4 w-4 text-[oklch(0.5_0.15_145)]" />
-                  <span className="font-medium text-[oklch(0.4_0.13_145)]">Available</span>
+                  <CheckCircle2 className="h-4 w-4 text-[var(--brand-secondary)]" />
+                  <span className="font-medium text-[var(--brand-secondary)]">Available</span>
                   <code className="ml-1 text-[11px] text-muted-foreground">{server.ffmpeg_path}</code>
                 </div>
               ) : (
                 <div className="flex items-center gap-1.5 text-[13px]">
-                  <XCircle className="h-4 w-4 text-[oklch(0.55_0.22_25)]" />
-                  <span className="font-medium text-[oklch(0.5_0.22_25)]">Not found</span>
+                  <XCircle className="h-4 w-4 text-[var(--brand-warm)]" />
+                  <span className="font-medium text-[var(--brand-warm)]">Not found</span>
                   <span className="text-[11.5px] text-muted-foreground">— MP3 export will fail</span>
                 </div>
               )}
             </InfoRow>
+            <InfoRow label="Voice clip limit" hint="Maximum uploaded or recorded voice sample length. Invalid or empty env values fall back to 120 seconds.">
+              <span className="text-[13.5px] font-semibold text-foreground">{server.max_voice_clip_duration_s}s</span>
+            </InfoRow>
+            <InfoRow label="Chunk headroom" hint="Extra breathing room Vox reserves below the hard max chunk size so sentence endings are less likely to be cut off.">
+              <span className="text-[13.5px] font-semibold text-foreground">{server.chunk_headroom_chars} chars</span>
+            </InfoRow>
           </>
         ) : (
-          <div className="px-5 py-5 text-[13px] text-[oklch(0.5_0.22_25)]">
+          <div className="px-5 py-5 text-[13px] text-[var(--brand-warm)]">
             Could not reach the server — make sure Vox is running.
           </div>
         )}
@@ -375,10 +382,7 @@ function SettingsPage() {
           <button
             onClick={handleSave}
             className="inline-flex items-center gap-1.5 rounded-xl px-4 py-2 text-[13px] font-bold text-white transition-all hover:brightness-110"
-            style={{
-              background: "linear-gradient(135deg, oklch(0.6 0.2 260), oklch(0.5 0.22 270))",
-              boxShadow: "0 10px 24px -10px oklch(0.55 0.22 260 / 0.55), inset 0 1px 0 oklch(1 0 0 / 0.25)",
-            }}
+              style={{ background: BRAND_GRADIENT, boxShadow: "var(--shadow-btn)" }}
           >
             {saveFeedback ? <><Check className="h-3.5 w-3.5" /> Saved</> : "Save changes"}
           </button>
@@ -386,23 +390,23 @@ function SettingsPage() {
       )}
 
       {isFloating && (
-        <div className="fixed bottom-6 left-64 right-4 z-10 flex flex-wrap items-center gap-2 rounded-2xl border border-[oklch(0.88_0.06_75)] bg-[oklch(0.995_0.015_75)] px-4 py-3 shadow-[0_12px_32px_-8px_oklch(0.16_0.02_260/0.22)]">
+        <div className="fixed bottom-6 left-64 right-4 z-10 flex flex-wrap items-center gap-2 rounded-2xl border border-[color-mix(in oklch, var(--brand-warm) 22%, white)] bg-[color-mix(in oklch, var(--brand-warm) 8%, white)] px-4 py-3 shadow-[0_12px_32px_-8px_oklch(0.16_0.02_260/0.22)]">
           <div className="mr-auto flex min-w-0 items-center gap-2">
-            <AlertTriangle className="h-4 w-4 shrink-0 text-[oklch(0.55_0.15_70)]" />
-            <span className="text-[12.5px] font-medium text-[oklch(0.35_0.08_70)]">
+            <AlertTriangle className="h-4 w-4 shrink-0 text-[var(--brand-warm)]" />
+            <span className="text-[12.5px] font-medium text-[var(--brand-warm)]">
               Generation defaults have unsaved changes — they'll be lost if you leave this page.
             </span>
             <button
               onClick={handleDismiss}
               aria-label="Dismiss warning"
-              className="ml-1 inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[12px] font-semibold text-[oklch(0.5_0.1_70)] hover:bg-[oklch(0.94_0.05_75)] hover:text-[oklch(0.35_0.1_70)]"
+              className="ml-1 inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[12px] font-semibold text-[var(--brand-warm)] hover:bg-[color-mix(in oklch, var(--brand-warm) 10%, white)] hover:text-[var(--brand-warm)]"
             >
               <X className="h-3 w-3" /> ignore
             </button>
           </div>
           <button
             onClick={handleReset}
-            className="inline-flex items-center gap-1.5 rounded-xl border border-[oklch(0.88_0.06_75)] bg-white/80 px-3 py-2 text-[13px] font-medium text-foreground/80 hover:bg-white"
+            className="inline-flex items-center gap-1.5 rounded-xl border border-[color-mix(in oklch, var(--brand-warm) 18%, white)] bg-white/80 px-3 py-2 text-[13px] font-medium text-foreground/80 hover:bg-white"
           >
             <RotateCcw className="h-3.5 w-3.5" />
             Reset to defaults
@@ -410,10 +414,7 @@ function SettingsPage() {
           <button
             onClick={handleSave}
             className="inline-flex items-center gap-1.5 rounded-xl px-4 py-2 text-[13px] font-bold text-white transition-all hover:brightness-110"
-            style={{
-              background: "linear-gradient(135deg, oklch(0.6 0.2 260), oklch(0.5 0.22 270))",
-              boxShadow: "0 10px 24px -10px oklch(0.55 0.22 260 / 0.55), inset 0 1px 0 oklch(1 0 0 / 0.25)",
-            }}
+              style={{ background: BRAND_GRADIENT, boxShadow: "var(--shadow-btn)" }}
           >
             Save changes
           </button>
@@ -467,7 +468,7 @@ function StoragePath({ path }: { path: string }) {
         <button
           onClick={() => setTipOpen((v) => !v)}
           aria-label="How to open this folder"
-          className="flex h-9 w-9 items-center justify-center rounded-lg border border-border bg-white text-foreground/50 hover:bg-muted hover:text-[oklch(0.55_0.22_260)]"
+          className="flex h-9 w-9 items-center justify-center rounded-lg border border-border bg-white text-foreground/50 hover:bg-muted hover:text-[var(--brand)]"
         >
           <Info className="h-3.5 w-3.5" />
         </button>
@@ -504,7 +505,7 @@ function StoragePath({ path }: { path: string }) {
 
 function Kbd({ children }: { children: React.ReactNode }) {
   return (
-    <kbd className="mx-0.5 inline-flex h-5 min-w-[18px] items-center justify-center rounded border border-border bg-muted px-1 font-mono text-[10.5px] font-semibold text-foreground/80 shadow-[0_1px_0_oklch(0.16_0.02_260/0.08)]">
+      <kbd className="mx-0.5 inline-flex h-5 min-w-[18px] items-center justify-center rounded border border-border bg-muted px-1 font-mono text-[10.5px] font-semibold text-foreground/80 shadow-[0_1px_0_oklch(0.16_0.02_260/0.08)]">
       {children}
     </kbd>
   );
@@ -519,7 +520,7 @@ function DeviceBadge({ device }: { device: string }) {
       className={
         "inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[12.5px] font-bold " +
         (isMps
-          ? "bg-gradient-to-br from-[oklch(0.6_0.2_260)] to-[oklch(0.5_0.22_270)] text-white shadow-sm"
+          ? "bg-gradient-to-br from-[var(--brand)] to-[var(--brand-secondary)] text-white shadow-sm"
           : "bg-muted text-foreground/70")
       }
     >
@@ -554,7 +555,7 @@ function ConfirmDialog({
         className="w-full max-w-[420px] overflow-hidden rounded-2xl border border-border bg-white shadow-2xl"
       >
         <div className="flex items-start gap-3 p-5">
-          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[oklch(0.96_0.05_25)] text-[oklch(0.55_0.22_25)]">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[var(--brand-soft)] text-[var(--brand)]">
             <AlertTriangle className="h-5 w-5" />
           </span>
           <div className="min-w-0">
@@ -562,7 +563,7 @@ function ConfirmDialog({
             <p className="mt-1 text-[13px] leading-snug text-muted-foreground">{description}</p>
           </div>
         </div>
-        <div className="flex items-center justify-end gap-2 border-t border-border bg-[oklch(0.985_0.005_260)] px-5 py-3">
+        <div className="flex items-center justify-end gap-2 border-t border-border bg-[var(--brand-soft)] px-5 py-3">
           <button
             onClick={onCancel}
             className="rounded-lg border border-border bg-white px-3.5 py-2 text-[12.5px] font-semibold text-foreground/80 hover:bg-muted"
@@ -571,7 +572,7 @@ function ConfirmDialog({
           </button>
           <button
             onClick={onConfirm}
-            className="rounded-lg bg-gradient-to-br from-[oklch(0.7_0.2_25)] to-[oklch(0.55_0.22_25)] px-3.5 py-2 text-[12.5px] font-bold text-white shadow-sm hover:brightness-110"
+            className="rounded-lg bg-gradient-to-br from-[var(--brand)] to-[var(--brand-secondary)] px-3.5 py-2 text-[12.5px] font-bold text-white shadow-sm hover:brightness-110"
           >
             {confirmLabel}
           </button>
@@ -599,7 +600,7 @@ function Section({
   return (
     <section id={id} className="overflow-hidden rounded-2xl border border-border bg-white">
       <header className="flex items-center gap-3 border-b border-border bg-gradient-to-br from-white to-[oklch(0.985_0.005_260)] px-5 py-3.5">
-        <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-[oklch(0.95_0.04_260)] text-[oklch(0.55_0.22_260)]">
+        <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--brand-soft)] text-[var(--brand)]">
           <Icon className="h-4 w-4" />
         </span>
         <div className="min-w-0">
@@ -634,7 +635,7 @@ function Row({
         <div className="flex items-center gap-2">
           <div className="text-[13.5px] font-semibold text-foreground">{label}</div>
           {comingSoon && (
-            <span className="rounded-md bg-[oklch(0.95_0.04_260)] px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-[oklch(0.55_0.22_260)]">
+            <span className="rounded-md bg-[var(--brand-soft)] px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-[var(--brand)]">
               Coming soon
             </span>
           )}
@@ -689,7 +690,7 @@ function SegmentToggle<T extends string>({
             className={
               "min-w-[88px] rounded-md px-3.5 py-1.5 text-[12.5px] font-semibold transition-all " +
               (active
-                ? "bg-gradient-to-br from-[oklch(0.6_0.2_260)] to-[oklch(0.5_0.22_270)] text-white shadow-[0_2px_6px_oklch(0.55_0.22_260/0.35)]"
+                ? "bg-gradient-to-br from-[var(--brand)] to-[var(--brand-secondary)] text-white shadow-[0_2px_6px_oklch(0.55_0.22_260/0.35)]"
                 : "text-foreground/65 hover:text-foreground")
             }
           >
@@ -718,7 +719,7 @@ function Select({
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full appearance-none rounded-lg border border-border bg-white px-3 py-2 pr-9 text-[13.5px] font-medium text-foreground outline-none focus:border-[oklch(0.55_0.22_260)]"
+        className="w-full appearance-none rounded-lg border border-border bg-white px-3 py-2 pr-9 text-[13.5px] font-medium text-foreground outline-none focus:border-[var(--brand)]"
       >
         {normalised.map((o) => (
           <option key={o.value} value={o.value}>
@@ -752,7 +753,7 @@ function SliderRow({
       <div className="relative flex-1">
         <div className="h-1.5 w-full rounded-full bg-muted">
           <div
-            className="h-full rounded-full bg-gradient-to-r from-[oklch(0.6_0.2_260)] to-[oklch(0.5_0.22_270)]"
+            className="h-full rounded-full bg-gradient-to-r from-[var(--brand)] to-[var(--brand-secondary)]"
             style={{ width: `${pct}%` }}
           />
         </div>

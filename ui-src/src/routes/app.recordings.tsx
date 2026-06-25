@@ -28,6 +28,7 @@ import {
   VolumeX,
 } from "lucide-react";
 import { type Job, type ApiVoice, listJobs, listVoices, getJobAudio, deleteJob } from "@/lib/api";
+import { BRAND, BRAND_GRADIENT, BRAND_SECONDARY, BRAND_WARM } from "@/lib/theme";
 
 export const Route = createFileRoute("/app/recordings")({
   head: () => ({ meta: [{ title: "Recordings — Vox Studio" }] }),
@@ -282,7 +283,7 @@ function HistoryPage() {
             value={query}
             onChange={(e) => { setQuery(e.target.value); setVisibleCount(25); }}
             placeholder="Search by script, voice, or request ID…"
-            className="w-full rounded-2xl border border-border bg-white py-3 pl-10 pr-4 text-[14px] outline-none placeholder:text-muted-foreground focus:border-[oklch(0.55_0.22_260)]"
+            className="w-full rounded-2xl border border-border bg-white py-3 pl-10 pr-4 text-[14px] outline-none placeholder:text-muted-foreground focus:border-[var(--brand)]"
           />
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -296,7 +297,7 @@ function HistoryPage() {
           {hasActiveFilters && (
             <button
               onClick={clearFilters}
-              className="ml-auto inline-flex items-center gap-1 text-[12px] font-medium text-[oklch(0.55_0.22_260)] hover:underline"
+              className="ml-auto inline-flex items-center gap-1 text-[12px] font-medium text-[var(--brand)] hover:underline"
             >
               <X className="h-3 w-3" /> Clear filters
             </button>
@@ -315,7 +316,7 @@ function HistoryPage() {
             {hasActiveFilters ? "Try clearing the filters above." : "Go to Generate and make your first clip."}
           </p>
           {hasActiveFilters && (
-            <button onClick={clearFilters} className="mt-2 text-[13px] font-medium text-[oklch(0.55_0.22_260)] hover:underline">
+            <button onClick={clearFilters} className="mt-2 text-[13px] font-medium text-[var(--brand)] hover:underline">
               Clear filters
             </button>
           )}
@@ -398,7 +399,7 @@ function FilterChip({
         onClick={() => setOpen((v) => !v)}
         className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[12.5px] font-medium transition-colors ${
           active
-            ? "border-[oklch(0.55_0.22_260)] bg-[oklch(0.96_0.04_260)] text-[oklch(0.45_0.22_260)]"
+            ? "border-[var(--brand)] bg-[var(--brand-soft)] text-[var(--brand)]"
             : "border-border bg-white text-foreground/75 hover:bg-muted"
         }`}
       >
@@ -525,7 +526,7 @@ function ClipCard({
         ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
         ctx.clearRect(0, 0, w, h);
 
-        ctx.strokeStyle = "oklch(0.92 0.01 260)";
+        ctx.strokeStyle = "oklch(0.92 0.01 240)";
         ctx.lineWidth = 1;
         ctx.beginPath();
         ctx.moveTo(0, h / 2);
@@ -541,9 +542,9 @@ function ClipCard({
         const hoverX = hover != null ? hover * w : null;
 
         const grad = ctx.createLinearGradient(0, 0, w, 0);
-        grad.addColorStop(0, "oklch(0.6 0.2 260)");
-        grad.addColorStop(0.55, "oklch(0.58 0.22 305)");
-        grad.addColorStop(1, "oklch(0.62 0.22 25)");
+        grad.addColorStop(0, BRAND);
+        grad.addColorStop(0.55, BRAND_SECONDARY);
+        grad.addColorStop(1, BRAND_WARM);
 
         for (let i = 0; i < count; i++) {
           const p = peaks[Math.floor((i / count) * peaks.length)] ?? 0;
@@ -555,10 +556,10 @@ function ClipCard({
           if (isPlayed) {
             ctx.fillStyle = grad;
           } else if (inHoverPreview) {
-            ctx.fillStyle = "oklch(0.55 0.22 260 / 0.35)";
+            ctx.fillStyle = BRAND;
           } else {
             ctx.globalAlpha = fetchStatus === "loading" ? 0.22 : 1;
-            ctx.fillStyle = "oklch(0.55 0.04 260 / 0.32)";
+            ctx.fillStyle = "oklch(0.55 0.04 240 / 0.32)";
             ctx.globalAlpha = 1;
           }
           clipRoundedRect(ctx, x, y, barW, bh, 1);
@@ -566,13 +567,13 @@ function ClipCard({
         }
 
         if (fetchStatus === "ready" && displayDuration > 0) {
-          ctx.strokeStyle = "oklch(0.62 0.22 25)";
+          ctx.strokeStyle = BRAND_WARM;
           ctx.lineWidth = 2;
           ctx.beginPath();
           ctx.moveTo(playedX, 4);
           ctx.lineTo(playedX, h - 4);
           ctx.stroke();
-          ctx.fillStyle = "oklch(0.62 0.22 25)";
+          ctx.fillStyle = BRAND_WARM;
           ctx.beginPath();
           ctx.arc(playedX, h / 2, 3.5, 0, Math.PI * 2);
           ctx.fill();
@@ -703,7 +704,7 @@ function ClipCard({
             ? "bg-[oklch(0.65_0.22_25)]"
             : noAudio
               ? "bg-[oklch(0.85_0.05_85)]"
-              : "bg-gradient-to-b from-[oklch(0.65_0.2_260)] to-[oklch(0.5_0.22_270)]")
+              : "bg-gradient-to-b from-[var(--brand)] to-[var(--brand-secondary)]")
         }
       />
 
@@ -783,7 +784,7 @@ function ClipCard({
             </span>
           </div>
         ) : (
-          <div className="overflow-hidden rounded-xl border border-border bg-gradient-to-br from-white to-[oklch(0.985_0.01_280)]">
+          <div className="overflow-hidden rounded-xl border border-border bg-gradient-to-br from-white to-[var(--background)]">
             {/* Player header */}
             <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-3 px-4 pb-3 pt-4 sm:gap-4">
               <button
@@ -791,13 +792,10 @@ function ClipCard({
                 aria-label={playing ? "Pause" : "Play"}
                 disabled={fetchStatus === "loading"}
                 className="group/btn relative flex h-12 w-12 shrink-0 items-center justify-center rounded-full text-white transition-transform hover:scale-105 active:scale-95 disabled:cursor-wait disabled:opacity-80"
-                style={{
-                  background: "linear-gradient(135deg, oklch(0.6 0.2 260), oklch(0.55 0.22 305), oklch(0.6 0.22 25))",
-                  boxShadow: "0 10px 24px -10px oklch(0.55 0.22 280 / 0.6), inset 0 1px 0 oklch(1 0 0 / 0.3)",
-                }}
+                style={{ background: BRAND_GRADIENT, boxShadow: "var(--shadow-btn)" }}
               >
                 {playing && (
-                  <span className="absolute inset-0 -m-1 animate-ping rounded-full border-2 border-[oklch(0.6_0.22_280)]/30" />
+                  <span className="absolute inset-0 -m-1 animate-ping rounded-full border-2 border-[var(--brand)]/30" />
                 )}
                 {fetchStatus === "loading" ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
@@ -810,7 +808,7 @@ function ClipCard({
 
               <div className="min-w-0">
                 <div className="flex items-center gap-1.5">
-                  <Disc3 className="h-3.5 w-3.5 shrink-0 text-[oklch(0.55_0.22_260)]" />
+                  <Disc3 className="h-3.5 w-3.5 shrink-0 text-[var(--brand)]" />
                   <div className="truncate text-[14px] font-bold text-foreground">{voiceLabel}</div>
                 </div>
                 <div className="mt-0.5 truncate text-[11.5px] text-foreground/55">
@@ -831,7 +829,7 @@ function ClipCard({
             </div>
 
             {/* Waveform canvas */}
-            <div className="relative mx-4 overflow-hidden rounded-lg border border-border bg-[oklch(0.99_0.005_280)]">
+            <div className="relative mx-4 overflow-hidden rounded-lg border border-border bg-[var(--background)]">
               <div
                 className="pointer-events-none absolute inset-0 opacity-60"
                 style={{
@@ -904,7 +902,7 @@ function ClipCard({
                 {longScript && (
                   <button
                     onClick={() => setExpanded((v) => !v)}
-                    className="inline-flex items-center gap-1 text-[11.5px] font-semibold text-[oklch(0.55_0.22_260)] hover:underline"
+                    className="inline-flex items-center gap-1 text-[11.5px] font-semibold text-[var(--brand)] hover:underline"
                   >
                     {expanded ? (
                       <><ChevronUp className="h-3 w-3" /> Show less</>
@@ -1036,7 +1034,7 @@ function RegenerateButton({
   return (
     <button
       onClick={onRegenerate}
-      className="inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-br from-[oklch(0.6_0.2_260)] to-[oklch(0.5_0.22_270)] px-3 py-1.5 text-[12.5px] font-semibold text-white shadow-sm hover:opacity-95"
+      className="inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-br from-[var(--brand)] to-[var(--brand-secondary)] px-3 py-1.5 text-[12.5px] font-semibold text-white shadow-sm hover:opacity-95"
     >
       <Sparkles className="h-3.5 w-3.5" />
       Regenerate
@@ -1060,7 +1058,7 @@ function ClipVolumeControl({ value, onChange }: { value: number; onChange: (v: n
           className="absolute left-0 top-0 h-full rounded-full"
           style={{
             width: `${value * 100}%`,
-            background: "linear-gradient(90deg, oklch(0.6 0.2 260), oklch(0.62 0.22 25))",
+            background: `linear-gradient(90deg, ${BRAND}, ${BRAND_WARM})`,
           }}
         />
         <input
@@ -1074,7 +1072,7 @@ function ClipVolumeControl({ value, onChange }: { value: number; onChange: (v: n
           aria-label="Volume"
         />
         <span
-          className="pointer-events-none absolute top-1/2 h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full border border-white bg-[oklch(0.6_0.2_265)] shadow"
+          className="pointer-events-none absolute top-1/2 h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full border border-white bg-[var(--brand)] shadow"
           style={{ left: `${value * 100}%` }}
         />
       </div>
@@ -1103,7 +1101,7 @@ function ClipSpeedControl({ value, onChange }: { value: number; onChange: (v: nu
               className={
                 "rounded-md px-2 py-1 text-[11.5px] font-semibold " +
                 (s === value
-                  ? "bg-[oklch(0.55_0.22_260)] text-white"
+                  ? "bg-[var(--brand)] text-white"
                   : "text-foreground/70 hover:bg-muted")
               }
             >
