@@ -184,7 +184,7 @@ cat > "$PLIST_DST" <<EOF
   <key>WorkingDirectory</key><string>$APP_SUPPORT</string>
   <key>StandardOutPath</key><string>$LOG_DIR/vox.log</string>
   <key>StandardErrorPath</key><string>$LOG_DIR/vox-error.log</string>
-  <key>RunAtLoad</key><false/>
+  <key>RunAtLoad</key><true/>
   <key>KeepAlive</key><dict><key>SuccessfulExit</key><false/></dict>
   <key>ThrottleInterval</key><integer>10</integer>
   <key>TimeOut</key><integer>120</integer>

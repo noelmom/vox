@@ -21,11 +21,11 @@
   <string>VOX_LOG_DIR/vox-error.log</string>
 
   <!--
-    RunAtLoad = false — server does NOT start automatically on login.
-    SHIPPING NOTE: change to <true/> when packaging the .app.
+    RunAtLoad = true — the server starts automatically on login.
+    Users can disable this from the Vox Helper menu.
   -->
   <key>RunAtLoad</key>
-  <false/>
+  <true/>
 
   <key>KeepAlive</key>
   <dict>
