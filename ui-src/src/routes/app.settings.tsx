@@ -20,6 +20,9 @@ import {
   LayoutGrid,
   Download,
   Upload,
+  Monitor,
+  Moon,
+  Sun,
 } from "lucide-react";
 import { type ServerSettings, exportBackup, getServerSettings, listVoices, listPresets, patchServerSettings, restoreBackup } from "@/lib/api";
 import { BRAND, BRAND_GRADIENT, BRAND_SECONDARY, BRAND_WARM } from "@/lib/theme";
@@ -52,6 +55,7 @@ function loadPrefs() {
     advanced: lsGet("vox:advanced", ADVANCED_DEFAULTS),
     voiceId: lsGet("vox:voiceId", ""),
     tone: lsGet("vox:tone", "Default"),
+    theme: lsGet<"system" | "light" | "dark">("vox:theme", "system"),
     widgetRequests: lsGet("vox:widget.requests", true),
     widgetMinutes: lsGet("vox:widget.minutes", true),
   };
@@ -64,6 +68,7 @@ function savePrefs(p: ReturnType<typeof loadPrefs>) {
   localStorage.setItem("vox:advanced", JSON.stringify(p.advanced));
   localStorage.setItem("vox:voiceId", JSON.stringify(p.voiceId));
   localStorage.setItem("vox:tone", JSON.stringify(p.tone));
+  localStorage.setItem("vox:theme", JSON.stringify(p.theme));
   localStorage.setItem("vox:widget.requests", JSON.stringify(p.widgetRequests));
   localStorage.setItem("vox:widget.minutes", JSON.stringify(p.widgetMinutes));
   window.dispatchEvent(new CustomEvent("vox:prefschanged"));
@@ -185,7 +190,7 @@ function SettingsPage() {
   };
 
   const handleReset = () => {
-    const defaults = { format: "mp3" as const, mp3Quality: "128", wavQuality: "16", advanced: ADVANCED_DEFAULTS, voiceId: "", tone: "Default", widgetRequests: true, widgetMinutes: true };
+    const defaults = { format: "mp3" as const, mp3Quality: "128", wavQuality: "16", advanced: ADVANCED_DEFAULTS, voiceId: "", tone: "Default", theme: "system" as const, widgetRequests: true, widgetMinutes: true };
     setPrefs(defaults);
   };
 
@@ -377,6 +382,21 @@ function SettingsPage() {
             </Row>
           </>
         )}
+      </Section>
+
+      {/* APPEARANCE */}
+      <Section id="appearance" title="Appearance" Icon={Monitor} subtitle="Display preferences for Vox Studio.">
+        <Row label="Theme" hint="System follows your macOS appearance setting.">
+          <SegmentToggle
+            value={prefs.theme}
+            onChange={(v) => set("theme", v)}
+            options={[
+              { value: "system", label: "System", icon: Monitor },
+              { value: "light", label: "Light", icon: Sun },
+              { value: "dark", label: "Dark", icon: Moon },
+            ]}
+          />
+        </Row>
       </Section>
 
       {/* STORAGE */}
@@ -796,23 +816,25 @@ function SegmentToggle<T extends string>({
 }: {
   value: T;
   onChange: (v: T) => void;
-  options: { value: T; label: string }[];
+  options: { value: T; label: string; icon?: typeof Monitor }[];
 }) {
   return (
     <div className="inline-flex rounded-lg border border-border bg-[oklch(0.98_0.003_260)] p-1 shadow-sm">
       {options.map((o) => {
         const active = o.value === value;
+        const Icon = o.icon;
         return (
           <button
             key={o.value}
             onClick={() => onChange(o.value)}
             className={
-              "min-w-[88px] rounded-md px-3.5 py-1.5 text-[12.5px] font-semibold transition-all " +
+              "inline-flex min-w-[88px] items-center justify-center gap-1.5 rounded-md px-3.5 py-1.5 text-[12.5px] font-semibold transition-all " +
               (active
                 ? "bg-gradient-to-br from-[var(--brand)] to-[var(--brand-secondary)] text-white shadow-[0_2px_6px_oklch(0.55_0.22_260/0.35)]"
                 : "text-foreground/65 hover:text-foreground")
             }
           >
+            {Icon && <Icon className="h-3.5 w-3.5" />}
             {o.label}
           </button>
         );

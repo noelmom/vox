@@ -37,6 +37,14 @@ const NAV: { label: string; to: "/app" | "/app/library" | "/app/recordings" | "/
   { label: "Settings", to: "/app/settings", Icon: Settings },
 ];
 
+type ThemeMode = "system" | "light" | "dark";
+
+function applyTheme(mode: ThemeMode) {
+  if (typeof window === "undefined") return;
+  const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+  document.documentElement.classList.toggle("dark", mode === "dark" || (mode === "system" && prefersDark));
+}
+
 function AppLayout() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -78,6 +86,19 @@ function AppLayout() {
       window.localStorage.setItem("vox.sidebarCollapsed", collapsed ? "1" : "0");
     }
   }, [collapsed]);
+
+  useEffect(() => {
+    const getMode = () => (window.localStorage.getItem("vox:theme") as ThemeMode | null) ?? "system";
+    const media = window.matchMedia("(prefers-color-scheme: dark)");
+    const refresh = () => applyTheme(getMode());
+    refresh();
+    window.addEventListener("vox:prefschanged", refresh);
+    media.addEventListener("change", refresh);
+    return () => {
+      window.removeEventListener("vox:prefschanged", refresh);
+      media.removeEventListener("change", refresh);
+    };
+  }, []);
 
   return (
     <div className="flex min-h-screen w-full bg-transparent text-foreground">
