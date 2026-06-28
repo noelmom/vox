@@ -1199,7 +1199,7 @@ function ApiSection() {
           <ExternalLink className="h-3.5 w-3.5 opacity-80 transition-transform group-hover:translate-x-0.5" />
         </a>
         <p className="mt-4 text-[12px] text-muted-foreground">
-          REST today. SDKs can come later when the API surface settles.
+          Local text-to-speech REST API for private audio generation on Apple Silicon.
         </p>
 
       </div>
