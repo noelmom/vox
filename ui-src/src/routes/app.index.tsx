@@ -466,44 +466,48 @@ function GeneratePage() {
     activeRequestRef.current = requestId;
     let stopped = false;
 
+    const applyJobUpdate = async (job: Job) => {
+      if (stopped) return;
+
+      if (job.status === "queued" || job.status === "processing") {
+        const startedAt = genState.startedAt || generationStartedAtRef.current || parseServerDate(job.created_at).getTime() || Date.now();
+        generationStartedAtRef.current = startedAt;
+        const next = pollingStateFromJob(job, requestId, startedAt);
+        setGenState(next);
+        setGenerationState(next);
+        return;
+      }
+
+      if (job.status === "completed") {
+        const blob = await getJobAudio(requestId);
+        if (stopped) return;
+        const url = URL.createObjectURL(blob);
+        setGenState({ phase: "done", result: { job, blob, url } });
+        setGenerationState({ phase: "done", requestId });
+        localStorage.setItem(LAST_REQUEST_KEY, requestId);
+        queryClient.invalidateQueries({ queryKey: ["jobs"] });
+        return;
+      }
+
+      if (job.status === "cancelled") {
+        setGenState({ phase: "idle" });
+        setGenerationState({ phase: "cancelled", requestId });
+        localStorage.removeItem(LAST_REQUEST_KEY);
+        queryClient.invalidateQueries({ queryKey: ["jobs"] });
+        return;
+      }
+
+      if (job.status === "failed") {
+        setGenState({ phase: "error", message: job.error ?? "Generation failed", requestId });
+        setGenerationState({ phase: "error", message: job.error ?? "Generation failed", requestId });
+        queryClient.invalidateQueries({ queryKey: ["jobs"] });
+      }
+    };
+
     const reconcile = async () => {
       try {
         const job = await getJob(requestId);
-        if (stopped) return;
-
-        if (job.status === "queued" || job.status === "processing") {
-          const startedAt = genState.startedAt || generationStartedAtRef.current || parseServerDate(job.created_at).getTime() || Date.now();
-          generationStartedAtRef.current = startedAt;
-          const next = pollingStateFromJob(job, requestId, startedAt);
-          setGenState(next);
-          setGenerationState(next);
-          return;
-        }
-
-        if (job.status === "completed") {
-          const blob = await getJobAudio(requestId);
-          if (stopped) return;
-          const url = URL.createObjectURL(blob);
-          setGenState({ phase: "done", result: { job, blob, url } });
-          setGenerationState({ phase: "done", requestId });
-          localStorage.setItem(LAST_REQUEST_KEY, requestId);
-          queryClient.invalidateQueries({ queryKey: ["jobs"] });
-          return;
-        }
-
-        if (job.status === "cancelled") {
-          setGenState({ phase: "idle" });
-          setGenerationState({ phase: "cancelled", requestId });
-          localStorage.removeItem(LAST_REQUEST_KEY);
-          queryClient.invalidateQueries({ queryKey: ["jobs"] });
-          return;
-        }
-
-        if (job.status === "failed") {
-          setGenState({ phase: "error", message: job.error ?? "Generation failed", requestId });
-          setGenerationState({ phase: "error", message: job.error ?? "Generation failed", requestId });
-          queryClient.invalidateQueries({ queryKey: ["jobs"] });
-        }
+        await applyJobUpdate(job);
       } catch (err) {
         if (stopped) return;
         const message = err instanceof Error ? err.message : String(err);
@@ -512,10 +516,21 @@ function GeneratePage() {
       }
     };
 
+    const source = new EventSource(`/api/v1/jobs/${encodeURIComponent(requestId)}/events`);
+    source.addEventListener("job", (event) => {
+      void applyJobUpdate(JSON.parse((event as MessageEvent).data) as Job);
+    });
+    source.addEventListener("deleted", () => {
+      if (stopped) return;
+      setGenState({ phase: "error", message: "Job was deleted before it finished.", requestId });
+      setGenerationState({ phase: "error", message: "Job was deleted before it finished.", requestId });
+    });
+
     reconcile();
-    const id = window.setInterval(reconcile, 2000);
+    const id = window.setInterval(reconcile, 5000);
     return () => {
       stopped = true;
+      source.close();
       window.clearInterval(id);
     };
   }, [genState.phase === "polling" ? genState.requestId : null, queryClient]);

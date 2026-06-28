@@ -1,8 +1,10 @@
+import asyncio
+import json
 from pathlib import Path
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Request
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, StreamingResponse
 
 from api.core.db import get_db
 from api.models.job import JobOut
@@ -39,6 +41,13 @@ def _annotate(row: Any) -> dict:
     return d
 
 
+async def _get_job_row(request_id: str) -> dict | None:
+    db = await get_db()
+    async with db.execute(f"{_JOB_SELECT} WHERE j.request_id = ?", (request_id,)) as cur:
+        row = await cur.fetchone()
+    return _annotate(row) if row else None
+
+
 @router.get(
     "",
     response_model=list[JobOut],
@@ -54,6 +63,39 @@ async def list_jobs(request: Request, limit: int = 50, offset: int = 0):
     ) as cur:
         rows = await cur.fetchall()
     return [_annotate(r) for r in rows]
+
+
+@router.get(
+    "/{request_id}/events",
+    summary="Stream job status events",
+    description="Streams server-sent events for a single job. The `job` event payload matches `GET /api/v1/jobs/{request_id}` and is emitted whenever the job row changes until it reaches a terminal state.",
+    response_description="Server-sent event stream",
+    responses={404: {"description": "Job not found"}},
+)
+async def stream_job_events(request_id: str, request: Request):
+    initial = await _get_job_row(request_id)
+    if not initial:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    async def event_stream():
+        last_payload = ""
+        while not await request.is_disconnected():
+            job = await _get_job_row(request_id)
+            if not job:
+                yield "event: deleted\ndata: {}\n\n"
+                return
+
+            payload = json.dumps(job, default=str)
+            if payload != last_payload:
+                yield f"event: job\ndata: {payload}\n\n"
+                last_payload = payload
+
+            if job["status"] in {"completed", "failed", "cancelled"}:
+                return
+
+            await asyncio.sleep(0.75)
+
+    return StreamingResponse(event_stream(), media_type="text/event-stream")
 
 
 @router.get(
@@ -78,12 +120,10 @@ Typical generation time on Apple Silicon is 1–5× real-time depending on text 
     responses={404: {"description": "Job not found"}},
 )
 async def get_job(request_id: str, request: Request):
-    db = await get_db()
-    async with db.execute(f"{_JOB_SELECT} WHERE j.request_id = ?", (request_id,)) as cur:
-        row = await cur.fetchone()
-    if not row:
+    job = await _get_job_row(request_id)
+    if not job:
         raise HTTPException(status_code=404, detail="Job not found")
-    return _annotate(row)
+    return job
 
 
 @router.delete(
