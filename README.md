@@ -58,6 +58,8 @@ codename-vox/
 │   └── models/
 │       ├── voice.py             # VoiceOut, VoiceParams, VoiceCreate schemas
 │       └── job.py               # JobOut schema
+├── VERSION                      # Studio/native release version used by build scripts
+├── build_info.json              # Stamped version, commit, and build time copied into installs
 ├── ui-src/                      # React SPA source (Vite + TypeScript + Tailwind v4)
 │   ├── src/
 │   │   ├── routes/              # TanStack Router file-based routes
@@ -92,6 +94,7 @@ codename-vox/
 │   ├── run.sh                   # Manual foreground start (troubleshooting / dev)
 │   ├── build-apps.sh            # Build, sign, and package VoxHelper + VoxServer DMG
 │   ├── build-pkg.sh             # Build, sign, notarize, and staple the one-click installer package
+│   ├── write-build-info.sh      # Stamp VERSION + git commit + UTC build time
 │   ├── install-agent.sh         # Register server LaunchAgent with macOS launchd
 │   ├── uninstall-agent.sh       # Unload and remove the server LaunchAgent
 │   ├── install-helper.sh        # Register menu bar helper LaunchAgent
@@ -152,7 +155,7 @@ bash vox.sh install --yes --token hf_xxx         # also set HF token
 
 > `.env` is git-ignored and never committed. Keep your token out of any other files.
 
-The **Vox icon** appears in your menu bar within a few seconds. Use it to start, stop, and restart the server, open the web UI, and monitor CPU/RAM.
+The **Vox icon** appears in your menu bar within a few seconds. Use it to start, stop, and restart the server, open the web UI, monitor CPU/RAM/GPU, and confirm the installed Studio/helper build versions.
 
 ### 3. Start the server
 

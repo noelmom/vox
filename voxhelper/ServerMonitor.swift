@@ -5,6 +5,7 @@ import IOKit
 struct ServerState {
     var running   = false
     var addrLabel = "—"
+    var studioBuildLabel = "Studio vunknown · unknown"
     var cpu       = 0.0
     var gpu: Double?
     var ramUsed   = 0.0
@@ -63,6 +64,7 @@ class ServerMonitor {
             var s       = ServerState()
             s.running   = self.checkServer()
             s.addrLabel = self.addrLabel()
+            s.studioBuildLabel = self.studioBuildLabel()
             s.cpu       = self.cpuPercent()
             s.gpu       = self.gpuPercent()
             let mem     = self.memGB()
@@ -104,6 +106,17 @@ class ServerMonitor {
             return "localhost:\(port)  ·  local only"
         }
         return "\(lanIP()):\(port)  ·  network accessible"
+    }
+
+    private func studioBuildLabel() -> String {
+        let path = NSHomeDirectory() + "/Library/Application Support/Vox/build_info.json"
+        guard let data = try? Data(contentsOf: URL(fileURLWithPath: path)),
+              let raw = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            return "Studio vunknown · unknown"
+        }
+        let version = raw["version"] as? String ?? "unknown"
+        let commit = raw["commit"] as? String ?? "unknown"
+        return "Studio v\(version) · \(commit)"
     }
 
     private func lanIP() -> String {

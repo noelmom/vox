@@ -98,6 +98,8 @@ mkdir -p "$APP_SUPPORT/scripts"
 mkdir -p "$APP_SUPPORT/ui-dist"
 rsync -a --delete "$ROOT/api/"      "$APP_SUPPORT/api/"
 rsync -a --delete "$ROOT/ui-dist/"  "$APP_SUPPORT/ui-dist/"
+[[ -f "$ROOT/VERSION" ]] && ditto --norsrc "$ROOT/VERSION" "$APP_SUPPORT/VERSION"
+[[ -f "$ROOT/build_info.json" ]] && ditto --norsrc "$ROOT/build_info.json" "$APP_SUPPORT/build_info.json"
 success "Code synced"
 
 # ── Re-register agents ────────────────────────────────────────────────────────

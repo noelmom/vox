@@ -202,9 +202,12 @@ function AppLayout() {
                 Buy me a coffee
               </a>
             </div>
-            <span className="font-mono tabular-nums">
+            <span
+              className="font-mono tabular-nums"
+              title={serverInfo ? `Built ${serverInfo.build_built_at}` : undefined}
+            >
               {serverInfo
-                ? `${serverInfo.chip} — macOS ${serverInfo.macos_version} · Vox Studio v${serverInfo.vox_version}`
+                ? `${serverInfo.chip} — macOS ${serverInfo.macos_version} · Studio v${serverInfo.vox_version} · ${serverInfo.build_commit}`
                 : "—"}
             </span>
           </div>

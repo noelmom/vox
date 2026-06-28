@@ -13,6 +13,8 @@ class StatusBarController {
     private let cpuItem     = NSMenuItem(title: "⚡  CPU   —",            action: nil, keyEquivalent: "")
     private let gpuItem     = NSMenuItem(title: "◈  GPU   —",            action: nil, keyEquivalent: "")
     private let ramItem     = NSMenuItem(title: "🧠  RAM   —",            action: nil, keyEquivalent: "")
+    private let studioBuildItem = NSMenuItem(title: "Studio vunknown · unknown", action: nil, keyEquivalent: "")
+    private let helperBuildItem = NSMenuItem(title: "Helper vunknown · unknown", action: nil, keyEquivalent: "")
     private let startItem   = NSMenuItem(title: "▶  Start Server",       action: nil, keyEquivalent: "")
     private let stopItem    = NSMenuItem(title: "■  Stop Server",        action: nil, keyEquivalent: "")
     private let restartItem = NSMenuItem(title: "↺  Restart Server",     action: nil, keyEquivalent: "")
@@ -37,7 +39,7 @@ class StatusBarController {
 
     // ── Menu setup ─────────────────────────────────────────────────────────
     private func setupMenu() {
-        [statusItem, addrItem, cpuItem, gpuItem, ramItem].forEach { $0.isEnabled = false }
+        [statusItem, addrItem, cpuItem, gpuItem, ramItem, studioBuildItem, helperBuildItem].forEach { $0.isEnabled = false }
         [copyItem, openItem, inputItem, startItem, stopItem,
          restartItem, logsItem, uninstallItem, quitItem].forEach { $0.target = self }
 
@@ -55,6 +57,8 @@ class StatusBarController {
         for i in [statusItem, addrItem, copyItem, openItem, inputItem,
                   NSMenuItem.separator(),
                   cpuItem, gpuItem, ramItem,
+                  NSMenuItem.separator(),
+                  studioBuildItem, helperBuildItem,
                   NSMenuItem.separator(),
                   startItem, stopItem, restartItem,
                   NSMenuItem.separator(),
@@ -81,6 +85,26 @@ class StatusBarController {
         cpuItem.title       = "⚡  CPU   \(Int(state.cpu.rounded()))%"
         gpuItem.title       = state.gpu.map { "◈  GPU   \(Int($0.rounded()))%" } ?? "◈  GPU   unavailable"
         ramItem.title       = "🧠  RAM   \(String(format: "%.1f", state.ramUsed)) / \(Int(state.ramTotal)) GB"
+        studioBuildItem.title = state.studioBuildLabel
+        helperBuildItem.title = helperBuildLabel()
+    }
+
+    private func helperBuildLabel() -> String {
+        let info = Bundle.main.infoDictionary
+        let version = info?["CFBundleShortVersionString"] as? String ?? "unknown"
+        let commit = info?["VoxBuildCommit"] as? String ?? helperBuildInfo()["commit"] ?? "unknown"
+        return "Helper v\(version) · \(commit)"
+    }
+
+    private func helperBuildInfo() -> [String: String] {
+        guard let url = Bundle.main.url(forResource: "build_info", withExtension: "json"),
+              let data = try? Data(contentsOf: url),
+              let raw = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            return [:]
+        }
+        return raw.reduce(into: [String: String]()) { result, pair in
+            result[pair.key] = String(describing: pair.value)
+        }
     }
 
     // ── Actions ────────────────────────────────────────────────────────────

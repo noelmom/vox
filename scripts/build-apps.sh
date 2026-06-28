@@ -23,6 +23,8 @@ warn()    { echo -e "${YELLOW}[build] ⚠${RESET} $*"; }
 fail()    { echo -e "${RED}[build] ✗${RESET} $*"; exit 1; }
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+VERSION="$(tr -d '[:space:]' < "$ROOT/VERSION")"
+BUILD_INFO="$ROOT/build_info.json"
 APP_SUPPORT="$HOME/Library/Application Support/Vox"
 VENV="$APP_SUPPORT/venv"
 SIGN_IDENTITY="Developer ID Application: Noelmo Melo (S65X5KY399)"
@@ -42,6 +44,11 @@ OUTPUT_DMG="$ROOT/assets/Vox.dmg"
 command -v xcrun &>/dev/null   || fail "xcrun not found — install Xcode."
 xcrun --find notarytool &>/dev/null || fail "notarytool not found — requires Xcode 13+."
 
+"$ROOT/scripts/write-build-info.sh" "$BUILD_INFO" >/dev/null
+BUILD_COMMIT="$("$VENV/bin/python3" -c 'import json,sys; print(json.load(open(sys.argv[1]))["commit"])' "$BUILD_INFO")"
+BUILD_DATE="$("$VENV/bin/python3" -c 'import json,sys; print(json.load(open(sys.argv[1]))["built_at"])' "$BUILD_INFO")"
+BUILD_NUMBER="$(date -u +"%Y%m%d%H%M")"
+
 mkdir -p "$BUILD_TMP" "$DMG_STAGING"
 
 cleanup() { rm -rf "$BUILD_TMP" "$DMG_STAGING"; }
@@ -58,6 +65,7 @@ HELPER_APP="$BUILD_TMP/VoxHelper.app"
 mkdir -p "$HELPER_APP/Contents/MacOS" "$HELPER_APP/Contents/Resources"
 
 cp "$ROOT/assets/VoxHelper.icns" "$HELPER_APP/Contents/Resources/VoxHelper.icns"
+cp "$BUILD_INFO" "$HELPER_APP/Contents/Resources/build_info.json"
 
 info "Compiling Swift VoxHelper…"
 swiftc \
@@ -81,8 +89,10 @@ cat > "$HELPER_APP/Contents/Info.plist" <<EOF
   <key>CFBundleDisplayName</key><string>Vox Helper</string>
   <key>CFBundleExecutable</key><string>VoxHelper</string>
   <key>CFBundleIconFile</key><string>VoxHelper</string>
-  <key>CFBundleVersion</key><string>1</string>
-  <key>CFBundleShortVersionString</key><string>0.5.2-beta</string>
+  <key>CFBundleVersion</key><string>$BUILD_NUMBER</string>
+  <key>CFBundleShortVersionString</key><string>$VERSION</string>
+  <key>VoxBuildCommit</key><string>$BUILD_COMMIT</string>
+  <key>VoxBuiltAt</key><string>$BUILD_DATE</string>
   <key>LSUIElement</key><true/>
   <key>LSMinimumSystemVersion</key><string>13.0</string>
 </dict></plist>
@@ -95,6 +105,7 @@ SERVER_APP="$BUILD_TMP/VoxServer.app"
 mkdir -p "$SERVER_APP/Contents/MacOS" "$SERVER_APP/Contents/Resources"
 
 cp "$ROOT/assets/VoxServer.icns" "$SERVER_APP/Contents/Resources/VoxServer.icns"
+cp "$BUILD_INFO" "$SERVER_APP/Contents/Resources/build_info.json"
 
 info "Compiling Swift VoxServer…"
 swiftc \
@@ -112,8 +123,10 @@ cat > "$SERVER_APP/Contents/Info.plist" <<EOF
   <key>CFBundleDisplayName</key><string>Vox</string>
   <key>CFBundleExecutable</key><string>vox-server</string>
   <key>CFBundleIconFile</key><string>VoxServer</string>
-  <key>CFBundleVersion</key><string>1</string>
-  <key>CFBundleShortVersionString</key><string>0.5.2-beta</string>
+  <key>CFBundleVersion</key><string>$BUILD_NUMBER</string>
+  <key>CFBundleShortVersionString</key><string>$VERSION</string>
+  <key>VoxBuildCommit</key><string>$BUILD_COMMIT</string>
+  <key>VoxBuiltAt</key><string>$BUILD_DATE</string>
   <key>LSUIElement</key><true/>
   <key>LSMinimumSystemVersion</key><string>12.0</string>
 </dict></plist>

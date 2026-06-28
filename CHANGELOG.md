@@ -5,6 +5,15 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [0.5.3-beta] — 2026-06-28
+
+### Added
+- **Build identity in app and helper** — Vox now stamps `version`, git commit, and build time into `build_info.json`.
+- **Studio/helper version split** — `/app` shows the Studio/server build, while the native helper menu shows both the installed Studio build and the helper bundle build so web-only updates can be identified separately from native app updates.
+
+### Changed
+- **Create page polish** — Voice Studio stays at the top on single-column intermediate widths, info tips work again, and Tone / Style now uses a grouped selector instead of an ever-growing chip cloud.
+
 ## [0.5.2-beta] — 2026-06-28
 
 ### Added

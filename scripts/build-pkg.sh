@@ -22,10 +22,10 @@ success() { echo -e "${GREEN}[pkg] ✓${RESET} $*"; }
 fail()    { echo -e "${RED}[pkg] ✗${RESET} $*"; exit 1; }
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+VERSION="$(tr -d '[:space:]' < "$ROOT/VERSION")"
 TEAM_ID="S65X5KY399"
 APPLE_ID="noelmomelo@mac.com"
 INSTALLER_IDENTITY="Developer ID Installer: Noelmo Melo ($TEAM_ID)"
-VERSION="0.5.2-beta"
 BUILD_TMP="/tmp/vox-pkg-$$"
 PAYLOAD_ROOT="$BUILD_TMP/payload"
 PKG_SCRIPTS="$BUILD_TMP/scripts"
@@ -45,6 +45,7 @@ trap cleanup EXIT
 [[ "$(uname)" == "Darwin" ]] || fail "Package builds require macOS."
 [[ -n "$APP_SIGN_PASSWORD" ]] || fail "APP_SIGN_PASSWORD is not set."
 [[ -f "$DMG" ]] || fail "assets/Vox.dmg not found — run bash scripts/build-apps.sh first."
+[[ -f "$ROOT/build_info.json" ]] || "$ROOT/scripts/write-build-info.sh" "$ROOT/build_info.json" >/dev/null
 command -v pkgbuild >/dev/null 2>&1 || fail "pkgbuild not found — install Xcode Command Line Tools."
 command -v productsign >/dev/null 2>&1 || fail "productsign not found — install Xcode Command Line Tools."
 xcrun --find notarytool >/dev/null 2>&1 || fail "notarytool not found — requires Xcode 13+."
@@ -68,6 +69,8 @@ info "Staging package bootstrap…"
 ditto --norsrc "$ROOT/vox.sh" "$PAYLOAD_ROOT/Library/Application Support/Vox/Bootstrap/vox.sh"
 ditto --norsrc "$ROOT/setup.sh" "$PAYLOAD_ROOT/Library/Application Support/Vox/Bootstrap/setup.sh"
 ditto --norsrc "$ROOT/requirements.txt" "$PAYLOAD_ROOT/Library/Application Support/Vox/Bootstrap/requirements.txt"
+ditto --norsrc "$ROOT/VERSION" "$PAYLOAD_ROOT/Library/Application Support/Vox/Bootstrap/VERSION"
+ditto --norsrc "$ROOT/build_info.json" "$PAYLOAD_ROOT/Library/Application Support/Vox/Bootstrap/build_info.json"
 rsync -a --delete --exclude='__pycache__/' --exclude='*.pyc' "$ROOT/api/" "$PAYLOAD_ROOT/Library/Application Support/Vox/Bootstrap/api/"
 rsync -a --delete "$ROOT/ui-dist/" "$PAYLOAD_ROOT/Library/Application Support/Vox/Bootstrap/ui-dist/"
 rsync -a --delete --exclude='build-apps.sh' --exclude='build-pkg.sh' --exclude='notarize.sh' "$ROOT/scripts/" "$PAYLOAD_ROOT/Library/Application Support/Vox/Bootstrap/scripts/"

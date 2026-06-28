@@ -741,12 +741,13 @@ Ideas and improvements to revisit. Not bugs — these are enhancements queued fo
 
 - [ ] **[PRE-RELEASE BLOCKER] Unified release workflow — eliminate version number discrepancies before v1.0.0**
 
-  Version numbers currently live in at least five separate places and must be updated manually on every release. Missing any one of them causes the footer or build artifacts to show a stale version (e.g. footer showed `0.4.0` when tagging `v0.4.2-beta`):
-  - `api/main.py:341` — `"vox_version"` string returned by `GET /api/v1/settings` (what the app footer reads)
-  - `scripts/build-apps.sh` — `CFBundleShortVersionString` for VoxHelper.app and VoxServer.app
+  Version numbers are partially centralized now: `VERSION` plus `scripts/write-build-info.sh` feed `build_info.json`, the API settings response, the `/app` footer, packaged runtime files, and native app bundle metadata. Remaining work before v1.0.0 is to wrap this into a single release command that also updates landing package metadata after the signed `.pkg` exists.
+  - `VERSION` — release version used by build scripts
+  - `build_info.json` — stamped version, source commit, and UTC build time
+  - `scripts/build-apps.sh` — reads `VERSION` and bundles `build_info.json` into VoxHelper.app and VoxServer.app
   - `CHANGELOG.md` — version header for the new release section
   - Git tag on `main` / `development`
-  - (future) landing page, `/health` response, installer banner
+  - Landing page package filename, size, URL, and SHA256 checksum still require post-package update
 
   **Goal:** single source of truth. Options:
   - A `VERSION` file at repo root that `build-apps.sh`, the landing page build step, and the API all read from.

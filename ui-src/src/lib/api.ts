@@ -170,6 +170,8 @@ export type ServerSettings = {
   macos_version: string;
   chip: string;
   vox_version: string;
+  build_commit: string;
+  build_built_at: string;
 };
 
 export type Stats = {

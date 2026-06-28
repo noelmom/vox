@@ -9,6 +9,7 @@ from fastapi.staticfiles import StaticFiles
 
 from api.core.cleanup import run_cleanup_loop
 from api.core.config import settings
+from api.core.build_info import get_build_info
 from api.core.db import connect, disconnect
 from api.core.engine import get_device, load_model
 from api.core.logger import setup_logging
@@ -176,7 +177,7 @@ app = FastAPI(
     title="Vox API",
     summary="Local text-to-speech API powered by Chatterbox Turbo on Apple Silicon.",
     description=_DESCRIPTION,
-    version="0.5.2-beta",
+    version=get_build_info()["version"],
     contact={"name": "MeloLab Dev", "url": "https://github.com/MeloLabDev/codename-vox"},
     license_info={"name": "MIT"},
     lifespan=lifespan,
@@ -374,6 +375,7 @@ async def get_stats():
 )
 async def get_settings():
     import shutil, platform
+    build_info = get_build_info()
     ffmpeg = settings.ffmpeg_path
     ffmpeg_ok = bool(shutil.which(ffmpeg) or shutil.which("ffmpeg"))
     configured_host = _read_env_value("VOX_HOST", settings.host) or settings.host
@@ -406,7 +408,9 @@ async def get_settings():
         "voice_icon_max_kb": settings.voice_icon_max_kb,
         "macos_version": mac_ver,
         "chip": chip,
-        "vox_version": "0.5.2-beta",
+        "vox_version": build_info["version"],
+        "build_commit": build_info["commit"],
+        "build_built_at": build_info["built_at"],
     }
 
 

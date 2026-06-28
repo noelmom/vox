@@ -58,6 +58,8 @@ mkdir -p "$AGENTS_DIR" "$LOG_DIR" "$APP_SUPPORT"/{api,ui-dist,scripts,voices,out
 echo "[vox] Syncing server code to Application Support..."
 rsync -a --delete "$ROOT/api/"      "$APP_SUPPORT/api/"
 rsync -a --delete "$ROOT/ui-dist/"  "$APP_SUPPORT/ui-dist/"
+[[ -f "$ROOT/VERSION" ]] && ditto --norsrc "$ROOT/VERSION" "$APP_SUPPORT/VERSION"
+[[ -f "$ROOT/build_info.json" ]] && ditto --norsrc "$ROOT/build_info.json" "$APP_SUPPORT/build_info.json"
 
 # ── Write production run.sh ───────────────────────────────────────────────────
 cat > "$APP_SUPPORT/scripts/run.sh" <<'RUNSCRIPT'
