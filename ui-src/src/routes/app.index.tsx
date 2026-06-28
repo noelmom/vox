@@ -33,6 +33,16 @@ import {
   History,
 } from "lucide-react";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -676,6 +686,7 @@ function GeneratePage() {
   };
 
   const [removingPreset, setRemovingPreset] = useState(false);
+  const [removePresetDialogOpen, setRemovePresetDialogOpen] = useState(false);
   const handleRemovePreset = async () => {
     const key = toneKeyMap[tone];
     if (!key) return;
@@ -690,6 +701,7 @@ function GeneratePage() {
       setTone("Default");
     } finally {
       setRemovingPreset(false);
+      setRemovePresetDialogOpen(false);
     }
   };
 
@@ -1236,7 +1248,7 @@ function GeneratePage() {
                         Edit
                       </button>
                       <button
-                        onClick={handleRemovePreset}
+                        onClick={() => setRemovePresetDialogOpen(true)}
                         disabled={removingPreset}
                         className="group inline-flex w-full items-center justify-center gap-1.5 whitespace-nowrap rounded-lg border border-border bg-white px-3 py-2 text-[12px] font-semibold text-foreground/70 transition-all hover:border-[oklch(0.62_0.2_25/0.4)] hover:bg-[var(--brand-soft)] hover:text-[oklch(0.55_0.22_25)] disabled:cursor-not-allowed disabled:opacity-50"
                       >
@@ -1366,6 +1378,29 @@ function GeneratePage() {
 
         </aside>
       </div>
+      <AlertDialog open={removePresetDialogOpen} onOpenChange={setRemovePresetDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove custom tone?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently remove "{tone}" from your saved tone profiles. Built-in tones and generated recordings are not affected.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={removingPreset}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault();
+                void handleRemovePreset();
+              }}
+              disabled={removingPreset}
+              className="bg-[oklch(0.6_0.22_25)] text-white hover:bg-[oklch(0.55_0.22_25)]"
+            >
+              {removingPreset ? "Removing..." : "Remove"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
@@ -2021,6 +2056,8 @@ function JobRow({
   }, [menuOpen]);
   const [muted, setMuted] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [waveformBars, setWaveformBars] = useState<number[] | null>(null);
 
   useEffect(() => {
@@ -2199,6 +2236,17 @@ function JobRow({
     setTimeout(() => setCopied(false), 2000);
   };
 
+  const handleDelete = async () => {
+    if (!onDelete) return;
+    setDeleting(true);
+    try {
+      await onDelete();
+      setDeleteDialogOpen(false);
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   const progressPct = audioDuration > 0 ? (progress / audioDuration) * 100 : 0;
   const titlePreview = job.text.slice(0, 60) + (job.text.length > 60 ? "…" : "");
   const voiceLabel = job.voice_name ?? "Generic";
@@ -2300,8 +2348,14 @@ function JobRow({
                   <Download className="h-3.5 w-3.5 shrink-0" /> Download
                 </a>
                 <div className="h-px bg-border" />
-                <button onClick={() => { setMenuOpen(false); onDelete?.(); }}
-                  className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-[13px] font-medium text-[oklch(0.5_0.2_25)] hover:bg-[oklch(0.97_0.02_25)]">
+                <button
+                  onClick={() => {
+                    setMenuOpen(false);
+                    setDeleteDialogOpen(true);
+                  }}
+                  disabled={!onDelete}
+                  className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-[13px] font-medium text-[oklch(0.5_0.2_25)] hover:bg-[oklch(0.97_0.02_25)] disabled:pointer-events-none disabled:opacity-40"
+                >
                   <Trash2 className="h-3.5 w-3.5 shrink-0" /> Delete
                 </button>
               </div>
@@ -2372,6 +2426,29 @@ function JobRow({
           </div>
         </div>
       )}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete recording?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently remove this recording from Vox and delete its generated audio file if it is still available.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault();
+                void handleDelete();
+              }}
+              disabled={deleting}
+              className="bg-[oklch(0.6_0.22_25)] text-white hover:bg-[oklch(0.55_0.22_25)]"
+            >
+              {deleting ? "Deleting..." : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
