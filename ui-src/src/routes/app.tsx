@@ -123,7 +123,7 @@ function AppLayout() {
     <div className="flex min-h-screen w-full bg-transparent text-foreground">
       {/* Desktop sidebar */}
       <aside
-        className={`sticky top-0 hidden h-screen shrink-0 flex-col border-r border-border/60 bg-white/75 py-5 backdrop-blur-xl transition-[width] duration-200 lg:flex ${
+        className={`sticky top-0 hidden h-screen shrink-0 flex-col border-r border-border/60 bg-white/75 py-5 backdrop-blur-xl transition-[width] duration-200 dark:bg-card/85 lg:flex ${
           collapsed ? "w-[68px] px-2" : "w-[232px] px-4"
         }`}
       >
@@ -141,7 +141,7 @@ function AppLayout() {
             className="fixed inset-0 z-40 bg-foreground/20 backdrop-blur-sm lg:hidden"
             onClick={() => setMobileOpen(false)}
           />
-          <aside className="fixed inset-y-0 left-0 z-50 flex w-[260px] flex-col border-r border-border/60 bg-white/90 px-4 py-5 shadow-xl backdrop-blur-xl lg:hidden">
+          <aside className="fixed inset-y-0 left-0 z-50 flex w-[260px] flex-col border-r border-border/60 bg-white/90 px-4 py-5 shadow-xl backdrop-blur-xl dark:bg-card/95 lg:hidden">
             <button
               type="button"
               onClick={() => setMobileOpen(false)}
@@ -158,7 +158,7 @@ function AppLayout() {
       {/* Main column */}
       <div className="flex min-w-0 flex-1 flex-col">
         {/* Top bar */}
-        <header className="flex h-[64px] shrink-0 items-center justify-between gap-3 border-b border-border/60 bg-white/70 px-4 backdrop-blur-xl sm:px-8">
+        <header className="flex h-[64px] shrink-0 items-center justify-between gap-3 border-b border-border/60 bg-white/70 px-4 backdrop-blur-xl dark:bg-card/80 sm:px-8">
           <div className="flex items-center gap-3">
             <button
               type="button"
@@ -202,7 +202,7 @@ function AppLayout() {
         </main>
 
         {/* Footer */}
-        <footer className="shrink-0 border-t border-border/60 bg-white/70 px-4 py-3 backdrop-blur-xl sm:px-8">
+        <footer className="shrink-0 border-t border-border/60 bg-white/70 px-4 py-3 backdrop-blur-xl dark:bg-card/80 sm:px-8">
           <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 text-[11.5px] text-foreground/55">
             <span className="inline-flex items-center gap-1">
               Made with
@@ -277,7 +277,7 @@ function GenerationWidget() {
   const progressPct = queued ? 18 : Math.min(92, 24 + elapsed / 3);
 
   return (
-    <div className="border-b border-[color-mix(in_oklch,var(--brand)_12%,white)] bg-white/85 px-4 py-2 backdrop-blur-xl sm:px-8">
+    <div className="border-b border-[color-mix(in_oklch,var(--brand)_12%,white)] bg-white/85 px-4 py-2 backdrop-blur-xl dark:bg-card/90 sm:px-8">
       <div className="flex items-center gap-3">
         <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--brand-soft)] text-[var(--brand)]">
           <Zap className="h-4 w-4" />
@@ -335,7 +335,7 @@ function AlertBanners({ alerts }: { alerts: SystemAlert[] }) {
   };
 
   return (
-    <div className="border-b border-border/60 bg-white/80 px-4 py-2 backdrop-blur-xl sm:px-8">
+    <div className="border-b border-border/60 bg-white/80 px-4 py-2 backdrop-blur-xl dark:bg-card/90 sm:px-8">
       <div className="flex flex-col gap-2">
         {visible.map((alert) => {
           const danger = alert.level === "error";

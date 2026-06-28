@@ -84,14 +84,6 @@
   --shadow-btn: 0 1px 2px oklch(0 0 0 / 0.25), 0 8px 20px -8px oklch(0.68 0.18 260 / 0.55);
 }
 
-.dark .bg-white {
-  background-color: var(--card);
-}
-
-.dark .text-white {
-  color: oklch(0.98 0.005 250);
-}
-
 @layer base {
   * { border-color: var(--color-border); }
   body {
