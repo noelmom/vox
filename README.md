@@ -107,6 +107,10 @@ codename-vox/
 ├── vox.sh                       # Unified CLI — install, update, uninstall
 ├── AGENTS.md                    # Maintainer/AI-agent operating procedures
 ├── requirements.txt             # Python dependencies
+├── requirements-dev.txt         # Python test/lint dependencies
+├── pyproject.toml               # Pytest + Ruff configuration
+├── tests/                       # Baseline backend tests
+├── .github/workflows/ci.yml     # GitHub Actions CI
 ├── CHANGELOG.md                 # Notable changes per version
 └── .env                         # Local config overrides (git-ignored)
 ```
@@ -494,7 +498,8 @@ sqlite3 ~/Library/Application\ Support/Vox/data/vox.db
 | Web UI | React 19 + TypeScript, Vite 6, Tailwind CSS v4, TanStack Router + Query |
 | Menu bar helper | Native Swift (AppKit `NSStatusItem`) — arm64 macOS only |
 | Process management | macOS launchd via LaunchAgent plists |
-| Packaging | *(coming soon — PyInstaller or py2app)* |
+| Packaging | Signed/notarized macOS `.dmg` and `.pkg` via `scripts/build-apps.sh`, `scripts/build-pkg.sh`, and `scripts/release.sh` |
+| CI | GitHub Actions: Ruff, pytest, TypeScript typecheck, Vite build, shell syntax |
 
 ---
 

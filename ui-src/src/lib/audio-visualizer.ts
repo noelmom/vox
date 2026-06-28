@@ -25,7 +25,7 @@ export class AudioVisualizer {
   private audioCtx: AudioContext | null = null;
   private analyser: AnalyserNode | null = null;
   private sourceNode: AudioNode | null = null;
-  private dataArray: Uint8Array = new Uint8Array(FFT_SIZE / 2);
+  private dataArray: Uint8Array<ArrayBuffer> = new Uint8Array(FFT_SIZE / 2);
   private bars: number[] = [];          // normalised RMS values [0..1]
   private staticBars: number[] | null = null; // decoded full-clip peaks
   private rafId: number | null = null;

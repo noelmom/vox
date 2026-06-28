@@ -81,29 +81,25 @@ This split matters because web/server changes can ship without rebuilding native
 
 ## Common Development Commands
 
-Backend/import checks:
+Backend tests and lint:
 
 ```bash
-python3 -m compileall api
-"$HOME/Library/Application Support/Vox/venv/bin/python3" - <<'PY'
-from api.main import app
-schema = app.openapi()
-assert "/api/v1/settings" in schema["paths"]
-assert "/api/v1/status" in schema["paths"]
-print("openapi ok", schema["info"]["version"])
-PY
+"$HOME/Library/Application Support/Vox/venv/bin/python3" -m pip install -r requirements-dev.txt
+"$HOME/Library/Application Support/Vox/venv/bin/python3" -m pytest
+"$HOME/Library/Application Support/Vox/venv/bin/python3" -m ruff check api tests
 ```
 
-Frontend build:
+Frontend checks:
 
 ```bash
+npm run typecheck --prefix ui-src
 npm run build --prefix ui-src
 ```
 
 Shell syntax:
 
 ```bash
-bash -n vox.sh setup.sh scripts/*.sh
+bash -n vox.sh setup.sh scripts/*.sh pkg-scripts/*
 ```
 
 Swift helper compile:
@@ -229,4 +225,3 @@ When behavior changes, update the relevant docs in the same commit:
 - Keep commits focused and descriptive.
 - Before pushing, run relevant verification for the files touched.
 - Before tagging, ensure `git status --short` is clean.
-

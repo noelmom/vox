@@ -425,7 +425,6 @@ async def get_settings():
         "model_state": get_model_status()["state"],
         "model_ready": get_model_status()["ready"],
         "default_max_chars": settings.default_max_chars,
-        "chunk_headroom_chars": settings.chunk_headroom_chars,
         "max_voice_clip_duration_s": settings.max_voice_clip_duration_s,
         "voice_icon_max_kb": settings.voice_icon_max_kb,
         "macos_version": mac_ver,

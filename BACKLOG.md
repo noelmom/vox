@@ -6,34 +6,32 @@ Ideas and improvements to revisit. Not bugs — these are enhancements queued fo
 
 ## Quality & Testing Strategy
 
-- [ ] **Decide on testing stack and enforce it in CI**
+- [x] **Decide on testing stack and enforce it in CI**
 
-  Nothing is wired up yet. Before cutting a `v1.0` release or accepting external contributions we need a clear answer on each of these:
+  Baseline implemented with GitHub Actions in `.github/workflows/ci.yml`, dev dependencies in `requirements-dev.txt`, shared config in `pyproject.toml`, and focused tests under `tests/`.
 
   **Unit tests (backend)**
-  - Candidates: `pytest` + `pytest-asyncio` for FastAPI route handlers, TTS wrapper, DB helpers.
-  - Mock the Chatterbox model (slow, GPU-dependent) with a fixture that returns a dummy WAV.
-  - Coverage target TBD — recommend ≥80% on `api/` excluding model-loading paths.
+  - Selected: `pytest` + `pytest-asyncio`.
+  - Current coverage focuses on build identity, text chunking, request IDs, and OpenAPI schema registration.
+  - Future: mock the Chatterbox model with a fixture that returns a dummy WAV, then cover `POST /tts` and voice CRUD.
 
   **Integration / end-to-end tests**
-  - Spin up the full FastAPI app with `httpx.AsyncClient` + `ASGITransport` — no network needed.
-  - Key flows to cover: `POST /tts` happy path, bad voice file, missing text, history pagination, voice CRUD.
-  - For the web UI: `playwright` (Python) or `cypress` (JS) — decision deferred; playwright aligns with the existing Python stack.
+  - Future: spin up the full FastAPI app with `httpx.AsyncClient` + `ASGITransport` — no network needed.
+  - Future key flows: `POST /tts` happy path, bad voice file, missing text, history pagination, voice CRUD.
+  - Web UI e2e decision remains deferred; Playwright is still the best fit when we add browser-level checks.
 
   **Linting & formatting**
-  - Backend: `ruff` (replaces flake8 + isort + pyupgrade in one tool), `black` for formatting.
-  - Frontend: `eslint` + `prettier` on `ui-src/src/**/*.{ts,tsx}` — Vite projects typically pair `eslint` with the `@typescript-eslint` and `eslint-plugin-react-hooks` plugins.
-  - Shell scripts: `shellcheck` on everything in `scripts/`.
+  - Backend: `ruff` currently enforces correctness-oriented `F` rules.
+  - Frontend: CI runs `tsc --noEmit` and production Vite build.
+  - Shell scripts: CI runs `bash -n` syntax checks against `vox.sh`, `setup.sh`, `scripts/*.sh`, and `pkg-scripts/*`.
+  - Future: broaden Ruff style rules, add frontend ESLint/Prettier, and introduce ShellCheck as a dedicated cleanup pass.
 
   **Pre-commit hooks**
-  - `pre-commit` framework with hooks for ruff, black, shellcheck, and a secret-scanner (e.g. `detect-secrets`) to make sure `.env` tokens can never slip into a commit.
+  - Future: add `pre-commit` hooks for Ruff, typecheck/build smoke checks, shell syntax, and a secret scanner such as `detect-secrets`.
 
   **CI pipeline**
-  - GitHub Actions on push to `main` and on all PRs (once PR workflow is adopted).
-  - Jobs: lint → unit tests → (optional) e2e tests against a mocked model.
-  - Block merge if any job fails.
-
-  **Decision needed:** agree on the above stack, then implement in a dedicated PR before adding more features.
+  - GitHub Actions runs on pushes and pull requests targeting `main` and `development`.
+  - Jobs: backend Ruff + pytest, frontend typecheck + build, shell syntax.
 
 ---
 

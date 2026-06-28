@@ -622,7 +622,7 @@ function RecordPane({
   const canvasRef        = useRef<HTMLCanvasElement | null>(null);
   const analyserRef      = useRef<AnalyserNode | null>(null);
   const vizAudioCtxRef   = useRef<AudioContext | null>(null);
-  const liveDataRef      = useRef<Uint8Array | null>(null);
+  const liveDataRef      = useRef<Uint8Array<ArrayBuffer> | null>(null);
   const liveHistoryRef   = useRef<number[]>([]);
   const rafRef           = useRef<number | null>(null);
   const MAX = maxVoiceClipDurationSeconds;
