@@ -681,7 +681,7 @@ function GetStarted() {
   const pkgName = "Vox-0.5.2-beta.pkg";
   const pkgSize = "8.8 MB";
   const pkgUrl = "https://github.com/MeloLabDev/codename-vox/releases/download/v0.5.2-beta/Vox-0.5.2-beta.pkg";
-  const sha256 = "d67ab5423e81dffb2328765ae7c6fe9cbd323d64ac087bee0cc6f4c39972cb58";
+  const sha256 = "0dda2555f568996187450afca091295511a3780bd2e040a39163ed7e1971cc1b";
 
   const handleCopy = async () => {
     try {
@@ -875,7 +875,7 @@ function GetStarted() {
                         Notarized
                       </span>
                       <span className="inline-flex items-center gap-1.5">
-                        <span className="font-mono text-[var(--brand-secondary)]">SHA256 d67a…cb58</span>
+                        <span className="font-mono text-[var(--brand-secondary)]">SHA256 0dda…cc1b</span>
 
                         <button
                           type="button"
