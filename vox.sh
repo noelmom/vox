@@ -290,15 +290,16 @@ do_update() {
         fail "Vox is not installed. Run: bash vox.sh install"
     fi
 
-    if [[ -n "$OPT_ZIP" ]]; then
-        args=("$OPT_ZIP")
+    update_args=()
+    [[ -n "$OPT_ZIP" ]] && update_args+=("$OPT_ZIP")
+    $OPT_FORCE && update_args+=("--force")
+    $OPT_AGENT_ONLY && update_args+=("--agent-only")
+    $OPT_HELPER_ONLY && update_args+=("--helper-only")
+    if [[ ${#update_args[@]} -gt 0 ]]; then
+        bash "$ROOT/scripts/update.sh" "${update_args[@]}"
     else
-        args=()
+        bash "$ROOT/scripts/update.sh"
     fi
-    $OPT_FORCE && args+=(--force)
-    $OPT_AGENT_ONLY && args+=(--agent-only)
-    $OPT_HELPER_ONLY && args+=(--helper-only)
-    bash "$ROOT/scripts/update.sh" "${args[@]}"
 }
 
 # ── UNINSTALL ─────────────────────────────────────────────────────────────────
