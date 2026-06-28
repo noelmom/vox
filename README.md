@@ -52,6 +52,8 @@ codename-vox/
 │   │   ├── tts.py               # POST /api/v1/tts — async generation (202 Accepted)
 │   │   ├── voices.py            # CRUD /api/v1/voices — manage voice profiles
 │   │   ├── jobs.py              # GET /api/v1/jobs — history, status, audio download
+│   │   ├── logs.py              # GET /api/v1/logs — structured job diagnostics + bounded log tails
+│   │   ├── alerts.py            # GET /api/v1/alerts — install/runtime warning banners
 │   │   └── presets.py           # GET /api/v1/presets — built-in + custom tone definitions
 │   └── models/
 │       ├── voice.py             # VoiceOut, VoiceParams, VoiceCreate schemas
@@ -89,10 +91,12 @@ codename-vox/
 ├── scripts/
 │   ├── run.sh                   # Manual foreground start (troubleshooting / dev)
 │   ├── build-apps.sh            # Build, sign, and package VoxHelper + VoxServer DMG
+│   ├── build-pkg.sh             # Build, sign, notarize, and staple the one-click installer package
 │   ├── install-agent.sh         # Register server LaunchAgent with macOS launchd
 │   ├── uninstall-agent.sh       # Unload and remove the server LaunchAgent
 │   ├── install-helper.sh        # Register menu bar helper LaunchAgent
 │   ├── uninstall-helper.sh      # Unload and remove the helper LaunchAgent
+│   ├── uninstall.sh             # Shared uninstall flow used by vox.sh and the helper
 │   ├── update.sh                # Pull latest + sync deps + re-register agents
 │   └── README.md                # Script reference + manual start guide
 ├── setup.sh                     # One-shot bootstrap script

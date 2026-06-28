@@ -11,7 +11,7 @@ Install with the unified entry point:
 ```bash
 bash vox.sh install       # guided install
 bash vox.sh update        # update existing install
-bash vox.sh uninstall     # remove agents
+bash vox.sh uninstall     # remove agents, keep user data by default
 ```
 
 Then control the server with `launchctl`:
@@ -54,6 +54,7 @@ The server prints its address and API docs URL on startup. Logs stream directly 
 | Script | Purpose |
 |--------|---------|
 | `../vox.sh` | **Unified entry point.** `install`, `update`, `uninstall` with flags (`--yes`, `--token`, `--purge`, `--zip`). Use this for all normal workflows. |
+| `uninstall.sh` | Shared uninstall implementation used by `vox.sh uninstall` and the helper menu. Removes LaunchAgents and apps; preserves user data unless `--purge` is passed. |
 | `install-agent.sh` | Register the **server** LaunchAgent with macOS launchd. Syncs `api/` and `ui/` to Application Support. |
 | `uninstall-agent.sh` | Stop and remove the server LaunchAgent. |
 | `install-helper.sh` | Install the **menu bar helper** LaunchAgent. Stops the running helper, copies VoxHelper.app from the DMG with `ditto`, and registers the LaunchAgent. |

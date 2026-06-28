@@ -176,7 +176,7 @@ app = FastAPI(
     title="Vox API",
     summary="Local text-to-speech API powered by Chatterbox Turbo on Apple Silicon.",
     description=_DESCRIPTION,
-    version="0.5.1-beta",
+    version="0.5.2-beta",
     contact={"name": "MeloLab Dev", "url": "https://github.com/MeloLabDev/codename-vox"},
     license_info={"name": "MIT"},
     lifespan=lifespan,
@@ -406,7 +406,7 @@ async def get_settings():
         "voice_icon_max_kb": settings.voice_icon_max_kb,
         "macos_version": mac_ver,
         "chip": chip,
-        "vox_version": "0.5.1-beta",
+        "vox_version": "0.5.2-beta",
     }
 
 

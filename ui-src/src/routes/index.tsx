@@ -678,9 +678,9 @@ function GetStarted() {
   const [hashCopied, setHashCopied] = useState(false);
   const [tab, setTab] = useState<"oneclick" | "manual">("oneclick");
   const command = `git clone git@github.com:MeloLabDev/codename-vox\ncd codename-vox\nbash vox.sh install`;
-  const pkgName = "Vox-0.5.1-beta.pkg";
+  const pkgName = "Vox-0.5.2-beta.pkg";
   const pkgSize = "8.8 MB";
-  const pkgUrl = "https://github.com/MeloLabDev/codename-vox/releases/download/v0.5.1-beta/Vox-0.5.1-beta.pkg";
+  const pkgUrl = "https://github.com/MeloLabDev/codename-vox/releases/download/v0.5.2-beta/Vox-0.5.2-beta.pkg";
   const sha256 = "d67ab5423e81dffb2328765ae7c6fe9cbd323d64ac087bee0cc6f4c39972cb58";
 
   const handleCopy = async () => {

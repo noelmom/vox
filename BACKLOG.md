@@ -390,7 +390,7 @@ Ideas and improvements to revisit. Not bugs — these are enhancements queued fo
 
 - [x] **Signed `.pkg` installer for v1.0.0 release**
   - Implemented via `scripts/build-pkg.sh`.
-  - Builds `assets/Vox-0.5.1-beta.pkg`, signs with the Developer ID Installer certificate, submits to Apple notarization, staples the ticket, and verifies Gatekeeper install assessment.
+  - Builds `assets/Vox-<version>.pkg`, signs with the Developer ID Installer certificate, submits to Apple notarization, staples the ticket, and verifies Gatekeeper install assessment.
   - Package payload installs `VoxHelper.app` and `VoxServer.app` under `/Applications/Vox/`.
   - `pkg-scripts/preinstall` checks Apple Silicon, logged-in console user, curl, internet access to GitHub/PyPI/Hugging Face, Homebrew, and Python 3.11 availability.
   - `pkg-scripts/postinstall` runs the bootstrap installer as the console user, creates the runtime directory, installs LaunchAgents, and starts the helper.

@@ -5,6 +5,19 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [0.5.2-beta] — 2026-06-28
+
+### Added
+- **Operational diagnostics** — structured alert banners plus bounded log-tail endpoints for easier support without opening raw log files.
+- **Installer-first run guidance** — package installs now surface the expected first model download/load behavior so the one-click path feels less mysterious.
+- **Unified uninstall path** — `scripts/uninstall.sh`, `vox.sh uninstall`, and the helper uninstall action now share the same cleanup behavior.
+
+### Fixed
+- **Release and installer hardening** — `.pkg` installs stage both apps in `/Applications/Vox/`, bootstrap the runtime, validate connectivity before install, and avoid redundant app replacement when the installed bundle version already matches.
+- **Server lifecycle guards** — PID-file startup checks prevent duplicate server processes and stale PID files are cleared on the next launch.
+- **Voice/profile cleanup** — deleted voice profiles are soft-deleted first, moved under `voices/deleted/`, and purged after the configured TTL.
+- **Backlog/UI cleanup** — completed waveform, mic-recorder, signing, notarization, app icon, and smooth-scroll items were verified and the public landing screenshot/package metadata were refreshed.
+
 ## [0.5.1-beta] — 2026-06-28
 
 ### Added
