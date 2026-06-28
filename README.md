@@ -500,7 +500,7 @@ sqlite3 ~/Library/Application\ Support/Vox/data/vox.db
 | Menu bar helper | Native Swift (AppKit `NSStatusItem`) — arm64 macOS only |
 | Process management | macOS launchd via LaunchAgent plists |
 | Packaging | Signed/notarized macOS `.dmg` and `.pkg` via `scripts/build-apps.sh`, `scripts/build-pkg.sh`, and `scripts/release.sh` |
-| CI | GitHub Actions: Ruff, pytest, TypeScript typecheck, Vite build, shell syntax |
+| CI | GitHub Actions: Ruff, codespell, pytest, TypeScript typecheck, Vite build, shell syntax |
 
 ---
 

@@ -157,7 +157,7 @@ Ideas and improvements to revisit. Not bugs — these are enhancements queued fo
 
   **Future refinement:** once SSE or explicit chunk-progress events exist, replace the current ETA-style progress estimate with true chunk completion progress.
 
-- [x] **[LOW] Recent scripts history — quick re-use from script box**
+- [x] **[LOW] Recent scripts history — quick reuse from script box**
 
   Implemented in `ui-src/src/routes/app.index.tsx`. Generated scripts are saved to `localStorage["vox:script-history"]`, capped at 10 entries, deduped newest-first, and exposed from the script box history dropdown.
 

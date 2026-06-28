@@ -25,6 +25,9 @@ jobs:
       - name: Ruff
         run: ruff check api tests
 
+      - name: Spellcheck
+        run: codespell --skip './.git,./assets,./data,./input,./outputs,./ui-dist,./ui-src/bun.lock,./ui-src/node_modules,./voices,./working-poc' .
+
       - name: Pytest
         run: pytest
 
