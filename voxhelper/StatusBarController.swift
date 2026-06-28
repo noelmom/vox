@@ -1,6 +1,6 @@
 import AppKit
 
-class StatusBarController {
+class StatusBarController: NSObject {
     private let item: NSStatusItem
     private let monitor: ServerMonitor
     private var restartUntil: Date?
@@ -10,21 +10,27 @@ class StatusBarController {
     private let copyItem    = NSMenuItem(title: "⎘  Copy Address",       action: nil, keyEquivalent: "")
     private let openItem    = NSMenuItem(title: "↗  Open in Browser",    action: nil, keyEquivalent: "")
     private let inputItem   = NSMenuItem(title: "📁  Open Input Folder", action: nil, keyEquivalent: "")
+    private let supportItem = NSMenuItem(title: "↗  Visit Support Page", action: nil, keyEquivalent: "")
     private let cpuItem     = NSMenuItem(title: "⚡  CPU   —",            action: nil, keyEquivalent: "")
     private let gpuItem     = NSMenuItem(title: "◈  GPU   —",            action: nil, keyEquivalent: "")
     private let ramItem     = NSMenuItem(title: "🧠  RAM   —",            action: nil, keyEquivalent: "")
+    private let modelItem   = NSMenuItem(title: "Model —",               action: nil, keyEquivalent: "")
     private let studioBuildItem = NSMenuItem(title: "Studio vunknown · unknown", action: nil, keyEquivalent: "")
     private let helperBuildItem = NSMenuItem(title: "Helper vunknown · unknown", action: nil, keyEquivalent: "")
     private let startItem   = NSMenuItem(title: "▶  Start Server",       action: nil, keyEquivalent: "")
     private let stopItem    = NSMenuItem(title: "■  Stop Server",        action: nil, keyEquivalent: "")
     private let restartItem = NSMenuItem(title: "↺  Restart Server",     action: nil, keyEquivalent: "")
+    private let updateItem  = NSMenuItem(title: "↑  Check for Updates…", action: nil, keyEquivalent: "")
+    private let helperLoginItem = NSMenuItem(title: "Start Helper at Login", action: nil, keyEquivalent: "")
+    private let serverLoginItem = NSMenuItem(title: "Start Server at Login", action: nil, keyEquivalent: "")
     private let logsItem    = NSMenuItem(title: "📋  View Logs",          action: nil, keyEquivalent: "")
     private let uninstallItem = NSMenuItem(title: "Uninstall Vox…",        action: nil, keyEquivalent: "")
     private let quitItem    = NSMenuItem(title: "Quit Helper",            action: nil, keyEquivalent: "")
 
-    init() {
+    override init() {
         item    = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         monitor = ServerMonitor()
+        super.init()
         setupMenu()
         monitor.onUpdate = { [weak self] state in
             DispatchQueue.main.async { self?.apply(state) }
@@ -39,28 +45,35 @@ class StatusBarController {
 
     // ── Menu setup ─────────────────────────────────────────────────────────
     private func setupMenu() {
-        [statusItem, addrItem, cpuItem, gpuItem, ramItem, studioBuildItem, helperBuildItem].forEach { $0.isEnabled = false }
-        [copyItem, openItem, inputItem, startItem, stopItem,
-         restartItem, logsItem, uninstallItem, quitItem].forEach { $0.target = self }
+        [statusItem, addrItem, cpuItem, gpuItem, ramItem, modelItem, studioBuildItem, helperBuildItem].forEach { $0.isEnabled = false }
+        [copyItem, openItem, inputItem, supportItem, startItem, stopItem,
+         restartItem, updateItem, helperLoginItem, serverLoginItem, logsItem, uninstallItem, quitItem].forEach { $0.target = self }
 
         copyItem.action    = #selector(copyAddress)
         openItem.action    = #selector(openBrowser)
         inputItem.action   = #selector(openInput)
+        supportItem.action = #selector(openSupport)
         startItem.action   = #selector(startServer)
         stopItem.action    = #selector(stopServer)
         restartItem.action = #selector(restartServer)
+        updateItem.action  = #selector(checkForUpdates)
+        helperLoginItem.action = #selector(toggleHelperLogin)
+        serverLoginItem.action = #selector(toggleServerLogin)
         logsItem.action    = #selector(viewLogs)
         uninstallItem.action = #selector(confirmUninstall)
         quitItem.action    = #selector(quitApp)
 
         let menu = NSMenu()
-        for i in [statusItem, addrItem, copyItem, openItem, inputItem,
+        menu.delegate = self
+        for i in [statusItem, addrItem, copyItem, openItem, inputItem, supportItem,
                   NSMenuItem.separator(),
-                  cpuItem, gpuItem, ramItem,
+                  cpuItem, gpuItem, ramItem, modelItem,
                   NSMenuItem.separator(),
                   studioBuildItem, helperBuildItem,
                   NSMenuItem.separator(),
                   startItem, stopItem, restartItem,
+                  NSMenuItem.separator(),
+                  updateItem, helperLoginItem, serverLoginItem,
                   NSMenuItem.separator(),
                   logsItem,
                   NSMenuItem.separator(),
@@ -85,6 +98,7 @@ class StatusBarController {
         cpuItem.title       = "⚡  CPU   \(Int(state.cpu.rounded()))%"
         gpuItem.title       = state.gpu.map { "◈  GPU   \(Int($0.rounded()))%" } ?? "◈  GPU   unavailable"
         ramItem.title       = "🧠  RAM   \(String(format: "%.1f", state.ramUsed)) / \(Int(state.ramTotal)) GB"
+        modelItem.title     = state.modelLabel
         studioBuildItem.title = state.studioBuildLabel
         helperBuildItem.title = helperBuildLabel()
     }
@@ -130,6 +144,10 @@ class StatusBarController {
         NSWorkspace.shared.open(URL(fileURLWithPath: path))
     }
 
+    @objc private func openSupport() {
+        NSWorkspace.shared.open(URL(string: "https://noelmom.github.io")!)
+    }
+
     @objc private func startServer() {
         monitor.launchctl("kickstart", "gui/\(getuid())/com.melolabdev.vox")
     }
@@ -143,6 +161,16 @@ class StatusBarController {
         statusItem.title = "Restarting…"
         applyMenuBarIcon(running: true)
         monitor.launchctl("kickstart", "-k", "gui/\(getuid())/com.melolabdev.vox")
+    }
+
+    @objc private func checkForUpdates() {
+        updateItem.title = "Updating…"
+        updateItem.action = nil
+        _ = runCommandInTerminal(updateCommand())
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2) { [weak self] in
+            self?.updateItem.title = "↑  Check for Updates…"
+            self?.updateItem.action = #selector(StatusBarController.checkForUpdates)
+        }
     }
 
     private func isRestarting(state: ServerState) -> Bool {
@@ -163,6 +191,16 @@ class StatusBarController {
         NSWorkspace.shared.open(URL(fileURLWithPath: log))
     }
 
+    @objc private func toggleHelperLogin() {
+        toggleRunAtLoad(plistPath: NSHomeDirectory() + "/Library/LaunchAgents/com.melolabdev.vox-helper.plist")
+        refreshLoginStates()
+    }
+
+    @objc private func toggleServerLogin() {
+        toggleRunAtLoad(plistPath: NSHomeDirectory() + "/Library/LaunchAgents/com.melolabdev.vox.plist")
+        refreshLoginStates()
+    }
+
     @objc private func confirmUninstall() {
         let alert = NSAlert()
         alert.messageText = "Uninstall Vox?"
@@ -181,6 +219,12 @@ class StatusBarController {
             return
         }
 
+        if !runCommandInTerminal(command) {
+            showUninstallError("Could not open Terminal to uninstall Vox.")
+        }
+    }
+
+    private func runCommandInTerminal(_ command: String) -> Bool {
         let script = """
         tell application "Terminal"
           activate
@@ -193,8 +237,9 @@ class StatusBarController {
         process.arguments = ["-e", script]
         do {
             try process.run()
+            return true
         } catch {
-            showUninstallError("Could not open Terminal to uninstall Vox.")
+            return false
         }
     }
 
@@ -211,6 +256,39 @@ class StatusBarController {
             return "bash \(shellQuoted(path)); echo; read -n 1 -s -r -p 'Press any key to close...'"
         }
         return nil
+    }
+
+    private func updateCommand() -> String {
+        let candidates = [
+            NSHomeDirectory() + "/Library/Application Support/Vox/scripts/update.sh",
+            "/Library/Application Support/Vox/Bootstrap/vox.sh",
+        ]
+        for path in candidates where FileManager.default.fileExists(atPath: path) {
+            if path.hasSuffix("vox.sh") {
+                return "bash \(shellQuoted(path)) update --yes; echo; read -n 1 -s -r -p 'Press any key to close...'"
+            }
+            return "bash \(shellQuoted(path)); echo; read -n 1 -s -r -p 'Press any key to close...'"
+        }
+        return "echo 'Vox update script not found.'; echo; read -n 1 -s -r -p 'Press any key to close...'"
+    }
+
+    private func refreshLoginStates() {
+        helperLoginItem.state = runAtLoad(plistPath: NSHomeDirectory() + "/Library/LaunchAgents/com.melolabdev.vox-helper.plist") ? .on : .off
+        serverLoginItem.state = runAtLoad(plistPath: NSHomeDirectory() + "/Library/LaunchAgents/com.melolabdev.vox.plist") ? .on : .off
+    }
+
+    private func runAtLoad(plistPath: String) -> Bool {
+        guard let dict = NSMutableDictionary(contentsOfFile: plistPath) else { return false }
+        return dict["RunAtLoad"] as? Bool ?? false
+    }
+
+    private func toggleRunAtLoad(plistPath: String) {
+        guard let dict = NSMutableDictionary(contentsOfFile: plistPath) else { return }
+        let current = dict["RunAtLoad"] as? Bool ?? false
+        dict["RunAtLoad"] = !current
+        guard dict.write(toFile: plistPath, atomically: true) else { return }
+        monitor.launchctl("unload", plistPath)
+        monitor.launchctl("load", plistPath)
     }
 
     private func showUninstallError(_ message: String) {
@@ -315,5 +393,11 @@ class StatusBarController {
         path.line(to: NSPoint(x: 38, y: 2.6))
         path.line(to: NSPoint(x: 43, y: 8.0))
         path.stroke()
+    }
+}
+
+extension StatusBarController: NSMenuDelegate {
+    func menuWillOpen(_ menu: NSMenu) {
+        refreshLoginStates()
     }
 }

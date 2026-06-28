@@ -5,6 +5,7 @@ import IOKit
 struct ServerState {
     var running   = false
     var addrLabel = "—"
+    var modelLabel = "Model —"
     var studioBuildLabel = "Studio vunknown · unknown"
     var cpu       = 0.0
     var gpu: Double?
@@ -64,6 +65,7 @@ class ServerMonitor {
             var s       = ServerState()
             s.running   = self.checkServer()
             s.addrLabel = self.addrLabel()
+            s.modelLabel = self.modelLabel(running: s.running)
             s.studioBuildLabel = self.studioBuildLabel()
             s.cpu       = self.cpuPercent()
             s.gpu       = self.gpuPercent()
@@ -117,6 +119,39 @@ class ServerMonitor {
         let version = raw["version"] as? String ?? "unknown"
         let commit = raw["commit"] as? String ?? "unknown"
         return "Studio v\(version) · \(commit)"
+    }
+
+    private func modelLabel(running: Bool) -> String {
+        guard running else { return "Model unavailable" }
+        guard let url = URL(string: "http://127.0.0.1:\(port)/api/v1/status") else {
+            return "Model unknown"
+        }
+
+        var request = URLRequest(url: url)
+        request.timeoutInterval = 1.2
+
+        let semaphore = DispatchSemaphore(value: 0)
+        var label = "Model checking…"
+        URLSession.shared.dataTask(with: request) { data, _, _ in
+            defer { semaphore.signal() }
+            guard let data,
+                  let raw = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  let model = raw["model"] as? [String: Any] else {
+                label = "Model starting…"
+                return
+            }
+            let state = model["state"] as? String ?? "unknown"
+            switch state {
+            case "ready": label = "Model ready"
+            case "loading": label = "Model loading…"
+            case "error": label = "Model error"
+            case "not_loaded": label = "Model waiting…"
+            default: label = "Model \(state)"
+            }
+        }.resume()
+
+        _ = semaphore.wait(timeout: .now() + 1.4)
+        return label
     }
 
     private func lanIP() -> String {

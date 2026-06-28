@@ -18,11 +18,13 @@ DMG="$ROOT/assets/Vox.dmg"
 MOUNT_POINT=""
 PKG_MODE=false
 FORCE_APP=false
+NO_RELOAD=false
 
 for arg in "$@"; do
   case "$arg" in
     --pkg-mode) PKG_MODE=true ;;
     --force-app) FORCE_APP=true ;;
+    --no-reload) NO_RELOAD=true ;;
   esac
 done
 
@@ -124,10 +126,14 @@ echo "[vox-helper] Plist written to: $PLIST_DST"
 
 # ── Reload LaunchAgent ────────────────────────────────────────────────────────
 UID_VAL=$(id -u)
-launchctl stop "gui/$UID_VAL/$LABEL" 2>/dev/null || true
-sleep 1
-launchctl unload "$PLIST_DST" 2>/dev/null || true
-launchctl load "$PLIST_DST"
+if $NO_RELOAD; then
+  echo "[vox-helper] --no-reload set; LaunchAgent plist updated but not reloaded."
+else
+  launchctl stop "gui/$UID_VAL/$LABEL" 2>/dev/null || true
+  sleep 1
+  launchctl unload "$PLIST_DST" 2>/dev/null || true
+  launchctl load "$PLIST_DST"
+fi
 
 echo ""
 echo "[vox-helper] Vox Helper installed and started."

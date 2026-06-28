@@ -16,6 +16,7 @@
 #   --purge              on uninstall, also delete user data + venv
 #   --zip /path/dir      update from extracted zip folder (not git pull)
 #   --pkg-mode           internal: package postinstall mode
+#   --force              force update/reinstall even when installed version matches
 set -euo pipefail
 
 # ── Colours ───────────────────────────────────────────────────────────────────
@@ -54,6 +55,7 @@ OPT_PURGE=false
 OPT_ZIP=""
 OPT_BRANCH=""
 OPT_PKG_MODE=false
+OPT_FORCE=false
 
 # ── Help ──────────────────────────────────────────────────────────────────────
 show_help() {
@@ -79,6 +81,7 @@ cat <<'EOF'
     --devbranch       Switch to the development branch before running command
     --branch NAME     Switch to a specific branch before running command
     --pkg-mode        Internal: used by the signed macOS package postinstall
+    --force           Force update/reinstall even when installed version matches
     --help            Show this help
 
   Examples:
@@ -113,6 +116,7 @@ while [[ $# -gt 0 ]]; do
         --branch)          shift; OPT_BRANCH="${1:-}" ;;
         --devbranch)       OPT_BRANCH="development" ;;
         --pkg-mode)        OPT_PKG_MODE=true; OPT_YES=true ;;
+        --force)           OPT_FORCE=true ;;
         --help|-h)         show_help; exit 0 ;;
         *) warn "Unknown argument: $1 (run with --help to see usage)"; exit 1 ;;
     esac
@@ -220,6 +224,8 @@ do_install() {
         fi
     fi
 
+    _write_installed_version
+
     echo ""
     echo -e "${GREEN}${BOLD}  ✓ Vox installed.${RESET}"
     echo ""
@@ -245,6 +251,35 @@ _write_token() {
     success "HF token saved to .env"
 }
 
+_source_id() {
+    if [[ -d "$ROOT/.git" ]] || [[ -f "$ROOT/.git" ]]; then
+        git -C "$ROOT" rev-parse --short HEAD 2>/dev/null && return 0
+    fi
+    if [[ -f "$ROOT/build_info.json" && -f "$VENV/bin/python3" ]]; then
+        "$VENV/bin/python3" -c 'import json,sys; print(json.load(open(sys.argv[1])).get("commit","unknown"))' "$ROOT/build_info.json" 2>/dev/null && return 0
+    fi
+    echo "unknown"
+}
+
+_write_installed_version() {
+    local source_commit="$(_source_id)"
+    local version="unknown"
+    [[ -f "$ROOT/VERSION" ]] && version="$(tr -d '[:space:]' < "$ROOT/VERSION")"
+    [[ -f "$VENV/bin/python3" ]] || return 0
+    "$VENV/bin/python3" - "$APP_SUPPORT/installed_version.json" "$version" "$source_commit" <<'PY'
+import json, sys
+from datetime import datetime, timezone
+path, version, commit = sys.argv[1:4]
+with open(path, "w", encoding="utf-8") as f:
+    json.dump({
+        "version": version,
+        "source_commit": commit,
+        "installed_at": datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z"),
+    }, f, indent=2)
+    f.write("\n")
+PY
+}
+
 # ── UPDATE ────────────────────────────────────────────────────────────────────
 do_update() {
     echo ""
@@ -255,12 +290,15 @@ do_update() {
         fail "Vox is not installed. Run: bash vox.sh install"
     fi
 
-    require_git
     if [[ -n "$OPT_ZIP" ]]; then
-        bash "$ROOT/scripts/update.sh" "$OPT_ZIP"
+        args=("$OPT_ZIP")
     else
-        bash "$ROOT/scripts/update.sh"
+        args=()
     fi
+    $OPT_FORCE && args+=(--force)
+    $OPT_AGENT_ONLY && args+=(--agent-only)
+    $OPT_HELPER_ONLY && args+=(--helper-only)
+    bash "$ROOT/scripts/update.sh" "${args[@]}"
 }
 
 # ── UNINSTALL ─────────────────────────────────────────────────────────────────

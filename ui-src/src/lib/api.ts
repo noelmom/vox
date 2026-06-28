@@ -166,6 +166,8 @@ export type ServerSettings = {
   ffmpeg_available: boolean;
   ffmpeg_path: string;
   model_name: string;
+  model_state: string;
+  model_ready: boolean;
   default_max_chars: number;
   macos_version: string;
   chip: string;

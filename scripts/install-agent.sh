@@ -18,11 +18,13 @@ DMG="$ROOT/assets/Vox.dmg"
 MOUNT_POINT=""
 PKG_MODE=false
 FORCE_APP=false
+NO_RELOAD=false
 
 for arg in "$@"; do
   case "$arg" in
     --pkg-mode) PKG_MODE=true ;;
     --force-app) FORCE_APP=true ;;
+    --no-reload) NO_RELOAD=true ;;
   esac
 done
 
@@ -116,6 +118,13 @@ exec /bin/bash "$ROOT/vox.sh" uninstall --yes "\$@"
 RUNSCRIPT
 chmod +x "$APP_SUPPORT/scripts/uninstall.sh"
 
+cat > "$APP_SUPPORT/scripts/update.sh" <<RUNSCRIPT
+#!/bin/bash
+set -e
+exec /bin/bash "$ROOT/vox.sh" update --yes "\$@"
+RUNSCRIPT
+chmod +x "$APP_SUPPORT/scripts/update.sh"
+
 if $PKG_MODE; then
   echo "[vox] Using packaged VoxServer.app at $APP_DIR/VoxServer.app..."
   [[ -d "$APP_DIR/VoxServer.app" ]] || { echo "[vox] x VoxServer.app not found at $APP_DIR/VoxServer.app"; exit 1; }
@@ -190,10 +199,14 @@ echo "[vox] Plist written to: $PLIST_DST"
 
 # ── Reload LaunchAgent ────────────────────────────────────────────────────────
 UID_VAL=$(id -u)
-launchctl stop "gui/$UID_VAL/$LABEL" 2>/dev/null || true
-sleep 1
-launchctl unload "$PLIST_DST" 2>/dev/null || true
-launchctl load "$PLIST_DST"
+if $NO_RELOAD; then
+  echo "[vox] --no-reload set; LaunchAgent plist updated but not reloaded."
+else
+  launchctl stop "gui/$UID_VAL/$LABEL" 2>/dev/null || true
+  sleep 1
+  launchctl unload "$PLIST_DST" 2>/dev/null || true
+  launchctl load "$PLIST_DST"
+fi
 
 echo ""
 echo "[vox] Server LaunchAgent installed."

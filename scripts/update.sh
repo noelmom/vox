@@ -1,8 +1,8 @@
 #!/bin/bash
 # Pull the latest changes and restart both agents.
 #
-# Git repo:    bash scripts/update.sh
-# Zip install: bash scripts/update.sh /path/to/new-vox-folder
+# Git repo:    bash scripts/update.sh [--force] [--no-restart]
+# Zip install: bash scripts/update.sh /path/to/new-vox-folder [--force]
 #
 # Safe to re-run — install scripts unload before reloading.
 # User data (.env, voices/, outputs/, data/, input/) is never touched.
@@ -30,6 +30,63 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 APP_SUPPORT="$HOME/Library/Application Support/Vox"
 VENV="$APP_SUPPORT/venv"
 ZIP_SRC="${1:-}"
+FORCE=false
+NO_RESTART=false
+AGENT_ONLY=false
+HELPER_ONLY=false
+
+args=("$@")
+ZIP_SRC=""
+for ((i = 0; i < ${#args[@]}; i++)); do
+    case "${args[$i]}" in
+        --force) FORCE=true ;;
+        --no-restart) NO_RESTART=true ;;
+        --agent-only) AGENT_ONLY=true ;;
+        --helper-only) HELPER_ONLY=true ;;
+        --*) fail "Unknown option: ${args[$i]}" ;;
+        *) ZIP_SRC="${args[$i]}" ;;
+    esac
+done
+
+source_id() {
+    if [[ -d "$ROOT/.git" ]] || [[ -f "$ROOT/.git" ]]; then
+        git -C "$ROOT" rev-parse --short HEAD 2>/dev/null && return 0
+    fi
+    if [[ -f "$ROOT/build_info.json" ]]; then
+        "$VENV/bin/python3" -c 'import json,sys; print(json.load(open(sys.argv[1])).get("commit","unknown"))' "$ROOT/build_info.json" 2>/dev/null && return 0
+    fi
+    echo "unknown"
+}
+
+write_installed_version() {
+    local source_commit="$1"
+    local version="unknown"
+    if [[ -f "$ROOT/VERSION" ]]; then
+        version="$(tr -d '[:space:]' < "$ROOT/VERSION")"
+    fi
+    "$VENV/bin/python3" - "$APP_SUPPORT/installed_version.json" "$version" "$source_commit" <<'PY'
+import json, sys
+from datetime import datetime, timezone
+path, version, commit = sys.argv[1:4]
+with open(path, "w", encoding="utf-8") as f:
+    json.dump({
+        "version": version,
+        "source_commit": commit,
+        "installed_at": datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z"),
+    }, f, indent=2)
+    f.write("\n")
+PY
+}
+
+installed_source_id() {
+    if [[ -f "$APP_SUPPORT/installed_version.json" ]]; then
+        "$VENV/bin/python3" -c 'import json,sys; print(json.load(open(sys.argv[1])).get("source_commit",""))' "$APP_SUPPORT/installed_version.json" 2>/dev/null && return 0
+    fi
+    if [[ -f "$APP_SUPPORT/build_info.json" ]]; then
+        "$VENV/bin/python3" -c 'import json,sys; print(json.load(open(sys.argv[1])).get("commit",""))' "$APP_SUPPORT/build_info.json" 2>/dev/null && return 0
+    fi
+    echo ""
+}
 
 cd "$ROOT"
 
@@ -37,17 +94,6 @@ cd "$ROOT"
 if [[ ! -f "$VENV/bin/pip" ]]; then
     fail "Virtual environment not found at $VENV. Run 'bash setup.sh' first."
 fi
-
-# ── Stop agents before touching files ─────────────────────────────────────────
-info "Stopping agents…"
-UID_VAL=$(id -u)
-launchctl kickstart -k "gui/$UID_VAL/com.melolabdev.vox"        2>/dev/null || true
-launchctl stop        "gui/$UID_VAL/com.melolabdev.vox-helper"  2>/dev/null || true
-# Wait for the server process to fully exit before syncing files
-for i in {1..10}; do
-    pgrep -f "uvicorn api.main:app" &>/dev/null || break
-    sleep 1
-done
 
 # ── Pull or copy new source files ─────────────────────────────────────────────
 BRANCH=""
@@ -86,28 +132,71 @@ else
     fi
 fi
 
+DESIRED_SOURCE="$(source_id)"
+INSTALLED_SOURCE="$(installed_source_id)"
+if ! $FORCE && [[ -n "$INSTALLED_SOURCE" && "$INSTALLED_SOURCE" == "$DESIRED_SOURCE" ]]; then
+    success "Already on installed build $DESIRED_SOURCE — nothing to update."
+    echo ""
+    exit 0
+fi
+
+if $NO_RESTART; then
+    warn "--no-restart set — syncing files without stopping agents."
+else
+    info "Stopping agents…"
+    UID_VAL=$(id -u)
+    if ! $HELPER_ONLY; then
+        launchctl kickstart -k "gui/$UID_VAL/com.melolabdev.vox" 2>/dev/null || true
+    fi
+    if ! $AGENT_ONLY; then
+        launchctl stop "gui/$UID_VAL/com.melolabdev.vox-helper" 2>/dev/null || true
+    fi
+    for i in {1..10}; do
+        pgrep -f "uvicorn api.main:app" &>/dev/null || break
+        sleep 1
+    done
+fi
+
 # ── Sync Python dependencies ──────────────────────────────────────────────────
-info "Syncing Python dependencies…"
-"$VENV/bin/pip" install --quiet -r "$ROOT/requirements.txt"
-success "Dependencies up to date"
+if ! $HELPER_ONLY; then
+    info "Syncing Python dependencies…"
+    "$VENV/bin/pip" install --quiet -r "$ROOT/requirements.txt"
+    success "Dependencies up to date"
+fi
 
 # ── Sync code to permanent location (never touches user data) ─────────────────
-info "Syncing server code to Application Support…"
-mkdir -p "$APP_SUPPORT/api"
-mkdir -p "$APP_SUPPORT/scripts"
-mkdir -p "$APP_SUPPORT/ui-dist"
-rsync -a --delete "$ROOT/api/"      "$APP_SUPPORT/api/"
-rsync -a --delete "$ROOT/ui-dist/"  "$APP_SUPPORT/ui-dist/"
-[[ -f "$ROOT/VERSION" ]] && ditto --norsrc "$ROOT/VERSION" "$APP_SUPPORT/VERSION"
-[[ -f "$ROOT/build_info.json" ]] && ditto --norsrc "$ROOT/build_info.json" "$APP_SUPPORT/build_info.json"
-success "Code synced"
+if ! $HELPER_ONLY; then
+    info "Syncing server code to Application Support…"
+    mkdir -p "$APP_SUPPORT/api"
+    mkdir -p "$APP_SUPPORT/scripts"
+    mkdir -p "$APP_SUPPORT/ui-dist"
+    rsync -a --delete "$ROOT/api/"      "$APP_SUPPORT/api/"
+    rsync -a --delete "$ROOT/ui-dist/"  "$APP_SUPPORT/ui-dist/"
+    [[ -f "$ROOT/VERSION" ]] && ditto --norsrc "$ROOT/VERSION" "$APP_SUPPORT/VERSION"
+    [[ -f "$ROOT/build_info.json" ]] && ditto --norsrc "$ROOT/build_info.json" "$APP_SUPPORT/build_info.json"
+    success "Code synced"
+fi
 
 # ── Re-register agents ────────────────────────────────────────────────────────
-info "Reinstalling server LaunchAgent…"
-bash "$ROOT/scripts/install-agent.sh"
+if ! $HELPER_ONLY; then
+    info "Reinstalling server LaunchAgent…"
+    if $NO_RESTART; then
+        bash "$ROOT/scripts/install-agent.sh" --no-reload
+    else
+        bash "$ROOT/scripts/install-agent.sh"
+    fi
+fi
 
-info "Reinstalling menu bar helper…"
-bash "$ROOT/scripts/install-helper.sh"
+if ! $AGENT_ONLY; then
+    info "Reinstalling menu bar helper…"
+    if $NO_RESTART; then
+        bash "$ROOT/scripts/install-helper.sh" --no-reload
+    else
+        bash "$ROOT/scripts/install-helper.sh"
+    fi
+fi
+
+write_installed_version "$DESIRED_SOURCE"
 
 # ── Done ──────────────────────────────────────────────────────────────────────
 echo ""
@@ -115,6 +204,6 @@ echo -e "${GREEN}${BOLD}Vox updated successfully.${RESET}"
 echo ""
 if command -v git &>/dev/null && git -C "$ROOT" rev-parse --git-dir &>/dev/null; then
     echo "  Branch:  $(git -C "$ROOT" rev-parse --abbrev-ref HEAD 2>/dev/null || echo "unknown")"
-    echo "  Version: $(git -C "$ROOT" rev-parse --short HEAD 2>/dev/null || echo "unknown")"
+    echo "  Version: $DESIRED_SOURCE"
 fi
 echo ""

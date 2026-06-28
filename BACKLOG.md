@@ -260,10 +260,9 @@ Ideas and improvements to revisit. Not bugs — these are enhancements queued fo
 
 - [x] **CPU and RAM stats** — live metrics shown in the menu, polled every 2s via host_statistics / vm_statistics64. Startup takes a second baseline CPU sample so the first visible update is not stuck at 0%, and RAM includes compressed memory in the used value.
 
-- [ ] **Version number and support link in helper menu**
-  - Show current version (git tag or short SHA, read at startup) as a non-clickable label near the top of the menu — e.g. `v0.2.0 · build a1b2c3`.
-  - Add a `🌐  Visit Support Page` item that opens the landing page or a dedicated support URL in the default browser.
-  - Decide on a permanent support URL before implementing (landing page, GitHub repo, or a separate support site).
+- [x] **Version number and support link in helper menu**
+  - Helper menu shows separate Studio and Helper build labels from `build_info.json` / bundle metadata.
+  - Added `Visit Support Page`, pointing to `https://noelmom.github.io`.
 
 - [x] **Uninstall Vox from helper menu**
   - Implemented in `voxhelper/StatusBarController.swift`.
@@ -271,12 +270,9 @@ Ideas and improvements to revisit. Not bugs — these are enhancements queued fo
   - Runs the normal `vox.sh uninstall --yes` flow in Terminal so progress and any macOS admin prompt are visible.
   - Keeps voices, recordings, settings, and data by default; destructive purge remains CLI-only.
 
-- [ ] **"Check for Updates" menu item** — before public release, add an ↑ Update option to the helper menu.
-  - Runs `scripts/update.sh` in a subprocess (already built — does `git pull` + pip sync + re-registers agents).
-  - While running: show "Updating…" status, disable the menu item to prevent double-tap.
-  - On success: macOS notification "Vox updated — restarting…" then restart the helper itself.
-  - On failure: notification "Update failed — check logs" with no restart.
-  - Consider showing current version (git tag or short SHA) in the menu so the user knows what they're on.
+- [x] **"Check for Updates" menu item**
+  - Helper menu adds `Check for Updates…`, opens the update flow in Terminal so output/errors are visible, and temporarily disables the menu item while launching.
+  - `vox.sh update` and `scripts/update.sh` now skip redundant work when the installed source build matches the desired build.
 
 - [x] **Update `setup.sh` post-install instructions** — now prints the correct install-agent → install-helper → start flow. Also creates `~/Library/LaunchAgents` and `~/Library/Logs/Vox` so install scripts never fail on a clean macOS install.
 
@@ -367,9 +363,9 @@ Ideas and improvements to revisit. Not bugs — these are enhancements queued fo
 
 - [ ] **Auto-launch on login (server)** — flip `RunAtLoad` from `<false/>` to `<true/>` in `launchagent/com.melolabdev.vox.plist` when shipping the `.app`. Helper already auto-starts.
 
-- [ ] **Login item toggles in the helper menu**
+- [x] **Login item toggles in the helper menu**
 
-  Add "Start Helper at Login" and "Start Server at Login" as checkable `NSMenuItem`s in a new Settings section above Quit (separated by a divider).
+  Implemented as checkable `NSMenuItem`s in the helper menu.
 
   **Behavior:** toggling only changes whether the agent auto-starts at next login — the currently running process is unaffected. No warning dialog needed; the toggle is reversible and self-explanatory.
 
@@ -671,36 +667,12 @@ Ideas and improvements to revisit. Not bugs — these are enhancements queued fo
 - [x] **Install script should surface Chatterbox model download/load expectations instead of silently returning**
   - Implemented the low-effort Option B in `vox.sh`: install completion now clearly says first-run model download/load may continue in the background and points users to Vox Helper → View Logs.
 
-- [ ] **Helper tracks and displays model download/load progress**
+- [x] **Helper tracks and displays model download/load progress**
 
-  On first install, after `setup.sh` completes and the LaunchAgent starts, the Chatterbox model must be downloaded from Hugging Face (can be several GB) and loaded into memory before the server is actually ready. Currently the script prints "Done" and releases the terminal immediately — users see a prompt again and may navigate to `localhost:8000` or open the app, get connection errors or a spinner, and assume the install failed.
-
-  **Three approaches to consider (not mutually exclusive):**
-
-  **Option A — Tail logs and wait in the install script**
-  - After starting the LaunchAgent, poll the server log (`~/Library/Logs/Vox/vox.log`) until a "Model loaded" or "Application startup complete" line appears (or a timeout, e.g. 10 min).
-  - Print live progress lines to the terminal while waiting: `[vox] Waiting for model to load… (this may take a few minutes on first run)`.
-  - Once ready, print `[vox] ✓ Server is ready — open http://localhost:8000` and exit.
-  - If timeout is reached, print a clear message explaining the model may still be downloading and how to check logs.
-
-  **Option B — Print a clear warning and release immediately**
-  - Simpler: after starting the agent, print a prominent notice:
-    ```
-    ⚠️  First-run model download in progress.
-        The Chatterbox model will download in the background (may take a few minutes).
-        The app will show a loading state until it's ready.
-        To check progress: open VoxHelper from the menu bar → View Logs
-    ```
-  - No polling, no blocking — just sets the right expectation upfront.
-
-  **Option C — Helper tracks and displays model download/load progress (best long-term)**
-  - The VoxHelper menu bar app polls `GET /health` or a new `GET /status` endpoint that returns a `model_state` field: `"downloading"` / `"loading"` / `"ready"` / `"error"`.
-  - While the model is not ready, the helper icon shows a spinner or distinct state (e.g. gray icon vs. green) and the menu shows "Model loading… 42%" or "Downloading model (1.2 GB / 3.4 GB)".
-  - Once `model_state == "ready"`, icon turns green and a macOS notification fires: "Vox is ready."
-  - This is the most user-friendly path — no terminal watching required, and it works both on first install and after a restart.
-  - Requires the backend to expose download/load state, which could be tracked via a module-level variable updated during `load_model()` in `api/core/engine.py`.
-
-  **Recommended approach:** implement Option B immediately (low effort, fixes the confusion now) and backlog Option C as the premium experience for v1.0.0.
+  - Backend exposes `GET /api/v1/status` with model state: `not_loaded`, `loading`, `ready`, or `error`.
+  - FastAPI starts while model loading happens in a background startup task, so the helper can show readiness during first-run downloads/loads.
+  - Helper menu shows `Model loading…`, `Model ready`, `Model error`, or fallback states.
+  - TTS requests return `503` with a clear message until the model is ready.
 
 - [x] **Add `--yes` flag to skip interactive prompts during clean install**
 
@@ -714,12 +686,10 @@ Ideas and improvements to revisit. Not bugs — these are enhancements queued fo
 
   **Also apply to:** `install-agent.sh`, `install-helper.sh` — any script that is called from `setup.sh` and adds its own prompts should accept a passed-through `-y` flag.
 
-- [ ] **Add remaining CLI flags to update workflows for scripted/development use**
-  `vox.sh` already supports `--yes`, `--token`, `--agent-only`, `--helper-only`, `--purge`, `--zip`, `--devbranch`, and `--branch`. Remaining update-specific ideas:
-  - `update.sh` / `vox.sh update` flags:
-    - `--no-restart` — sync files and deps but do not restart agents (useful mid-session)
-    - `--agent-only` / `--helper-only` — reinstall only one agent
-  - These make CI pipelines, automated testing, and power-user workflows easier without disturbing active long-running generations.
+- [x] **Add remaining CLI flags to update workflows for scripted/development use**
+  - `scripts/update.sh` supports `--force`, `--no-restart`, `--agent-only`, and `--helper-only`.
+  - `vox.sh update` forwards `--force`, `--agent-only`, and `--helper-only`.
+  - Updates compare against `installed_version.json` and skip redundant dependency sync/restarts when already current.
 
 ---
 
@@ -739,9 +709,9 @@ Ideas and improvements to revisit. Not bugs — these are enhancements queued fo
 
 ## Version Tracking
 
-- [ ] **[PRE-RELEASE BLOCKER] Unified release workflow — eliminate version number discrepancies before v1.0.0**
+- [x] **[PRE-RELEASE BLOCKER] Unified release workflow — eliminate version number discrepancies before v1.0.0**
 
-  Version numbers are partially centralized now: `VERSION` plus `scripts/write-build-info.sh` feed `build_info.json`, the API settings response, the `/app` footer, packaged runtime files, and native app bundle metadata. Remaining work before v1.0.0 is to wrap this into a single release command that also updates landing package metadata after the signed `.pkg` exists.
+  Implemented via `VERSION`, `scripts/write-build-info.sh`, and `scripts/release.sh`.
   - `VERSION` — release version used by build scripts
   - `build_info.json` — stamped version, source commit, and UTC build time
   - `scripts/build-apps.sh` — reads `VERSION` and bundles `build_info.json` into VoxHelper.app and VoxServer.app
@@ -749,20 +719,12 @@ Ideas and improvements to revisit. Not bugs — these are enhancements queued fo
   - Git tag on `main` / `development`
   - Landing page package filename, size, URL, and SHA256 checksum still require post-package update
 
-  **Goal:** single source of truth. Options:
-  - A `VERSION` file at repo root that `build-apps.sh`, the landing page build step, and the API all read from.
-  - Or a release script (`scripts/release.sh`) that takes the version as an argument, updates all five locations atomically, commits, tags, and pushes — so a release is one command with no manual file editing.
+  `bash scripts/release.sh <version>` updates `VERSION`, stamps build info, builds UI, commits release prep, builds/signs/notarizes DMG and PKG, computes package size/SHA256, updates landing package metadata, commits, tags, pushes, and uploads the package to GitHub Releases.
 
-  **Preferred approach:** a top-level `vox.yaml` (or `vox.config.yaml`) that is the single source of truth for version and other project-wide constants (bundle IDs, team ID, minimum OS versions, default port, app name, etc.). Every script, build step, and the API reads from this file — nothing hardcodes these values inline. A release is then: edit `version` in `vox.yaml` → run `bash scripts/release.sh` → done.
-
-  Whichever approach, the release checklist should be: update `vox.yaml` → build DMG/package → notarize → push tag → upload package to GitHub Releases → update the landing page package filename, download URL, size, and SHA256 checksum. No hunting for hardcoded strings.
-
-- [ ] **Track installed version and prevent redundant installs/updates**
-  - Write the current git SHA (or version tag) to `~/Library/Application Support/Vox/version` at the end of install and update.
-  - On `vox.sh install`: if a version file exists, compare against the current source — warn if already on the same version and ask to reinstall or skip.
-  - On `vox.sh update`: compare installed version against latest available (git `HEAD` for clones, or a `version` file in the source folder for zip updates) — if already up to date, print "Already on latest version (abc1234)" and exit cleanly without restarting agents.
-  - On `vox.sh` interactive menu: display the currently installed version.
-  - For zip-based installs where there's no git: include a `version` file in the zip at build time so the comparison still works.
+- [x] **Track installed version and prevent redundant installs/updates**
+  - Install and update write `~/Library/Application Support/Vox/installed_version.json`.
+  - `vox.sh update` / `scripts/update.sh` compare the installed source build against the desired source build and exit cleanly when already current.
+  - `--force` bypasses the skip.
 
 ---
 

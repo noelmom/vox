@@ -11,7 +11,7 @@ from api.core.cleanup import run_cleanup_loop
 from api.core.config import settings
 from api.core.build_info import get_build_info
 from api.core.db import connect, disconnect
-from api.core.engine import get_device, load_model
+from api.core.engine import get_device, get_model_status, load_model_async
 from api.core.logger import setup_logging
 from api.core.presets import PRESETS
 from api.core.watcher import watch_input_folder
@@ -23,6 +23,7 @@ _ENV_PATH = Path(".env")
 _VALID_HOSTS = {"127.0.0.1", "0.0.0.0"}
 
 _background_tasks: list[asyncio.Task] = []
+_model_task: asyncio.Task | None = None
 
 
 class SettingsPatch(BaseModel):
@@ -67,18 +68,21 @@ def _write_env_value(key: str, value: str):
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    global _model_task
     setup_logging()
     await connect()
-    load_model()
+    _model_task = asyncio.create_task(load_model_async())
 
     _background_tasks.append(asyncio.create_task(watch_input_folder()))
     _background_tasks.append(asyncio.create_task(run_cleanup_loop()))
 
     yield
 
+    if _model_task:
+        _model_task.cancel()
     for task in _background_tasks:
         task.cancel()
-    await asyncio.gather(*_background_tasks, return_exceptions=True)
+    await asyncio.gather(*_background_tasks, _model_task, return_exceptions=True)
     await disconnect()
 
 
@@ -279,13 +283,29 @@ async def spa_routes():
     response_description="Server status",
 )
 async def health():
+    model = get_model_status()
     return {
         "status": "ok",
         "device": get_device(),
+        "model_state": model["state"],
+        "model_ready": model["ready"],
         "presets": list(PRESETS.keys()),
         "input_dir": str(settings.input_dir),
         "output_ttl_hours": settings.output_ttl_hours,
         "max_voice_clip_duration_s": settings.max_voice_clip_duration_s,
+    }
+
+
+@v1.get(
+    "/status",
+    tags=["system"],
+    summary="Runtime readiness status",
+    description="Returns lightweight runtime readiness including Chatterbox model load state. This endpoint is intended for the native helper and first-run UX.",
+)
+async def get_status():
+    return {
+        "status": "ok",
+        "model": get_model_status(),
     }
 
 
@@ -402,6 +422,8 @@ async def get_settings():
         "ffmpeg_available": ffmpeg_ok,
         "ffmpeg_path": ffmpeg,
         "model_name": "Chatterbox Turbo",
+        "model_state": get_model_status()["state"],
+        "model_ready": get_model_status()["ready"],
         "default_max_chars": settings.default_max_chars,
         "chunk_headroom_chars": settings.chunk_headroom_chars,
         "max_voice_clip_duration_s": settings.max_voice_clip_duration_s,

@@ -16,7 +16,7 @@ from api.core.audio import (
 from api.core.chunker import clamp_max_chars, split_text
 from api.core.config import settings
 from api.core.db import get_db
-from api.core.engine import get_device, get_lock, get_model
+from api.core.engine import get_device, get_lock, get_model, get_model_status, is_model_ready
 from api.core.logger import get_logger
 from api.core.presets import PRESETS
 
@@ -362,6 +362,13 @@ async def generate_tts(
     rid = request.state.request_id
     user_agent = request.headers.get("User-Agent")
     db = await get_db()
+
+    if not is_model_ready():
+        status = get_model_status()
+        raise HTTPException(
+            status_code=503,
+            detail=f"Model is {status['state']}. Try again once Vox is ready.",
+        )
 
     preset_name = preset.lower()
     output_format_name = output_format.lower()
