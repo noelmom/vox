@@ -737,8 +737,8 @@ function Section({
   children: React.ReactNode;
 }) {
   return (
-    <section id={id} className="overflow-hidden rounded-2xl border border-border bg-white">
-      <header className="flex items-center gap-3 border-b border-border bg-gradient-to-br from-white to-[oklch(0.985_0.005_260)] px-5 py-3.5">
+    <section id={id} className="vox-panel overflow-hidden">
+      <header className="flex items-center gap-3 border-b border-border bg-gradient-to-br from-[var(--card)] to-[var(--background)] px-5 py-3.5">
         <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--brand-soft)] text-[var(--brand)]">
           <Icon className="h-4 w-4" />
         </span>
