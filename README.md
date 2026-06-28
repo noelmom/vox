@@ -105,6 +105,7 @@ codename-vox/
 │   └── README.md                # Script reference + manual start guide
 ├── setup.sh                     # One-shot bootstrap script
 ├── vox.sh                       # Unified CLI — install, update, uninstall
+├── AGENTS.md                    # Maintainer/AI-agent operating procedures
 ├── requirements.txt             # Python dependencies
 ├── CHANGELOG.md                 # Notable changes per version
 └── .env                         # Local config overrides (git-ignored)
