@@ -554,7 +554,13 @@ Until v1.0 ships, avoid adding new product features. Pre-v1 work should be limit
 
 ## Dark Mode
 
-- [x] **Dark theme** — implemented as Settings → Appearance with System, Light, and Dark modes persisted in `localStorage["vox:theme"]`.
+- [ ] **Post-v1: finish dark theme polish**
+
+  Dark mode is wired but not v1-ready. Settings → Appearance already supports System, Light, and Dark modes persisted in `localStorage["vox:theme"]`, `ui-src/src/styles.css` has dark theme tokens and semantic surface classes, and key Create/Library/Settings surfaces have started moving to reusable `vox-*` theme primitives.
+
+  **Current state:** functional plumbing exists, but the visual treatment still needs minor tweaks before release-quality support. Keep dark mode available for internal testing, but do not treat it as a v1.0 launch requirement.
+
+  **Follow-up pass:** verify all app tabs in dark mode, tune player/waveform contrast, replace remaining hard-coded light surfaces/arbitrary colors with semantic theme classes, and confirm landing-page behavior separately from the app shell.
 
 ---
 

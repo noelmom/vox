@@ -552,7 +552,7 @@ Vox is now in a v1.0 scope freeze: only bug fixes, product polish, and true bloc
 - [x] Sidebar widgets — lifetime and daily request/audio-minutes stats with sparklines
 - [x] Generation status — queue position, true chunk progress, elapsed timer, SSE updates, global status bar, and cancel controls
 - [x] Backup & restore — export/import SQLite history and voice assets from Settings
-- [x] Theme preference — light, dark, or system appearance
+- [x] Theme preference plumbing — light, dark, or system appearance
 - [x] Result download with format and quality controls
 - [x] Recent recordings with inline play, download, and delete
 - [x] Persistent generation error UI with retry/dismiss and request ID copy
@@ -564,6 +564,7 @@ Vox is now in a v1.0 scope freeze: only bug fixes, product polish, and true bloc
 - [x] Microphone error classification — distinct UI for no-device / access-denied / insecure context
 - [ ] Post-v1: manual pause insertion in the Create script editor
 - [ ] Post-v1: pronunciation dictionary / word replacement controls
+- [ ] Post-v1: finish dark theme visual polish; the toggle and theme tokens are wired, but dark mode still needs minor contrast/surface tweaks before it is release-ready
 - [ ] Post-v1: streaming audio response (chunked transfer)
 - [ ] One-click `.app` packaging and code signing
 - [x] Auto-launch on login — server and helper both auto-start by default; users can disable either from Vox Helper
