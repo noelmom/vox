@@ -36,6 +36,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
@@ -321,6 +322,14 @@ function GeneratePage() {
 
   // Is the active tone a user-created (non-built-in) preset?
   const isUserPreset = tone !== "Custom" && !!toneKeyMap[tone] && !BUILTIN_PRESET_KEYS.has(toneKeyMap[tone]);
+  const builtInTones = useMemo(
+    () => tones.filter((t) => t !== "Custom" && !!toneKeyMap[t] && BUILTIN_PRESET_KEYS.has(toneKeyMap[t])),
+    [tones, toneKeyMap],
+  );
+  const customTones = useMemo(
+    () => tones.filter((t) => t !== "Custom" && !!toneKeyMap[t] && !BUILTIN_PRESET_KEYS.has(toneKeyMap[t])),
+    [tones, toneKeyMap],
+  );
   const selectedVoice = displayVoices.find((v) => v.id === voiceId) ?? GENERIC_VOICE;
   const currentPresetParams = () => ({
     temperature: advanced.temperature,
@@ -708,7 +717,7 @@ function GeneratePage() {
       </div>
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
         {/* LEFT: Script + Output */}
-        <div className="order-2 flex min-w-0 flex-col gap-6 lg:order-1">
+        <div className="order-2 flex min-w-0 flex-col gap-6 xl:order-1">
         {/* Script card */}
         <section className="rounded-2xl border border-border bg-white p-6">
           <div className="flex items-center justify-between">
@@ -991,7 +1000,7 @@ function GeneratePage() {
         </div>
 
         {/* RIGHT: Voice Studio + side cards */}
-        <aside className="order-1 flex flex-col gap-4 lg:order-2">
+        <aside className="order-1 flex flex-col gap-4 xl:order-2">
         <section className="rounded-2xl border border-border bg-white p-5">
           <h2 className="text-[18px] font-bold text-foreground">Voice Studio</h2>
 
@@ -1045,26 +1054,79 @@ function GeneratePage() {
             </StudioSection>
 
           <StudioSection title="Tone / Style" badge={<InfoTip text="Sets the emotional delivery and pacing. 'Neutral' reads flat and even; 'Cheerful' adds lift and energy; 'Serious' slows the pace for weight and authority." />}>
-            <div className="flex flex-wrap gap-1.5">
-              {tones.map((t) => {
-                const active = t === tone;
-                const isUser = t !== "Custom" && !!toneKeyMap[t] && !BUILTIN_PRESET_KEYS.has(toneKeyMap[t]);
-                return (
-                  <button
-                    key={t}
-                    onClick={() => handleToneSelect(t)}
-                    className={
-                      active
-                        ? "inline-flex items-center gap-1 rounded-md bg-[oklch(0.55_0.22_260)] px-2.5 py-1.5 text-[12px] font-bold text-white"
-                        : "inline-flex items-center gap-1 rounded-md border border-border bg-white px-2.5 py-1.5 text-[12px] font-medium text-foreground/75 transition-colors hover:bg-muted"
-                    }
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  type="button"
+                  className="flex w-full items-center gap-3 rounded-xl border border-border bg-white px-3 py-2.5 text-left transition-all hover:border-[oklch(0.55_0.22_260/0.4)] hover:bg-[oklch(0.99_0.01_260)]"
+                >
+                  <span
+                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-white"
+                    style={{ background: isUserPreset || tone === "Custom" ? BRAND_GRADIENT : BRAND }}
                   >
-                    {isUser && <Sparkles className="h-2.5 w-2.5 opacity-70" />}
-                    {t}
-                  </button>
-                );
-              })}
-            </div>
+                    {isUserPreset || tone === "Custom" ? <Sparkles className="h-4 w-4" /> : <AudioLines className="h-4 w-4" />}
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-[13px] font-bold text-foreground">{tone}</span>
+                    <span className="mt-0.5 block truncate text-[11.5px] text-muted-foreground">
+                      {tone === "Custom" ? "Unsaved custom settings" : isUserPreset ? "Saved custom tone" : "Built-in delivery preset"}
+                    </span>
+                  </span>
+                  {isDirty && (
+                    <span className="shrink-0 rounded-full bg-[oklch(0.55_0.22_260)] px-1.5 py-0.5 text-[10px] font-bold text-white">
+                      Modified
+                    </span>
+                  )}
+                  <ChevronDown className="h-4 w-4 shrink-0 text-foreground/50" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-[min(21rem,calc(100vw-2rem))] p-1.5">
+                <DropdownMenuLabel className="px-2 py-1 text-[10.5px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
+                  Built-in
+                </DropdownMenuLabel>
+                {builtInTones.map((t) => (
+                  <DropdownMenuItem
+                    key={t}
+                    onSelect={() => handleToneSelect(t)}
+                    className="flex cursor-pointer items-center gap-2 rounded-lg px-2.5 py-2 text-[13px]"
+                  >
+                    <AudioLines className="h-3.5 w-3.5 text-[oklch(0.55_0.22_260)]" />
+                    <span className="min-w-0 flex-1 truncate font-medium">{t}</span>
+                    {tone === t && <Check className="h-3.5 w-3.5 text-[oklch(0.55_0.22_260)]" />}
+                  </DropdownMenuItem>
+                ))}
+
+                {customTones.length > 0 && (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuLabel className="px-2 py-1 text-[10.5px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
+                      Saved Custom
+                    </DropdownMenuLabel>
+                    {customTones.map((t) => (
+                      <DropdownMenuItem
+                        key={t}
+                        onSelect={() => handleToneSelect(t)}
+                        className="flex cursor-pointer items-center gap-2 rounded-lg px-2.5 py-2 text-[13px]"
+                      >
+                        <Sparkles className="h-3.5 w-3.5 text-[oklch(0.55_0.22_260)]" />
+                        <span className="min-w-0 flex-1 truncate font-medium">{t}</span>
+                        {tone === t && <Check className="h-3.5 w-3.5 text-[oklch(0.55_0.22_260)]" />}
+                      </DropdownMenuItem>
+                    ))}
+                  </>
+                )}
+
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onSelect={() => handleToneSelect("Custom")}
+                  className="flex cursor-pointer items-center gap-2 rounded-lg px-2.5 py-2 text-[13px] text-[oklch(0.55_0.22_260)]"
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  <span className="min-w-0 flex-1 font-semibold">Create custom tone</span>
+                  {tone === "Custom" && <Check className="h-3.5 w-3.5" />}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </StudioSection>
 
           <StudioSection title="Output Format" defaultOpen={false} badge={<InfoTip text="Choose the audio file type. MP3 is compressed and small — great for sharing and web playback. WAV is uncompressed 16-bit PCM — best for editing or archival quality." />}>
@@ -1826,23 +1888,26 @@ function StudioSection({
   const [open, setOpen] = useState(defaultOpen);
   return (
     <div className="mt-5">
-      {/* Header — tappable on mobile, purely decorative label on sm+ */}
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        className="flex w-full items-center justify-between sm:pointer-events-none"
-      >
-        <label className="pointer-events-none inline-flex items-center gap-1.5 text-[12px] font-semibold text-foreground/70">
+      <div className="flex w-full items-center justify-between gap-3">
+        <div className="inline-flex items-center gap-1.5 text-[12px] font-semibold text-foreground/70">
           {title}
           {badge}
-        </label>
+        </div>
+        <button
+          type="button"
+          onClick={() => setOpen((v) => !v)}
+          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-foreground/45 transition-colors hover:bg-muted hover:text-foreground sm:hidden"
+          aria-expanded={open}
+          aria-label={`${open ? "Collapse" : "Expand"} ${title}`}
+        >
         <ChevronDown
           className={
-            "h-3.5 w-3.5 text-foreground/40 transition-transform sm:hidden " +
+            "h-3.5 w-3.5 transition-transform " +
             (open ? "rotate-180" : "")
           }
         />
-      </button>
+        </button>
+      </div>
       {/* Content — always visible on sm+, toggle-controlled on mobile */}
       <div className={open ? "mt-2" : "mt-2 hidden sm:block"}>{children}</div>
     </div>
