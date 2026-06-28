@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import voxLogoV2 from "@/assets/vox-logo-v2.png";
 import voxLogoDark from "@/assets/vox-logo-dark-trim.png";
@@ -107,11 +107,32 @@ function GithubBadge() {
 
 function Index() {
   const [menuOpen, setMenuOpen] = useState(false);
+  const [activeSection, setActiveSection] = useState("#top");
   const navLinks: { label: string; href: string }[] = [
     { label: "How it works", href: "#how-it-works" },
     { label: "Get Started", href: "#get-started" },
     { label: "API Docs", href: "#api-docs" },
   ];
+
+  useEffect(() => {
+    const sections = ["top", ...navLinks.map((link) => link.href.slice(1))]
+      .map((id) => document.getElementById(id))
+      .filter((el): el is HTMLElement => Boolean(el));
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const visible = entries
+          .filter((entry) => entry.isIntersecting)
+          .sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
+        if (visible?.target.id) setActiveSection(`#${visible.target.id}`);
+      },
+      { rootMargin: "-20% 0px -60% 0px", threshold: [0.1, 0.25, 0.5] },
+    );
+
+    sections.forEach((section) => observer.observe(section));
+    return () => observer.disconnect();
+  }, []);
+
   return (
     <div
       id="top"
@@ -131,7 +152,11 @@ function Index() {
                   <a
                     key={l.label}
                     href={l.href}
-                    className="text-sm font-medium text-foreground/80 transition-colors hover:text-foreground"
+                    aria-current={activeSection === l.href ? "page" : undefined}
+                    className={[
+                      "text-sm font-medium transition-colors hover:text-foreground",
+                      activeSection === l.href ? "text-[var(--brand)]" : "text-foreground/80",
+                    ].join(" ")}
                   >
                     {l.label}
                   </a>
@@ -172,7 +197,11 @@ function Index() {
                       key={l.label}
                       href={l.href}
                       onClick={() => setMenuOpen(false)}
-                      className="rounded-lg px-3 py-2.5 text-sm font-semibold text-foreground/80 transition-colors hover:bg-muted hover:text-foreground"
+                      aria-current={activeSection === l.href ? "page" : undefined}
+                      className={[
+                        "rounded-lg px-3 py-2.5 text-sm font-semibold transition-colors hover:bg-muted hover:text-foreground",
+                        activeSection === l.href ? "bg-[var(--brand-soft)] text-[var(--brand)]" : "text-foreground/80",
+                      ].join(" ")}
                     >
                       {l.label}
                     </a>

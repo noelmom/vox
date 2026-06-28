@@ -1,4 +1,6 @@
 import uuid
+import json
+from datetime import datetime, timezone
 from pathlib import Path
 
 from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
@@ -56,7 +58,9 @@ async def _register_voice(
                temperature=excluded.temperature,
                repetition_penalty=excluded.repetition_penalty,
                top_p=excluded.top_p,
-               min_p=excluded.min_p""",
+               min_p=excluded.min_p,
+               status='active',
+               deleted_at=NULL""",
         (
             voice_id, name, wav_path.name, original_filename, description, tags_str,
             params.exaggeration, params.cfg_weight, params.temperature,
@@ -79,7 +83,7 @@ async def _register_voice(
 )
 async def list_voices(request: Request):
     db = await get_db()
-    async with db.execute("SELECT * FROM voices ORDER BY name") as cur:
+    async with db.execute("SELECT * FROM voices WHERE status='active' ORDER BY name") as cur:
         rows = await cur.fetchall()
     return [dict(r) for r in rows]
 
@@ -94,7 +98,7 @@ async def list_voices(request: Request):
 )
 async def get_voice(name: str, request: Request):
     db = await get_db()
-    async with db.execute("SELECT * FROM voices WHERE name = ?", (name,)) as cur:
+    async with db.execute("SELECT * FROM voices WHERE name = ? AND status='active'", (name,)) as cur:
         row = await cur.fetchone()
     if not row:
         raise HTTPException(status_code=404, detail=f"Voice '{name}' not found")
@@ -149,6 +153,9 @@ async def create_voice(
 
     safe = _safe_name(name)
     wav_dest = settings.voice_dir / f"{safe}.wav"
+    deleted_match = settings.voice_dir / "deleted" / f"{safe}.wav"
+    deleted_match.unlink(missing_ok=True)
+    deleted_match.with_suffix(".json").unlink(missing_ok=True)
     tmp_paths: list[Path] = []
     tmp_wav: Path | None = None
 
@@ -207,7 +214,7 @@ async def create_voice(
 )
 async def get_voice_audio(name: str, request: Request):
     db = await get_db()
-    async with db.execute("SELECT filename FROM voices WHERE name = ?", (name,)) as cur:
+    async with db.execute("SELECT filename FROM voices WHERE name = ? AND status='active'", (name,)) as cur:
         row = await cur.fetchone()
     if not row:
         raise HTTPException(status_code=404, detail=f"Voice '{name}' not found")
@@ -250,7 +257,7 @@ async def update_voice_params(
 ):
     rid = request.state.request_id
     db = await get_db()
-    async with db.execute("SELECT * FROM voices WHERE name = ?", (name,)) as cur:
+    async with db.execute("SELECT * FROM voices WHERE name = ? AND status='active'", (name,)) as cur:
         row = await cur.fetchone()
     if not row:
         raise HTTPException(status_code=404, detail=f"Voice '{name}' not found")
@@ -285,7 +292,7 @@ async def update_voice_params(
     await db.commit()
     log.info("Voice updated: %s", name, extra={"request_id": rid})
 
-    async with db.execute("SELECT * FROM voices WHERE name = ?", (name,)) as cur:
+    async with db.execute("SELECT * FROM voices WHERE name = ? AND status='active'", (name,)) as cur:
         return dict(await cur.fetchone())
 
 
@@ -293,7 +300,7 @@ async def update_voice_params(
     "/{name}",
     status_code=204,
     summary="Delete a voice profile",
-    description="Permanently deletes the voice profile record and its WAV file from disk. This cannot be undone. Jobs that referenced this voice are not affected.",
+    description="Moves the voice profile to a deleted holding area so it can be recovered manually before the deleted-voice TTL expires. Jobs that referenced this voice are not affected.",
     response_description="No content",
     responses={404: {"description": "Voice profile not found"}},
 )
@@ -305,10 +312,32 @@ async def delete_voice(name: str, request: Request):
     if not row:
         raise HTTPException(status_code=404, detail=f"Voice '{name}' not found")
 
+    row = dict(row)
     voice_file = settings.voice_dir / row["filename"]
+    deleted_filename = row["filename"]
     if voice_file.exists():
-        voice_file.unlink()
+        deleted_dir = settings.voice_dir / "deleted"
+        deleted_dir.mkdir(exist_ok=True)
+        deleted_file = deleted_dir / voice_file.name
+        if deleted_file.exists():
+            deleted_file = deleted_dir / f"{voice_file.stem}-{uuid.uuid4().hex[:8]}{voice_file.suffix}"
+        deleted_filename = deleted_file.name
+        voice_file.replace(deleted_file)
 
-    await db.execute("DELETE FROM voices WHERE name = ?", (name,))
+        sidecar = deleted_file.with_suffix(".json")
+        deleted_at = datetime.now(timezone.utc).replace(microsecond=0).isoformat()
+        sidecar.write_text(json.dumps({
+            "name": row["name"],
+            "description": row["description"],
+            "tags": row["tags"],
+            "deleted_at": deleted_at,
+            "original_filename": row["original_filename"],
+            "filename": deleted_file.name,
+        }, indent=2))
+
+    await db.execute(
+        "UPDATE voices SET filename=?, status='deleted', deleted_at=datetime('now') WHERE name = ?",
+        (deleted_filename, name),
+    )
     await db.commit()
     log.info("Voice deleted: %s", name, extra={"request_id": rid})

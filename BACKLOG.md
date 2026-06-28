@@ -39,15 +39,18 @@ Ideas and improvements to revisit. Not bugs — these are enhancements queued fo
 
 ## Logging & Observability
 
-- [ ] **Capture User-Agent in logs and DB**
-  - Log the `User-Agent` header alongside `request_id` on every request so we can tell what client made the call (curl, web UI, mobile, third-party integration).
-  - Store it in the `jobs` table so it's queryable per generation.
-  - Middleware is the right place — already touching every request for `X-Request-ID`.
+- [x] **Capture User-Agent in logs and DB**
+  - Implemented as nullable `jobs.user_agent`, populated from the `User-Agent` header when a TTS job is submitted.
+  - Exposed through job responses and `/api/v1/logs` query results.
 
-- [ ] **`GET /logs` endpoint**
-  - Query structured log/job data via the API instead of requiring direct SQLite access.
-  - Suggested filters: `request_id`, `status`, `date range`, `preset`, `voice`, `user_agent`.
-  - Pairs well with the web UI — could power a live job + log dashboard.
+- [x] **`GET /logs` endpoint**
+  - Implemented as `GET /api/v1/logs`.
+  - Returns structured job/log history from SQLite, not raw log-file text.
+  - Supports filters for `request_id`, `status`, `date_from`, `date_to`, `preset`, `voice`, and `user_agent`.
+
+- [ ] **Raw log-file viewer endpoint**
+  - Future optional work: expose bounded, read-only tails of `~/Library/Logs/Vox/vox.log` and `vox-error.log` for support/debugging.
+  - Keep this separate from `GET /api/v1/logs`, which already returns structured job history from SQLite.
 
 ---
 
@@ -114,7 +117,11 @@ Ideas and improvements to revisit. Not bugs — these are enhancements queued fo
 
   **Why a blocker:** fake waves actively undermine trust in the output quality. Users expect to see their voice reflected in the waveform before committing to "Use" a profile or downloading a clip.
 
-- [ ] **[LOW] Migrate existing user preset names to lowercase in DB**
+- [x] **[LOW] Migrate existing user preset names to lowercase in DB**
+  - Implemented via one-time `meta` migration `normalize_user_presets_lowercase` in `api/core/db.py`.
+  - Keeps the newest row if multiple historical names collide after lowercasing.
+
+  Original note:
 
   Preset names are now normalized to lowercase at save time (both frontend and backend). Any presets saved before this change may still have mixed-case names in `user_presets.name`, which could cause duplicate chips or mismatched tone selection.
 
@@ -205,7 +212,13 @@ Ideas and improvements to revisit. Not bugs — these are enhancements queued fo
 
   **Why:** A 4+ minute generation that fails silently with a 3-second toast is one of the worst UX patterns in a long-running-task app. The user waited, the result is gone, and the error is already gone too.
 
-- [ ] **System alert banner framework**
+- [x] **System alert banner framework**
+  - Backend implemented as `GET /api/v1/alerts`.
+  - Frontend app shell polls alerts every 5 minutes and renders persistent dismissible banners below the global generation status bar.
+  - Dismissals are stored in `sessionStorage` by alert id.
+  - Initial checks: low disk space, missing/non-executable ffmpeg, output directory not writable.
+
+  Original proposal:
 
   A general-purpose dismissible banner system (below the topbar) for surfacing critical server-side conditions to the user. Banners are persistent until dismissed and should not auto-hide.
 
@@ -251,6 +264,12 @@ Ideas and improvements to revisit. Not bugs — these are enhancements queued fo
   - Add a `🌐  Visit Support Page` item that opens the landing page or a dedicated support URL in the default browser.
   - Decide on a permanent support URL before implementing (landing page, GitHub repo, or a separate support site).
 
+- [x] **Uninstall Vox from helper menu**
+  - Implemented in `voxhelper/StatusBarController.swift`.
+  - Adds `Uninstall Vox…` with a native confirmation dialog.
+  - Runs the normal `vox.sh uninstall --yes` flow in Terminal so progress and any macOS admin prompt are visible.
+  - Keeps voices, recordings, settings, and data by default; destructive purge remains CLI-only.
+
 - [ ] **"Check for Updates" menu item** — before public release, add an ↑ Update option to the helper menu.
   - Runs `scripts/update.sh` in a subprocess (already built — does `git pull` + pip sync + re-registers agents).
   - While running: show "Updating…" status, disable the menu item to prevent double-tap.
@@ -260,7 +279,11 @@ Ideas and improvements to revisit. Not bugs — these are enhancements queued fo
 
 - [x] **Update `setup.sh` post-install instructions** — now prints the correct install-agent → install-helper → start flow. Also creates `~/Library/LaunchAgents` and `~/Library/Logs/Vox` so install scripts never fail on a clean macOS install.
 
-- [ ] **Restart transition state — "🟡 Restarting…"**
+- [x] **Restart transition state — "Restarting…"**
+  - Implemented in `voxhelper/StatusBarController.swift`.
+  - Clicking Restart immediately shows `Restarting…` for up to 15 seconds while launchd cycles the server, then clears once the health check is healthy again or the window expires.
+
+  Original proposal:
   - When the user clicks ↺ Restart, immediately set title to `"🟡 Vox"` and status item to `"Restarting…"` before the poll cycle confirms anything.
   - Hold that state for up to ~15s (reasonable worst-case for launchd to stop + start the server).
   - If health check comes back healthy within the window → transition to `🟢 Running…` as normal.
@@ -364,7 +387,14 @@ Ideas and improvements to revisit. Not bugs — these are enhancements queued fo
 
 - [ ] **Single-instance enforcement (server — PID file)** — `run.sh` port check works but a PID file would give cleaner error messages and survive edge cases where the port is in use by another process.
 
-- [ ] **Signed `.pkg` installer for v1.0.0 release** — replace the DMG + `vox.sh` workflow with a single signed and notarized `.pkg` that handles everything: installs `VoxHelper.app` and `VoxServer.app` to `/Applications/Vox/`, creates the LaunchAgents, sets up the runtime directory, and runs first-time setup. Built with `pkgbuild` + `productbuild`. Developer ID Installer signing and package notarization are working; remaining work is the package bootstrap/postinstall flow.
+- [x] **Signed `.pkg` installer for v1.0.0 release**
+  - Implemented via `scripts/build-pkg.sh`.
+  - Builds `assets/Vox-0.5.1-beta.pkg`, signs with the Developer ID Installer certificate, submits to Apple notarization, staples the ticket, and verifies Gatekeeper install assessment.
+  - Package payload installs `VoxHelper.app` and `VoxServer.app` under `/Applications/Vox/`.
+  - `pkg-scripts/preinstall` checks Apple Silicon, logged-in console user, curl, internet access to GitHub/PyPI/Hugging Face, Homebrew, and Python 3.11 availability.
+  - `pkg-scripts/postinstall` runs the bootstrap installer as the console user, creates the runtime directory, installs LaunchAgents, and starts the helper.
+  - Release asset is uploaded to GitHub Releases; landing page download section tracks filename, size, URL, and SHA256.
+  - Note: macOS Installer owns the optional "move installer to Trash" prompt after install; the `.pkg` cannot suppress that prompt.
 
 - [ ] **One-click `.app` packaging** — PyInstaller or py2app. Bundle Python, venv, and the server into a single distributable app.
 
@@ -372,7 +402,7 @@ Ideas and improvements to revisit. Not bugs — these are enhancements queued fo
 
 - [x] **Preserve app bundle signatures during build/install** — `build-apps.sh`, `install-helper.sh`, and `install-agent.sh` use `ditto` instead of recursive copy for `.app` bundles, and helper install stops the running helper before replacing `/Applications/Vox/VoxHelper.app`.
 
-- [ ] **Streamline /Applications install UX once packaging is finalized** — current helper install still copies into `/Applications` via the install script. For public release, replace the terminal-driven install/update flow with a drag-to-Applications DMG or signed `.pkg` installer so users do not need to run shell commands.
+- [x] **Streamline /Applications install UX once packaging is finalized** — the signed `.pkg` is now the primary one-click installer path. It installs both app bundles to `/Applications/Vox/`, stages the bootstrap under `/Library/Application Support/Vox/Bootstrap`, and completes setup without requiring Terminal.
 
 - [x] **Fix Developer ID codesign (`errSecInternalComponent`)** — Developer ID Application signing, Developer ID Installer signing, notarization, and stapling now work through `scripts/build-apps.sh` and `scripts/build-pkg.sh`.
   - Cert is present and chain is valid (`F8:3A:0C:69` AKID matches intermediate SKID)
@@ -381,11 +411,10 @@ Ideas and improvements to revisit. Not bugs — these are enhancements queued fo
   - Until resolved: bundles ship unsigned; test devices right-click → Open on first launch
   - `build-apps.sh` will automatically sign once this is fixed (just re-add the `codesign` call)
 
-- [ ] **Code signing & notarization** — required before public release.
-  - Blocked by: Fix Developer ID codesign above
-  - Sign `.app` bundles via `build-apps.sh`
-  - Submit to Apple with `notarytool`, staple with `stapler`
-  - Write `scripts/notarize-helper.sh` — submit to Apple with `notarytool`, staple with `stapler`
+- [x] **Code signing & notarization**
+  - `scripts/build-apps.sh` signs `VoxHelper.app`, `VoxServer.app`, and `assets/Vox.dmg`, then calls `scripts/notarize.sh` to notarize and staple the DMG.
+  - `scripts/build-pkg.sh` signs, notarizes, staples, and validates the `.pkg`.
+  - Current release package passes `pkgutil --check-signature` and `spctl --assess --type install`.
 
 ---
 
@@ -416,7 +445,11 @@ Ideas and improvements to revisit. Not bugs — these are enhancements queued fo
 
   **Why low priority:** upload and record cover the primary workflows. URL import is a convenience for users who want to pull a clip from a podcast, YouTube download link, or file host without downloading it locally first.
 
-- [ ] **[LOW] Voice profile icon size limit — make configurable**
+- [x] **[LOW] Voice profile icon size limit — make configurable**
+  - Implemented as `VOX_VOICE_ICON_MAX_KB` / `settings.voice_icon_max_kb`, exposed by `GET /api/v1/settings`.
+  - Library edit form reads the setting and updates the helper text + processed icon size validation dynamically.
+
+  Original proposal:
 
   The custom icon upload on the Library edit form currently hard-codes a 100 KB max file size. Make this configurable so users with high-res displays can opt in to larger icons without code changes.
 
@@ -484,7 +517,9 @@ Ideas and improvements to revisit. Not bugs — these are enhancements queued fo
 
 - [x] **Increase nav and footer text contrast** — verified in `ui-src/src/routes/index.tsx`. Nav links use stronger foreground contrast, and footer links/body copy are readable against the dark footer gradient with brighter hover states.
 
-- [ ] **Smooth scroll navigation** — nav links animate to each section instead of jumping. `scroll-behavior: smooth` baseline + JS easing curve. Active link highlight updates as user scrolls past sections.
+- [x] **Smooth scroll navigation baseline** — implemented in `ui-src/src/styles.css` with `html { scroll-behavior: smooth; }`, so landing-page anchor links animate instead of jumping.
+
+- [x] **Landing nav active-section highlighting** — implemented with `IntersectionObserver` in `ui-src/src/routes/index.tsx`; desktop and mobile nav links reflect the active section while scrolling.
 
 ---
 
@@ -558,7 +593,14 @@ Ideas and improvements to revisit. Not bugs — these are enhancements queued fo
 
 ## Maintenance & Memory
 
-- [ ] **Soft-delete voice profiles — trash folder with 72h recovery window**
+- [x] **Soft-delete voice profiles — trash folder with 72h recovery window**
+  - Implemented with `voices.status`, `voices.deleted_at`, and `voices/deleted/`.
+  - `DELETE /voices/{name}` now moves the WAV + sidecar metadata to the deleted folder, marks the row deleted, and hides it from normal list/get/audio/TTS paths.
+  - Cleanup purges deleted voices after `VOX_DELETED_VOICE_TTL_HOURS` (default 72, `0` keeps indefinitely).
+
+  Future optional work: add a first-class restore endpoint/UI.
+
+  Original proposal:
 
   When a voice profile is deleted via `DELETE /voices/{name}`, instead of permanently removing the WAV file, move it to a `voices/deleted/` folder alongside a metadata sidecar so it can be restored if needed.
 
@@ -582,7 +624,7 @@ Ideas and improvements to revisit. Not bugs — these are enhancements queued fo
 
   **Why:** Accidental deletes are hard to recover from today. A trash folder with a daily cleanup is a low-cost safety net that matches how macOS Trash works. Extending the existing cleanup loop keeps the scheduled-task surface minimal.
 
-- [ ] **Prune old job rows from SQLite** — cleanup task deletes output files but DB rows accumulate forever. Add `DELETE FROM jobs WHERE created_at < datetime('now', '-30 days')` to the cleanup loop, configurable via `VOX_JOB_RETENTION_DAYS` (default 30).
+- [x] **Prune old job rows from SQLite** — cleanup task now prunes terminal job rows older than `VOX_JOB_RETENTION_DAYS` (default 30, `0` keeps indefinitely).
 
 ---
 
@@ -628,7 +670,10 @@ Ideas and improvements to revisit. Not bugs — these are enhancements queued fo
     - `--data` — also remove voices, outputs, data, input from Application Support (destructive, off by default)
     - `--yes` — skip all confirmation prompts
 
-- [ ] **Install script should surface Chatterbox model download/load progress instead of silently returning**
+- [x] **Install script should surface Chatterbox model download/load expectations instead of silently returning**
+  - Implemented the low-effort Option B in `vox.sh`: install completion now clearly says first-run model download/load may continue in the background and points users to Vox Helper → View Logs.
+
+- [ ] **Helper tracks and displays model download/load progress**
 
   On first install, after `setup.sh` completes and the LaunchAgent starts, the Chatterbox model must be downloaded from Hugging Face (can be several GB) and loaded into memory before the server is actually ready. Currently the script prints "Done" and releases the terminal immediately — users see a prompt again and may navigate to `localhost:8000` or open the app, get connection errors or a spinner, and assume the install failed.
 

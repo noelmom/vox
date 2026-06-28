@@ -3,6 +3,7 @@ import AppKit
 class StatusBarController {
     private let item: NSStatusItem
     private let monitor: ServerMonitor
+    private var restartUntil: Date?
 
     private let statusItem  = NSMenuItem(title: "Stopped…",              action: nil, keyEquivalent: "")
     private let addrItem    = NSMenuItem(title: "—",                     action: nil, keyEquivalent: "")
@@ -68,8 +69,9 @@ class StatusBarController {
 
     // ── State ──────────────────────────────────────────────────────────────
     private func apply(_ state: ServerState) {
-        applyMenuBarIcon(running: state.running)
-        statusItem.title    = state.running ? "Running…" : "Stopped…"
+        let restarting = isRestarting(state: state)
+        applyMenuBarIcon(running: state.running || restarting)
+        statusItem.title    = restarting ? "Restarting…" : (state.running ? "Running…" : "Stopped…")
         addrItem.title      = state.addrLabel
         copyItem.action     = state.running ? #selector(copyAddress)   : nil
         openItem.action     = state.running ? #selector(openBrowser)   : nil
@@ -113,7 +115,23 @@ class StatusBarController {
     }
 
     @objc private func restartServer() {
+        restartUntil = Date().addingTimeInterval(15)
+        statusItem.title = "Restarting…"
+        applyMenuBarIcon(running: true)
         monitor.launchctl("kickstart", "-k", "gui/\(getuid())/com.melolabdev.vox")
+    }
+
+    private func isRestarting(state: ServerState) -> Bool {
+        guard let deadline = restartUntil else { return false }
+        if state.running {
+            restartUntil = nil
+            return false
+        }
+        if Date() > deadline {
+            restartUntil = nil
+            return false
+        }
+        return true
     }
 
     @objc private func viewLogs() {

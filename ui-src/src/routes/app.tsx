@@ -11,11 +11,12 @@ import {
   Heart,
   PanelLeftClose,
   PanelLeftOpen,
+  AlertTriangle,
 } from "lucide-react";
 import voxLogo from "@/assets/vox-logo-app.png";
 import voxIcon from "@/assets/vox-icon-2.png";
 import voxLogoDark from "@/assets/vox-logo-dark-trim.png";
-import { getStats, getServerSettings, healthCheck, type Stats, type ServerSettings } from "@/lib/api";
+import { getAlerts, getStats, getServerSettings, healthCheck, type Stats, type ServerSettings, type SystemAlert } from "@/lib/api";
 import { cancelJob } from "@/lib/api";
 import { getGenerationState, subscribeGenerationState, type GenerationStatus } from "@/lib/generation";
 
@@ -56,6 +57,14 @@ function AppLayout() {
     queryFn: healthCheck,
     staleTime: 0,
     refetchInterval: 15_000,
+    retry: 1,
+  });
+
+  const { data: alerts = [] } = useQuery<SystemAlert[]>({
+    queryKey: ["alerts"],
+    queryFn: getAlerts,
+    staleTime: 0,
+    refetchInterval: 5 * 60 * 1000,
     retry: 1,
   });
 
@@ -145,6 +154,7 @@ function AppLayout() {
         </header>
 
         <GenerationWidget />
+        <AlertBanners alerts={alerts} />
 
         {/* Content */}
         <main className="flex-1 overflow-y-auto px-4 pb-12 pt-6 sm:px-8">
@@ -256,6 +266,59 @@ function GenerationWidget() {
         >
           Stop
         </button>
+      </div>
+    </div>
+  );
+}
+
+function AlertBanners({ alerts }: { alerts: SystemAlert[] }) {
+  const [dismissed, setDismissed] = useState<string[]>(() => {
+    try {
+      return JSON.parse(sessionStorage.getItem("vox:dismissed-alerts") ?? "[]") as string[];
+    } catch {
+      return [];
+    }
+  });
+
+  const visible = alerts.filter((alert) => !dismissed.includes(alert.id));
+  if (visible.length === 0) return null;
+
+  const dismiss = (id: string) => {
+    setDismissed((current) => {
+      const next = Array.from(new Set([...current, id]));
+      sessionStorage.setItem("vox:dismissed-alerts", JSON.stringify(next));
+      return next;
+    });
+  };
+
+  return (
+    <div className="border-b border-border/60 bg-white/80 px-4 py-2 backdrop-blur-xl sm:px-8">
+      <div className="flex flex-col gap-2">
+        {visible.map((alert) => {
+          const danger = alert.level === "error";
+          return (
+            <div
+              key={alert.id}
+              className={[
+                "flex items-start gap-2 rounded-lg border px-3 py-2 text-[12.5px]",
+                danger
+                  ? "border-[oklch(0.78_0.12_25)] bg-[oklch(0.99_0.02_25)] text-[oklch(0.45_0.18_25)]"
+                  : "border-[oklch(0.86_0.12_80)] bg-[oklch(0.99_0.03_85)] text-[oklch(0.42_0.12_75)]",
+              ].join(" ")}
+            >
+              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+              <span className="min-w-0 flex-1 font-medium leading-relaxed">{alert.message}</span>
+              <button
+                type="button"
+                onClick={() => dismiss(alert.id)}
+                aria-label="Dismiss alert"
+                className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md opacity-70 transition-opacity hover:opacity-100"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          );
+        })}
       </div>
     </div>
   );

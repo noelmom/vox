@@ -86,6 +86,12 @@ async def _migrate(db: aiosqlite.Connection):
             min_p               REAL NOT NULL,
             created_at          TEXT NOT NULL DEFAULT (datetime('now'))
         );
+
+        CREATE TABLE IF NOT EXISTS meta (
+            key                 TEXT PRIMARY KEY,
+            value               TEXT NOT NULL,
+            updated_at          TEXT NOT NULL DEFAULT (datetime('now'))
+        );
     """)
     # Additive migrations for columns added after initial release
     for col, ddl in [
@@ -93,7 +99,10 @@ async def _migrate(db: aiosqlite.Connection):
         ("is_favorite",  "ALTER TABLE voices ADD COLUMN is_favorite INTEGER NOT NULL DEFAULT 0"),
         ("display_name", "ALTER TABLE voices ADD COLUMN display_name TEXT"),
         ("icon_data",    "ALTER TABLE voices ADD COLUMN icon_data TEXT"),
+        ("status",       "ALTER TABLE voices ADD COLUMN status TEXT NOT NULL DEFAULT 'active'"),
+        ("deleted_at",   "ALTER TABLE voices ADD COLUMN deleted_at TEXT"),
         ("device",       "ALTER TABLE jobs ADD COLUMN device TEXT"),
+        ("user_agent",   "ALTER TABLE jobs ADD COLUMN user_agent TEXT"),
     ]:
         try:
             await db.execute(ddl)
@@ -101,7 +110,59 @@ async def _migrate(db: aiosqlite.Connection):
         except Exception:
             pass  # column already exists
 
+    await _run_once(db, "normalize_user_presets_lowercase", _normalize_user_presets_lowercase)
     await db.commit()
+
+
+async def _run_once(db: aiosqlite.Connection, key: str, migration):
+    async with db.execute("SELECT value FROM meta WHERE key = ?", (key,)) as cur:
+        if await cur.fetchone():
+            return
+    await migration(db)
+    await db.execute(
+        """INSERT OR REPLACE INTO meta (key, value, updated_at)
+           VALUES (?, '1', datetime('now'))""",
+        (key,),
+    )
+    await db.commit()
+
+
+async def _normalize_user_presets_lowercase(db: aiosqlite.Connection):
+    async with db.execute(
+        """SELECT name, temperature, exaggeration, cfg_weight, repetition_penalty,
+                  top_p, min_p, created_at
+           FROM user_presets
+           ORDER BY datetime(created_at) DESC, rowid DESC"""
+    ) as cur:
+        rows = await cur.fetchall()
+
+    if not rows:
+        return
+
+    latest_by_lower: dict[str, aiosqlite.Row] = {}
+    for row in rows:
+        key = row["name"].lower()
+        if key not in latest_by_lower:
+            latest_by_lower[key] = row
+
+    await db.execute("DELETE FROM user_presets")
+    for name, row in latest_by_lower.items():
+        await db.execute(
+            """INSERT INTO user_presets (
+                   name, temperature, exaggeration, cfg_weight,
+                   repetition_penalty, top_p, min_p, created_at
+               ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+            (
+                name,
+                row["temperature"],
+                row["exaggeration"],
+                row["cfg_weight"],
+                row["repetition_penalty"],
+                row["top_p"],
+                row["min_p"],
+                row["created_at"],
+            ),
+        )
 
 
 async def _fail_stale_jobs(db: aiosqlite.Connection):

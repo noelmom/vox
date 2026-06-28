@@ -79,6 +79,11 @@ function voiceDisplayLabel(v: ApiVoice): string {
   return v.display_name ?? slugToTitle(v.name);
 }
 
+function dataUrlBytes(value: string): number {
+  const payload = value.split(",", 2)[1] ?? "";
+  return Math.ceil((payload.length * 3) / 4);
+}
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 function VoicesPage() {
@@ -1670,6 +1675,8 @@ function EditForm({
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState("");
   const { data: presets = {} } = useQuery({ queryKey: ["presets"], queryFn: listPresets, staleTime: 5 * 60 * 1000 });
+  const { data: settings } = useQuery({ queryKey: ["settings"], queryFn: getServerSettings, staleTime: 5 * 60 * 1000 });
+  const iconMaxKb = settings?.voice_icon_max_kb ?? 100;
   const iconInputRef = useRef<HTMLInputElement>(null);
 
   const processImageBlob = (blob: Blob) => {
@@ -1684,7 +1691,12 @@ function EditForm({
       const canvas = document.createElement("canvas");
       canvas.width = canvas.height = 256;
       canvas.getContext("2d")!.drawImage(img, sx, sy, size, size, 0, 0, 256, 256);
-      setIconPreview(canvas.toDataURL("image/png"));
+      const dataUrl = canvas.toDataURL("image/png");
+      if (dataUrlBytes(dataUrl) > iconMaxKb * 1024) {
+        setIconError(`Icon is too large after processing. Max ${iconMaxKb} KB.`);
+      } else {
+        setIconPreview(dataUrl);
+      }
       URL.revokeObjectURL(url);
     };
     img.onerror = () => { setIconError("Could not load image."); URL.revokeObjectURL(url); };
@@ -1810,7 +1822,7 @@ function EditForm({
               <button onClick={() => iconInputRef.current?.click()} className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-white px-3 py-2 text-[12.5px] font-medium text-foreground/80 hover:bg-muted">
                 <ImagePlus className="h-3.5 w-3.5" />{iconPreview ? "Change icon" : "Upload icon"}
               </button>
-              <p className="text-[11px] text-muted-foreground">or click icon and paste (⌘V)</p>
+              <p className="text-[11px] text-muted-foreground">or click icon and paste (⌘V) · max {iconMaxKb} KB</p>
             </div>
           </div>
           {iconError && <p className="mt-1.5 text-[11.5px] text-[oklch(0.52_0.18_25)]">{iconError}</p>}

@@ -22,6 +22,8 @@ class Settings(BaseSettings):
     max_max_chars: int = 3000
     chunk_headroom_chars: int = 40
     max_voice_clip_duration_s: int = 120
+    voice_icon_max_kb: int = 100
+    deleted_voice_ttl_hours: int = 72
 
     # Hugging Face token — optional, enables authenticated downloads (faster + gated models).
     # Set via HF_TOKEN env var or .env file. Never commit the value to git.
@@ -29,6 +31,8 @@ class Settings(BaseSettings):
 
     # Cleanup: how long to keep generated output files (hours). 0 = never.
     output_ttl_hours: int = 24
+    # Cleanup: how long to keep job rows in SQLite (days). 0 = never.
+    job_retention_days: int = 30
     # How often the watcher and cleanup tasks poll (seconds).
     watcher_interval_s: int = 10
     cleanup_interval_s: int = 3600
@@ -76,6 +80,7 @@ settings = Settings()
 
 settings.output_dir.mkdir(exist_ok=True)
 settings.voice_dir.mkdir(exist_ok=True)
+(settings.voice_dir / "deleted").mkdir(exist_ok=True)
 settings.input_dir.mkdir(exist_ok=True)
 (settings.input_dir / "processed").mkdir(exist_ok=True)
 settings.db_path.parent.mkdir(exist_ok=True)

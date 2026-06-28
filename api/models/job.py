@@ -17,6 +17,7 @@ class JobOut(BaseModel):
     error: str | None
     voice_name: str | None = None
     device: str | None = None
+    user_agent: str | None = None
     created_at: str
     completed_at: str | None
     file_available: bool = False

@@ -121,7 +121,7 @@ async def _resolve_voice(voice_name: str | None, rid: str, db) -> tuple[Path | N
         return None, None
 
     async with db.execute(
-        "SELECT id, filename FROM voices WHERE name = ?", (voice_name,)
+        "SELECT id, filename FROM voices WHERE name = ? AND status='active'", (voice_name,)
     ) as cur:
         row = await cur.fetchone()
 
@@ -360,6 +360,7 @@ async def generate_tts(
     wav_bit_depth: str | None = Form(None),
 ):
     rid = request.state.request_id
+    user_agent = request.headers.get("User-Agent")
     db = await get_db()
 
     preset_name = preset.lower()
@@ -377,9 +378,9 @@ async def generate_tts(
     )
 
     await db.execute(
-        """INSERT INTO jobs (request_id, status, text, preset, output_format)
-           VALUES (?, 'queued', ?, ?, ?)""",
-        (rid, text, preset_name, output_format_name),
+        """INSERT INTO jobs (request_id, status, text, preset, output_format, user_agent)
+           VALUES (?, 'queued', ?, ?, ?, ?)""",
+        (rid, text, preset_name, output_format_name, user_agent),
     )
     await db.commit()
 

@@ -15,7 +15,7 @@ from api.core.logger import setup_logging
 from api.core.presets import PRESETS
 from api.core.watcher import watch_input_folder
 from api.middleware.request_id import RequestIDMiddleware
-from api.routers import jobs, presets, tts, voices
+from api.routers import alerts, jobs, logs, presets, tts, voices
 
 _UI_DIST = Path(__file__).parent.parent / "ui-dist"
 _ENV_PATH = Path(".env")
@@ -193,6 +193,8 @@ v1.include_router(tts.router)
 v1.include_router(voices.router)
 v1.include_router(jobs.router)
 v1.include_router(presets.router)
+v1.include_router(logs.router)
+v1.include_router(alerts.router)
 
 # Serve React SPA built assets
 if _UI_DIST.exists():
@@ -392,6 +394,8 @@ async def get_settings():
         "voice_dir": str(settings.voice_dir.resolve()),
         "input_dir": str(settings.input_dir.resolve()),
         "output_ttl_hours": settings.output_ttl_hours,
+        "job_retention_days": settings.job_retention_days,
+        "deleted_voice_ttl_hours": settings.deleted_voice_ttl_hours,
         "chunk_headroom_chars": settings.chunk_headroom_chars,
         "ffmpeg_available": ffmpeg_ok,
         "ffmpeg_path": ffmpeg,
@@ -399,6 +403,7 @@ async def get_settings():
         "default_max_chars": settings.default_max_chars,
         "chunk_headroom_chars": settings.chunk_headroom_chars,
         "max_voice_clip_duration_s": settings.max_voice_clip_duration_s,
+        "voice_icon_max_kb": settings.voice_icon_max_kb,
         "macos_version": mac_ver,
         "chip": chip,
         "vox_version": "0.5.1-beta",

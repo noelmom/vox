@@ -158,8 +158,11 @@ export type ServerSettings = {
   voice_dir: string;
   input_dir: string;
   output_ttl_hours: number;
+  job_retention_days: number;
+  deleted_voice_ttl_hours: number;
   chunk_headroom_chars: number;
   max_voice_clip_duration_s: number;
+  voice_icon_max_kb: number;
   ffmpeg_available: boolean;
   ffmpeg_path: string;
   model_name: string;
@@ -184,8 +187,18 @@ export type Stats = {
   disk_used_bytes: number;
 };
 
+export type SystemAlert = {
+  id: string;
+  level: "info" | "warning" | "error";
+  message: string;
+};
+
 export async function getStats(): Promise<Stats> {
   return apiFetch("/api/v1/stats").then((r) => r.json());
+}
+
+export async function getAlerts(): Promise<SystemAlert[]> {
+  return apiFetch("/api/v1/alerts").then((r) => r.json());
 }
 
 export async function getServerSettings(): Promise<ServerSettings> {
