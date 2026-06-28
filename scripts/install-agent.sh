@@ -11,7 +11,7 @@ PLIST_DST="$AGENTS_DIR/com.melolabdev.vox.plist"
 LOG_DIR="$HOME/Library/Logs/Vox"
 LABEL="com.melolabdev.vox"
 DMG="$ROOT/assets/Vox.dmg"
-MOUNT_POINT="/tmp/vox-dmg-install"
+MOUNT_POINT=""
 
 echo "[vox] Installing server LaunchAgent..."
 
@@ -58,12 +58,17 @@ chmod +x "$APP_SUPPORT/scripts/run.sh"
 
 # ── Install VoxServer.app from DMG ───────────────────────────────────────────
 echo "[vox] Installing VoxServer.app from Vox.dmg..."
-mkdir -p "$MOUNT_POINT"
+MOUNT_POINT="$(mktemp -d "${TMPDIR:-/tmp}/vox-dmg-server.XXXXXX")"
+cleanup_dmg_mount() {
+  hdiutil detach "$MOUNT_POINT" -quiet 2>/dev/null || true
+  rmdir "$MOUNT_POINT" 2>/dev/null || true
+}
+trap cleanup_dmg_mount EXIT
 hdiutil attach "$DMG" -nobrowse -quiet -mountpoint "$MOUNT_POINT"
 rm -rf "$APP_SUPPORT/VoxServer.app"
 cp -r "$MOUNT_POINT/VoxServer.app" "$APP_SUPPORT/VoxServer.app"
-hdiutil detach "$MOUNT_POINT" -quiet
-rm -df "$MOUNT_POINT"
+cleanup_dmg_mount
+trap - EXIT
 
 # ── Write LaunchAgent plist ───────────────────────────────────────────────────
 cat > "$PLIST_DST" <<EOF

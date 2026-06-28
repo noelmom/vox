@@ -11,7 +11,7 @@ PLIST_DST="$AGENTS_DIR/com.melolabdev.vox-helper.plist"
 LOG_DIR="$HOME/Library/Logs/Vox"
 LABEL="com.melolabdev.vox-helper"
 DMG="$ROOT/assets/Vox.dmg"
-MOUNT_POINT="/tmp/vox-dmg-install"
+MOUNT_POINT=""
 
 echo "[vox-helper] Installing menu bar helper..."
 
@@ -28,12 +28,17 @@ launchctl unload "$PLIST_DST" 2>/dev/null || true
 
 # ── Install VoxHelper.app from DMG ───────────────────────────────────────────
 echo "[vox-helper] Installing VoxHelper.app from Vox.dmg..."
-mkdir -p "$MOUNT_POINT"
+MOUNT_POINT="$(mktemp -d "${TMPDIR:-/tmp}/vox-dmg-helper.XXXXXX")"
+cleanup_dmg_mount() {
+  hdiutil detach "$MOUNT_POINT" -quiet 2>/dev/null || true
+  rmdir "$MOUNT_POINT" 2>/dev/null || true
+}
+trap cleanup_dmg_mount EXIT
 hdiutil attach "$DMG" -nobrowse -quiet -mountpoint "$MOUNT_POINT"
 rm -rf /Applications/VoxHelper.app
 ditto "$MOUNT_POINT/VoxHelper.app" /Applications/VoxHelper.app
-hdiutil detach "$MOUNT_POINT" -quiet
-rm -df "$MOUNT_POINT"
+cleanup_dmg_mount
+trap - EXIT
 
 # ── Write LaunchAgent plist ───────────────────────────────────────────────────
 cat > "$PLIST_DST" <<EOF

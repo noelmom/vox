@@ -36,7 +36,8 @@ OUTPUT_DMG="$ROOT/assets/Vox.dmg"
 [[ "$(uname -m)" == "arm64" ]] || fail "Vox requires Apple Silicon (M1 or later). Intel Macs are not supported."
 [[ -n "$KEYCHAIN_PASSWORD" ]]  || fail "KEYCHAIN_PASSWORD is not set."
 [[ -n "$APP_SIGN_PASSWORD" ]]  || fail "APP_SIGN_PASSWORD is not set."
-[[ -f "$ROOT/assets/Vox.icns" ]] || fail "assets/Vox.icns not found."
+[[ -f "$ROOT/assets/VoxHelper.icns" ]] || fail "assets/VoxHelper.icns not found."
+[[ -f "$ROOT/assets/VoxServer.icns" ]] || fail "assets/VoxServer.icns not found."
 [[ -f "$VENV/bin/python3" ]]   || fail "Venv not found at $VENV — run bash vox.sh install first."
 command -v xcrun &>/dev/null   || fail "xcrun not found — install Xcode."
 xcrun --find notarytool &>/dev/null || fail "notarytool not found — requires Xcode 13+."
@@ -56,7 +57,7 @@ info "Building VoxHelper.app…"
 HELPER_APP="$BUILD_TMP/VoxHelper.app"
 mkdir -p "$HELPER_APP/Contents/MacOS" "$HELPER_APP/Contents/Resources"
 
-cp "$ROOT/assets/Vox.icns" "$HELPER_APP/Contents/Resources/Vox.icns"
+cp "$ROOT/assets/VoxHelper.icns" "$HELPER_APP/Contents/Resources/VoxHelper.icns"
 
 info "Compiling Swift VoxHelper…"
 swiftc \
@@ -79,7 +80,7 @@ cat > "$HELPER_APP/Contents/Info.plist" <<EOF
   <key>CFBundleName</key><string>Vox Helper</string>
   <key>CFBundleDisplayName</key><string>Vox Helper</string>
   <key>CFBundleExecutable</key><string>VoxHelper</string>
-  <key>CFBundleIconFile</key><string>Vox</string>
+  <key>CFBundleIconFile</key><string>VoxHelper</string>
   <key>CFBundleVersion</key><string>1</string>
   <key>CFBundleShortVersionString</key><string>0.5.1-beta</string>
   <key>LSUIElement</key><true/>
@@ -93,7 +94,7 @@ info "Building VoxServer.app…"
 SERVER_APP="$BUILD_TMP/VoxServer.app"
 mkdir -p "$SERVER_APP/Contents/MacOS" "$SERVER_APP/Contents/Resources"
 
-cp "$ROOT/assets/Vox.icns" "$SERVER_APP/Contents/Resources/Vox.icns"
+cp "$ROOT/assets/VoxServer.icns" "$SERVER_APP/Contents/Resources/VoxServer.icns"
 
 info "Compiling Swift VoxServer…"
 swiftc \
@@ -110,7 +111,7 @@ cat > "$SERVER_APP/Contents/Info.plist" <<EOF
   <key>CFBundleName</key><string>Vox</string>
   <key>CFBundleDisplayName</key><string>Vox</string>
   <key>CFBundleExecutable</key><string>vox-server</string>
-  <key>CFBundleIconFile</key><string>Vox</string>
+  <key>CFBundleIconFile</key><string>VoxServer</string>
   <key>CFBundleVersion</key><string>1</string>
   <key>CFBundleShortVersionString</key><string>0.5.1-beta</string>
   <key>LSUIElement</key><true/>
