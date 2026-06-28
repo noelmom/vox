@@ -153,9 +153,17 @@ Ideas and improvements to revisit. Not bugs — these are enhancements queued fo
 
 - [x] **[LOW] Move generation progress out of the Generate button**
 
-  Implemented in `ui-src/src/routes/app.index.tsx` and `ui-src/src/routes/app.tsx`. The Generate button stays focused on submission state, while queued/running progress is shown in the Create result panel and compact global status bar with elapsed time, estimate/finalizing state, and cancel controls. This avoids overcrowding the button while still giving users visible progress during long generations.
+  Implemented in `ui-src/src/routes/app.index.tsx` and `ui-src/src/routes/app.tsx`. The Generate button stays focused on submission state, while queued/running progress is shown in the Create result panel and compact global status bar with elapsed time, queue position, chunk progress, and cancel controls. This avoids overcrowding the button while still giving users visible progress during long generations.
 
-  **Future refinement:** once SSE or explicit chunk-progress events exist, replace the current ETA-style progress estimate with true chunk completion progress.
+  Explicit chunk-progress fields are stored on `jobs` and surfaced through job responses. The UI falls back to the staged display when exact progress is not available.
+
+- [x] **[MEDIUM] Server-sent events for generation progress**
+
+  Implemented as `GET /api/v1/jobs/{request_id}/events` in `api/routers/jobs.py`. The Create page subscribes with `EventSource` and keeps a slower 5-second polling loop as a fallback. Job events use the same shape as `GET /api/v1/jobs/{request_id}`.
+
+- [x] **[MEDIUM] Backup and restore**
+
+  Implemented in `api/routers/backups.py` and Settings. `GET /api/v1/backups/export` downloads a zip containing `data/vox.db` plus `voices/`; generated output audio is intentionally excluded. `POST /api/v1/backups/restore` validates the zip, replaces the DB and voice assets, reconnects SQLite, and prompts the user to refresh Studio.
 
 - [x] **[LOW] Recent scripts history — quick reuse from script box**
 
@@ -168,11 +176,11 @@ Ideas and improvements to revisit. Not bugs — these are enhancements queued fo
   - Each dropdown item shows the first ~80 chars of the script followed by an ellipsis if truncated.
   - Limit is 10 entries for now; make it configurable via Settings later (low priority).
 
-- [ ] **[LOW] Top-bar header actions — deferred to future release**
+- [ ] **[LOW] Top-bar header actions — partially deferred to future release**
 
-  Three buttons were removed from the top-right of the app header (`app.tsx`) pending future implementation. Re-add them when the features are ready. All used `lucide-react` icons and the `IconBtn` helper component (also removed — trivial to restore).
+  Three buttons were removed from the top-right of the app header (`app.tsx`) pending future implementation. Theme selection is now implemented in Settings instead of the app header; re-add the remaining header actions when the features are ready. All used `lucide-react` icons and the `IconBtn` helper component (also removed — trivial to restore).
 
-  1. **Dark mode toggle** (`Sun` icon) — switch between light and dark themes. Will require a theme context/provider and Tailwind dark-mode class strategy. Suggested key: `vox:theme` in localStorage.
+  1. **Theme preference** — implemented in `ui-src/src/routes/app.settings.tsx`, persisted at `localStorage["vox:theme"]`, and applied from `ui-src/src/routes/app.tsx`. Supported values: `system`, `light`, `dark`.
 
   2. **Notifications bell** (`Bell` icon) — silence/unmute in-app alerts. Intended to pair with a future alert system that notifies when a generation completes or errors. Backend already has an `/alerts` router stub. Suggested key: `vox:notifications` in localStorage.
 

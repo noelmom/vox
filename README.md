@@ -35,7 +35,9 @@ It exposes a clean REST API and a web UI for generating high-quality audio from 
 - **Voice profile editing** — update description, tags, and TTS defaults without re-uploading audio
 - **Tag system** — tag voices (`uploaded`, `auto-import`, or custom) with filter pills on the Voices screen
 - **Custom tone** — "✦ Custom" pill opens a parameter panel with sliders for all 6 TTS params; persists via `localStorage`
-- **Generation status** — global and Create-page progress indicators for queued/running jobs, with elapsed time and cancel controls
+- **Generation status** — global and Create-page progress indicators for queued/running jobs, with chunk progress, queue position, elapsed time, SSE updates, and cancel controls
+- **Backup & restore** — export/import SQLite history and voice assets from Settings
+- **Theme preference** — light, dark, or system appearance saved locally
 - **Real upload progress** — live byte-count progress bar during voice file uploads
 - **macOS menu bar helper** — monochrome VOX status icon, CPU %, RAM, Start/Stop/Restart, Open in Browser, Copy Address — auto-starts on login
 - **LaunchAgent management** — server and helper managed by macOS launchd; crash-restart, structured logs to `~/Library/Logs/Vox/`
@@ -291,7 +293,7 @@ Content-Type: multipart/form-data
 { "request_id": "abc123-..." }
 ```
 
-Poll `GET /api/v1/jobs/{request_id}` until `status` is `completed`, then fetch `GET /api/v1/jobs/{request_id}/audio` to download the file. Jobs are serialized through a single local model lock; if another generation is active, new jobs remain `queued` until the engine is free.
+Listen to `GET /api/v1/jobs/{request_id}/events` for server-sent job updates, or poll `GET /api/v1/jobs/{request_id}` as a fallback. Once `status` is `completed`, fetch `GET /api/v1/jobs/{request_id}/audio` to download the file. Jobs are serialized through a single local model lock; if another generation is active, new jobs remain `queued` until the engine is free.
 
 **Response headers (on the 202):**
 
@@ -390,9 +392,12 @@ cp ~/Downloads/Voice\ Memo.m4a ./input/my-voice.m4a
 ```
 GET /api/v1/jobs                          List recent jobs (newest first)
 GET /api/v1/jobs/{request_id}             Get a specific job (includes file_available bool)
+GET /api/v1/jobs/{request_id}/events      Stream job status events
 GET /api/v1/jobs/{request_id}/audio       Download the generated audio file
 POST /api/v1/tts/{request_id}/cancel      Cancel a queued/running generation
 DELETE /api/v1/jobs/{request_id}          Delete a job row and its generated file
+GET /api/v1/backups/export                Download DB + voice backup zip
+POST /api/v1/backups/restore              Restore DB + voice backup zip
 ```
 
 ```bash
@@ -541,7 +546,9 @@ sqlite3 ~/Library/Application\ Support/Vox/data/vox.db
 - [x] Custom tone panel — per-request TTS parameter sliders, named presets saved to DB
 - [x] Custom tone update/save-as flow for saved user presets
 - [x] Sidebar widgets — lifetime and daily request/audio-minutes stats with sparklines
-- [x] Generation status — elapsed timer, queued/running state, global status bar, and cancel controls
+- [x] Generation status — queue position, true chunk progress, elapsed timer, SSE updates, global status bar, and cancel controls
+- [x] Backup & restore — export/import SQLite history and voice assets from Settings
+- [x] Theme preference — light, dark, or system appearance
 - [x] Result download with format and quality controls
 - [x] Recent recordings with inline play, download, and delete
 - [x] Persistent generation error UI with retry/dismiss and request ID copy
