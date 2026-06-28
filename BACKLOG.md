@@ -196,9 +196,9 @@ Until v1.0 ships, avoid adding new product features. Pre-v1 work should be limit
 
 - [ ] **[LOW] Top-bar header actions — partially deferred to future release**
 
-  Three buttons were removed from the top-right of the app header (`app.tsx`) pending future implementation. Theme selection is now implemented in Settings instead of the app header; re-add the remaining header actions when the features are ready. All used `lucide-react` icons and the `IconBtn` helper component (also removed — trivial to restore).
+  Three buttons were removed from the top-right of the app header (`app.tsx`) pending future implementation. Theme selection was removed from the v1 UI while dark-mode polish is deferred; re-add appearance controls when the theme is release-ready. All used `lucide-react` icons and the `IconBtn` helper component (also removed — trivial to restore).
 
-  1. **Theme preference** — implemented in `ui-src/src/routes/app.settings.tsx`, persisted at `localStorage["vox:theme"]`, and applied from `ui-src/src/routes/app.tsx`. Supported values: `system`, `light`, `dark`.
+  1. **Theme preference** — v1 forces `light` in `ui-src/src/routes/app.tsx` and `ui-src/src/routes/app.settings.tsx`. The existing dark tokens and `vox-*` theme primitives remain in place for post-v1 polish, but `system` and `dark` are not user-selectable before v1.0.
 
   2. **Notifications bell** (`Bell` icon) — silence/unmute in-app alerts. Intended to pair with a future alert system that notifies when a generation completes or errors. Backend already has an `/alerts` router stub. Suggested key: `vox:notifications` in localStorage.
 
@@ -556,9 +556,9 @@ Until v1.0 ships, avoid adding new product features. Pre-v1 work should be limit
 
 - [ ] **Post-v1: finish dark theme polish**
 
-  Dark mode is wired but not v1-ready. Settings → Appearance already supports System, Light, and Dark modes persisted in `localStorage["vox:theme"]`, `ui-src/src/styles.css` has dark theme tokens and semantic surface classes, and key Create/Library/Settings surfaces have started moving to reusable `vox-*` theme primitives.
+  Dark mode is wired but not v1-ready. `ui-src/src/styles.css` has dark theme tokens and semantic surface classes, and key Create/Library/Settings surfaces have started moving to reusable `vox-*` theme primitives.
 
-  **Current state:** functional plumbing exists, but the visual treatment still needs minor tweaks before release-quality support. Keep dark mode available for internal testing, but do not treat it as a v1.0 launch requirement.
+  **Current state:** functional plumbing exists, but the visual treatment still needs minor tweaks before release-quality support. For v1.0, light mode is forced and Settings shows Light as the only available theme. Existing `dark`/`system` saved preferences are normalized back to `light` on app load.
 
   **Follow-up pass:** verify all app tabs in dark mode, tune player/waveform contrast, replace remaining hard-coded light surfaces/arbitrary colors with semantic theme classes, and confirm landing-page behavior separately from the app shell.
 

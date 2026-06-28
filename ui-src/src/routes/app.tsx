@@ -12,8 +12,6 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   AlertTriangle,
-  Moon,
-  Sun,
 } from "lucide-react";
 import voxLogo from "@/assets/vox-logo-app.png";
 import voxIcon from "@/assets/vox-icon-2.png";
@@ -39,30 +37,10 @@ const NAV: { label: string; to: "/app" | "/app/library" | "/app/recordings" | "/
   { label: "Settings", to: "/app/settings", Icon: Settings },
 ];
 
-type ThemeMode = "system" | "light" | "dark";
-
-function applyTheme(mode: ThemeMode) {
+function applyLightTheme() {
   if (typeof window === "undefined") return;
-  const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-  document.documentElement.classList.toggle("dark", mode === "dark" || (mode === "system" && prefersDark));
-}
-
-function readThemeMode(): ThemeMode {
-  if (typeof window === "undefined") return "system";
-  try {
-    const raw = window.localStorage.getItem("vox:theme");
-    if (!raw) return "system";
-    const parsed = JSON.parse(raw) as ThemeMode;
-    return parsed === "dark" || parsed === "light" || parsed === "system" ? parsed : "system";
-  } catch {
-    return "system";
-  }
-}
-
-function writeThemeMode(mode: ThemeMode) {
-  window.localStorage.setItem("vox:theme", JSON.stringify(mode));
-  applyTheme(mode);
-  window.dispatchEvent(new CustomEvent("vox:prefschanged"));
+  window.localStorage.setItem("vox:theme", JSON.stringify("light"));
+  document.documentElement.classList.remove("dark");
 }
 
 function AppLayout() {
@@ -108,14 +86,10 @@ function AppLayout() {
   }, [collapsed]);
 
   useEffect(() => {
-    const media = window.matchMedia("(prefers-color-scheme: dark)");
-    const refresh = () => applyTheme(readThemeMode());
-    refresh();
-    window.addEventListener("vox:prefschanged", refresh);
-    media.addEventListener("change", refresh);
+    applyLightTheme();
+    window.addEventListener("vox:prefschanged", applyLightTheme);
     return () => {
-      window.removeEventListener("vox:prefschanged", refresh);
-      media.removeEventListener("change", refresh);
+      window.removeEventListener("vox:prefschanged", applyLightTheme);
     };
   }, []);
 
@@ -418,12 +392,10 @@ function SidebarContent({
   onToggleCollapsed?: () => void;
 }) {
   const [widgetPrefs, setWidgetPrefs] = useState(readWidgetPrefs);
-  const [themeMode, setThemeMode] = useState<ThemeMode>(readThemeMode);
 
   useEffect(() => {
     const handler = () => {
       setWidgetPrefs(readWidgetPrefs());
-      setThemeMode(readThemeMode());
     };
     window.addEventListener("vox:prefschanged", handler);
     return () => window.removeEventListener("vox:prefschanged", handler);
@@ -439,13 +411,6 @@ function SidebarContent({
     refetchInterval: 2 * 60 * 1000,
     refetchIntervalInBackground: false,
   });
-  const toggleTheme = () => {
-    const next = themeMode === "dark" ? "light" : "dark";
-    setThemeMode(next);
-    writeThemeMode(next);
-  };
-  const nextThemeLabel = themeMode === "dark" ? "Switch to light mode" : "Switch to dark mode";
-  const ThemeIcon = themeMode === "dark" ? Sun : Moon;
 
   return (
     <>
@@ -564,19 +529,6 @@ function SidebarContent({
 
           </>
         )}
-
-        <button
-          type="button"
-          onClick={toggleTheme}
-          title={nextThemeLabel}
-          aria-label={nextThemeLabel}
-          className={`flex items-center ${
-            collapsed ? "justify-center p-2.5" : "gap-2 px-3 py-2"
-          } rounded-lg text-[12px] font-medium text-foreground/60 transition-colors hover:bg-muted hover:text-foreground`}
-        >
-          <ThemeIcon className="h-4 w-4" />
-          {!collapsed && (themeMode === "dark" ? "Light mode" : "Dark mode")}
-        </button>
 
         {onToggleCollapsed && (
           <button
