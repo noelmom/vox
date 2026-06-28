@@ -44,6 +44,18 @@ It exposes a clean REST API and a web UI for generating high-quality audio from 
 
 ---
 
+## Screenshots
+
+| Create | Library |
+| --- | --- |
+| ![Vox Studio Create tab with script editor and Voice Studio controls](docs/screenshots/create.jpg) | ![Vox Studio Library tab with microphone status and voice profile cards](docs/screenshots/library.jpg) |
+
+| Recordings | Settings |
+| --- | --- |
+| ![Vox Studio Recordings tab with waveform playback and regeneration controls](docs/screenshots/recordings.jpg) | ![Vox Studio Settings tab with runtime, stability mode, and network access controls](docs/screenshots/settings.jpg) |
+
+---
+
 ## Architecture
 
 ```
