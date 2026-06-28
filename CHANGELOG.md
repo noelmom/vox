@@ -11,8 +11,12 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - **True generation progress** — jobs now persist queue position, chunk count, percent, and status messages; the global bar and Create result panel render the live values.
 - **Server-sent job events** — `GET /api/v1/jobs/{request_id}/events` streams job updates to the Create page, with slower polling retained as a fallback.
 - **Backup and restore** — Settings can export/import a Vox backup zip containing SQLite history and voice assets.
-- **Theme preference** — Settings now supports System, Light, and Dark appearance modes.
+- **Theme plumbing** — light mode is enforced for v1.0 while dark-mode tokens and theme primitives remain in place for post-v1 polish.
 - **MPS stability mode** — Settings can choose Stable 90% or Max 100% MPS memory allocation via `VOX_MPS_MEMORY_FRACTION`.
+- **README screenshots** — documentation now includes current Create, Library, Recordings, and Settings screenshots.
+
+### Fixed
+- **Trim limit feedback** — voice sample trim controls now display the 2:00 limit consistently, tolerate tiny drag/rounding differences, clamp near-boundary exports to the configured limit, and explain when the selected clip is too long to save.
 
 ## [0.5.3-beta] — 2026-06-28
 
