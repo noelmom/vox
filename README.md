@@ -180,7 +180,9 @@ The **Vox icon** appears in your menu bar within a few seconds. Use it to start,
 
 ### 3. Start the server
 
-**Via the menu bar (recommended):** click the Vox icon → **Start Server**.
+Vox starts the server automatically on login by default. You can disable that from the Vox Helper menu if you prefer to start it manually.
+
+**Via the menu bar:** click the Vox icon → **Start Server**.
 
 **Via terminal:**
 
@@ -192,8 +194,6 @@ tail -f ~/Library/Logs/Vox/vox.log                           # live logs
 ```
 
 The menu bar helper shows `localhost:8000 · local only` when `VOX_HOST=127.0.0.1` (default), or `192.168.x.x:8000 · network accessible` when `VOX_HOST=0.0.0.0` — so you always know at a glance who can reach the server.
-
-> **Shipping note:** When Vox ships as a one-click `.app`, set `RunAtLoad` to `true` in `launchagent/com.melolabdev.vox.plist` and re-run `scripts/install-agent.sh`. That single change enables server auto-start on login. The helper already auto-starts. See `BACKLOG.md` for details.
 
 ### 4. Updating
 
@@ -523,6 +523,8 @@ sqlite3 ~/Library/Application\ Support/Vox/data/vox.db
 
 ## Roadmap
 
+Vox is now in a v1.0 scope freeze: only bug fixes, product polish, and true blockers should be added before v1.0. New features below are post-v1 unless they become release blockers.
+
 - [x] Chatterbox engine wrapper with MPS/CPU auto-detect
 - [x] FastAPI backend with async generation lock
 - [x] Built-in presets with per-request param overrides
@@ -558,9 +560,11 @@ sqlite3 ~/Library/Application\ Support/Vox/data/vox.db
 - [x] Swift menu bar rewrite — native AppKit, eliminates Python/PyObjC issues on macOS Sequoia
 - [x] Real waveform coverage across audio-bearing surfaces (decoded peaks for fetched/recorded/uploaded audio; placeholders only for loading/decorative states)
 - [x] Microphone error classification — distinct UI for no-device / access-denied / insecure context
-- [ ] Streaming audio response (chunked transfer)
+- [ ] Post-v1: manual pause insertion in the Create script editor
+- [ ] Post-v1: pronunciation dictionary / word replacement controls
+- [ ] Post-v1: streaming audio response (chunked transfer)
 - [ ] One-click `.app` packaging and code signing
-- [ ] Auto-launch on login (server — helper already auto-starts)
+- [x] Auto-launch on login — server and helper both auto-start by default; users can disable either from Vox Helper
 
 ---
 

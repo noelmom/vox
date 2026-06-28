@@ -821,31 +821,6 @@ function GeneratePage() {
           <div className="mt-4 flex flex-nowrap items-center gap-2">
             <button
               disabled
-              title="Coming soon"
-              className="inline-flex min-w-0 shrink cursor-not-allowed items-center gap-1.5 rounded-lg border border-dashed border-border bg-muted/40 px-2.5 py-2 text-[13px] font-medium text-muted-foreground sm:gap-2 sm:px-3"
-            >
-              <Pause className="h-3.5 w-3.5 shrink-0" />
-              <span className="truncate">Insert Pause</span>
-              <span className="hidden rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/80 md:inline">
-                Soon
-              </span>
-            </button>
-            <button
-              disabled
-              title="Coming soon"
-              className="inline-flex min-w-0 shrink cursor-not-allowed items-center gap-1.5 rounded-lg border border-dashed border-border bg-muted/40 px-2.5 py-2 text-[13px] font-medium text-muted-foreground sm:gap-2 sm:px-3"
-            >
-              <span className="truncate">
-                <span className="sm:hidden">Pronunciation</span>
-                <span className="hidden sm:inline">Add Pronunciation</span>
-              </span>
-              <ChevronDown className="h-3.5 w-3.5 shrink-0" />
-              <span className="hidden rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/80 md:inline">
-                Soon
-              </span>
-            </button>
-            <button
-              disabled
               title="Keyboard shortcuts — coming soon"
               aria-label="Keyboard shortcuts (coming soon)"
               className="ml-auto flex h-9 w-9 shrink-0 cursor-not-allowed items-center justify-center rounded-lg border border-dashed border-border bg-muted/40 text-muted-foreground"

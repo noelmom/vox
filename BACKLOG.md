@@ -2,6 +2,24 @@
 
 Ideas and improvements to revisit. Not bugs — these are enhancements queued for later.
 
+## v1.0 Scope Freeze
+
+Until v1.0 ships, avoid adding new product features. Pre-v1 work should be limited to bug fixes, polish, documentation accuracy, release hardening, and true blockers. Feature ideas below are post-v1 unless explicitly reclassified as blockers.
+
+---
+
+## Post-v1 Feature Ideas
+
+- [ ] **Manual pause insertion in Create**
+  - Add a real `Insert Pause` flow for the script editor.
+  - Suggested approach: insert a lightweight token at the cursor such as `[pause:0.5s]`, parse it before chunking, and translate it into explicit silence between generated text spans.
+  - Needs script validation, readable UI chips/markup, and backend parser support. Do not ship before v1.0 unless it becomes a blocker.
+
+- [ ] **Pronunciation dictionary / word replacement controls**
+  - Add a real `Add Pronunciation` flow for words, names, acronyms, and brand terms.
+  - Suggested approach: store pronunciation aliases in SQLite, apply replacements before TTS generation, and expose per-script or global rules in the Create UI.
+  - Needs careful UX so users understand this is text normalization, not true phoneme-level model control. Post-v1 only.
+
 ---
 
 ## Quality & Testing Strategy
@@ -367,7 +385,7 @@ Ideas and improvements to revisit. Not bugs — these are enhancements queued fo
   - `scripts/build-apps.sh` writes matching `CFBundleIconFile` values for each app bundle.
   - The old shared `assets/Vox.icns` file has been removed.
 
-- [ ] **Auto-launch on login (server)** — flip `RunAtLoad` from `<false/>` to `<true/>` in `launchagent/com.melolabdev.vox.plist` when shipping the `.app`. Helper already auto-starts.
+- [x] **Auto-launch on login (server)** — server `RunAtLoad` now defaults to `<true/>` in the LaunchAgent template and installer-generated plist. Users can disable server auto-start from the Vox Helper menu.
 
 - [x] **Login item toggles in the helper menu**
 
@@ -528,19 +546,15 @@ Ideas and improvements to revisit. Not bugs — these are enhancements queued fo
 
 ## Configuration UI
 
-- [ ] **Decide where to surface settings editing — web UI or menu bar helper**
+- [x] **Decide where to surface settings editing — web UI or menu bar helper**
 
-  **Option A — Web app Settings tab:** editable fields + `PATCH /settings` endpoint writes back to `.env`. "Restart required" banner + button for host/port/device changes.
-
-  **Option B — Menu bar helper:** Settings submenu in rumps, or a proper Preferences window if rewriting in Swift.
-
-  **Recommendation:** if Swift rewrite is happening, hold off and do it natively. If staying with rumps, the web UI Settings tab is the better surface.
+  Implemented in the web app Settings tab for runtime/network access, generation defaults, appearance, widgets, storage paths, and backup/restore. The native helper remains focused on server lifecycle, login toggles, update/uninstall flows, logs, resource stats, and support links.
 
 ---
 
 ## Dark Mode
 
-- [ ] **Dark theme** — CSS custom properties already in `vox.css`. Add `[data-theme="dark"]` overrides, manual toggle (moon/sun icon in sidebar footer) persisting to `localStorage`, system preference as default.
+- [x] **Dark theme** — implemented as Settings → Appearance with System, Light, and Dark modes persisted in `localStorage["vox:theme"]`.
 
 ---
 
@@ -553,11 +567,10 @@ Ideas and improvements to revisit. Not bugs — these are enhancements queued fo
 
 ## Backup & Restore
 
-- [ ] **Backup and restore** — explore options for backing up and restoring user data.
-  - Scope: voices, outputs, SQLite DB, `.env`, custom tones, presets — everything under `~/Library/Application Support/Vox/` except the venv and synced code.
-  - Options to evaluate: export to a single `.zip` archive, iCloud Drive sync, Time Machine exclusion/inclusion guidance, manual rsync to external drive.
-  - Restore flow: import archive, verify integrity, restart server.
-  - Surface in the web UI (Settings tab) or via a `vox.sh backup` / `vox.sh restore` command.
+- [x] **Backup and restore** — implemented in Settings and `api/routers/backups.py`.
+  - Export includes SQLite history/custom tones/voice metadata plus voice assets.
+  - Generated output audio is intentionally excluded to keep backups small and avoid packaging expired clips.
+  - Restore validates the archive, replaces the DB and voice assets, reconnects SQLite, and prompts the user to refresh Studio.
 
 ---
 
@@ -759,7 +772,7 @@ Ideas and improvements to revisit. Not bugs — these are enhancements queued fo
 
   **Pass 1 completed:** fixed chunk-stitch pause placement and avoided repeated audio-array concatenation in `api/routers/tts.py`; reduced `/api/v1/stats` sparkline work from seven per-day queries to one grouped query; corrected `scripts/update.sh` so update stops the server before syncing instead of kickstarting it.
 
-  **Still open:** broader frontend component split, API error-shape consistency, full shell strict-mode audit, and generation queue/SSE architecture.
+  **Still open:** broader frontend component split, API error-shape consistency, full shell strict-mode audit, and optional post-v1 worker-queue architecture.
 
 ---
 
@@ -769,12 +782,11 @@ Ideas and improvements to revisit. Not bugs — these are enhancements queued fo
 
   All product routes are now served under `/api/v1/` prefix (`/api/v1/tts`, `/api/v1/voices`, `/api/v1/jobs`, `/api/v1/presets`, `/api/v1/stats`, `/api/v1/settings`). The unversioned `/health` endpoint remains at the root as a shallow liveness check. Frontend `api.ts` updated to match. Landing page code snippets updated. README API reference updated.
 
-- [ ] Streaming audio response (chunked transfer encoding)
-- [ ] **Generation queue with richer UI feedback** — replace single `asyncio.Lock` with a proper worker queue.
+- [ ] **Post-v1: streaming audio response** — chunked transfer encoding for playback-before-complete if the model/output pipeline can support it cleanly.
+- [ ] **Post-v1: proper worker queue architecture** — replace single `asyncio.Lock` with an explicit worker queue only if real-world testing shows the current serialized lock is not enough.
   - Backend: queue incoming requests when a generation is already in progress instead of letting overlapping jobs stack up; return a job ID immediately with `202 Accepted` and expose `GET /jobs/{id}/status` for polling or SSE.
-  - Current state: requests are accepted immediately as `queued`, serialized by a single local model lock, and the UI shows queued/running states in both the global top bar and Create result panel.
-  - Remaining UI: expose actual queue position ("Queued — position 2") once the backend tracks queue depth/order explicitly.
-  - Remaining UI: consider a compact queue-status widget that shows `Queued`, `Running`, and `Next up` states plus current position.
+  - Current state: requests are accepted immediately as `queued`, serialized by a single local model lock, and the UI shows queued/running states, queue position, chunk progress, and elapsed time in both the global top bar and Create result panel.
+  - Future UI: consider a compact queue-status widget that shows `Queued`, `Running`, and `Next up` states across multiple pending jobs.
   - Pair with the sidebar stats item below so queue depth can live alongside session metrics.
   - Recovery: if the app restarts while a job is in flight, reconcile the persisted job state on startup so the UI does not show duplicate or orphaned runs.
 - [x] **Kill switch for in-flight jobs** — add an explicit way to stop work that is already running.
@@ -791,7 +803,7 @@ Ideas and improvements to revisit. Not bugs — these are enhancements queued fo
   - Pull from existing SQLite job history for all-time counts; track session counts in memory.
   - Update on each completed job — no polling needed if driven by the same SSE stream as queue feedback.
   - Display as a compact, non-interactive stats block near the bottom of the nav sidebar, and reserve one slot for queue state if the widget idea lands first.
-- [ ] Server-sent events for real-time generation progress
+- [x] Server-sent events for real-time generation progress — implemented as `GET /api/v1/jobs/{request_id}/events`, with polling retained as fallback.
 
 ---
 

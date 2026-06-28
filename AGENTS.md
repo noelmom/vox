@@ -7,6 +7,7 @@ This repository ships a local Apple Silicon text-to-speech app with a FastAPI ba
 ## Scope
 
 - Work only in `codename-vox` for this project.
+- Respect the v1.0 scope freeze: before v1.0, only bug fixes, product polish, documentation accuracy, release hardening, and true blockers should be added. New feature ideas belong in `BACKLOG.md` as post-v1 items unless the user explicitly reclassifies them.
 - Preserve user/runtime data. Never delete `voices/`, `outputs/`, `data/`, `input/`, `.env`, or anything under `~/Library/Application Support/Vox/` unless the user explicitly asks for a purge.
 - The source tree is not the runtime install. Installed runtime files live in `~/Library/Application Support/Vox/`; app bundles live in `/Applications/Vox/`.
 - `.pkg` artifacts are release assets, not repo files. Do not commit `assets/*.pkg`.
