@@ -5,12 +5,11 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
-## [1.0.0-rc1] — 2026-06-28
-
-### Changed
-- Release notes TBD.
-
 ## Unreleased
+
+---
+
+## [1.0.0-rc1] — 2026-06-28
 
 ### Added
 - **Server-sent job events** — `GET /api/v1/jobs/{request_id}/events` streams job updates to the Create page, with slower polling retained as a fallback.
