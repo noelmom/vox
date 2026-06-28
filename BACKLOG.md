@@ -789,6 +789,7 @@ Until v1.0 ships, avoid adding new product features. Pre-v1 work should be limit
   All product routes are now served under `/api/v1/` prefix (`/api/v1/tts`, `/api/v1/voices`, `/api/v1/jobs`, `/api/v1/presets`, `/api/v1/stats`, `/api/v1/settings`). The unversioned `/health` endpoint remains at the root as a shallow liveness check. Frontend `api.ts` updated to match. Landing page code snippets updated. README API reference updated.
 
 - [ ] **Post-v1: streaming audio response** — chunked transfer encoding for playback-before-complete if the model/output pipeline can support it cleanly.
+- [ ] **Post-v1: review SDK support** — revisit Python and JavaScript SDKs after the local REST API surface stabilizes. Keep the landing page focused on the curl example for v1.
 - [ ] **Post-v1: proper worker queue architecture** — replace single `asyncio.Lock` with an explicit worker queue only if real-world testing shows the current serialized lock is not enough.
   - Backend: queue incoming requests when a generation is already in progress instead of letting overlapping jobs stack up; return a job ID immediately with `202 Accepted` and expose `GET /jobs/{id}/status` for polling or SSE.
   - Current state: requests are accepted immediately as `queued`, serialized by a single local model lock, and the UI shows queued/running states, queue position, chunk progress, and elapsed time in both the global top bar and Create result panel.

@@ -24,7 +24,6 @@ import {
   Download,
   RefreshCw,
   MoreHorizontal,
-  Code2,
   Github,
   Star,
   Mic,
@@ -89,14 +88,14 @@ const PRIMARY_CTA_STYLE = {
 function GithubBadge() {
   return (
     <a
-      href="https://github.com"
+      href="https://noelmom.github.io"
       target="_blank"
       rel="noreferrer noopener"
-      aria-label="Star on GitHub"
+      aria-label="Open support page"
       className="group inline-flex items-center gap-2 rounded-full border border-border bg-white/80 px-3 py-1.5 text-xs font-semibold text-foreground/80 shadow-sm backdrop-blur transition-all hover:border-[var(--brand)] hover:text-foreground hover:shadow-md"
     >
       <Github className="h-3.5 w-3.5" strokeWidth={2.25} />
-      <span className="hidden sm:inline">Star on GitHub</span>
+      <span className="hidden sm:inline">Support</span>
       <span className="flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[11px] font-bold text-foreground/70 transition-colors group-hover:bg-[var(--brand-soft)] group-hover:text-[var(--brand)]">
         <Star className="h-3 w-3" fill="currentColor" />
         2.4k
@@ -209,13 +208,13 @@ function Index() {
                 </nav>
                 <div className="mt-3 flex flex-col gap-2 border-t border-border pt-3">
                   <a
-                    href="https://github.com"
+                    href="https://noelmom.github.io"
                     target="_blank"
                     rel="noreferrer noopener"
                     className="group inline-flex w-full items-center justify-center gap-2 rounded-lg border border-border bg-white px-5 py-2.5 text-sm font-semibold text-foreground transition-colors hover:bg-muted"
                   >
                     <Github className="h-4 w-4" strokeWidth={2.25} />
-                    Star on GitHub
+                    Support
                     <span className="ml-1 inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[11px] font-bold text-foreground/70">
                       <Star className="h-3 w-3" fill="currentColor" />
                       2.4k
@@ -928,16 +927,16 @@ function GetStarted() {
         {/* CTAs */}
         <div className="mt-10 flex flex-wrap items-center justify-center gap-3">
           <a
-            href="https://github.com"
+            href="https://noelmom.github.io"
             target="_blank"
             rel="noreferrer noopener"
             className="inline-flex items-center gap-2 rounded-lg border border-white/15 bg-white/5 px-6 py-3 text-sm font-semibold text-white backdrop-blur transition-colors hover:bg-white/10"
           >
             <Github className="h-4 w-4" />
-            View on GitHub
+            Support
           </a>
           <a
-            href="https://www.buymeacoffee.com"
+            href="https://buymeacoffee.com/noelmo"
             target="_blank"
             rel="noreferrer noopener"
             className="inline-flex items-center gap-2 rounded-lg border border-white/15 bg-white/5 px-6 py-3 text-sm font-semibold text-white backdrop-blur transition-colors hover:bg-white/10"
@@ -1005,13 +1004,13 @@ function Footer() {
               </a>
             ))}
             <a
-              href="https://github.com"
+              href="https://noelmom.github.io"
               target="_blank"
               rel="noreferrer noopener"
               className="inline-flex items-center gap-1.5 transition-colors hover:text-white"
             >
               <Github className="h-3.5 w-3.5" />
-              GitHub
+              Support
             </a>
           </div>
 
@@ -1074,68 +1073,22 @@ function CoffeeCup() {
   );
 }
 
-type ApiLang = "curl" | "python" | "javascript";
-
-const API_SNIPPETS: Record<
-  ApiLang,
-  { label: string; filename: string; lines: { text: string; color?: string }[] }
-> = {
-  curl: {
-    label: "curl",
-    filename: "request.sh",
-    lines: [
-      { text: "# generate audio with a named voice profile", color: "muted" },
-      { text: 'curl -X POST http://localhost:8000/api/v1/tts \\', color: "code" },
-      { text: '  -F "text=Hello, this is Vox." \\', color: "string" },
-      { text: '  -F "voice_name=noelmo-normal" \\', color: "string" },
-      { text: '  -F "preset=youtube" \\', color: "string" },
-      { text: "  --output audio.mp3", color: "code" },
-      { text: "", color: "code" },
-      { text: "# every response carries timing + tracing headers", color: "muted" },
-      { text: "X-Request-ID: 149e08c1-7b76-4fc3-88c3...", color: "header" },
-      { text: "X-Audio-Duration-Seconds: 3.37", color: "header" },
-      { text: "X-Generation-Seconds: 4.12", color: "header" },
-      { text: "X-RTF: 1.22", color: "header" },
-    ],
-  },
-  python: {
-    label: "Python",
-    filename: "generate.py",
-    lines: [
-      { text: "# pip install vox-sdk", color: "muted" },
-      { text: "from vox import Vox", color: "keyword" },
-      { text: "", color: "code" },
-      { text: 'vox = Vox(base_url="http://localhost:8000")', color: "code" },
-      { text: "", color: "code" },
-      { text: "audio = vox.tts(", color: "code" },
-      { text: '  text="Hello, this is Vox.",', color: "string" },
-      { text: '  voice_name="noelmo-normal",', color: "string" },
-      { text: '  preset="youtube",', color: "string" },
-      { text: ")", color: "code" },
-      { text: "", color: "code" },
-      { text: 'audio.save("audio.mp3")', color: "code" },
-      { text: "print(audio.duration_seconds, audio.rtf)", color: "code" },
-    ],
-  },
-  javascript: {
-    label: "JavaScript",
-    filename: "generate.ts",
-    lines: [
-      { text: "// npm install @vox/sdk", color: "muted" },
-      { text: 'import { Vox } from "@vox/sdk";', color: "keyword" },
-      { text: "", color: "code" },
-      { text: 'const vox = new Vox({ baseUrl: "http://localhost:8000" });', color: "code" },
-      { text: "", color: "code" },
-      { text: "const audio = await vox.tts({", color: "code" },
-      { text: '  text: "Hello, this is Vox.",', color: "string" },
-      { text: '  voiceName: "noelmo-normal",', color: "string" },
-      { text: '  preset: "youtube",', color: "string" },
-      { text: "});", color: "code" },
-      { text: "", color: "code" },
-      { text: 'await audio.save("audio.mp3");', color: "code" },
-      { text: "console.log(audio.durationSeconds, audio.rtf);", color: "code" },
-    ],
-  },
+const CURL_SNIPPET = {
+  filename: "request.sh",
+  lines: [
+    { text: "# generate audio with a named voice profile", color: "muted" },
+    { text: 'curl -X POST http://localhost:8000/api/v1/tts \\', color: "code" },
+    { text: '  -F "text=Hello, this is Vox." \\', color: "string" },
+    { text: '  -F "voice_name=noelmo-normal" \\', color: "string" },
+    { text: '  -F "preset=youtube" \\', color: "string" },
+    { text: "  --output audio.mp3", color: "code" },
+    { text: "", color: "code" },
+    { text: "# every response carries timing + tracing headers", color: "muted" },
+    { text: "X-Request-ID: 149e08c1-7b76-4fc3-88c3...", color: "header" },
+    { text: "X-Audio-Duration-Seconds: 3.37", color: "header" },
+    { text: "X-Generation-Seconds: 4.12", color: "header" },
+    { text: "X-RTF: 1.22", color: "header" },
+  ],
 };
 
 function colorClass(c?: string) {
@@ -1154,13 +1107,11 @@ function colorClass(c?: string) {
 }
 
 function ApiSection() {
-  const [lang, setLang] = useState<ApiLang>("curl");
   const [copied, setCopied] = useState(false);
-  const current = API_SNIPPETS[lang];
 
   const handleCopy = async () => {
     try {
-      await navigator.clipboard.writeText(current.lines.map((l) => l.text).join("\n"));
+      await navigator.clipboard.writeText(CURL_SNIPPET.lines.map((l) => l.text).join("\n"));
       setCopied(true);
       setTimeout(() => setCopied(false), 1800);
     } catch {
@@ -1175,41 +1126,11 @@ function ApiSection() {
         USE IT YOUR WAY
       </div>
       <h2 className="mt-4 text-[40px] font-black leading-[1.05] tracking-tight text-foreground">
-        Built for creators and developers
+        Built for scripts and automations
       </h2>
       <p className="mx-auto mt-3 max-w-[560px] text-[15px] leading-relaxed text-muted-foreground">
-        Use the studio UI, or drop Vox into your workflow with a few lines of code. Every response carries timing and tracing headers.
+        Use the studio UI, or call the local API directly with curl. Every response carries timing and tracing headers.
       </p>
-
-      {/* Language tabs */}
-      <div className="mx-auto mt-8 flex max-w-fit items-center gap-1 rounded-full border border-border bg-white/80 p-1 shadow-sm backdrop-blur">
-        {(Object.keys(API_SNIPPETS) as ApiLang[]).map((id) => {
-          const active = lang === id;
-          return (
-            <button
-              key={id}
-              type="button"
-              onClick={() => setLang(id)}
-              aria-pressed={active}
-              className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-[13px] font-semibold transition-all ${
-                active ? "text-white" : "text-foreground/70 hover:text-foreground"
-              }`}
-              style={
-                active
-                  ? {
-                      background:
-                      "var(--brand-gradient)",
-                      boxShadow: "var(--shadow-btn)",
-                    }
-                  : undefined
-              }
-            >
-              <Code2 className="h-3.5 w-3.5" />
-              {API_SNIPPETS[id].label}
-            </button>
-          );
-        })}
-      </div>
 
       {/* Terminal */}
       <div className="mx-auto mt-8 max-w-[820px] text-left">
@@ -1228,7 +1149,7 @@ function ApiSection() {
             </div>
             <div className="flex items-center gap-2 text-[11px] font-medium text-white/40">
               <Terminal className="h-3.5 w-3.5" />
-              {current.filename}
+              {CURL_SNIPPET.filename}
             </div>
             <button
               onClick={handleCopy}
@@ -1248,7 +1169,7 @@ function ApiSection() {
             </button>
           </div>
           <div className="px-5 py-5 font-mono text-[13.5px] leading-7 sm:px-7">
-            {current.lines.map((line, i) => (
+            {CURL_SNIPPET.lines.map((line, i) => (
               <div key={i} className={`min-h-[1.75rem] ${colorClass(line.color)}`}>
                 {line.text || "\u00A0"}
               </div>
@@ -1278,7 +1199,7 @@ function ApiSection() {
           <ExternalLink className="h-3.5 w-3.5 opacity-80 transition-transform group-hover:translate-x-0.5" />
         </a>
         <p className="mt-4 text-[12px] text-muted-foreground">
-          REST · Python SDK · JavaScript SDK · OpenAPI spec
+          REST today. SDKs can come later when the API surface settles.
         </p>
 
       </div>
