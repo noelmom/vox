@@ -52,11 +52,14 @@ import {
   DEFAULT_MAX_VOICE_CLIP_DURATION_S,
   buildPeaks,
   clampTrimRange,
+  clampTrimRangeToMaxDuration,
   decodeAudioBlob,
   exportTrimmedWavBlob,
   fullTrimRange,
   isFullTrimRange,
+  isTrimDurationWithinLimit,
   trimmedDuration,
+  trimLimitMessage,
   type TrimRange,
 } from "@/lib/audio-trim";
 
@@ -414,8 +417,9 @@ function UploadPane({
     try {
       const fd = new FormData();
       let uploadFile: File = file;
-      if (!isFullTrimRange(trimRange, uploadDuration)) {
-        const trimmed = await exportTrimmedWavBlob(file, trimRange);
+      const uploadTrimRange = clampTrimRangeToMaxDuration(trimRange, maxVoiceClipDurationSeconds);
+      if (!isFullTrimRange(uploadTrimRange, uploadDuration)) {
+        const trimmed = await exportTrimmedWavBlob(file, uploadTrimRange);
         const base = file.name.replace(/\.[^.]+$/, "");
         uploadFile = new File([trimmed], `${base}-trimmed.wav`, { type: "audio/wav" });
       }
@@ -448,13 +452,14 @@ function UploadPane({
   };
 
   const selectedDuration = trimmedDuration(trimRange);
+  const trimError = trimLimitMessage(selectedDuration, maxVoiceClipDurationSeconds);
   const canCreate =
     !!file &&
     !!voiceName.trim() &&
     status !== "uploading" &&
     status !== "done" &&
     selectedDuration > 0 &&
-    selectedDuration <= maxVoiceClipDurationSeconds &&
+    isTrimDurationWithinLimit(selectedDuration, maxVoiceClipDurationSeconds) &&
     (uploadDuration <= maxVoiceClipDurationSeconds || !isFullTrimRange(trimRange, uploadDuration));
 
   return (
@@ -576,6 +581,11 @@ function UploadPane({
           <div className="flex items-center gap-2 rounded-lg border border-[color-mix(in oklch, var(--brand-warm) 20%, white)] bg-[color-mix(in oklch, var(--brand-warm) 8%, white)] px-3 py-2 text-[12.5px] text-[var(--brand-warm)]">
             <AlertCircle className="h-3.5 w-3.5 shrink-0" />{errorMsg}
           </div>
+        )}
+        {trimError && (
+          <p className="rounded-lg border border-[oklch(0.82_0.08_40)] bg-[oklch(0.98_0.02_40)] px-3 py-2 text-[12px] font-medium text-[oklch(0.48_0.13_40)]">
+            {trimError}
+          </p>
         )}
         <button onClick={handleCreate} disabled={!canCreate} className="mt-auto inline-flex items-center justify-center gap-1.5 rounded-xl px-4 py-2.5 text-[14px] font-bold text-white transition-all hover:-translate-y-0.5 hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40" style={{ background: BRAND_GRADIENT, boxShadow: "var(--shadow-btn)" }}>
           {status === "uploading" ? <><Loader2 className="h-4 w-4 animate-spin" /> Uploading…</> : status === "done" ? <><Check className="h-4 w-4" /> Profile created!</> : "Create Voice Profile"}
@@ -938,8 +948,9 @@ function RecordPane({
     setSaveStatus("saving"); setSaveError("");
     try {
       let file: File;
-      if (!isFullTrimRange(trimRange, audioDuration)) {
-        const trimmed = await exportTrimmedWavBlob(recordedBlob, trimRange);
+      const recordingTrimRange = clampTrimRangeToMaxDuration(trimRange, maxVoiceClipDurationSeconds);
+      if (!isFullTrimRange(recordingTrimRange, audioDuration)) {
+        const trimmed = await exportTrimmedWavBlob(recordedBlob, recordingTrimRange);
         file = new File([trimmed], "recording-trimmed.wav", { type: "audio/wav" });
       } else {
         const ext = recordedBlob.type.includes("ogg") ? "ogg" : recordedBlob.type.includes("mp4") ? "m4a" : "webm";
@@ -963,7 +974,8 @@ function RecordPane({
 
   const fmt = (s: number) => `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
   const selectedDuration = trimmedDuration(trimRange);
-  const canSave = !!recordedBlob && !!voiceName.trim() && saveStatus !== "saving" && selectedDuration > 0 && selectedDuration <= maxVoiceClipDurationSeconds;
+  const trimError = trimLimitMessage(selectedDuration, maxVoiceClipDurationSeconds);
+  const canSave = !!recordedBlob && !!voiceName.trim() && saveStatus !== "saving" && selectedDuration > 0 && isTrimDurationWithinLimit(selectedDuration, maxVoiceClipDurationSeconds);
 
   if (permission === "no-device") return (
     <div className="flex flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-[oklch(0.82_0.08_40)] bg-[oklch(0.985_0.01_40)] py-12 text-center">
@@ -1181,6 +1193,11 @@ function RecordPane({
           {saveStatus === "error" && (
             <div className="col-span-full flex items-center gap-2 rounded-lg border border-[oklch(0.82_0.08_25)] bg-[var(--brand-soft)] px-3 py-2 text-[12.5px] text-[oklch(0.52_0.18_25)]">
               <AlertCircle className="h-3.5 w-3.5 shrink-0" />{saveError}
+            </div>
+          )}
+          {trimError && (
+            <div className="col-span-full rounded-lg border border-[oklch(0.82_0.08_40)] bg-[oklch(0.98_0.02_40)] px-3 py-2 text-[12px] font-medium text-[oklch(0.48_0.13_40)]">
+              {trimError}
             </div>
           )}
           <div className="col-span-full flex justify-end gap-2">

@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 import type { PointerEvent as ReactPointerEvent } from "react";
 import { BRAND, BRAND_SECONDARY, BRAND_WARM } from "@/lib/theme";
-import { clampTrimRange, fullTrimRange, isFullTrimRange, trimmedDuration, type TrimRange } from "@/lib/audio-trim";
+import { clampTrimRange, formatDuration, fullTrimRange, isTrimDurationWithinLimit, trimmedDuration, type TrimRange } from "@/lib/audio-trim";
 
 type Props = {
   peaks: number[];
@@ -15,11 +15,6 @@ type Props = {
 
 const HANDLE_W = 12;
 const MIN_SELECTION_PX = 18;
-
-function fmt(s: number) {
-  const t = Math.max(0, Math.floor(s));
-  return `${Math.floor(t / 60)}:${String(t % 60).padStart(2, "0")}`;
-}
 
 export default function TrimWaveform({
   peaks,
@@ -36,7 +31,7 @@ export default function TrimWaveform({
 
   const safeSelection = clampTrimRange(selection, duration);
   const selectedDuration = trimmedDuration(safeSelection);
-  const overLimit = duration > maxDurationSeconds && isFullTrimRange(safeSelection, duration);
+  const overLimit = !isTrimDurationWithinLimit(selectedDuration, maxDurationSeconds);
   const selectionRef = useRef(safeSelection);
 
   useEffect(() => {
@@ -189,14 +184,14 @@ export default function TrimWaveform({
       <div className="mb-2 flex flex-wrap items-center justify-between gap-2 text-[12px]">
         <div className="flex items-center gap-2">
           <span className="rounded-full border border-border bg-white px-2 py-1 font-mono text-[11px] text-foreground/70">
-            Trim {fmt(safeSelection.start)} - {fmt(safeSelection.end)}
+            Trim {formatDuration(safeSelection.start)} - {formatDuration(safeSelection.end)}
           </span>
           <span className="text-muted-foreground">
-            Selected {fmt(selectedDuration)} / Raw {fmt(duration)}
+            Selected {formatDuration(selectedDuration)} / Raw {formatDuration(duration)}
           </span>
         </div>
         <span className={overLimit ? "font-semibold text-[var(--brand-warm)]" : "text-muted-foreground"}>
-          {overLimit ? `Clip must be trimmed to ${fmt(maxDurationSeconds)} or less` : `Limit ${fmt(maxDurationSeconds)}`}
+          {overLimit ? `Clip must be trimmed to ${formatDuration(maxDurationSeconds)} or less` : `Limit ${formatDuration(maxDurationSeconds)}`}
         </span>
       </div>
       <div

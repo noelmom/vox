@@ -5,6 +5,7 @@ export type TrimRange = {
 
 export const DEFAULT_MAX_VOICE_CLIP_DURATION_S = 120;
 export const MIN_TRIM_GAP_S = 0.05;
+export const TRIM_DURATION_TOLERANCE_S = 0.25;
 
 export async function decodeAudioBlob(blob: Blob): Promise<AudioBuffer> {
   const ctx = new AudioContext();
@@ -54,6 +55,29 @@ export function isFullTrimRange(range: TrimRange, duration: number, epsilon = 0.
 
 export function trimmedDuration(range: TrimRange): number {
   return Math.max(0, range.end - range.start);
+}
+
+export function isTrimDurationWithinLimit(duration: number, maxDurationSeconds: number): boolean {
+  return duration <= maxDurationSeconds + TRIM_DURATION_TOLERANCE_S;
+}
+
+export function trimLimitMessage(duration: number, maxDurationSeconds: number): string | null {
+  if (isTrimDurationWithinLimit(duration, maxDurationSeconds)) return null;
+  return `Selection is ${formatDuration(duration)}. Trim it to ${formatDuration(maxDurationSeconds)} or less to save.`;
+}
+
+export function clampTrimRangeToMaxDuration(range: TrimRange, maxDurationSeconds: number): TrimRange {
+  const duration = trimmedDuration(range);
+  if (duration <= maxDurationSeconds) return range;
+  return {
+    start: range.start,
+    end: range.start + maxDurationSeconds,
+  };
+}
+
+export function formatDuration(seconds: number): string {
+  const t = Math.max(0, Math.round(seconds));
+  return `${Math.floor(t / 60)}:${String(t % 60).padStart(2, "0")}`;
 }
 
 export function sliceAudioBuffer(buffer: AudioBuffer, startSeconds: number, endSeconds: number): AudioBuffer {
