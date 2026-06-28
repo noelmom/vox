@@ -10,6 +10,7 @@ class StatusBarController {
     private let openItem    = NSMenuItem(title: "↗  Open in Browser",    action: nil, keyEquivalent: "")
     private let inputItem   = NSMenuItem(title: "📁  Open Input Folder", action: nil, keyEquivalent: "")
     private let cpuItem     = NSMenuItem(title: "⚡  CPU   —",            action: nil, keyEquivalent: "")
+    private let gpuItem     = NSMenuItem(title: "◈  GPU   —",            action: nil, keyEquivalent: "")
     private let ramItem     = NSMenuItem(title: "🧠  RAM   —",            action: nil, keyEquivalent: "")
     private let startItem   = NSMenuItem(title: "▶  Start Server",       action: nil, keyEquivalent: "")
     private let stopItem    = NSMenuItem(title: "■  Stop Server",        action: nil, keyEquivalent: "")
@@ -34,7 +35,7 @@ class StatusBarController {
 
     // ── Menu setup ─────────────────────────────────────────────────────────
     private func setupMenu() {
-        [statusItem, addrItem, cpuItem, ramItem].forEach { $0.isEnabled = false }
+        [statusItem, addrItem, cpuItem, gpuItem, ramItem].forEach { $0.isEnabled = false }
         [copyItem, openItem, inputItem, startItem, stopItem,
          restartItem, logsItem, quitItem].forEach { $0.target = self }
 
@@ -50,7 +51,7 @@ class StatusBarController {
         let menu = NSMenu()
         for i in [statusItem, addrItem, copyItem, openItem, inputItem,
                   NSMenuItem.separator(),
-                  cpuItem, ramItem,
+                  cpuItem, gpuItem, ramItem,
                   NSMenuItem.separator(),
                   startItem, stopItem, restartItem,
                   NSMenuItem.separator(),
@@ -73,6 +74,7 @@ class StatusBarController {
         stopItem.action     = state.running ? #selector(stopServer)    : nil
         restartItem.action  = state.running ? #selector(restartServer) : nil
         cpuItem.title       = "⚡  CPU   \(Int(state.cpu.rounded()))%"
+        gpuItem.title       = state.gpu.map { "◈  GPU   \(Int($0.rounded()))%" } ?? "◈  GPU   unavailable"
         ramItem.title       = "🧠  RAM   \(String(format: "%.1f", state.ramUsed)) / \(Int(state.ramTotal)) GB"
     }
 

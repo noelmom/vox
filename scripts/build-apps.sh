@@ -63,6 +63,7 @@ swiftc \
     -target arm64-apple-macos13.0 \
     -framework AppKit \
     -framework Foundation \
+    -framework IOKit \
     "$ROOT/voxhelper/main.swift" \
     "$ROOT/voxhelper/AppDelegate.swift" \
     "$ROOT/voxhelper/StatusBarController.swift" \

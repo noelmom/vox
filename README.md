@@ -522,8 +522,8 @@ sqlite3 ~/Library/Application\ Support/Vox/data/vox.db
 - [x] LaunchAgent for server (manual start, crash-restart, structured logs)
 - [x] LaunchAgent for helper (auto-starts on login)
 - [x] Swift menu bar rewrite — native AppKit, eliminates Python/PyObjC issues on macOS Sequoia
-- [ ] Finish real waveform coverage for every surface (some players decode real amplitude; remaining placeholders still exist)
-- [ ] Microphone error classification — distinct UI for no-device / access-denied / insecure context (regressed in React rewrite — v1.0.0 blocker)
+- [x] Real waveform coverage across audio-bearing surfaces (decoded peaks for fetched/recorded/uploaded audio; placeholders only for loading/decorative states)
+- [x] Microphone error classification — distinct UI for no-device / access-denied / insecure context
 - [ ] Streaming audio response (chunked transfer)
 - [ ] One-click `.app` packaging and code signing
 - [ ] Auto-launch on login (server — helper already auto-starts)

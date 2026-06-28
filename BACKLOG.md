@@ -53,9 +53,9 @@ Ideas and improvements to revisit. Not bugs — these are enhancements queued fo
 
 ## Web UI
 
-- [ ] **[REGRESSION] Voice recorder — no distinction between "no microphone device" and "microphone access denied"**
+- [x] **[REGRESSION] Voice recorder — no distinction between "no microphone device" and "microphone access denied"**
 
-  This was previously fixed in the original UI but regressed in the React rewrite. The voice recorder currently shows a single generic error regardless of whether the failure is because the device has no microphone at all, or because the user (or macOS) denied microphone permission to the browser.
+  Implemented in `ui-src/src/routes/app.library.tsx`. The React voice recorder now has distinct `no-device`, `denied`, and `insecure-context` states, runs a preflight check on mount, uses microphone permission state where available, and shows tailored recovery copy/actions for each case.
 
   These are three different problems requiring three different messages and recovery actions:
 
@@ -94,9 +94,9 @@ Ideas and improvements to revisit. Not bugs — these are enhancements queued fo
 
   **Longer term:** FAQ entry and/or handle it inside the `.pkg` installer flow.
 
-- [ ] **[BLOCKER — v1.0.0] Finish real audio waveform visualisation across every surface**
+- [x] **[BLOCKER — v1.0.0] Finish real audio waveform visualisation across every audio-bearing surface**
 
-  This is partially implemented. Generated-job players and several recording/library surfaces decode audio into real amplitude buckets, and live recording uses analyser-driven bars. Some surfaces still fall back to deterministic placeholder bars before audio is fetched or decoded. Before v1.0.0, audit every waveform and remove/limit fake placeholders so users can trust the visual signal.
+  Verified in `ui-src/src/routes/app.index.tsx`, `ui-src/src/routes/app.library.tsx`, `ui-src/src/routes/app.recordings.tsx`, `ui-src/src/components/TrimWaveform.tsx`, and `ui-src/src/lib/audio-trim.ts`. Audio-bearing players decode fetched/recorded/uploaded audio into real amplitude buckets, live recording uses `AnalyserNode`, and trim controls render decoded peaks. Deterministic bars remain only as loading/prefetch skeletons before audio is available, disabled generic preview decoration, and landing-page decoration.
 
   **Affected components (all in `ui-src/src/routes/`):**
   - `app.library.tsx` — `Waveform` (animated flag, used in RecordPane and UploadPane preview) and `MiniWave` (decorative bar in ProfileCard footer)
@@ -145,20 +145,11 @@ Ideas and improvements to revisit. Not bugs — these are enhancements queued fo
 
   **Open question:** should the Update path show an undo/revert option for a few seconds after saving, so users can roll back a mis-click? Probably a nice-to-have for v2.
 
-- [ ] **[LOW] Replace timer on "Processing Script…" button with a progress bar or percentage**
+- [x] **[LOW] Move generation progress out of the Generate button**
 
-  The Generate button cycles through states: `Generate Voice` → `Processing Script…` → result. While processing, the button currently shows an elapsed timer (e.g. "Processing Script… 0:12"). The elapsed time is redundant — the Result pane already shows a timer. The button real estate is better used to show how far along the generation actually is.
+  Implemented in `ui-src/src/routes/app.index.tsx` and `ui-src/src/routes/app.tsx`. The Generate button stays focused on submission state, while queued/running progress is shown in the Create result panel and compact global status bar with elapsed time, estimate/finalizing state, and cancel controls. This avoids overcrowding the button while still giving users visible progress during long generations.
 
-  **Proposed behaviour:**
-  - Remove the elapsed clock from the button label entirely.
-  - Replace it with either a progress bar filling the button background left-to-right, or a percentage readout (e.g. "Processing… 34%").
-  - Progress should be derived from real server data. Two options:
-    1. **Chunk-based estimate** — the API already knows `chunks` (total chunks in the script). If the backend emits per-chunk completion events via SSE (`GET /jobs/{id}/stream`), the frontend can show `chunks_done / total_chunks * 100`. This is the most accurate approach and pairs with the SSE backlog item.
-    2. **Elapsed-time heuristic** — use the average RTF from recent jobs in the DB to estimate total duration, then advance a progress bar based on elapsed time. Simpler but less accurate; bar could stall or overshoot.
-  - Option 1 is preferred but requires the SSE work to land first. Until then, option 2 is a usable interim.
-  - The button text while processing should just read `Processing…` (no clock, no percentage if using the bar variant).
-
-  **Files to touch:** `ui-src/src/routes/app.index.tsx` — the generate button state machine and its label/style logic.
+  **Future refinement:** once SSE or explicit chunk-progress events exist, replace the current ETA-style progress estimate with true chunk completion progress.
 
 - [x] **[LOW] Recent scripts history — quick re-use from script box**
 
@@ -237,10 +228,10 @@ Ideas and improvements to revisit. Not bugs — these are enhancements queued fo
   - Model not yet downloaded / cache missing
   - GPU unavailable, falling back to CPU
 
-- [ ] **Detect missing microphone on page load in the voice recorder** *(regressed in React rewrite — see full spec above)*
-  - Distinct `no-device` vs `denied` vs `insecure-context` states with tailored error UI and "Try again" buttons.
+- [x] **Detect missing microphone on page load in the voice recorder**
+  - Distinct `no-device` vs `denied` vs `insecure-context` states with tailored error UI and recovery actions are implemented in `RecordPane`.
   - Device selector dropdown when multiple mics available (`enumerateDevices()` after permission grant).
-  - Was implemented in the original vanilla-JS UI; must be re-implemented in `ui-src/src/routes/app.library.tsx` `RecordPane`.
+  - Implemented in `ui-src/src/routes/app.library.tsx` `RecordPane`.
 
 
 - [x] Text input with preset selector
@@ -253,7 +244,7 @@ Ideas and improvements to revisit. Not bugs — these are enhancements queued fo
 
 ## macOS Menu Bar Helper
 
-- [x] **CPU and RAM stats** — live metrics shown in the menu, polled every 5s via host_statistics / vm_statistics64.
+- [x] **CPU and RAM stats** — live metrics shown in the menu, polled every 2s via host_statistics / vm_statistics64. Startup takes a second baseline CPU sample so the first visible update is not stuck at 0%, and RAM includes compressed memory in the used value.
 
 - [ ] **Version number and support link in helper menu**
   - Show current version (git tag or short SHA, read at startup) as a non-clickable label near the top of the menu — e.g. `v0.2.0 · build a1b2c3`.
@@ -276,7 +267,7 @@ Ideas and improvements to revisit. Not bugs — these are enhancements queued fo
   - If the window expires with no healthy response → transition to `🔴 Stopped…` so the user knows something went wrong.
   - Avoids the confusing jump from Restarting directly to red/Stopped during the normal stop phase of a restart.
 
-- [ ] **GPU / MPS utilization** — no public API. Options: parse `powermetrics` (requires sudo) or use IOKit (what Stats.app uses). Helper is now native Swift so IOKit access is straightforward when ready.
+- [x] **GPU / MPS utilization** — VoxHelper now uses best-effort IOKit accelerator performance counters from native Swift. The helper menu shows `GPU N%` when macOS exposes a usable counter and `GPU unavailable` otherwise; no `powermetrics`, sudo, or shell sampling required.
 
 ---
 
@@ -482,26 +473,15 @@ Ideas and improvements to revisit. Not bugs — these are enhancements queued fo
 
 ## Landing Page
 
-- [ ] **[BLOCKER — v1.0.0] Install window background indistinguishable from menu bar**
+- [x] **[BLOCKER — v1.0.0] Install window background indistinguishable from menu bar**
 
-  The terminal/install window mockup on the landing page uses the same (or very similar) background color as the simulated macOS menu bar above it, making the two regions blend together. The window content area needs to read as a distinct, lighter surface so the mockup clearly communicates "this is a terminal window inside a menu bar screenshot."
+  Verified in `ui-src/src/routes/index.tsx`. The install panel now uses a distinct white window body, subtle chrome, border, and layered shadow against the dark get-started section so the card reads as a separate installer/terminal surface.
 
-  **Fix:** lighten the window body background — e.g. `#1e1e1e` or similar dark-but-distinct value versus the menu bar's near-black — so there's visible depth separation. A subtle border or drop shadow between the two zones may also help. Verify on both light and dark OS themes if the mockup is static.
+- [x] **[BLOCKER — v1.0.0] "Buy Me a Coffee" button looks out of place next to "View on GitHub"**
 
-  File: `ui-src/src/routes/index.tsx` (landing page install section).
+  Verified in `ui-src/src/routes/index.tsx`. The GitHub and coffee links now share the same outline button treatment, radius, typography, spacing, and hover behavior, with a custom inline coffee icon instead of an embedded third-party badge.
 
-- [ ] **[BLOCKER — v1.0.0] "Buy Me a Coffee" button looks out of place next to "View on GitHub"**
-
-  The two CTA buttons sit side by side on the landing page, but "Buy Me a Coffee" is visually inconsistent with the polished "View on GitHub" button — different weight, color treatment, or style signals "third-party widget" rather than a cohesive design. On a v1.0.0 landing page this reads as unfinished.
-
-  **Options to consider:**
-  - Restyle the coffee button to match the GitHub button's border, radius, font weight, and icon treatment — same visual language, different icon (e.g. a coffee cup from lucide or a custom SVG) and label.
-  - Use a plain `<a>` link styled as a secondary outline button that links to the Buy Me a Coffee URL instead of embedding their widget/badge.
-  - Reconsider placement — if the two buttons are meant to have different visual weight (GitHub = primary, coffee = secondary), make that hierarchy intentional rather than accidental.
-
-  File: `ui-src/src/routes/index.tsx` (landing page hero / CTA section).
-
-- [ ] **Increase nav and footer text contrast** — the landing page nav links and footer copy are too light on some screens. Target WCAG AA contrast ratio (4.5:1) against the page background. Fix in `ui-src/src/routes/index.tsx` (landing page) using Tailwind opacity utilities or updated colour values.
+- [x] **Increase nav and footer text contrast** — verified in `ui-src/src/routes/index.tsx`. Nav links use stronger foreground contrast, and footer links/body copy are readable against the dark footer gradient with brighter hover states.
 
 - [ ] **Smooth scroll navigation** — nav links animate to each section instead of jumping. `scroll-behavior: smooth` baseline + JS easing curve. Active link highlight updates as user scrolls past sections.
 

@@ -883,7 +883,7 @@ function GetStarted() {
                   Download .pkg installer
                   <ChevronRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
                 </a>
-                <p className="mt-3 text-center text-[11px] text-white/40">
+                <p className="mt-3 text-center text-[11px] text-black/45">
                   Double-click to install · No Terminal required
                 </p>
               </div>

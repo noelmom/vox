@@ -1,10 +1,12 @@
 import AppKit
 import Darwin
+import IOKit
 
 struct ServerState {
     var running   = false
     var addrLabel = "—"
     var cpu       = 0.0
+    var gpu: Double?
     var ramUsed   = 0.0
     var ramTotal  = 0.0
 }
@@ -21,8 +23,11 @@ class ServerMonitor {
 
     func start() {
         poll()
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { [weak self] in
+            self?.poll()
+        }
         DispatchQueue.main.async {
-            self.timer = Timer.scheduledTimer(withTimeInterval: 5, repeats: true) { [weak self] _ in
+            self.timer = Timer.scheduledTimer(withTimeInterval: 2, repeats: true) { [weak self] _ in
                 self?.poll()
             }
         }
@@ -59,6 +64,7 @@ class ServerMonitor {
             s.running   = self.checkServer()
             s.addrLabel = self.addrLabel()
             s.cpu       = self.cpuPercent()
+            s.gpu       = self.gpuPercent()
             let mem     = self.memGB()
             s.ramUsed   = mem.used
             s.ramTotal  = mem.total
@@ -158,6 +164,95 @@ class ServerMonitor {
         return ((dTotal - dIdle) / dTotal) * 100
     }
 
+    // ── GPU % ──────────────────────────────────────────────────────────────
+    // Apple does not expose one stable public GPU-utilization API. IOKit does
+    // publish accelerator performance counters on many Apple Silicon systems,
+    // so this is intentionally best-effort and non-fatal.
+    private func gpuPercent() -> Double? {
+        var iterator: io_iterator_t = 0
+        let match = IOServiceMatching("IOAccelerator")
+        guard IOServiceGetMatchingServices(kIOMainPortDefault, match, &iterator) == KERN_SUCCESS else {
+            return nil
+        }
+        defer { IOObjectRelease(iterator) }
+
+        while true {
+            let service = IOIteratorNext(iterator)
+            if service == 0 { break }
+            defer { IOObjectRelease(service) }
+
+            if let value = gpuPercent(from: service) {
+                return min(100, max(0, value))
+            }
+        }
+
+        return nil
+    }
+
+    private func gpuPercent(from service: io_object_t) -> Double? {
+        var props: Unmanaged<CFMutableDictionary>?
+        guard IORegistryEntryCreateCFProperties(service, &props, kCFAllocatorDefault, 0) == KERN_SUCCESS,
+              let dict = props?.takeRetainedValue() as? [String: Any] else {
+            return nil
+        }
+
+        return findGpuPercent(in: dict)
+    }
+
+    private func findGpuPercent(in value: Any) -> Double? {
+        if let dict = value as? [String: Any] {
+            for key in [
+                "Device Utilization %",
+                "GPU Core Utilization",
+                "GPU Activity(%)",
+                "GPU Activity %",
+                "Busy %",
+                "Utilization %"
+            ] {
+                if let number = numericPercent(dict[key]) {
+                    return number
+                }
+            }
+
+            if let stats = dict["PerformanceStatistics"], let number = findGpuPercent(in: stats) {
+                return number
+            }
+
+            for nested in dict.values {
+                if let number = findGpuPercent(in: nested) {
+                    return number
+                }
+            }
+        } else if let array = value as? [Any] {
+            for nested in array {
+                if let number = findGpuPercent(in: nested) {
+                    return number
+                }
+            }
+        }
+
+        return nil
+    }
+
+    private func numericPercent(_ value: Any?) -> Double? {
+        switch value {
+        case let n as NSNumber:
+            return n.doubleValue
+        case let n as Double:
+            return n
+        case let n as Float:
+            return Double(n)
+        case let n as Int:
+            return Double(n)
+        case let n as UInt64:
+            return Double(n)
+        case let n as String:
+            return Double(n.trimmingCharacters(in: CharacterSet(charactersIn: "% ")))
+        default:
+            return nil
+        }
+    }
+
     // ── RAM ────────────────────────────────────────────────────────────────
     private func memGB() -> (used: Double, total: Double) {
         let gb    = 1_073_741_824.0
@@ -174,7 +269,7 @@ class ServerMonitor {
         guard kr == KERN_SUCCESS else { return (0, total) }
 
         let page = Double(vm_page_size)
-        let used = (Double(stats.active_count) + Double(stats.wire_count)) * page / gb
+        let used = (Double(stats.active_count) + Double(stats.wire_count) + Double(stats.compressor_page_count)) * page / gb
         return (used, total)
     }
 
