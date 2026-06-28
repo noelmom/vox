@@ -234,7 +234,19 @@ function GenerationWidget() {
   const elapsed = Math.max(0, Math.floor((now - startedAt) / 1000));
   const requestLabel = state.phase === "polling" ? state.requestId.slice(0, 8) : "pending";
   const queued = state.phase === "polling" && state.status === "queued";
-  const progressPct = queued ? 18 : Math.min(92, 24 + elapsed / 3);
+  const reportedProgress = state.phase === "polling" ? state.progressPct : null;
+  const progressPct =
+    typeof reportedProgress === "number" ? Math.max(0, Math.min(100, reportedProgress)) : queued ? 18 : Math.min(92, 24 + elapsed / 3);
+  const queuePosition = state.phase === "polling" ? state.queuePosition : null;
+  const chunkLabel =
+    state.phase === "polling" && state.progressTotal ? `${state.progressCurrent ?? 0}/${state.progressTotal} chunks` : null;
+  const progressMessage = state.phase === "polling" ? state.progressMessage : null;
+  const statusLabel = queued ? (queuePosition && queuePosition > 1 ? `Queued #${queuePosition}` : "Queued") : "Generating audio";
+  const metaLabel = queued
+    ? queuePosition && queuePosition > 1
+      ? `Waiting behind ${queuePosition - 1} ${queuePosition === 2 ? "job" : "jobs"}`
+      : "Waiting for engine"
+    : [progressMessage, chunkLabel, `${formatElapsed(elapsed)} elapsed`].filter(Boolean).join(" · ");
 
   return (
     <div className="border-b border-[color-mix(in_oklch,var(--brand)_12%,white)] bg-white/85 px-4 py-2 backdrop-blur-xl sm:px-8">
@@ -244,11 +256,9 @@ function GenerationWidget() {
         </div>
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[12px]">
-            <span className="font-bold text-foreground">{queued ? "Queued" : "Generating audio"}</span>
+            <span className="font-bold text-foreground">{statusLabel}</span>
             <span className="text-foreground/45">job {requestLabel}</span>
-            <span className="font-medium text-foreground/65">
-              {queued ? "Waiting for engine" : `${formatElapsed(elapsed)} elapsed`}
-            </span>
+            <span className="font-medium text-foreground/65">{metaLabel}</span>
           </div>
           <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-[color-mix(in_oklch,var(--brand-soft)_60%,white)]">
             <div

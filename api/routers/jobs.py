@@ -11,7 +11,22 @@ router = APIRouter(prefix="/jobs", tags=["jobs"])
 
 
 _JOB_SELECT = """
-    SELECT j.*, v.name AS voice_name
+    SELECT
+        j.*,
+        v.name AS voice_name,
+        CASE
+            WHEN j.status = 'processing' THEN 0
+            WHEN j.status = 'queued' THEN (
+                SELECT COUNT(*)
+                FROM jobs q
+                WHERE q.status IN ('queued', 'processing')
+                  AND (
+                      datetime(q.created_at) < datetime(j.created_at)
+                      OR (datetime(q.created_at) = datetime(j.created_at) AND q.request_id <= j.request_id)
+                  )
+            )
+            ELSE NULL
+        END AS queue_position
     FROM jobs j
     LEFT JOIN voices v ON v.id = j.voice_id
 """

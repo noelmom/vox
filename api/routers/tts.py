@@ -167,10 +167,23 @@ async def _run_generation(
             await db.commit()
             return
 
+        await db.execute(
+            """UPDATE jobs
+               SET chunks=?, progress_current=0, progress_total=?, progress_pct=?, progress_message=?
+               WHERE request_id=? AND status NOT IN ('cancelled', 'failed')""",
+            (len(chunks), len(chunks), 0.0, "Waiting for the generation engine.", rid),
+        )
+        await db.commit()
+
         model = get_model()
         loop = asyncio.get_running_loop()
         async with get_lock():
-            await db.execute("UPDATE jobs SET status='processing' WHERE request_id=?", (rid,))
+            await db.execute(
+                """UPDATE jobs
+                   SET status='processing', progress_current=0, progress_total=?, progress_pct=?, progress_message=?
+                   WHERE request_id=? AND status != 'cancelled'""",
+                (len(chunks), 0.0, "Starting generation.", rid),
+            )
             await db.commit()
 
             log.info(
@@ -183,6 +196,14 @@ async def _run_generation(
             audio_segments = []
 
             for i, chunk in enumerate(chunks):
+                await db.execute(
+                    """UPDATE jobs
+                       SET progress_current=?, progress_total=?, progress_pct=?, progress_message=?
+                       WHERE request_id=? AND status='processing'""",
+                    (i, len(chunks), round((i / len(chunks)) * 90, 1), f"Generating chunk {i + 1} of {len(chunks)}.", rid),
+                )
+                await db.commit()
+
                 prompt_path = str(audio_prompt_path) if audio_prompt_path else None
                 min_duration_s = _minimum_expected_chunk_duration_s(chunk.text)
                 timeout_s = _generation_timeout_s(chunk.text)
@@ -228,6 +249,19 @@ async def _run_generation(
                     )
 
                 audio_segments.append((audio, chunk.pause_after_s if i < len(chunks) - 1 else 0.0))
+                await db.execute(
+                    """UPDATE jobs
+                       SET progress_current=?, progress_total=?, progress_pct=?, progress_message=?
+                       WHERE request_id=? AND status='processing'""",
+                    (
+                        i + 1,
+                        len(chunks),
+                        round(((i + 1) / len(chunks)) * 90, 1),
+                        f"Generated chunk {i + 1} of {len(chunks)}.",
+                        rid,
+                    ),
+                )
+                await db.commit()
 
             generation_s = time.time() - generation_start
 
@@ -239,6 +273,11 @@ async def _run_generation(
         encode_s = None
 
         if output_format_name == "mp3":
+            await db.execute(
+                "UPDATE jobs SET progress_pct=?, progress_message=? WHERE request_id=? AND status='processing'",
+                (94.0, "Encoding MP3.", rid),
+            )
+            await db.commit()
             wav_path = settings.output_dir / f"{output_id}.wav"
             sf.write(str(wav_path), final_audio, model.sr, subtype="PCM_16")
             mp3_path = settings.output_dir / f"{output_id}.mp3"
@@ -248,6 +287,11 @@ async def _run_generation(
             wav_path.unlink(missing_ok=True)
             output_path = mp3_path
         else:
+            await db.execute(
+                "UPDATE jobs SET progress_pct=?, progress_message=? WHERE request_id=? AND status='processing'",
+                (96.0, "Writing WAV.", rid),
+            )
+            await db.commit()
             subtype = WAV_SUBTYPES.get(wav_bit_depth or "16", "PCM_16")
             wav_path = settings.output_dir / f"{output_id}.wav"
             sf.write(str(wav_path), final_audio, model.sr, subtype=subtype)
@@ -261,10 +305,12 @@ async def _run_generation(
                 status='completed', output_path=?, chunks=?,
                 audio_duration_s=?, generation_s=?, encode_s=?,
                 total_s=?, rtf=?, device=?,
+                progress_current=?, progress_total=?, progress_pct=?, progress_message=?,
                 completed_at=datetime('now')
                WHERE request_id=? AND status NOT IN ('cancelled', 'failed')""",
             (str(output_path), len(chunks), audio_duration_s,
-             generation_s, encode_s, total_s, rtf, device, rid),
+             generation_s, encode_s, total_s, rtf, device,
+             len(chunks), len(chunks), 100.0, "Completed.", rid),
         )
         await db.commit()
 

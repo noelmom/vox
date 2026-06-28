@@ -218,9 +218,33 @@ type GenResult = { job: Job; blob: Blob; url: string };
 type GenState =
   | { phase: "idle" }
   | { phase: "submitting" }
-  | { phase: "polling"; requestId: string; startedAt: number; status?: "queued" | "processing" }
+  | {
+      phase: "polling";
+      requestId: string;
+      startedAt: number;
+      status?: "queued" | "processing";
+      queuePosition?: number | null;
+      progressPct?: number | null;
+      progressCurrent?: number | null;
+      progressTotal?: number | null;
+      progressMessage?: string | null;
+    }
   | { phase: "done"; result: GenResult }
   | { phase: "error"; message: string; requestId?: string };
+
+function pollingStateFromJob(job: Job, requestId: string, startedAt: number): Extract<GenState, { phase: "polling" }> {
+  return {
+    phase: "polling",
+    requestId,
+    startedAt,
+    status: job.status === "queued" || job.status === "processing" ? job.status : undefined,
+    queuePosition: job.queue_position,
+    progressPct: job.progress_pct,
+    progressCurrent: job.progress_current,
+    progressTotal: job.progress_total,
+    progressMessage: job.progress_message,
+  };
+}
 
 const SCRIPT_HISTORY_KEY = "vox:script-history";
 const SCRIPT_HISTORY_LIMIT = 10;
@@ -372,6 +396,11 @@ function GeneratePage() {
         requestId: genState.requestId,
         startedAt: genState.startedAt,
         status: genState.status,
+        queuePosition: genState.queuePosition,
+        progressPct: genState.progressPct,
+        progressCurrent: genState.progressCurrent,
+        progressTotal: genState.progressTotal,
+        progressMessage: genState.progressMessage,
       });
     } else if (genState.phase === "done") {
       setGenerationState({ phase: "done", requestId: genState.result.job.request_id });
@@ -403,13 +432,9 @@ function GeneratePage() {
 
         if (job.status === "queued" || job.status === "processing") {
           generationStartedAtRef.current = parseServerDate(job.created_at).getTime() || Date.now();
-          setGenState({ phase: "polling", requestId: savedRequestId, startedAt: generationStartedAtRef.current, status: job.status });
-          setGenerationState({
-            phase: "polling",
-            requestId: savedRequestId,
-            startedAt: generationStartedAtRef.current,
-            status: job.status,
-          });
+          const next = pollingStateFromJob(job, savedRequestId, generationStartedAtRef.current);
+          setGenState(next);
+          setGenerationState(next);
           return;
         }
 
@@ -449,13 +474,9 @@ function GeneratePage() {
         if (job.status === "queued" || job.status === "processing") {
           const startedAt = genState.startedAt || generationStartedAtRef.current || parseServerDate(job.created_at).getTime() || Date.now();
           generationStartedAtRef.current = startedAt;
-          setGenState({ phase: "polling", requestId, startedAt, status: job.status });
-          setGenerationState({
-            phase: "polling",
-            requestId,
-            startedAt,
-            status: job.status,
-          });
+          const next = pollingStateFromJob(job, requestId, startedAt);
+          setGenState(next);
+          setGenerationState(next);
           return;
         }
 
@@ -531,8 +552,15 @@ function GeneratePage() {
 
       activeRequestRef.current = request_id;
       localStorage.setItem(LAST_REQUEST_KEY, request_id);
-      setGenState({ phase: "polling", requestId: request_id, startedAt: generationStartedAtRef.current, status: "queued" });
-      setGenerationState({ phase: "polling", requestId: request_id, startedAt: generationStartedAtRef.current, status: "queued" });
+      const next: Extract<GenState, { phase: "polling" }> = {
+        phase: "polling",
+        requestId: request_id,
+        startedAt: generationStartedAtRef.current,
+        status: "queued",
+        progressPct: 0,
+      };
+      setGenState(next);
+      setGenerationState(next);
     } catch (err) {
       if (!abortRef.current) {
         const message = err instanceof Error ? err.message : String(err);
@@ -883,6 +911,11 @@ function GeneratePage() {
               <GeneratingRow
                 elapsed={elapsed}
                 queued={genState.phase === "polling" && genState.status === "queued"}
+                queuePosition={genState.phase === "polling" ? genState.queuePosition : null}
+                progressPct={genState.phase === "polling" ? genState.progressPct : null}
+                progressCurrent={genState.phase === "polling" ? genState.progressCurrent : null}
+                progressTotal={genState.phase === "polling" ? genState.progressTotal : null}
+                progressMessage={genState.phase === "polling" ? genState.progressMessage : null}
                 stopping={stopping}
                 onCancel={handleCancelGeneration}
               />
@@ -1778,17 +1811,35 @@ function getGenerationStatus(elapsed: number, queued = false) {
 function GeneratingRow({
   elapsed,
   queued,
+  queuePosition,
+  progressPct,
+  progressCurrent,
+  progressTotal,
+  progressMessage,
   stopping,
   onCancel,
 }: {
   elapsed: number;
   queued: boolean;
+  queuePosition?: number | null;
+  progressPct?: number | null;
+  progressCurrent?: number | null;
+  progressTotal?: number | null;
+  progressMessage?: string | null;
   stopping: boolean;
   onCancel: () => void;
 }) {
   const activeStep = getGenerationStep(elapsed, queued);
   const activeStatus = getGenerationStatus(elapsed, queued);
-  const progressPct = queued ? 16 : Math.min(92, 24 + elapsed / 3);
+  const displayProgress =
+    typeof progressPct === "number" ? Math.max(0, Math.min(100, progressPct)) : queued ? 16 : Math.min(92, 24 + elapsed / 3);
+  const queueLabel = queued && queuePosition && queuePosition > 1 ? `Queued #${queuePosition}` : "Queued";
+  const chunkLabel = progressTotal ? `${progressCurrent ?? 0}/${progressTotal} chunks` : null;
+  const detailText = queued
+    ? queuePosition && queuePosition > 1
+      ? `Waiting behind ${queuePosition - 1} ${queuePosition === 2 ? "job" : "jobs"}.`
+      : "Waiting for the generation engine."
+    : [progressMessage || activeStatus.detail, chunkLabel, `${fmtTime(elapsed)} elapsed`].filter(Boolean).join(" · ");
 
   return (
     <div className="overflow-hidden rounded-2xl border border-[color-mix(in_oklch,var(--brand)_16%,white)] bg-[linear-gradient(180deg,var(--brand-soft)_0%,white_30%,var(--background)_100%)] shadow-[0_18px_36px_-28px_oklch(0.16_0.02_260/0.28)]">
@@ -1803,11 +1854,11 @@ function GeneratingRow({
                 {queued ? "Waiting in queue…" : "Generating audio…"}
               </div>
               <span className="rounded-full border border-[color-mix(in_oklch,var(--brand)_20%,white)] bg-white/90 px-2.5 py-0.5 text-[11px] font-semibold text-[var(--brand)] shadow-sm">
-                {queued ? "Queued" : activeStatus.label}
+                {queued ? queueLabel : activeStatus.label}
               </span>
             </div>
             <div className="mt-1 text-[12.5px] text-foreground/60">
-              {queued ? "Another render is using the engine right now." : `${activeStatus.detail} · ${fmtTime(elapsed)} elapsed`}
+              {detailText}
             </div>
           </div>
         </div>
@@ -1855,7 +1906,15 @@ function GeneratingRow({
                   <div className="min-w-0">
                     <div className="text-[13px] font-semibold text-foreground">{step.label}</div>
                     <div className="mt-0.5 text-[11.5px] leading-snug text-foreground/55">
-                      {queued && stepNumber === 1 ? "Waiting for the engine" : isActive ? `${step.detail} now` : step.detail}
+                      {queued && stepNumber === 1
+                        ? queuePosition && queuePosition > 1
+                          ? `Queue position ${queuePosition}`
+                          : "Waiting for the engine"
+                        : isActive && progressMessage
+                          ? progressMessage
+                          : isActive
+                            ? `${step.detail} now`
+                            : step.detail}
                     </div>
                   </div>
                 </div>
@@ -1866,7 +1925,7 @@ function GeneratingRow({
         <div className="mt-4 h-1.5 overflow-hidden rounded-full bg-white/80">
           <div
             className="h-full rounded-full bg-[linear-gradient(90deg,var(--brand),var(--brand-secondary),var(--brand-warm))] transition-[width] duration-700"
-            style={{ width: `${progressPct}%` }}
+            style={{ width: `${displayProgress}%` }}
           />
         </div>
       </div>

@@ -34,6 +34,11 @@ export type Job = {
   error: string | null;
   voice_name: string | null;
   device: string | null;
+  queue_position: number | null;
+  progress_current: number | null;
+  progress_total: number | null;
+  progress_pct: number | null;
+  progress_message: string | null;
   created_at: string;
   completed_at: string | null;
   file_available: boolean;

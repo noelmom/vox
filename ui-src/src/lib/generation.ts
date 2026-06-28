@@ -1,7 +1,17 @@
 export type GenerationStatus =
   | { phase: "idle" }
   | { phase: "submitting" }
-  | { phase: "polling"; requestId: string; startedAt: number; status?: "queued" | "processing" }
+  | {
+      phase: "polling";
+      requestId: string;
+      startedAt: number;
+      status?: "queued" | "processing";
+      queuePosition?: number | null;
+      progressPct?: number | null;
+      progressCurrent?: number | null;
+      progressTotal?: number | null;
+      progressMessage?: string | null;
+    }
   | { phase: "done"; requestId?: string }
   | { phase: "error"; requestId?: string; message: string }
   | { phase: "cancelled"; requestId?: string };
