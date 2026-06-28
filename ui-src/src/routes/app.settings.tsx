@@ -21,7 +21,6 @@ import {
   Download,
   Upload,
   Monitor,
-  Moon,
   Sun,
 } from "lucide-react";
 import { type ServerSettings, exportBackup, getServerSettings, listVoices, listPresets, patchServerSettings, restoreBackup } from "@/lib/api";
@@ -55,7 +54,7 @@ function loadPrefs() {
     advanced: lsGet("vox:advanced", ADVANCED_DEFAULTS),
     voiceId: lsGet("vox:voiceId", ""),
     tone: lsGet("vox:tone", "Default"),
-    theme: lsGet<"system" | "light" | "dark">("vox:theme", "system"),
+    theme: "light" as const,
     widgetRequests: lsGet("vox:widget.requests", true),
     widgetMinutes: lsGet("vox:widget.minutes", true),
   };
@@ -68,7 +67,7 @@ function savePrefs(p: ReturnType<typeof loadPrefs>) {
   localStorage.setItem("vox:advanced", JSON.stringify(p.advanced));
   localStorage.setItem("vox:voiceId", JSON.stringify(p.voiceId));
   localStorage.setItem("vox:tone", JSON.stringify(p.tone));
-  localStorage.setItem("vox:theme", JSON.stringify(p.theme));
+  localStorage.setItem("vox:theme", JSON.stringify("light"));
   localStorage.setItem("vox:widget.requests", JSON.stringify(p.widgetRequests));
   localStorage.setItem("vox:widget.minutes", JSON.stringify(p.widgetMinutes));
   window.dispatchEvent(new CustomEvent("vox:prefschanged"));
@@ -190,7 +189,7 @@ function SettingsPage() {
   };
 
   const handleReset = () => {
-    const defaults = { format: "mp3" as const, mp3Quality: "128", wavQuality: "16", advanced: ADVANCED_DEFAULTS, voiceId: "", tone: "Default", theme: "system" as const, widgetRequests: true, widgetMinutes: true };
+    const defaults = { format: "mp3" as const, mp3Quality: "128", wavQuality: "16", advanced: ADVANCED_DEFAULTS, voiceId: "", tone: "Default", theme: "light" as const, widgetRequests: true, widgetMinutes: true };
     setPrefs(defaults);
   };
 
@@ -386,16 +385,11 @@ function SettingsPage() {
 
       {/* APPEARANCE */}
       <Section id="appearance" title="Appearance" Icon={Monitor} subtitle="Display preferences for Vox Studio.">
-        <Row label="Theme" hint="System follows your macOS appearance setting.">
-          <SegmentToggle
-            value={prefs.theme}
-            onChange={(v) => set("theme", v)}
-            options={[
-              { value: "system", label: "System", icon: Monitor },
-              { value: "light", label: "Light", icon: Sun },
-              { value: "dark", label: "Dark", icon: Moon },
-            ]}
-          />
+        <Row label="Theme" hint="Dark mode is wired internally and deferred until after v1.0 polish.">
+          <span className="inline-flex items-center gap-2 rounded-xl border border-border bg-muted px-3 py-2 text-[13px] font-semibold text-foreground/80">
+            <Sun className="h-3.5 w-3.5 text-[var(--brand)]" />
+            Light
+          </span>
         </Row>
       </Section>
 

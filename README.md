@@ -37,7 +37,7 @@ It exposes a clean REST API and a web UI for generating high-quality audio from 
 - **Custom tone** — "✦ Custom" pill opens a parameter panel with sliders for all 6 TTS params; persists via `localStorage`
 - **Generation status** — global and Create-page progress indicators for queued/running jobs, with chunk progress, queue position, elapsed time, SSE updates, and cancel controls
 - **Backup & restore** — export/import SQLite history and voice assets from Settings
-- **Theme preference** — light, dark, or system appearance saved locally
+- **Theme preference** — v1 uses light mode only; dark-mode plumbing is deferred for post-v1 polish
 - **Real upload progress** — live byte-count progress bar during voice file uploads
 - **macOS menu bar helper** — monochrome VOX status icon, CPU %, RAM, Start/Stop/Restart, Open in Browser, Copy Address — auto-starts on login
 - **LaunchAgent management** — server and helper managed by macOS launchd; crash-restart, structured logs to `~/Library/Logs/Vox/`
@@ -550,7 +550,7 @@ Vox is now in a v1.0 scope freeze: only bug fixes, product polish, and true bloc
 - [x] Sidebar widgets — lifetime and daily request/audio-minutes stats with sparklines
 - [x] Generation status — queue position, true chunk progress, elapsed timer, SSE updates, global status bar, and cancel controls
 - [x] Backup & restore — export/import SQLite history and voice assets from Settings
-- [x] Theme preference plumbing — light, dark, or system appearance
+- [x] Theme preference plumbing — light mode enforced for v1; dark/system plumbing deferred for post-v1 polish
 - [x] Result download with format and quality controls
 - [x] Recent recordings with inline play, download, and delete
 - [x] Persistent generation error UI with retry/dismiss and request ID copy
