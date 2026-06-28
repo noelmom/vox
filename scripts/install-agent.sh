@@ -70,6 +70,16 @@ if [[ -f "$APP_SUPPORT/.env" ]]; then
 fi
 HOST="${VOX_HOST:-127.0.0.1}"
 PORT="${VOX_PORT:-8000}"
+PID_FILE="$APP_SUPPORT/vox-server.pid"
+
+if [[ -f "$PID_FILE" ]]; then
+    old_pid="$(cat "$PID_FILE" 2>/dev/null || true)"
+    if [[ -n "$old_pid" ]] && kill -0 "$old_pid" 2>/dev/null; then
+        echo "[vox] Server already running with PID $old_pid — exiting." >&2
+        exit 0
+    fi
+    rm -f "$PID_FILE"
+fi
 
 # Exit cleanly if another instance is already listening on the port
 if "$VENV/bin/python3" -c "
@@ -83,6 +93,14 @@ sys.exit(0 if r == 0 else 1)
     echo "[vox] Server already running on port $PORT — exiting." >&2
     exit 0
 fi
+
+echo $$ > "$PID_FILE"
+cleanup_pid() {
+    if [[ "$(cat "$PID_FILE" 2>/dev/null || true)" == "$$" ]]; then
+        rm -f "$PID_FILE"
+    fi
+}
+trap cleanup_pid EXIT
 
 cd "$APP_SUPPORT"
 exec "$VENV/bin/uvicorn" api.main:app --host "$HOST" --port "$PORT"

@@ -1,8 +1,16 @@
 from fastapi import APIRouter, Query
+from fastapi import HTTPException
 
 from api.core.db import get_db
-
 router = APIRouter(prefix="/logs", tags=["system"])
+
+_LOG_FILES = {
+    "server": "vox.log",
+    "server-error": "vox-error.log",
+    "helper": "vox-helper.log",
+    "helper-error": "vox-helper-error.log",
+    "install": "install.log",
+}
 
 
 @router.get(
@@ -80,3 +88,27 @@ async def list_logs(
         rows = await cur.fetchall()
 
     return [dict(row) for row in rows]
+
+
+@router.get(
+    "/files/{name}",
+    summary="Read a bounded Vox log tail",
+    description="Returns the last N lines from a known Vox log file. Only predefined log names are accepted.",
+)
+async def read_log_file(name: str, lines: int = Query(200, ge=1, le=1000)):
+    filename = _LOG_FILES.get(name)
+    if not filename:
+        raise HTTPException(status_code=404, detail="Log file not found")
+
+    from pathlib import Path
+
+    path = Path.home() / "Library" / "Logs" / "Vox" / filename
+    if not path.exists():
+        raise HTTPException(status_code=404, detail="Log file not found")
+
+    text_lines = path.read_text(errors="replace").splitlines()
+    return {
+        "name": name,
+        "path": str(path),
+        "lines": text_lines[-lines:],
+    }

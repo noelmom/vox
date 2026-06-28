@@ -48,9 +48,10 @@ Ideas and improvements to revisit. Not bugs — these are enhancements queued fo
   - Returns structured job/log history from SQLite, not raw log-file text.
   - Supports filters for `request_id`, `status`, `date_from`, `date_to`, `preset`, `voice`, and `user_agent`.
 
-- [ ] **Raw log-file viewer endpoint**
-  - Future optional work: expose bounded, read-only tails of `~/Library/Logs/Vox/vox.log` and `vox-error.log` for support/debugging.
-  - Keep this separate from `GET /api/v1/logs`, which already returns structured job history from SQLite.
+- [x] **Raw log-file viewer endpoint**
+  - Implemented as `GET /api/v1/logs/files/{name}`.
+  - Returns bounded, read-only tails from predefined Vox log names only: `server`, `server-error`, `helper`, `helper-error`, and `install`.
+  - Kept separate from `GET /api/v1/logs`, which returns structured job history from SQLite.
 
 ---
 
@@ -385,7 +386,7 @@ Ideas and improvements to revisit. Not bugs — these are enhancements queued fo
 
 - [x] **Single-instance enforcement** — VoxHelper uses `fcntl F_SETLK` on `.helper.lock`; OS releases lock on process exit. Server uses port connectivity check in `run.sh` before exec'ing uvicorn.
 
-- [ ] **Single-instance enforcement (server — PID file)** — `run.sh` port check works but a PID file would give cleaner error messages and survive edge cases where the port is in use by another process.
+- [x] **Single-instance enforcement (server — PID file)** — `scripts/run.sh` and the installed production `run.sh` now maintain `~/Library/Application Support/Vox/vox-server.pid`, exit cleanly if that PID is still alive, and clear stale PID files on the next start.
 
 - [x] **Signed `.pkg` installer for v1.0.0 release**
   - Implemented via `scripts/build-pkg.sh`.
@@ -808,7 +809,14 @@ Ideas and improvements to revisit. Not bugs — these are enhancements queued fo
   - Recovery: if the app restarts while a job is in flight, reconcile the persisted job state on startup so the UI does not show duplicate or orphaned runs.
 - [x] **Kill switch for in-flight jobs** — add an explicit way to stop work that is already running.
   Implemented with `POST /api/v1/tts/{request_id}/cancel`, active-task tracking, cancelled job status, Create-page cancel control, and global cancel control. Stale queued/processing jobs from agent restarts are marked failed on startup so the UI does not show orphaned runs.
-- [ ] **Sidebar stats panel** — use the empty space in the left navigation bar to surface live server stats.
+- [x] **Sidebar stats panel** — implemented in `ui-src/src/routes/app.tsx`.
+  - The left sidebar now includes Requests, Audio Generated, and Library & Storage widgets using `/api/v1/stats`.
+  - Widgets are user-toggleable from Settings and persist via localStorage.
+
+  Future optional work: add queue depth once the backend exposes explicit queue position.
+
+  Original proposal:
+  - Use the empty space in the left navigation bar to surface live server stats.
   - Candidates: requests processed (session + all-time), audio minutes generated (session + all-time), current queue depth, average generation time.
   - Pull from existing SQLite job history for all-time counts; track session counts in memory.
   - Update on each completed job — no polling needed if driven by the same SSE stream as queue feedback.
