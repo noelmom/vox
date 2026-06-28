@@ -1,5 +1,17 @@
 # Codename: Vox
 
+[![CI](https://github.com/MeloLabDev/codename-vox/actions/workflows/ci.yml/badge.svg?branch=development)](https://github.com/MeloLabDev/codename-vox/actions/workflows/ci.yml)
+![macOS](https://img.shields.io/badge/macOS-13%2B-000000?logo=apple&logoColor=white)
+![Apple Silicon](https://img.shields.io/badge/Apple%20Silicon-M1%2B-0A84FF?logo=apple&logoColor=white)
+![Python](https://img.shields.io/badge/Python-3.11-3776AB?logo=python&logoColor=white)
+![FastAPI](https://img.shields.io/badge/FastAPI-0.110%2B-009688?logo=fastapi&logoColor=white)
+![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=061018)
+![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?logo=typescript&logoColor=white)
+![Vite](https://img.shields.io/badge/Vite-6-646CFF?logo=vite&logoColor=white)
+![Swift](https://img.shields.io/badge/Swift-AppKit-F05138?logo=swift&logoColor=white)
+![SQLite](https://img.shields.io/badge/SQLite-local-003B57?logo=sqlite&logoColor=white)
+![On Device](https://img.shields.io/badge/AI-on--device-00A67E)
+
 A local, privacy-first text-to-speech (TTS) platform powered by [Chatterbox](https://github.com/resemble-ai/chatterbox) and optimised for Apple Silicon. Vox runs entirely on your machine — no cloud, no subscriptions, no data leaving your device.
 
 It exposes a clean REST API and a web UI for generating high-quality audio from named voice profiles. The long-term goal is a one-click macOS app with a native menu bar helper.
