@@ -39,6 +39,12 @@ export type Job = {
   file_available: boolean;
 };
 
+export function parseServerDate(value: string): Date {
+  const hasTimezone = /(?:Z|[+-]\d{2}:?\d{2})$/.test(value);
+  const normalized = value.includes("T") ? value : value.replace(" ", "T");
+  return new Date(hasTimezone ? normalized : `${normalized}Z`);
+}
+
 async function apiFetch(path: string, init?: RequestInit): Promise<Response> {
   const r = await fetch(path, init);
   if (!r.ok) {
@@ -145,6 +151,8 @@ export type ServerSettings = {
   device_config: string;
   device_resolved: string;
   host: string;
+  configured_host: string;
+  host_restart_required: boolean;
   port: number;
   output_dir: string;
   voice_dir: string;
@@ -184,8 +192,26 @@ export async function getServerSettings(): Promise<ServerSettings> {
   return apiFetch("/api/v1/settings").then((r) => r.json());
 }
 
+export async function patchServerSettings(patch: { host?: "127.0.0.1" | "0.0.0.0" }): Promise<{
+  changed: Record<string, string>;
+  host: string;
+  configured_host: string;
+  host_restart_required: boolean;
+}> {
+  const r = await apiFetch("/api/v1/settings", {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(patch),
+  });
+  return r.json();
+}
+
 export async function deleteJob(requestId: string): Promise<void> {
   await apiFetch(`/api/v1/jobs/${encodeURIComponent(requestId)}`, { method: "DELETE" });
+}
+
+export async function cancelJob(requestId: string): Promise<void> {
+  await apiFetch(`/api/v1/tts/${encodeURIComponent(requestId)}/cancel`, { method: "POST" });
 }
 
 type VoicePatch = Partial<

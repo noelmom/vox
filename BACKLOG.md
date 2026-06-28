@@ -78,7 +78,7 @@ Ideas and improvements to revisit. Not bugs — these are enhancements queued fo
 
   File: `ui-src/src/routes/app.library.tsx` — `RecordPane` component. The `classifyMicError` function is the right place to add the `isSecureContext` check.
 
-- [ ] **[BLOCKER — v1.0.0] Git not installed — macOS prompts to install Developer Tools and terminal command fails**
+- [x] **[BLOCKER — v1.0.0] Git not installed — macOS prompts to install Developer Tools and terminal command fails**
 
   On a fresh macOS machine without Xcode Command Line Tools, running any `git` command (including `bash vox.sh install` or `bash vox.sh update`) triggers a system dialog: *"The git command requires the command line developer tools. Would you like to install the tools now?"*. The terminal command hangs waiting for the dialog, and if the user dismisses it, the install fails with a confusing error.
 
@@ -90,13 +90,13 @@ Ideas and improvements to revisit. Not bugs — these are enhancements queued fo
   - **Document in README / FAQ** — at minimum, note the prerequisite and link to the one-liner (`xcode-select --install`) before the install steps.
   - **`.pkg` installer path** — if the v1.0.0 `.pkg` installer handles setup, it can bundle or pre-check this dependency at install time, bypassing the terminal issue entirely.
 
-  **Recommended short-term fix:** add a `command -v git || { echo "[vox] git is required. Run: xcode-select --install"; exit 1; }` guard in `setup.sh` and `vox.sh` so the user gets a clear message instead of a hanging dialog.
+  **Implemented short-term fix:** `vox.sh`, `scripts/update.sh`, and `setup.sh` now check for git / Xcode Command Line Tools and show `xcode-select --install` guidance instead of falling into the confusing macOS prompt/failure path.
 
   **Longer term:** FAQ entry and/or handle it inside the `.pkg` installer flow.
 
-- [ ] **[BLOCKER — v1.0.0] Real audio waveform visualisation**
+- [ ] **[BLOCKER — v1.0.0] Finish real audio waveform visualisation across every surface**
 
-  All waveforms in the app (voice profile cards, upload preview, record pane, generate result) are currently fake: static sine-wave bars computed from a fixed formula with no relation to the actual audio signal. They look dead and unconvincing. This must be replaced before v1.0.0 ships.
+  This is partially implemented. Generated-job players and several recording/library surfaces decode audio into real amplitude buckets, and live recording uses analyser-driven bars. Some surfaces still fall back to deterministic placeholder bars before audio is fetched or decoded. Before v1.0.0, audit every waveform and remove/limit fake placeholders so users can trust the visual signal.
 
   **Affected components (all in `ui-src/src/routes/`):**
   - `app.library.tsx` — `Waveform` (animated flag, used in RecordPane and UploadPane preview) and `MiniWave` (decorative bar in ProfileCard footer)
@@ -112,7 +112,7 @@ Ideas and improvements to revisit. Not bugs — these are enhancements queued fo
   - Waveform colour should follow the existing oklch palette (accent `oklch(0.55 0.22 260)` at ~55% opacity for bars, brighter for the played-through portion).
   - `MiniWave` in ProfileCard footer can stay decorative but should at least use the real amplitude data from the voice sample if it has already been fetched; fall back to the current fake bars only while the audio hasn't loaded yet.
 
-  **Why a blocker:** the fake waves actively undermine trust in the output quality. Users expect to see their voice reflected in the waveform before committing to "Use" a profile or downloading a clip.
+  **Why a blocker:** fake waves actively undermine trust in the output quality. Users expect to see their voice reflected in the waveform before committing to "Use" a profile or downloading a clip.
 
 - [ ] **[LOW] Migrate existing user preset names to lowercase in DB**
 
@@ -122,9 +122,9 @@ Ideas and improvements to revisit. Not bugs — these are enhancements queued fo
 
   **Priority:** low — only affects users who saved presets before the normalization fix landed.
 
-- [ ] **[MEDIUM] Custom tone edit flow — "Update" vs "Save As" split action**
+- [x] **[MEDIUM] Custom tone edit flow — "Update" vs "Save As" split action**
 
-  When a user is on a custom tone and has tweaked the sliders, there is currently only a "Save Preset" button that always creates a new preset. This forces duplication when the user just wants to update their existing custom tone in place. The flow needs two distinct exit paths:
+  Implemented in `ui-src/src/routes/app.index.tsx`. Saved user presets now expose `Update`, `Save As`, `Edit`, and `Remove` actions, with responsive 2-by-2 button wrapping when space is tight. The edit panel close button stays within bounds.
 
   **Proposed UI — split action when editing an existing custom preset:**
 
@@ -160,9 +160,9 @@ Ideas and improvements to revisit. Not bugs — these are enhancements queued fo
 
   **Files to touch:** `ui-src/src/routes/app.index.tsx` — the generate button state machine and its label/style logic.
 
-- [ ] **[LOW] Recent scripts history — quick re-use from script box**
+- [x] **[LOW] Recent scripts history — quick re-use from script box**
 
-  When a user generates a clip, save the script text to a capped local history so they can pull it back up without retyping. A clock/history icon in the script box header opens a small dropdown showing the last N scripts (truncated to one line each), clicking one populates the textarea.
+  Implemented in `ui-src/src/routes/app.index.tsx`. Generated scripts are saved to `localStorage["vox:script-history"]`, capped at 10 entries, deduped newest-first, and exposed from the script box history dropdown.
 
   **Implementation notes:**
   - Store as a JSON array in `localStorage["vox:script-history"]`, capped at 10 entries (newest first). Trim duplicates before pushing.
@@ -183,9 +183,9 @@ Ideas and improvements to revisit. Not bugs — these are enhancements queued fo
 
 ---
 
-- [ ] **[HIGH] Rethink error display — replace ephemeral toast with persistent, actionable error UI**
+- [x] **[HIGH] Rethink generation error display — replace ephemeral toast with persistent, actionable error UI**
 
-  The current error toast (bottom-left, disappears after a few seconds) is inadequate for generation failures. A 4-minute job that silently fails with a toast the user may not even see is a bad experience. Errors need to be visible, readable, and persistent until the user dismisses them.
+  Implemented for generation failures in `ui-src/src/routes/app.index.tsx`. Failed jobs render a persistent inline error card with the server message, request ID, copy action, Retry, and Dismiss.
 
   **Proposed approach — inline error state in the Generate panel:**
   - When a generation fails, replace the progress bar / player area with a persistent inline error card that stays until the user dismisses or retries
@@ -205,7 +205,7 @@ Ideas and improvements to revisit. Not bugs — these are enhancements queued fo
   [↺ Retry]  [Dismiss]
   ```
 
-  **Keep the toast for non-critical feedback only** (copy success, voice uploaded, settings saved). Errors from API calls — generation, voice upload failures, network errors — should all use the persistent inline card pattern.
+  **Remaining follow-up:** voice upload failures, voice delete failures, and network/offline errors should still move from transient feedback into local inline/banner states.
 
   **Other surfaces to update:**
   - Voice upload failures: currently show a toast; should show an inline error below the upload zone
@@ -299,7 +299,7 @@ Ideas and improvements to revisit. Not bugs — these are enhancements queued fo
   - Each app is checked and skipped independently — helper may be current while server needs update.
 
   **What gets skipped when app version is unchanged:**
-  - `cp -r` of the app bundle from DMG
+  - `ditto` copy of the app bundle from DMG
   - `launchctl unload` + `launchctl load` of the LaunchAgent plist
 
   **What always runs regardless:**
@@ -326,7 +326,7 @@ Ideas and improvements to revisit. Not bugs — these are enhancements queued fo
 
 - [x] **LaunchAgent — server** — `launchagent/com.melolabdev.vox.plist`. Manual start, crash-restart, logs to `~/Library/Logs/Vox/`.
 - [x] **LaunchAgent — menu bar helper** — `launchagent/com.melolabdev.vox-helper.plist`. Auto-starts on login.
-- [x] **macOS menu bar helper (native Swift)** — status dot, CPU/RAM, server control, copy address, open browser, view logs.
+- [x] **macOS menu bar helper (native Swift)** — monochrome VOX status icon, CPU/RAM, server control, copy address, open browser, view logs.
 
 - [x] **Fix `env` label** — server plist now uses `/bin/bash` directly; Login Items shows `bash` instead of `env`.
 - [x] **Fix `Python3` label** — helper rewritten in native Swift; shows as "Vox Helper" in Login Items and Activity Monitor.
@@ -376,9 +376,11 @@ Ideas and improvements to revisit. Not bugs — these are enhancements queued fo
 
 - [ ] **One-click `.app` packaging** — PyInstaller or py2app. Bundle Python, venv, and the server into a single distributable app.
 
-- [ ] **Default `VOX_HOST` to `127.0.0.1`** once packaged as a macOS app.
+- [x] **Default `VOX_HOST` to `127.0.0.1`** — Vox now defaults to local-only access. Users can opt into LAN access by setting `VOX_HOST=0.0.0.0` or using Settings → Runtime → Network access.
 
-- [ ] **Streamline /Applications install once signed & notarized** — current workaround unzips to `/tmp` then `sudo mv` into `/Applications` to avoid TCC blocking `ditto` directly. Once the app is properly signed and notarized, replace this with a standard `ditto` directly into `/Applications` (no sudo needed for signed apps, or package as a `.dmg` with a drag-to-Applications installer). Blocked by: Fix Developer ID codesign below.
+- [x] **Preserve app bundle signatures during build/install** — `build-apps.sh` and `install-helper.sh` now use `ditto` instead of recursive copy for `.app` bundles, and helper install stops the running helper before replacing `/Applications/VoxHelper.app`.
+
+- [ ] **Streamline /Applications install UX once packaging is finalized** — current helper install still copies into `/Applications` via the install script. For public release, replace the terminal-driven install/update flow with a drag-to-Applications DMG or signed `.pkg` installer so users do not need to run shell commands.
 
 - [ ] **Fix Developer ID codesign (`errSecInternalComponent`)** — signing currently fails even with cert installed.
   - Cert is present and chain is valid (`F8:3A:0C:69` AKID matches intermediate SKID)
@@ -456,7 +458,7 @@ Ideas and improvements to revisit. Not bugs — these are enhancements queued fo
   - **Generator UI** — surface which cues are available for the selected voice profile so users know what tags they can use.
   - **Recording UI** — extend the voice profile recorder to support recording and managing non-verbal clips per profile.
 
-  **Test results so far** (`youtube` preset, `noelmo-normal` voice, 2026-06-20):
+  **Test results so far** (`confident`/legacy `default` preset, `noelmo-normal` voice, 2026-06-20):
 
   | Notation | Example | Result |
   |----------|---------|--------|
@@ -474,7 +476,7 @@ Ideas and improvements to revisit. Not bugs — these are enhancements queued fo
 
 - [x] **Custom tone with parameter panel** — "✦ Custom" pill opens inline panel with sliders for all 6 TTS params. Validates on save, persists to `localStorage`, collapses/expands without losing selection.
 
-- [ ] **Named custom tone profiles** — save and delete named custom tones (stored in DB). Custom profiles appear as pills alongside built-ins. Built-in tones protected from deletion (`is_builtin=1`). Requires `POST /tones` and `DELETE /tones/{name}` endpoints.
+- [x] **Named custom tone profiles** — user presets are stored in SQLite via `/api/v1/presets`, appear alongside built-ins, and can be saved, updated, renamed, or deleted from the Create page. Built-ins are protected in the UI.
 
 ---
 
@@ -605,9 +607,9 @@ Ideas and improvements to revisit. Not bugs — these are enhancements queued fo
 
 ## Installer UX
 
-- [ ] **Interactive installer — unify setup.sh into a single guided script**
+- [x] **Interactive installer — unify setup.sh into a single guided script**
 
-  Replace the current multi-script workflow with a single interactive `install.sh` that presents a menu:
+  Implemented as `vox.sh`, the unified installer/updater/uninstaller entry point. It presents an interactive menu when run without a command and supports direct commands for scripted use:
 
   ```
   Vox Installer
@@ -634,7 +636,7 @@ Ideas and improvements to revisit. Not bugs — these are enhancements queued fo
   - Prompt: "Remove application data (voices, outputs, database)? [Y/n]" — destructive, default N
   - Runs relevant uninstall scripts
 
-  Keep existing individual scripts (`install-agent.sh`, `install-helper.sh`, `update.sh`, etc.) working as-is — `install.sh` is a convenience wrapper, not a replacement. Power users and CI can still call scripts directly.
+  Existing individual scripts (`install-agent.sh`, `install-helper.sh`, `update.sh`, etc.) remain usable for lower-level troubleshooting.
 
 - [ ] **Unify uninstall scripts into a single `uninstall.sh`**
   - Merge `uninstall-agent.sh` and `uninstall-helper.sh` into one `scripts/uninstall.sh` with an interactive prompt to choose what to remove.
@@ -652,7 +654,7 @@ Ideas and improvements to revisit. Not bugs — these are enhancements queued fo
   **Three approaches to consider (not mutually exclusive):**
 
   **Option A — Tail logs and wait in the install script**
-  - After starting the LaunchAgent, poll the server log (`~/Library/Logs/Vox/server.log`) until a "Model loaded" or "Application startup complete" line appears (or a timeout, e.g. 10 min).
+  - After starting the LaunchAgent, poll the server log (`~/Library/Logs/Vox/vox.log`) until a "Model loaded" or "Application startup complete" line appears (or a timeout, e.g. 10 min).
   - Print live progress lines to the terminal while waiting: `[vox] Waiting for model to load… (this may take a few minutes on first run)`.
   - Once ready, print `[vox] ✓ Server is ready — open http://localhost:8000` and exit.
   - If timeout is reached, print a clear message explaining the model may still be downloading and how to check logs.
@@ -676,9 +678,9 @@ Ideas and improvements to revisit. Not bugs — these are enhancements queued fo
 
   **Recommended approach:** implement Option B immediately (low effort, fixes the confusion now) and backlog Option C as the premium experience for v1.0.0.
 
-- [ ] **Add `-y` / `--yes` flag to `setup.sh` to skip interactive prompts during clean install**
+- [x] **Add `--yes` flag to skip interactive prompts during clean install**
 
-  During clean install testing, `setup.sh` surfaces several confirmation prompts that users must manually answer before the install proceeds. A `-y` flag would accept all defaults automatically — useful for re-installs, CI, and power users who know what they're doing.
+  Implemented on the supported entry point: `bash vox.sh install --yes`. This accepts defaults, skips prompts, and can be paired with `--token hf_xxx` for non-interactive installs.
 
   **Prompts to auto-accept with `-y`:**
   - First, audit `setup.sh` to enumerate every `read`/`select` prompt currently present — the exact list needs to be confirmed against the current script.
@@ -688,16 +690,12 @@ Ideas and improvements to revisit. Not bugs — these are enhancements queued fo
 
   **Also apply to:** `install-agent.sh`, `install-helper.sh` — any script that is called from `setup.sh` and adds its own prompts should accept a passed-through `-y` flag.
 
-- [ ] **Add CLI flags to `install.sh` and `update.sh` for scripted workflows**
-  - `install.sh` flags:
-    - `--agent` — install server agent only, skip helper
-    - `--helper` — install helper only, skip agent
-    - `--hf-token TOKEN` — pass Hugging Face token directly, skip prompt
-    - `--yes` — accept all prompts non-interactively
-  - `update.sh` flags:
+- [ ] **Add remaining CLI flags to update workflows for scripted/development use**
+  `vox.sh` already supports `--yes`, `--token`, `--agent-only`, `--helper-only`, `--purge`, `--zip`, `--devbranch`, and `--branch`. Remaining update-specific ideas:
+  - `update.sh` / `vox.sh update` flags:
     - `--no-restart` — sync files and deps but do not restart agents (useful mid-session)
     - `--agent-only` / `--helper-only` — reinstall only one agent
-  - Flags make CI pipelines, automated testing, and power-user workflows possible without interactive input
+  - These make CI pipelines, automated testing, and power-user workflows easier without disturbing active long-running generations.
 
 ---
 
@@ -775,17 +773,15 @@ Ideas and improvements to revisit. Not bugs — these are enhancements queued fo
   All product routes are now served under `/api/v1/` prefix (`/api/v1/tts`, `/api/v1/voices`, `/api/v1/jobs`, `/api/v1/presets`, `/api/v1/stats`, `/api/v1/settings`). The unversioned `/health` endpoint remains at the root as a shallow liveness check. Frontend `api.ts` updated to match. Landing page code snippets updated. README API reference updated.
 
 - [ ] Streaming audio response (chunked transfer encoding)
-- [ ] **Generation queue with UI feedback** — replace single `asyncio.Lock` with a proper worker queue.
+- [ ] **Generation queue with richer UI feedback** — replace single `asyncio.Lock` with a proper worker queue.
   - Backend: queue incoming requests when a generation is already in progress instead of letting overlapping jobs stack up; return a job ID immediately with `202 Accepted` and expose `GET /jobs/{id}/status` for polling or SSE.
-  - UI: when a request is queued, show the position in queue ("⏳ Queued — position 2") in the generate button area and update live as position changes. Transition to a progress indicator once generation starts.
-  - UI: consider a compact queue-status widget in the sidebar or top bar that shows `Queued`, `Running`, and `Next up` states plus the current position.
+  - Current state: requests are accepted immediately as `queued`, serialized by a single local model lock, and the UI shows queued/running states in both the global top bar and Create result panel.
+  - Remaining UI: expose actual queue position ("Queued — position 2") once the backend tracks queue depth/order explicitly.
+  - Remaining UI: consider a compact queue-status widget that shows `Queued`, `Running`, and `Next up` states plus current position.
   - Pair with the sidebar stats item below so queue depth can live alongside session metrics.
   - Recovery: if the app restarts while a job is in flight, reconcile the persisted job state on startup so the UI does not show duplicate or orphaned runs.
-- [ ] **Kill switch for in-flight jobs** — add an explicit way to stop work that is already running.
-  - Backend: expose a cancel/terminate path that marks the job as aborted, interrupts any active generation loop, and cleans up partial outputs safely.
-  - UI: add a prominent stop button on the generating state and a lighter-weight global control for maintenance windows.
-  - Operations: use this before `vox.sh update`, agent restarts, or any shutdown where a long-running generation would otherwise keep the model busy.
-  - Safety: ensure canceling a job leaves the queue and job history in a consistent state so the next generation can start cleanly.
+- [x] **Kill switch for in-flight jobs** — add an explicit way to stop work that is already running.
+  Implemented with `POST /api/v1/tts/{request_id}/cancel`, active-task tracking, cancelled job status, Create-page cancel control, and global cancel control. Stale queued/processing jobs from agent restarts are marked failed on startup so the UI does not show orphaned runs.
 - [ ] **Sidebar stats panel** — use the empty space in the left navigation bar to surface live server stats.
   - Candidates: requests processed (session + all-time), audio minutes generated (session + all-time), current queue depth, average generation time.
   - Pull from existing SQLite job history for all-time counts; track session counts in memory.
@@ -795,31 +791,17 @@ Ideas and improvements to revisit. Not bugs — these are enhancements queued fo
 
 ---
 
-## Connectivity & Offline Mode
+## Connectivity & Network Access
 
-- [ ] **Verify and implement offline mode — auto-fallback to localhost when remote is unreachable**
+- [x] **Network Access Mode — local-only vs LAN access**
 
-  When Cloudflare tunnel access is configured, the app should detect network connectivity and automatically fall back to `http://localhost:8000` when the remote URL is unreachable, then switch back when it comes online.
+  Implemented as Settings → Runtime → Network access.
 
-  **Expected behavior:**
-  - **Online:** use the configured remote URL (e.g. Cloudflare tunnel domain)
-  - **Offline / tunnel unreachable:** silently fall back to `http://localhost:8000`
-  - **Recovery:** when connectivity is restored, revert to the remote URL automatically (no page reload required)
+  **Modes:**
+  - **Local only:** writes `VOX_HOST=127.0.0.1`; Vox only listens on the Mac running it.
+  - **Network accessible:** writes `VOX_HOST=0.0.0.0`; Vox listens on all interfaces so devices on the same LAN can connect.
 
-  **Where the URL lives today:** `apiFetch` in `ui-src/src/lib/api.ts` resolves relative to `window.location.origin`, which works when the user is already on the right host. If the remote URL is ever stored in settings or localStorage, that needs to feed into the resolution logic.
-
-  **Proposed detection approach:**
-  - On app init (and periodically, e.g. every 30 s), issue a lightweight `GET /health` against the current base URL with a short timeout (~3 s).
-  - If it fails and the current base URL is the remote URL, retry against `http://localhost:8000/health`.
-  - If localhost responds, flip `baseUrl` to localhost and show a subtle "Local mode" badge in the UI.
-  - Use `navigator.onLine` as a fast pre-check to avoid the round-trip when the device is clearly offline.
-
-  **UI indication:**
-  - Small badge or status dot in the nav sidebar showing "Local" vs "Remote" (similar to how the menu bar helper might show this).
-  - No modal or blocking UI — just a passive indicator.
-
-  **Config questions to resolve before implementing:**
-  - Where is the remote tunnel URL stored? (Currently seems implicit from how the page is served.) If the user accesses via the tunnel, `window.location.origin` already is the remote URL — no config needed. But if they bookmark the tunnel URL and open the app while offline, the SPA itself may not load. Clarify: is offline mode purely about API connectivity once the SPA is loaded, or about the page load too?
-  - If it's the latter, a service worker or a cached index.html served locally would be needed — more complex.
-
-  **Priority:** LOW — the app is primarily accessed locally; tunnel access is a convenience feature. Implement after v1.0 unless the tunnel becomes a primary access pattern.
+  **UX:**
+  - Host changes write to `.env`.
+  - The active server process keeps its current host until restart.
+  - Settings shows active host, saved-after-restart host, and a small "Requires restarting local server" badge when they differ.

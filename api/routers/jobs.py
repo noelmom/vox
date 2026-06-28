@@ -55,6 +55,7 @@ async def list_jobs(request: Request, limit: int = 50, offset: int = 0):
 | `processing` | Model is actively generating audio |
 | `completed` | Audio is ready — download via `GET /api/v1/jobs/{request_id}/audio` |
 | `failed` | Generation failed — see the `error` field for the reason |
+| `cancelled` | Generation was stopped by the user |
 
 Typical generation time on Apple Silicon is 1–5× real-time depending on text length and voice complexity.
 """,

@@ -33,6 +33,16 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { type ApiVoice, listVoices, listPresets, uploadVoice, deleteVoice, patchVoice, getServerSettings } from "@/lib/api";
 import AudioVisualizerCanvas, { type AudioVisualizerHandle } from "@/components/AudioVisualizerCanvas";
 import TrimWaveform from "@/components/TrimWaveform";
@@ -612,6 +622,45 @@ function RecordPane({
   const rafRef           = useRef<number | null>(null);
   const MAX = maxVoiceClipDurationSeconds;
 
+  const micUnavailableReason = () => {
+    if (!window.isSecureContext) return "insecure-context";
+    if (!navigator.mediaDevices?.getUserMedia) return "insecure-context";
+    return null;
+  };
+
+  const runMicPreflight = async () => {
+    const unavailable = micUnavailableReason();
+    if (unavailable) {
+      setPermission(unavailable);
+      return;
+    }
+    try {
+      if (navigator.permissions?.query) {
+        const perm = await navigator.permissions.query({ name: "microphone" as PermissionName });
+        if (perm.state === "denied") {
+          setPermission("denied");
+          return;
+        }
+      }
+      const all = await navigator.mediaDevices.enumerateDevices();
+      const mics = all.filter((d) => d.kind === "audioinput");
+      setDevices(mics);
+      if (mics.length === 0) {
+        setPermission("no-device");
+        return;
+      }
+      if (!selectedDeviceId || !mics.some((d) => d.deviceId === selectedDeviceId)) {
+        setSelectedDeviceId(mics[0].deviceId);
+      }
+    } catch {
+      setPermission("no-device");
+    }
+  };
+
+  useEffect(() => {
+    void runMicPreflight();
+  }, []);
+
   useEffect(() => {
     if (recordingState !== "recording") return;
     const id = window.setInterval(() => { setElapsed((e) => { if (e + 1 >= MAX) { stopRecording(); return MAX; } return e + 1; }); }, 1000);
@@ -748,18 +797,21 @@ function RecordPane({
   }, [recordingState, peaks, playProgress]);
 
   const classifyMicError = (err: unknown) => {
+    const unavailable = micUnavailableReason();
+    if (unavailable) {
+      setPermission(unavailable);
+      return;
+    }
     const name = err instanceof Error ? err.name : "";
-    if (name === "NotFoundError" || name === "DevicesNotFoundError" || name === "NotReadableError") {
+    if (name === "NotFoundError" || name === "DevicesNotFoundError" || name === "NotReadableError" || name === "OverconstrainedError") {
       setPermission("no-device");
-    } else if (!window.isSecureContext) {
-      // MediaDevices API is unavailable on HTTP (non-localhost) — browser blocks it silently or throws NotAllowedError
-      setPermission("insecure-context");
     } else {
       setPermission("denied");
     }
   };
 
   const refreshDevices = async () => {
+    if (micUnavailableReason()) return;
     const all = await navigator.mediaDevices.enumerateDevices();
     const mics = all.filter((d) => d.kind === "audioinput");
     setDevices(mics);
@@ -769,7 +821,8 @@ function RecordPane({
   const getAudioConstraints = () => selectedDeviceId ? { audio: { deviceId: { exact: selectedDeviceId } } } : { audio: true };
 
   const requestMic = async () => {
-    if (!window.isSecureContext) { setPermission("insecure-context"); return; }
+    const unavailable = micUnavailableReason();
+    if (unavailable) { setPermission(unavailable); return; }
     try { const stream = await navigator.mediaDevices.getUserMedia(getAudioConstraints()); streamRef.current = stream; setPermission("granted"); await refreshDevices(); }
     catch (err) { classifyMicError(err); }
   };
@@ -777,6 +830,7 @@ function RecordPane({
   const switchDevice = async (deviceId: string) => {
     setSelectedDeviceId(deviceId);
     if (permission !== "granted" || recordingState === "recording") return;
+    if (micUnavailableReason()) { setPermission("insecure-context"); return; }
     streamRef.current?.getTracks().forEach((t) => t.stop());
     streamRef.current = null;
     try { const stream = await navigator.mediaDevices.getUserMedia({ audio: { deviceId: { exact: deviceId } } }); streamRef.current = stream; }
@@ -808,6 +862,8 @@ function RecordPane({
   const startRecording = async () => {
     let stream = streamRef.current;
     if (!stream) {
+      const unavailable = micUnavailableReason();
+      if (unavailable) { setPermission(unavailable); return; }
       try { stream = await navigator.mediaDevices.getUserMedia(getAudioConstraints()); streamRef.current = stream; setPermission("granted"); await refreshDevices(); }
       catch (err) { classifyMicError(err); return; }
     }
@@ -909,7 +965,7 @@ function RecordPane({
       <Mic className="h-8 w-8 text-[oklch(0.6_0.14_40)]" />
       <p className="text-[14px] font-semibold text-foreground">No microphone detected</p>
       <p className="max-w-xs text-[12.5px] text-muted-foreground">Connect a microphone and try again, or use the <strong>Upload</strong> tab to add an existing audio file.</p>
-      <button onClick={() => setPermission("unknown")} className="mt-1 inline-flex items-center gap-1.5 rounded-lg border border-border bg-white px-3 py-2 text-[12.5px] font-medium text-foreground/80 hover:bg-muted"><RefreshCw className="h-3.5 w-3.5" />Try again</button>
+      <button onClick={() => { void runMicPreflight(); }} className="mt-1 inline-flex items-center gap-1.5 rounded-lg border border-border bg-white px-3 py-2 text-[12.5px] font-medium text-foreground/80 hover:bg-muted"><RefreshCw className="h-3.5 w-3.5" />Try again</button>
     </div>
   );
 
@@ -917,8 +973,8 @@ function RecordPane({
     <div className="flex flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-[oklch(0.82_0.08_25)] bg-[oklch(0.985_0.01_25)] py-12 text-center">
       <AlertCircle className="h-8 w-8 text-[oklch(0.6_0.18_25)]" />
       <p className="text-[14px] font-semibold text-foreground">Microphone access denied</p>
-      <p className="max-w-xs text-[12.5px] text-muted-foreground">Open your browser's site settings, allow microphone access for this page, then reload.</p>
-      <button onClick={requestMic} className="mt-1 inline-flex items-center gap-1.5 rounded-lg border border-border bg-white px-3 py-2 text-[12.5px] font-medium text-foreground/80 hover:bg-muted"><RefreshCw className="h-3.5 w-3.5" />Try again</button>
+      <p className="max-w-xs text-[12.5px] text-muted-foreground">Open your browser's site settings, allow microphone access for this page in <strong>System Settings → Privacy &amp; Security → Microphone</strong>, then reload.</p>
+      <button onClick={() => { void runMicPreflight(); }} className="mt-1 inline-flex items-center gap-1.5 rounded-lg border border-border bg-white px-3 py-2 text-[12.5px] font-medium text-foreground/80 hover:bg-muted"><RefreshCw className="h-3.5 w-3.5" />Try again</button>
     </div>
   );
 
@@ -1274,7 +1330,7 @@ function ProfileCard({
   const [waveformBars, setWaveformBars] = useState<number[] | null>(null);
   const [volume, setVolume] = useState(0.8);
   const [hover, setHover] = useState<number | null>(null);
-  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [editing, setEditing] = useState(false);
 
   const displayLabel = voiceDisplayLabel(voice);
@@ -1462,14 +1518,12 @@ function ProfileCard({
                 </a>
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              {confirmDelete ? (
-                <>
-                  <DropdownMenuItem onClick={onDelete} className="text-[oklch(0.55_0.22_25)] focus:text-[oklch(0.5_0.22_25)]"><Trash2 className="mr-2 h-3.5 w-3.5" />Confirm delete</DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setConfirmDelete(false)}><X className="mr-2 h-3.5 w-3.5" />Cancel</DropdownMenuItem>
-                </>
-              ) : (
-                <DropdownMenuItem onClick={() => setConfirmDelete(true)} className="text-[oklch(0.55_0.22_25)] focus:text-[oklch(0.5_0.22_25)]"><Trash2 className="mr-2 h-3.5 w-3.5" />Delete</DropdownMenuItem>
-              )}
+              <DropdownMenuItem
+                onClick={() => setDeleteDialogOpen(true)}
+                className="text-[oklch(0.55_0.22_25)] focus:text-[oklch(0.5_0.22_25)]"
+              >
+                <Trash2 className="mr-2 h-3.5 w-3.5" />Delete
+              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
@@ -1489,6 +1543,29 @@ function ProfileCard({
           onCancel={() => setEditing(false)}
         />
       )}
+
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete voice profile?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently remove {displayLabel} from your library.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                setDeleteDialogOpen(false);
+                onDelete();
+              }}
+              className="bg-[oklch(0.55_0.22_25)] text-white hover:bg-[oklch(0.5_0.22_25)]"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Mini player */}
       <div className="mt-3 flex items-center gap-3 overflow-hidden rounded-xl border border-border bg-gradient-to-br from-white to-[var(--background)] px-3 py-2.5">

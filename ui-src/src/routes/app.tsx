@@ -16,6 +16,8 @@ import voxLogo from "@/assets/vox-logo-app.png";
 import voxIcon from "@/assets/vox-icon-2.png";
 import voxLogoDark from "@/assets/vox-logo-dark-trim.png";
 import { getStats, getServerSettings, healthCheck, type Stats, type ServerSettings } from "@/lib/api";
+import { cancelJob } from "@/lib/api";
+import { getGenerationState, subscribeGenerationState, type GenerationStatus } from "@/lib/generation";
 
 export const Route = createFileRoute("/app")({
   head: () => ({
@@ -142,6 +144,8 @@ function AppLayout() {
           </div>
         </header>
 
+        <GenerationWidget />
+
         {/* Content */}
         <main className="flex-1 overflow-y-auto px-4 pb-12 pt-6 sm:px-8">
           <Outlet />
@@ -195,6 +199,63 @@ function AppLayout() {
             </span>
           </div>
         </footer>
+      </div>
+    </div>
+  );
+}
+
+function GenerationWidget() {
+  const [state, setState] = useState<GenerationStatus>(() => getGenerationState());
+  const [now, setNow] = useState(() => Date.now());
+
+  useEffect(() => subscribeGenerationState(setState), []);
+  useEffect(() => {
+    if (state.phase !== "submitting" && state.phase !== "polling") return;
+    const id = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(id);
+  }, [state.phase]);
+
+  if (state.phase !== "submitting" && state.phase !== "polling") return null;
+
+  const startedAt = state.phase === "polling" ? state.startedAt : Date.now();
+  const elapsed = Math.max(0, Math.floor((now - startedAt) / 1000));
+  const requestLabel = state.phase === "polling" ? state.requestId.slice(0, 8) : "pending";
+  const queued = state.phase === "polling" && state.status === "queued";
+  const progressPct = queued ? 18 : Math.min(92, 24 + elapsed / 3);
+
+  return (
+    <div className="border-b border-[color-mix(in_oklch,var(--brand)_12%,white)] bg-white/85 px-4 py-2 backdrop-blur-xl sm:px-8">
+      <div className="flex items-center gap-3">
+        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--brand-soft)] text-[var(--brand)]">
+          <Zap className="h-4 w-4" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[12px]">
+            <span className="font-bold text-foreground">{queued ? "Queued" : "Generating audio"}</span>
+            <span className="text-foreground/45">job {requestLabel}</span>
+            <span className="font-medium text-foreground/65">
+              {queued ? "Waiting for engine" : `${formatElapsed(elapsed)} elapsed`}
+            </span>
+          </div>
+          <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-[color-mix(in_oklch,var(--brand-soft)_60%,white)]">
+            <div
+              className="h-full rounded-full bg-[linear-gradient(90deg,var(--brand),var(--brand-secondary),var(--brand-warm))] transition-[width] duration-700"
+              style={{ width: `${progressPct}%` }}
+            />
+          </div>
+        </div>
+        <button
+          type="button"
+          disabled={state.phase !== "polling"}
+          onClick={async () => {
+            if (state.phase !== "polling") return;
+            await cancelJob(state.requestId);
+            setState({ phase: "cancelled", requestId: state.requestId });
+          }}
+          className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg border border-[oklch(0.78_0.12_25)] bg-[oklch(0.99_0.02_25)] px-3 text-[12px] font-semibold text-[oklch(0.55_0.2_25)] transition-colors hover:bg-[oklch(0.97_0.03_25)] disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          Stop
+        </button>
       </div>
     </div>
   );
@@ -364,7 +425,7 @@ function SidebarContent({
                   </div>
                   <div>
                     <div className="text-lg font-bold tabular-nums leading-none">{stats.recording_count}</div>
-                    <div className="mt-0.5 text-[9px] text-muted-foreground">Clips</div>
+                    <div className="mt-0.5 text-[9px] text-muted-foreground">Available Clips</div>
                   </div>
                   <div>
                     <div className="text-lg font-bold tabular-nums leading-none">{formatBytes(stats.disk_used_bytes)}</div>
@@ -442,6 +503,12 @@ function formatBytes(bytes: number): string {
   if (bytes < 1024 ** 2) return `${(bytes / 1024).toFixed(1)} KB`;
   if (bytes < 1024 ** 3) return `${(bytes / 1024 ** 2).toFixed(1)} MB`;
   return `${(bytes / 1024 ** 3).toFixed(2)} GB`;
+}
+
+function formatElapsed(totalSeconds: number): string {
+  const m = Math.floor(totalSeconds / 60);
+  const s = totalSeconds % 60;
+  return `${m}:${s.toString().padStart(2, "0")}`;
 }
 
 function Sparkline({

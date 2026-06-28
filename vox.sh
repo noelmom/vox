@@ -30,6 +30,13 @@ success() { echo -e "${GREEN}[vox] ✓${RESET} $*"; }
 warn()    { echo -e "${YELLOW}[vox] ⚠${RESET} $*"; }
 fail()    { echo -e "${RED}[vox] ✗${RESET} $*"; exit 1; }
 ask()     { echo -e "${CYAN}[vox]${RESET} $*"; }
+require_git() {
+    if command -v git &>/dev/null && xcode-select -p &>/dev/null; then
+        return 0
+    fi
+
+    fail "Git/Xcode Command Line Tools are required for this action. Run: xcode-select --install"
+}
 
 # ── Paths ─────────────────────────────────────────────────────────────────────
 ROOT="$(cd "$(dirname "$0")" && pwd)"
@@ -123,6 +130,7 @@ confirm() {
 
 # ── Branch switch (applies to all commands) ───────────────────────────────────
 if [[ -n "$OPT_BRANCH" ]]; then
+    require_git
     if git -C "$ROOT" rev-parse --git-dir &>/dev/null; then
         info "Switching to branch: $OPT_BRANCH..."
         git -C "$ROOT" fetch origin
@@ -227,6 +235,7 @@ do_update() {
         fail "Vox is not installed. Run: bash vox.sh install"
     fi
 
+    require_git
     if [[ -n "$OPT_ZIP" ]]; then
         bash "$ROOT/scripts/update.sh" "$OPT_ZIP"
     else

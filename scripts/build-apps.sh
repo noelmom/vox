@@ -80,7 +80,7 @@ cat > "$HELPER_APP/Contents/Info.plist" <<EOF
   <key>CFBundleExecutable</key><string>VoxHelper</string>
   <key>CFBundleIconFile</key><string>Vox</string>
   <key>CFBundleVersion</key><string>1</string>
-  <key>CFBundleShortVersionString</key><string>0.4.0</string>
+  <key>CFBundleShortVersionString</key><string>0.5.1-beta</string>
   <key>LSUIElement</key><true/>
   <key>LSMinimumSystemVersion</key><string>13.0</string>
 </dict></plist>
@@ -111,7 +111,7 @@ cat > "$SERVER_APP/Contents/Info.plist" <<EOF
   <key>CFBundleExecutable</key><string>vox-server</string>
   <key>CFBundleIconFile</key><string>Vox</string>
   <key>CFBundleVersion</key><string>1</string>
-  <key>CFBundleShortVersionString</key><string>0.4.0</string>
+  <key>CFBundleShortVersionString</key><string>0.5.1-beta</string>
   <key>LSUIElement</key><true/>
   <key>LSMinimumSystemVersion</key><string>12.0</string>
 </dict></plist>
@@ -137,8 +137,8 @@ success "Signatures verified"
 
 # ── Stage DMG contents ────────────────────────────────────────────────────────
 info "Staging DMG contents…"
-cp -r "$HELPER_APP" "$DMG_STAGING/VoxHelper.app"
-cp -r "$SERVER_APP" "$DMG_STAGING/VoxServer.app"
+ditto "$HELPER_APP" "$DMG_STAGING/VoxHelper.app"
+ditto "$SERVER_APP" "$DMG_STAGING/VoxServer.app"
 
 # ── Create and sign DMG ───────────────────────────────────────────────────────
 info "Creating Vox.dmg…"

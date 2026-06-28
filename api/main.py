@@ -2,7 +2,8 @@ import asyncio
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import APIRouter, FastAPI
+from fastapi import APIRouter, FastAPI, HTTPException
+from pydantic import BaseModel
 from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -17,8 +18,50 @@ from api.middleware.request_id import RequestIDMiddleware
 from api.routers import jobs, presets, tts, voices
 
 _UI_DIST = Path(__file__).parent.parent / "ui-dist"
+_ENV_PATH = Path(".env")
+_VALID_HOSTS = {"127.0.0.1", "0.0.0.0"}
 
 _background_tasks: list[asyncio.Task] = []
+
+
+class SettingsPatch(BaseModel):
+    host: str | None = None
+
+
+def _read_env_value(key: str, default: str | None = None) -> str | None:
+    if not _ENV_PATH.exists():
+        return default
+    prefix = f"{key}="
+    for line in _ENV_PATH.read_text().splitlines():
+        stripped = line.strip()
+        if stripped.startswith(prefix):
+            return stripped[len(prefix):].split("#", 1)[0].strip().strip('"').strip("'")
+    return default
+
+
+def _write_env_value(key: str, value: str):
+    lines = _ENV_PATH.read_text().splitlines() if _ENV_PATH.exists() else []
+    prefix = f"{key}="
+    commented_prefix = f"# {key}="
+    next_line = f"{key}={value}"
+    wrote = False
+    updated: list[str] = []
+
+    for line in lines:
+        stripped = line.strip()
+        if stripped.startswith(prefix) or stripped.startswith(commented_prefix):
+            if not wrote:
+                updated.append(next_line)
+                wrote = True
+            continue
+        updated.append(line)
+
+    if not wrote:
+        if updated and updated[-1].strip():
+            updated.append("")
+        updated.append(next_line)
+
+    _ENV_PATH.write_text("\n".join(updated) + "\n")
 
 
 @asynccontextmanager
@@ -133,7 +176,7 @@ app = FastAPI(
     title="Vox API",
     summary="Local text-to-speech API powered by Chatterbox Turbo on Apple Silicon.",
     description=_DESCRIPTION,
-    version="0.5.0",
+    version="0.5.1-beta",
     contact={"name": "MeloLab Dev", "url": "https://github.com/MeloLabDev/codename-vox"},
     license_info={"name": "MIT"},
     lifespan=lifespan,
@@ -267,9 +310,6 @@ async def get_stats():
     # Library counts
     async with db.execute("SELECT COUNT(*) FROM voices") as cur:
         (voice_count,) = await cur.fetchone()
-    async with db.execute("SELECT COUNT(*) FROM jobs WHERE status = 'completed'") as cur:
-        (recording_count,) = await cur.fetchone()
-
     # Disk usage — scan both directories in a thread to avoid blocking the event loop
     def _scan_dir(path: Path) -> int:
         try:
@@ -277,10 +317,17 @@ async def get_stats():
         except (FileNotFoundError, PermissionError):
             return 0
 
+    def _count_recordings(path: Path) -> int:
+        try:
+            return sum(1 for f in path.iterdir() if f.is_file() and f.suffix.lower() in {".mp3", ".wav"})
+        except (FileNotFoundError, PermissionError):
+            return 0
+
     loop = asyncio.get_running_loop()
-    voices_disk_bytes, recordings_disk_bytes = await asyncio.gather(
+    voices_disk_bytes, recordings_disk_bytes, recording_count = await asyncio.gather(
         loop.run_in_executor(None, _scan_dir, settings.voice_dir),
         loop.run_in_executor(None, _scan_dir, settings.output_dir),
+        loop.run_in_executor(None, _count_recordings, settings.output_dir),
     )
 
     # 7-day sparklines
@@ -322,6 +369,7 @@ async def get_settings():
     import shutil, platform
     ffmpeg = settings.ffmpeg_path
     ffmpeg_ok = bool(shutil.which(ffmpeg) or shutil.which("ffmpeg"))
+    configured_host = _read_env_value("VOX_HOST", settings.host) or settings.host
     mac_ver, _, _ = platform.mac_ver()
     try:
         import subprocess
@@ -332,6 +380,8 @@ async def get_settings():
         "device_config": settings.device,
         "device_resolved": get_device(),
         "host": settings.host,
+        "configured_host": configured_host,
+        "host_restart_required": configured_host != settings.host,
         "port": settings.port,
         "output_dir": str(settings.output_dir.resolve()),
         "voice_dir": str(settings.voice_dir.resolve()),
@@ -346,7 +396,32 @@ async def get_settings():
         "max_voice_clip_duration_s": settings.max_voice_clip_duration_s,
         "macos_version": mac_ver,
         "chip": chip,
-        "vox_version": "0.4.2-beta",
+        "vox_version": "0.5.1-beta",
+    }
+
+
+@v1.patch(
+    "/settings",
+    tags=["system"],
+    summary="Update server configuration",
+    description="Persists editable server configuration to `.env`. Host changes require restarting the local Vox server before they become active.",
+)
+async def patch_settings(patch: SettingsPatch):
+    changed: dict[str, str] = {}
+
+    if patch.host is not None:
+        host = patch.host.strip()
+        if host not in _VALID_HOSTS:
+            raise HTTPException(status_code=422, detail="host must be either 127.0.0.1 or 0.0.0.0")
+        _write_env_value("VOX_HOST", host)
+        changed["host"] = host
+
+    configured_host = _read_env_value("VOX_HOST", settings.host) or settings.host
+    return {
+        "changed": changed,
+        "host": settings.host,
+        "configured_host": configured_host,
+        "host_restart_required": configured_host != settings.host,
     }
 
 

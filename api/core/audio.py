@@ -25,7 +25,10 @@ def _run_ffmpeg(*args: str):
             detail=f"ffmpeg not found at {settings.ffmpeg_path}. Run: brew install ffmpeg",
         )
     except subprocess.CalledProcessError as exc:
-        raise HTTPException(status_code=500, detail=f"ffmpeg conversion failed: {exc}")
+        raise HTTPException(
+            status_code=400,
+            detail="Could not read or convert that audio file. Please try re-exporting it as a standard M4A or WAV file.",
+        ) from exc
 
 
 def convert_to_wav(src: Path, dest: Path):
@@ -50,17 +53,22 @@ def trim_wav_edges(path: Path, threshold_ratio: float = 0.02, pad_ms: float = 5.
     if audio.size == 0:
         return
 
-    peak = float(np.max(np.abs(audio)))
+    if audio.ndim > 1:
+        mono = np.max(np.abs(audio), axis=1)
+    else:
+        mono = np.abs(audio)
+
+    peak = float(np.max(mono))
     if peak <= 0.0:
         return
 
     threshold = max(3e-4, peak * threshold_ratio)
-    silent = np.abs(audio) <= threshold
+    silent = mono <= threshold
     if not silent.any():
         return
 
     start = 0
-    end = audio.size
+    end = mono.shape[0]
 
     while start < end and silent[start]:
         start += 1
@@ -71,7 +79,7 @@ def trim_wav_edges(path: Path, threshold_ratio: float = 0.02, pad_ms: float = 5.
         return
 
     pad = int(sample_rate * (pad_ms / 1000.0))
-    trimmed = audio[max(0, start - pad) : min(audio.size, end + pad)]
+    trimmed = audio[max(0, start - pad) : min(mono.shape[0], end + pad)]
     sf.write(str(path), trimmed, sample_rate, subtype="PCM_16")
 
 

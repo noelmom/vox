@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Cpu,
   Sparkles,
@@ -19,7 +19,7 @@ import {
   Info,
   LayoutGrid,
 } from "lucide-react";
-import { type ServerSettings, getServerSettings, listVoices, listPresets } from "@/lib/api";
+import { type ServerSettings, getServerSettings, listVoices, listPresets, patchServerSettings } from "@/lib/api";
 import { BRAND, BRAND_GRADIENT, BRAND_SECONDARY, BRAND_WARM } from "@/lib/theme";
 
 export const Route = createFileRoute("/app/settings")({
@@ -48,7 +48,6 @@ function loadPrefs() {
     mp3Quality: lsGet("vox:mp3Quality", "128"),
     wavQuality: lsGet("vox:wavQuality", "16"),
     advanced: lsGet("vox:advanced", ADVANCED_DEFAULTS),
-    offline: lsGet("vox:offline", false),
     voiceId: lsGet("vox:voiceId", ""),
     tone: lsGet("vox:tone", "Default"),
     widgetRequests: lsGet("vox:widget.requests", true),
@@ -61,7 +60,6 @@ function savePrefs(p: ReturnType<typeof loadPrefs>) {
   localStorage.setItem("vox:mp3Quality", JSON.stringify(p.mp3Quality));
   localStorage.setItem("vox:wavQuality", JSON.stringify(p.wavQuality));
   localStorage.setItem("vox:advanced", JSON.stringify(p.advanced));
-  localStorage.setItem("vox:offline", JSON.stringify(p.offline));
   localStorage.setItem("vox:voiceId", JSON.stringify(p.voiceId));
   localStorage.setItem("vox:tone", JSON.stringify(p.tone));
   localStorage.setItem("vox:widget.requests", JSON.stringify(p.widgetRequests));
@@ -96,9 +94,15 @@ const TTL_LABELS: Record<number, string> = {
 // ─── page ────────────────────────────────────────────────────────────────────
 
 function SettingsPage() {
+  const queryClient = useQueryClient();
   const { data: server, isLoading: serverLoading } = useQuery<ServerSettings>({
     queryKey: ["settings"],
     queryFn: getServerSettings,
+  });
+
+  const networkMutation = useMutation({
+    mutationFn: (host: "127.0.0.1" | "0.0.0.0") => patchServerSettings({ host }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["settings"] }),
   });
 
   const { data: voices = [] } = useQuery({ queryKey: ["voices"], queryFn: listVoices });
@@ -145,7 +149,7 @@ function SettingsPage() {
   };
 
   const handleReset = () => {
-    const defaults = { format: "mp3" as const, mp3Quality: "128", wavQuality: "16", advanced: ADVANCED_DEFAULTS, offline: false, voiceId: "", tone: "Default", widgetRequests: true, widgetMinutes: true };
+    const defaults = { format: "mp3" as const, mp3Quality: "128", wavQuality: "16", advanced: ADVANCED_DEFAULTS, voiceId: "", tone: "Default", widgetRequests: true, widgetMinutes: true };
     setPrefs(defaults);
   };
 
@@ -154,6 +158,8 @@ function SettingsPage() {
   const ttlLabel = server
     ? TTL_LABELS[server.output_ttl_hours] ?? `${server.output_ttl_hours}h`
     : "—";
+  const configuredHost = server?.configured_host || server?.host || "127.0.0.1";
+  const hostRestartRequired = Boolean(server?.host_restart_required);
 
   return (
     <div className={`mx-auto flex max-w-[1280px] flex-col gap-5 ${isFloating ? "pb-24" : ""}`}>
@@ -166,7 +172,7 @@ function SettingsPage() {
       </div>
 
       {/* RUNTIME (server read-only) */}
-      <Section id="runtime" title="Runtime" Icon={Server} subtitle="Live server configuration — edit .env to change.">
+      <Section id="runtime" title="Runtime" Icon={Server} subtitle="Live server configuration and network access.">
         {serverLoading ? (
           <div className="px-5 py-6 text-[13px] text-muted-foreground">Loading server info…</div>
         ) : server ? (
@@ -185,10 +191,48 @@ function SettingsPage() {
                 <span className="text-[13.5px] font-semibold text-foreground">{server.model_name}</span>
               </div>
             </InfoRow>
-            <InfoRow label="Server address" hint="Where the API listens. 0.0.0.0 = all network interfaces.">
-              <code className="rounded-md border border-border bg-muted px-2 py-1 font-mono text-[12.5px] text-foreground/80">
-                {server.host}:{server.port}
-              </code>
+            <InfoRow label="Network access" hint="Local only listens on this Mac. Network accessible allows devices on your LAN to reach Vox.">
+              <div className="flex flex-col gap-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  <SegmentToggle
+                    value={configuredHost === "0.0.0.0" ? "network" : "local"}
+                    onChange={(v) => networkMutation.mutate(v === "network" ? "0.0.0.0" : "127.0.0.1")}
+                    options={[
+                      { value: "local", label: "Local only" },
+                      { value: "network", label: "Network accessible" },
+                    ]}
+                  />
+                  {hostRestartRequired && (
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-[color-mix(in_oklch,var(--brand-warm)_30%,white)] bg-[color-mix(in_oklch,var(--brand-warm)_10%,white)] px-2.5 py-1 text-[11.5px] font-bold text-[var(--brand-warm)]">
+                      <AlertTriangle className="h-3.5 w-3.5" />
+                      Requires restarting local server
+                    </span>
+                  )}
+                  {networkMutation.isPending && (
+                    <span className="text-[11.5px] font-medium text-muted-foreground">Saving…</span>
+                  )}
+                </div>
+                <div className="flex flex-wrap items-center gap-2 text-[12px] text-muted-foreground">
+                  <span>Active:</span>
+                  <code className="rounded-md border border-border bg-muted px-2 py-1 font-mono text-[12px] text-foreground/80">
+                    {server.host}:{server.port}
+                  </code>
+                  {configuredHost !== server.host && (
+                    <>
+                      <span>After restart:</span>
+                      <code className="rounded-md border border-border bg-muted px-2 py-1 font-mono text-[12px] text-foreground/80">
+                        {configuredHost}:{server.port}
+                      </code>
+                    </>
+                  )}
+                </div>
+                <p className="text-[12px] leading-relaxed text-muted-foreground">
+                  Local only is the safest default. Choose network access only when you want another device on the same network to use Vox.
+                </p>
+                {networkMutation.isError && (
+                  <p className="text-[12px] font-medium text-[var(--brand-warm)]">Could not save network access setting.</p>
+                )}
+              </div>
             </InfoRow>
             <InfoRow label="ffmpeg" hint="Required for audio conversion (MP3 export, WebM recording).">
               {server.ffmpeg_available ? (
@@ -356,9 +400,6 @@ function SettingsPage() {
 
       {/* PRIVACY */}
       <Section id="privacy" title="Privacy" Icon={Shield} subtitle="You control what — if anything — leaves this device.">
-        <Row label="Offline Mode" hint="Marks that network access should be avoided. Vox is always local-first.">
-          <Toggle checked={prefs.offline} onChange={(v) => set("offline", v)} />
-        </Row>
         <Row label="Crash Reports" hint="Send anonymous crash reports." comingSoon>
           <Toggle checked={false} onChange={() => {}} disabled />
         </Row>
@@ -370,7 +411,7 @@ function SettingsPage() {
           <span className="mr-auto text-[12px] text-muted-foreground">
             {saveFeedback
               ? "Preferences saved — Generate page will use these values next session."
-              : "Generation defaults and privacy settings are saved locally on this device."}
+              : "Generation defaults are saved locally on this device."}
           </span>
           <button
             onClick={handleReset}

@@ -27,6 +27,7 @@ async def connect():
     _db = await aiosqlite.connect(settings.db_path)
     _db.row_factory = aiosqlite.Row
     await _migrate(_db)
+    await _fail_stale_jobs(_db)
     await _seed(_db)
 
 
@@ -100,6 +101,17 @@ async def _migrate(db: aiosqlite.Connection):
         except Exception:
             pass  # column already exists
 
+    await db.commit()
+
+
+async def _fail_stale_jobs(db: aiosqlite.Connection):
+    await db.execute(
+        """UPDATE jobs
+           SET status='failed',
+               error='Generation was interrupted because the Vox agent restarted.',
+               completed_at=datetime('now')
+           WHERE status IN ('queued', 'processing')"""
+    )
     await db.commit()
 
 

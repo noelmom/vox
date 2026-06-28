@@ -30,8 +30,17 @@ import {
   ArrowUpDown,
   CheckCircle2,
   Gauge,
+  History,
 } from "lucide-react";
-import { type ApiVoice, type Job, listVoices, listPresets, listJobs, submitTTS, getJob, getJobAudio, savePreset, deletePreset, deleteJob, patchVoice } from "@/lib/api";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { type ApiVoice, type Job, listVoices, listPresets, listJobs, submitTTS, getJob, getJobAudio, savePreset, deletePreset, deleteJob, cancelJob, patchVoice, parseServerDate } from "@/lib/api";
+import { setGenerationState } from "@/lib/generation";
 import { tagStyle } from "@/lib/utils";
 import { BRAND, BRAND_GRADIENT, BRAND_SECONDARY, BRAND_WARM } from "@/lib/theme";
 
@@ -165,6 +174,30 @@ function useLocalStorage<T>(key: string, defaultValue: T) {
   return [state, setStored] as const;
 }
 
+function readScriptHistory(): string[] {
+  try {
+    const raw = localStorage.getItem(SCRIPT_HISTORY_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed.filter((v): v is string => typeof v === "string") : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeScriptHistory(history: string[]) {
+  try {
+    localStorage.setItem(SCRIPT_HISTORY_KEY, JSON.stringify(history.slice(0, SCRIPT_HISTORY_LIMIT)));
+  } catch {}
+}
+
+function pushScriptHistory(history: string[], script: string) {
+  const value = script.trim();
+  if (!value) return history;
+  const next = [value, ...history.filter((item) => item !== value)];
+  return next.slice(0, SCRIPT_HISTORY_LIMIT);
+}
+
 // Built-in preset keys (lowercase) — cannot be removed by the user
 const BUILTIN_PRESET_KEYS = new Set(["confident", "calm", "soft-spoken", "polite", "enthusiastic", "dramatic", "angry", "sarcastic", "newsreader", "storyteller", "default"]);
 
@@ -184,9 +217,13 @@ type GenResult = { job: Job; blob: Blob; url: string };
 type GenState =
   | { phase: "idle" }
   | { phase: "submitting" }
-  | { phase: "polling"; requestId: string }
+  | { phase: "polling"; requestId: string; startedAt: number; status?: "queued" | "processing" }
   | { phase: "done"; result: GenResult }
-  | { phase: "error"; message: string };
+  | { phase: "error"; message: string; requestId?: string };
+
+const SCRIPT_HISTORY_KEY = "vox:script-history";
+const SCRIPT_HISTORY_LIMIT = 10;
+const LAST_REQUEST_KEY = "vox:last-generation-request";
 
 const SAMPLE_SCRIPT =
   "Welcome to Vox Studio — a private, on-device voice lab.\n\nEverything you type here is synthesized locally on your Mac. No cloud uploads, no accounts, no telemetry. Just paste a script, pick a voice, and hit Generate.\n\nTry it: change the voice on the right, drag the Expressiveness slider, and listen to how the same words come alive.";
@@ -211,6 +248,10 @@ function GeneratePage() {
   const [genState, setGenState] = useState<GenState>({ phase: "idle" });
   const [elapsed, setElapsed] = useState(0);
   const abortRef = useRef(false);
+  const activeRequestRef = useRef<string | null>(null);
+  const generationStartedAtRef = useRef<number>(0);
+  const [stopping, setStopping] = useState(false);
+  const [scriptHistory, setScriptHistory] = useState<string[]>(() => readScriptHistory());
   const [savePresetOpen, setSavePresetOpen] = useState(false);
   const [presetNameInput, setPresetNameInput] = useState("");
   const [savingPreset, setSavingPreset] = useState(false);
@@ -281,6 +322,15 @@ function GeneratePage() {
   // Is the active tone a user-created (non-built-in) preset?
   const isUserPreset = tone !== "Custom" && !!toneKeyMap[tone] && !BUILTIN_PRESET_KEYS.has(toneKeyMap[tone]);
   const selectedVoice = displayVoices.find((v) => v.id === voiceId) ?? GENERIC_VOICE;
+  const currentPresetParams = () => ({
+    temperature: advanced.temperature,
+    exaggeration: advanced.exaggeration,
+    cfg_weight: advanced.cfg,
+    repetition_penalty: advanced.repetition,
+    top_p: advanced.topP,
+    min_p: advanced.minP,
+  });
+  const activeToneKey = toneKeyMap[tone];
   const toggleFavorite = (id: string) => {
     const current = displayVoices.find((v) => v.id === id)?.isFavorite ?? false;
     const next = !current;
@@ -295,28 +345,171 @@ function GeneratePage() {
   // Elapsed timer during generation
   useEffect(() => {
     if (!isGenerating) return;
-    const start = Date.now();
-    setElapsed(0);
-    const id = setInterval(() => setElapsed(Math.floor((Date.now() - start) / 1000)), 500);
+    const startedAt = genState.phase === "polling" ? genState.startedAt : generationStartedAtRef.current || Date.now();
+    generationStartedAtRef.current = startedAt;
+    setElapsed(Math.max(0, Math.floor((Date.now() - startedAt) / 1000)));
+    const id = setInterval(() => {
+      setElapsed(Math.max(0, Math.floor((Date.now() - startedAt) / 1000)));
+    }, 500);
     return () => clearInterval(id);
-  }, [isGenerating]);
+  }, [isGenerating, genState.phase === "polling" ? genState.requestId : null, genState.phase === "polling" ? genState.startedAt : null]);
 
-  // Abort polling on unmount
   useEffect(() => {
-    return () => { abortRef.current = true; };
-  }, []);
+    if (genState.phase === "submitting") {
+      setGenerationState({ phase: "submitting" });
+    } else if (genState.phase === "polling") {
+      setGenerationState({
+        phase: "polling",
+        requestId: genState.requestId,
+        startedAt: genState.startedAt,
+        status: genState.status,
+      });
+    } else if (genState.phase === "done") {
+      setGenerationState({ phase: "done", requestId: genState.result.job.request_id });
+    } else if (genState.phase === "error") {
+      setGenerationState({ phase: "error", requestId: genState.requestId, message: genState.message });
+    } else {
+      setGenerationState({ phase: "idle" });
+    }
+  }, [genState]);
+
+  useEffect(() => {
+    const savedRequestId = localStorage.getItem(LAST_REQUEST_KEY);
+    if (!savedRequestId || genState.phase !== "idle") return;
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const job = await getJob(savedRequestId);
+        if (cancelled) return;
+
+        if (job.status === "completed") {
+          const blob = await getJobAudio(savedRequestId);
+          if (cancelled) return;
+          const url = URL.createObjectURL(blob);
+          setGenState({ phase: "done", result: { job, blob, url } });
+          setGenerationState({ phase: "done", requestId: savedRequestId });
+          return;
+        }
+
+        if (job.status === "queued" || job.status === "processing") {
+          generationStartedAtRef.current = parseServerDate(job.created_at).getTime() || Date.now();
+          setGenState({ phase: "polling", requestId: savedRequestId, startedAt: generationStartedAtRef.current, status: job.status });
+          setGenerationState({
+            phase: "polling",
+            requestId: savedRequestId,
+            startedAt: generationStartedAtRef.current,
+            status: job.status,
+          });
+          return;
+        }
+
+        if (job.status === "cancelled") {
+          localStorage.removeItem(LAST_REQUEST_KEY);
+          setGenerationState({ phase: "cancelled", requestId: savedRequestId });
+          return;
+        }
+
+        if (job.status === "failed") {
+          localStorage.removeItem(LAST_REQUEST_KEY);
+          setGenState({ phase: "error", message: job.error ?? "Generation failed", requestId: savedRequestId });
+          setGenerationState({ phase: "error", requestId: savedRequestId, message: job.error ?? "Generation failed" });
+        }
+      } catch {
+        localStorage.removeItem(LAST_REQUEST_KEY);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [genState.phase]);
+
+  useEffect(() => {
+    if (genState.phase !== "polling") return;
+
+    const requestId = genState.requestId;
+    activeRequestRef.current = requestId;
+    let stopped = false;
+
+    const reconcile = async () => {
+      try {
+        const job = await getJob(requestId);
+        if (stopped) return;
+
+        if (job.status === "queued" || job.status === "processing") {
+          const startedAt = genState.startedAt || generationStartedAtRef.current || parseServerDate(job.created_at).getTime() || Date.now();
+          generationStartedAtRef.current = startedAt;
+          setGenState({ phase: "polling", requestId, startedAt, status: job.status });
+          setGenerationState({
+            phase: "polling",
+            requestId,
+            startedAt,
+            status: job.status,
+          });
+          return;
+        }
+
+        if (job.status === "completed") {
+          const blob = await getJobAudio(requestId);
+          if (stopped) return;
+          const url = URL.createObjectURL(blob);
+          setGenState({ phase: "done", result: { job, blob, url } });
+          setGenerationState({ phase: "done", requestId });
+          localStorage.setItem(LAST_REQUEST_KEY, requestId);
+          queryClient.invalidateQueries({ queryKey: ["jobs"] });
+          return;
+        }
+
+        if (job.status === "cancelled") {
+          setGenState({ phase: "idle" });
+          setGenerationState({ phase: "cancelled", requestId });
+          localStorage.removeItem(LAST_REQUEST_KEY);
+          queryClient.invalidateQueries({ queryKey: ["jobs"] });
+          return;
+        }
+
+        if (job.status === "failed") {
+          setGenState({ phase: "error", message: job.error ?? "Generation failed", requestId });
+          setGenerationState({ phase: "error", message: job.error ?? "Generation failed", requestId });
+          queryClient.invalidateQueries({ queryKey: ["jobs"] });
+        }
+      } catch (err) {
+        if (stopped) return;
+        const message = err instanceof Error ? err.message : String(err);
+        setGenState({ phase: "error", message, requestId });
+        setGenerationState({ phase: "error", message, requestId });
+      }
+    };
+
+    reconcile();
+    const id = window.setInterval(reconcile, 2000);
+    return () => {
+      stopped = true;
+      window.clearInterval(id);
+    };
+  }, [genState.phase === "polling" ? genState.requestId : null, queryClient]);
 
   const handleGenerate = async () => {
     if (!script.trim() || isGenerating) return;
     abortRef.current = false;
+    activeRequestRef.current = null;
+    setStopping(false);
 
     // Revoke previous blob URL
     if (genState.phase === "done") URL.revokeObjectURL(genState.result.url);
 
+    generationStartedAtRef.current = Date.now();
+    setElapsed(0);
     setGenState({ phase: "submitting" });
+    setGenerationState({ phase: "submitting" });
+    const nextHistory = pushScriptHistory(scriptHistory, script);
+    setScriptHistory(nextHistory);
+    writeScriptHistory(nextHistory);
 
     try {
       const isCustom = tone === "Custom";
+      const useOverrides = isCustom || isDirty;
       const { request_id } = await submitTTS({
         text: script,
         preset: isCustom ? "default" : tone.toLowerCase(),
@@ -324,37 +517,45 @@ function GeneratePage() {
         output_format: format,
         mp3_bitrate: format === "mp3" ? parseInt(mp3Quality, 10) : undefined,
         wav_bit_depth: format === "wav" ? wavQuality : undefined,
-        ...(isCustom ? {
-          exaggeration: advanced.exaggeration,
-          cfg_weight: advanced.cfg,
-          temperature: advanced.temperature,
-          repetition_penalty: advanced.repetition,
-          top_p: advanced.topP,
-          min_p: advanced.minP,
-        } : {}),
+        ...(useOverrides ? currentPresetParams() : {}),
       });
 
-      setGenState({ phase: "polling", requestId: request_id });
-
-      while (!abortRef.current) {
-        await new Promise((r) => setTimeout(r, 2000));
-        if (abortRef.current) break;
-        const job = await getJob(request_id);
-        if (job.status === "completed") {
-          const blob = await getJobAudio(request_id);
-          const url = URL.createObjectURL(blob);
-          setGenState({ phase: "done", result: { job, blob, url } });
-          queryClient.invalidateQueries({ queryKey: ["jobs"] });
-          return;
-        }
-        if (job.status === "failed") {
-          throw new Error(job.error ?? "Generation failed");
-        }
-      }
+      activeRequestRef.current = request_id;
+      localStorage.setItem(LAST_REQUEST_KEY, request_id);
+      setGenState({ phase: "polling", requestId: request_id, startedAt: generationStartedAtRef.current, status: "queued" });
+      setGenerationState({ phase: "polling", requestId: request_id, startedAt: generationStartedAtRef.current, status: "queued" });
     } catch (err) {
       if (!abortRef.current) {
-        setGenState({ phase: "error", message: err instanceof Error ? err.message : String(err) });
+        const message = err instanceof Error ? err.message : String(err);
+        const requestId = err instanceof Error && "requestId" in err ? String((err as Error & { requestId?: string }).requestId ?? "") : undefined;
+        setGenState(requestId ? { phase: "error", message, requestId } : { phase: "error", message });
+        setGenerationState(requestId ? { phase: "error", message, requestId } : { phase: "error", message });
       }
+    } finally {
+      if (activeRequestRef.current) {
+        activeRequestRef.current = null;
+      }
+      setStopping(false);
+    }
+  };
+
+  const handleCancelGeneration = async () => {
+    const requestId = activeRequestRef.current ?? (genState.phase === "polling" ? genState.requestId : null);
+    if (!requestId || stopping) return;
+    setStopping(true);
+    abortRef.current = true;
+    try {
+      await cancelJob(requestId);
+      setGenState({ phase: "idle" });
+      setGenerationState({ phase: "cancelled", requestId });
+      localStorage.removeItem(LAST_REQUEST_KEY);
+      queryClient.invalidateQueries({ queryKey: ["jobs"] });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Cancellation failed.";
+      setGenState({ phase: "error", message, requestId });
+      setGenerationState({ phase: "error", message, requestId });
+    } finally {
+      setStopping(false);
     }
   };
 
@@ -393,6 +594,36 @@ function GeneratePage() {
     setEditPresetNameInput(tone);
     setEditPresetError("");
     setEditPresetOpen(true);
+  };
+
+  const openSaveAsPreset = () => {
+    const baseName = `${tone} 2`;
+    const existing = new Set(Object.keys(presetsData ?? {}).map((k) => k.toLowerCase()));
+    let candidate = baseName;
+    let suffix = 2;
+    while (existing.has(candidate.trim().toLowerCase())) {
+      suffix += 1;
+      candidate = `${tone} ${suffix}`;
+    }
+    setPresetNameInput(candidate);
+    setSavePresetError("");
+    setSavePresetOpen(true);
+  };
+
+  const handleUpdatePreset = async () => {
+    if (!activeToneKey) return;
+    setEditingPreset(true);
+    setEditPresetError("");
+    try {
+      await savePreset(activeToneKey, currentPresetParams());
+      await queryClient.invalidateQueries({ queryKey: ["presets"] });
+      setSavePresetOpen(false);
+      setEditPresetOpen(false);
+    } catch (err) {
+      setEditPresetError(err instanceof Error ? err.message : "Failed to update preset.");
+    } finally {
+      setEditingPreset(false);
+    }
   };
 
   const handleEditPreset = async () => {
@@ -483,6 +714,39 @@ function GeneratePage() {
           <div className="flex items-center justify-between">
             <h2 className="text-[18px] font-bold text-foreground">Script</h2>
             <div className="flex items-center gap-2">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    type="button"
+                    disabled={scriptHistory.length === 0}
+                    className="group inline-flex items-center gap-1.5 rounded-lg border border-border bg-white px-3 py-1.5 text-[13px] font-medium text-foreground/70 transition-all hover:border-[var(--brand)] hover:bg-[var(--brand-soft)] hover:text-[var(--brand)] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-border disabled:hover:bg-white disabled:hover:text-foreground/70"
+                  >
+                    <History className="h-3.5 w-3.5" />
+                    History
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start" className="w-[320px]">
+                  {scriptHistory.map((entry) => (
+                    <DropdownMenuItem
+                      key={entry}
+                      onSelect={() => setScript(entry)}
+                      className="cursor-pointer text-[13px]"
+                    >
+                      <span className="block truncate">{entry.length > 80 ? `${entry.slice(0, 80)}…` : entry}</span>
+                    </DropdownMenuItem>
+                  ))}
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    onSelect={() => {
+                      setScriptHistory([]);
+                      writeScriptHistory([]);
+                    }}
+                    className="cursor-pointer text-[13px] text-[oklch(0.55_0.2_25)]"
+                  >
+                    Clear history
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
               <input
                 ref={importInputRef}
                 type="file"
@@ -570,16 +834,6 @@ function GeneratePage() {
             </button>
           </div>
 
-          {genState.phase === "error" && (
-            <div className="mt-4 flex items-start gap-2 rounded-xl border border-[oklch(0.62_0.2_25/0.3)] bg-[var(--brand-soft)] px-4 py-3 text-[13px] text-[oklch(0.45_0.2_25)]">
-              <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
-              <span className="flex-1">{genState.message}</span>
-              <button onClick={() => setGenState({ phase: "idle" })} className="shrink-0 opacity-60 hover:opacity-100">
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-          )}
-
           <button
             onClick={handleGenerate}
             disabled={isGenerating || !script.trim()}
@@ -617,7 +871,19 @@ function GeneratePage() {
           </div>
           <div className="mt-4">
             {isGenerating ? (
-              <GeneratingRow elapsed={elapsed} />
+              <GeneratingRow
+                elapsed={elapsed}
+                queued={genState.phase === "polling" && genState.status === "queued"}
+                stopping={stopping}
+                onCancel={handleCancelGeneration}
+              />
+            ) : genState.phase === "error" ? (
+              <GenerationErrorState
+                message={genState.message}
+                requestId={genState.requestId}
+                onRetry={handleGenerate}
+                onDismiss={() => setGenState({ phase: "idle" })}
+              />
             ) : genResult ? (
               <JobRow
                 job={genResult.job}
@@ -892,13 +1158,31 @@ function GeneratePage() {
               </div>
 
               <div className="mt-5 border-t border-border pt-4">
-                <div className="flex items-center justify-end gap-2">
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                   {isUserPreset ? (
-                    /* User preset: Edit + Remove */
                     <>
+                      {isDirty ? (
+                        <>
+                          <button
+                            onClick={handleUpdatePreset}
+                            disabled={editingPreset || !activeToneKey}
+                            className="inline-flex w-full items-center justify-center gap-1.5 whitespace-nowrap rounded-lg bg-[oklch(0.55_0.22_260)] px-3 py-2 text-[12px] font-bold text-white transition-all hover:brightness-110 disabled:opacity-60"
+                          >
+                            {editingPreset ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
+                            Update
+                          </button>
+                          <button
+                            onClick={openSaveAsPreset}
+                            className="inline-flex w-full items-center justify-center gap-1.5 whitespace-nowrap rounded-lg border border-border bg-white px-3 py-2 text-[12px] font-semibold text-foreground/70 transition-colors hover:bg-muted"
+                          >
+                            <Sparkles className="h-3.5 w-3.5" />
+                            Save As
+                          </button>
+                        </>
+                      ) : null}
                       <button
                         onClick={handleEditPresetOpen}
-                        className="group inline-flex items-center gap-1.5 rounded-lg border border-border bg-white px-3 py-2 text-[12px] font-semibold text-foreground/70 transition-all hover:border-[oklch(0.55_0.22_260/0.4)] hover:bg-[oklch(0.98_0.02_260)] hover:text-[oklch(0.45_0.22_260)]"
+                        className="group inline-flex w-full items-center justify-center gap-1.5 whitespace-nowrap rounded-lg border border-border bg-white px-3 py-2 text-[12px] font-semibold text-foreground/70 transition-all hover:border-[oklch(0.55_0.22_260/0.4)] hover:bg-[oklch(0.98_0.02_260)] hover:text-[oklch(0.45_0.22_260)]"
                       >
                         <Pencil className="h-3.5 w-3.5 transition-transform group-hover:-rotate-6" />
                         Edit
@@ -906,7 +1190,7 @@ function GeneratePage() {
                       <button
                         onClick={handleRemovePreset}
                         disabled={removingPreset}
-                        className="group inline-flex items-center gap-1.5 rounded-lg border border-border bg-white px-3 py-2 text-[12px] font-semibold text-foreground/70 transition-all hover:border-[oklch(0.62_0.2_25/0.4)] hover:bg-[var(--brand-soft)] hover:text-[oklch(0.55_0.22_25)] disabled:cursor-not-allowed disabled:opacity-50"
+                        className="group inline-flex w-full items-center justify-center gap-1.5 whitespace-nowrap rounded-lg border border-border bg-white px-3 py-2 text-[12px] font-semibold text-foreground/70 transition-all hover:border-[oklch(0.62_0.2_25/0.4)] hover:bg-[var(--brand-soft)] hover:text-[oklch(0.55_0.22_25)] disabled:cursor-not-allowed disabled:opacity-50"
                       >
                         {removingPreset
                           ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -919,7 +1203,7 @@ function GeneratePage() {
                     <button
                       onClick={() => setAdvanced(ADVANCED_DEFAULTS)}
                       disabled={!isDirty}
-                      className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-white px-3 py-2 text-[12px] font-semibold text-foreground/75 transition-colors hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
+                      className="inline-flex w-full items-center justify-center gap-1.5 rounded-lg border border-border bg-white px-3 py-2 text-[12px] font-semibold text-foreground/75 transition-colors hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50 sm:col-span-2"
                     >
                       <RefreshCw className="h-3.5 w-3.5" />
                       Reset to Default
@@ -930,7 +1214,7 @@ function GeneratePage() {
                   {tone === "Custom" && (
                     <button
                       onClick={() => { setSavePresetOpen((v) => !v); setSavePresetError(""); }}
-                      className="inline-flex items-center gap-1.5 rounded-lg bg-[oklch(0.55_0.22_260)] px-3 py-2 text-[12px] font-bold text-white transition-all hover:brightness-110"
+                      className="inline-flex w-full items-center justify-center gap-1.5 rounded-lg bg-[oklch(0.55_0.22_260)] px-3 py-2 text-[12px] font-bold text-white transition-all hover:brightness-110 sm:col-span-2"
                       style={{ boxShadow: "var(--shadow-btn)" }}
                     >
                       <Sparkles className="h-3.5 w-3.5" />
@@ -942,10 +1226,19 @@ function GeneratePage() {
                 {/* Edit panel for user presets */}
                 {isUserPreset && editPresetOpen && (
                   <div className="mt-3 rounded-xl border border-[oklch(0.55_0.22_260/0.25)] bg-[var(--brand-soft)] p-3">
-                    <p className="mb-2 text-[11.5px] font-semibold text-foreground/70">
-                      Rename or update settings — current slider values will be saved.
-                    </p>
-                    <div className="flex gap-2">
+                    <div className="mb-2 flex items-start justify-between gap-2">
+                      <p className="text-[11.5px] font-semibold text-foreground/70">
+                        Rename or update settings — current slider values will be saved.
+                      </p>
+                      <button
+                        onClick={() => setEditPresetOpen(false)}
+                        className="mt-[-2px] inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border bg-white text-foreground/60 hover:bg-muted"
+                        aria-label="Close preset editor"
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                    <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-2">
                       <input
                         autoFocus
                         value={editPresetNameInput}
@@ -958,16 +1251,10 @@ function GeneratePage() {
                       <button
                         onClick={handleEditPreset}
                         disabled={editingPreset || !editPresetNameInput.trim()}
-                        className="inline-flex items-center gap-1.5 rounded-lg bg-[oklch(0.55_0.22_260)] px-3 py-2 text-[12px] font-bold text-white transition-all hover:brightness-110 disabled:opacity-60"
+                        className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-[oklch(0.55_0.22_260)] px-3 py-2 text-[12px] font-bold text-white transition-all hover:brightness-110 disabled:opacity-60"
                       >
                         {editingPreset ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
                         Update
-                      </button>
-                      <button
-                        onClick={() => setEditPresetOpen(false)}
-                        className="rounded-lg border border-border bg-white px-2 py-2 text-foreground/60 hover:bg-muted"
-                      >
-                        <X className="h-3.5 w-3.5" />
                       </button>
                     </div>
                     {editPresetError && (
@@ -1414,45 +1701,70 @@ const GENERATION_STEPS = [
   },
 ] as const;
 
-function getGenerationStep(elapsed: number) {
+function getGenerationStep(elapsed: number, queued = false) {
+  if (queued) return 1;
   if (elapsed < 6) return 1;
   if (elapsed < 45) return 2;
   return 3;
 }
 
-function getGenerationStatus(elapsed: number) {
-  const step = getGenerationStep(elapsed);
+function getGenerationStatus(elapsed: number, queued = false) {
+  const step = getGenerationStep(elapsed, queued);
   return GENERATION_STEPS[step - 1];
 }
 
-function GeneratingRow({ elapsed }: { elapsed: number }) {
-  const activeStep = getGenerationStep(elapsed);
-  const activeStatus = getGenerationStatus(elapsed);
-  const progressPct = Math.min(92, (elapsed / 240) * 100);
+function GeneratingRow({
+  elapsed,
+  queued,
+  stopping,
+  onCancel,
+}: {
+  elapsed: number;
+  queued: boolean;
+  stopping: boolean;
+  onCancel: () => void;
+}) {
+  const activeStep = getGenerationStep(elapsed, queued);
+  const activeStatus = getGenerationStatus(elapsed, queued);
+  const progressPct = queued ? 16 : Math.min(92, 24 + elapsed / 3);
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-[color-mix(in oklch, var(--brand) 16%, white)] bg-[linear-gradient(180deg,var(--brand-soft)_0%,white_26%,var(--background)_100%)] shadow-[0_18px_36px_-28px_oklch(0.16_0.02_260/0.28)]">
-      <div className="flex items-start gap-4 p-4 sm:p-5">
-        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[radial-gradient(circle_at_30%_30%,white_0%,var(--brand-soft)_58%,color-mix(in_oklch,var(--brand)_20%,white)_100%)] text-[var(--brand)] shadow-sm">
-          <Loader2 className="h-5 w-5 animate-spin" />
-        </div>
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-            <div className="text-[15px] font-bold tracking-tight text-foreground">Generating audio…</div>
-            <span className="rounded-full border border-[color-mix(in oklch, var(--brand) 20%, white)] bg-white/90 px-2.5 py-0.5 text-[11px] font-semibold text-[var(--brand)] shadow-sm">
-              {activeStatus.label}
-            </span>
+    <div className="overflow-hidden rounded-2xl border border-[color-mix(in_oklch,var(--brand)_16%,white)] bg-[linear-gradient(180deg,var(--brand-soft)_0%,white_30%,var(--background)_100%)] shadow-[0_18px_36px_-28px_oklch(0.16_0.02_260/0.28)]">
+      <div className="flex items-start justify-between gap-3 p-4 sm:p-5">
+        <div className="flex min-w-0 items-start gap-4">
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[radial-gradient(circle_at_30%_30%,white_0%,var(--brand-soft)_58%,color-mix(in_oklch,var(--brand)_20%,white)_100%)] text-[var(--brand)] shadow-sm">
+            <Loader2 className="h-5 w-5 animate-spin" />
           </div>
-          <div className="mt-1 text-[12.5px] text-foreground/60">
-            {activeStatus.detail} · {fmtTime(elapsed)} elapsed
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+              <div className="text-[15px] font-bold tracking-tight text-foreground">
+                {queued ? "Waiting in queue…" : "Generating audio…"}
+              </div>
+              <span className="rounded-full border border-[color-mix(in_oklch,var(--brand)_20%,white)] bg-white/90 px-2.5 py-0.5 text-[11px] font-semibold text-[var(--brand)] shadow-sm">
+                {queued ? "Queued" : activeStatus.label}
+              </span>
+            </div>
+            <div className="mt-1 text-[12.5px] text-foreground/60">
+              {queued ? "Another render is using the engine right now." : `${activeStatus.detail} · ${fmtTime(elapsed)} elapsed`}
+            </div>
           </div>
         </div>
+        <button
+          type="button"
+          onClick={onCancel}
+          disabled={stopping}
+          className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-[oklch(0.78_0.12_25)] bg-white px-3 py-1.5 text-[12px] font-semibold text-[oklch(0.55_0.2_25)] transition-colors hover:bg-[oklch(0.98_0.02_25)] disabled:opacity-50"
+        >
+          <X className="h-3.5 w-3.5" />
+          Cancel
+        </button>
       </div>
-      <div className="border-t border-[color-mix(in oklch, var(--brand) 10%, white)] px-4 py-4 sm:px-5">
+
+      <div className="border-t border-[color-mix(in_oklch,var(--brand)_10%,white)] px-4 py-4 sm:px-5">
         <div className="grid gap-3 md:grid-cols-3">
           {GENERATION_STEPS.map((step, idx) => {
             const stepNumber = idx + 1;
-            const isDone = stepNumber < activeStep;
+            const isDone = !queued && stepNumber < activeStep;
             const isActive = stepNumber === activeStep;
             const Icon = step.icon;
             return (
@@ -1460,9 +1772,9 @@ function GeneratingRow({ elapsed }: { elapsed: number }) {
                 key={step.label}
                 className={`rounded-xl border px-3 py-3 transition-colors ${
                   isActive
-                    ? "border-[color-mix(in oklch, var(--brand) 22%, white)] bg-white shadow-sm"
+                    ? "border-[color-mix(in_oklch,var(--brand)_22%,white)] bg-white shadow-sm"
                     : isDone
-                      ? "border-[color-mix(in oklch, var(--brand-secondary) 22%, white)] bg-[var(--brand-soft)]/40"
+                      ? "border-[color-mix(in_oklch,var(--brand-secondary)_22%,white)] bg-[var(--brand-soft)]/40"
                       : "border-border bg-white/70"
                 }`}
               >
@@ -1481,7 +1793,7 @@ function GeneratingRow({ elapsed }: { elapsed: number }) {
                   <div className="min-w-0">
                     <div className="text-[13px] font-semibold text-foreground">{step.label}</div>
                     <div className="mt-0.5 text-[11.5px] leading-snug text-foreground/55">
-                      {isActive ? `${step.detail} now` : step.detail}
+                      {queued && stepNumber === 1 ? "Waiting for the engine" : isActive ? `${step.detail} now` : step.detail}
                     </div>
                   </div>
                 </div>
@@ -1489,13 +1801,11 @@ function GeneratingRow({ elapsed }: { elapsed: number }) {
             );
           })}
         </div>
-        <div className="mt-4 flex items-center gap-3">
-          <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-white/80">
-            <div
-              className="h-full rounded-full bg-[linear-gradient(90deg,var(--brand),var(--brand-secondary),var(--brand-warm))]"
-              style={{ width: `${progressPct}%`, transition: "width 0.6s linear" }}
-            />
-          </div>
+        <div className="mt-4 h-1.5 overflow-hidden rounded-full bg-white/80">
+          <div
+            className="h-full rounded-full bg-[linear-gradient(90deg,var(--brand),var(--brand-secondary),var(--brand-warm))] transition-[width] duration-700"
+            style={{ width: `${progressPct}%` }}
+          />
         </div>
       </div>
     </div>
@@ -1545,6 +1855,71 @@ function EmptyOutputState() {
       <AudioLines className="h-8 w-8 text-foreground/20" />
       <p className="text-[13px] font-medium text-foreground/40">Your result will appear here</p>
       <p className="text-[12px] text-foreground/30">Generated audio will appear here</p>
+    </div>
+  );
+}
+
+function GenerationErrorState({
+  message,
+  requestId,
+  onRetry,
+  onDismiss,
+}: {
+  message: string;
+  requestId?: string;
+  onRetry: () => void;
+  onDismiss: () => void;
+}) {
+  const copyRequestId = async () => {
+    if (!requestId) return;
+    try {
+      await navigator.clipboard.writeText(requestId);
+    } catch {}
+  };
+
+  return (
+    <div className="rounded-xl border border-[oklch(0.62_0.2_25/0.3)] bg-[oklch(0.985_0.01_25)] p-4">
+      <div className="flex items-start gap-3">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[oklch(0.62_0.2_25/0.12)] text-[oklch(0.55_0.2_25)]">
+          <AlertCircle className="h-4.5 w-4.5" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="text-[15px] font-bold text-foreground">Generation failed</div>
+          <div className="mt-1 rounded-lg bg-white px-3 py-2 text-[13px] leading-relaxed text-foreground/80">
+            {message}
+          </div>
+          {requestId && (
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <span className="text-[12px] font-semibold text-foreground/60">Request ID</span>
+              <code className="rounded-md border border-border bg-white px-2 py-1 text-[11px] text-foreground/70">{requestId}</code>
+              <button
+                type="button"
+                onClick={copyRequestId}
+                className="rounded-md border border-border bg-white px-2 py-1 text-[11px] font-semibold text-foreground/70 transition-colors hover:bg-muted"
+              >
+                Copy
+              </button>
+            </div>
+          )}
+          <div className="mt-4 flex items-center gap-2">
+            <button
+              type="button"
+              onClick={onRetry}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-[oklch(0.55_0.22_260)] px-3 py-2 text-[12px] font-bold text-white transition-all hover:brightness-110"
+            >
+              <RefreshCw className="h-3.5 w-3.5" />
+              Retry
+            </button>
+            <button
+              type="button"
+              onClick={onDismiss}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-white px-3 py-2 text-[12px] font-semibold text-foreground/70 transition-colors hover:bg-muted"
+            >
+              Dismiss
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
@@ -1778,7 +2153,7 @@ function JobRow({
   const voiceLabel = job.voice_name ?? "Generic";
   const presetLabel = job.preset.charAt(0).toUpperCase() + job.preset.slice(1);
   const formatLabel = job.output_format.toUpperCase();
-  const ts = new Date(job.completed_at ?? job.created_at);
+  const ts = parseServerDate(job.completed_at ?? job.created_at);
   const isToday = ts.toDateString() === new Date().toDateString();
   const timeLabel = isToday
     ? `Today, ${ts.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}`
@@ -1911,7 +2286,7 @@ function JobRow({
       </div>
 
       {/* ── Transport bar ── */}
-      {fetchStatus === "ready" && (
+      {fetchStatus !== "expired" && (
         <div className="flex flex-col gap-2 px-4 pb-3 pt-3 sm:flex-row sm:items-center sm:gap-3 sm:py-3">
           <div className="flex items-center gap-3">
             <JobVolumeControl value={volume} muted={muted} onChange={(v) => { setVolume(v); setMuted(false); }} onToggleMute={() => setMuted((m) => !m)} />
@@ -1936,18 +2311,13 @@ function JobRow({
 
       {/* ── Expired banner ── */}
       {fetchStatus === "expired" && (
-        <div className="mx-4 mb-4 mt-3 flex items-center gap-3 rounded-lg border border-dashed border-[oklch(0.82_0.08_40)] bg-[oklch(0.98_0.02_40)] px-3 py-2.5">
-          <div className="flex-1 text-[12px] text-[oklch(0.52_0.12_40)]">File expired — audio no longer available on disk</div>
-          <div className="flex shrink-0 items-center gap-2">
-            <button onClick={handleCopyScript} className="inline-flex items-center gap-1.5 rounded-md border border-[oklch(0.82_0.08_40)] bg-white px-2.5 py-1.5 text-[12px] font-medium text-[oklch(0.45_0.12_40)] hover:bg-[oklch(0.96_0.04_40)]">
+        <div className="mx-4 mb-4 mt-3 flex flex-col gap-3 rounded-lg border border-dashed border-[oklch(0.82_0.08_40)] bg-[oklch(0.98_0.02_40)] px-3 py-2.5 sm:flex-row sm:items-center">
+          <div className="min-w-0 flex-1 text-[12px] text-[oklch(0.52_0.12_40)]">File expired — audio no longer available on disk</div>
+          <div className="flex flex-wrap items-center gap-2 sm:ml-auto sm:flex-nowrap">
+            <button onClick={handleCopyScript} className="inline-flex min-w-[7.5rem] items-center justify-center gap-1.5 whitespace-nowrap rounded-md border border-[oklch(0.82_0.08_40)] bg-white px-2.5 py-1.5 text-[12px] font-medium text-[oklch(0.45_0.12_40)] hover:bg-[oklch(0.96_0.04_40)]">
               {copied ? <Check className="h-3.5 w-3.5" /> : <Keyboard className="h-3.5 w-3.5" />}
               {copied ? "Copied!" : "Copy Script"}
             </button>
-            {onRegenerate && (
-              <button onClick={onRegenerate} className="inline-flex items-center gap-1.5 rounded-md border border-[oklch(0.75_0.15_260)] bg-[oklch(0.55_0.22_260)] px-2.5 py-1.5 text-[12px] font-medium text-white hover:brightness-110">
-                <RefreshCw className="h-3.5 w-3.5" /> Regenerate
-              </button>
-            )}
           </div>
         </div>
       )}

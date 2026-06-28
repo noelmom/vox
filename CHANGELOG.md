@@ -5,12 +5,17 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
-## [Unreleased] — development branch
+## [0.5.1-beta] — 2026-06-28
 
 ### Added
 - **React 19 SPA — Generate page history panel** — previous completed jobs load from `GET /jobs` below the current Output card. Newest First / Oldest sort toggle and a live filter search bar. Shows 5 jobs initially; "Load more" reveals 3 more per click. Current Output job is excluded from History to avoid duplicates.
 - **Single audio player enforcement** — only one audio player (across Output, History, and Voices) can play at a time. Pressing play on any `JobRow` or `ProfileCard` pauses all others via lifted `activePlayerId` state and an `onActivate` callback.
-- **Expired file detection on load** — `GET /jobs` response includes a `file_available` boolean computed server-side via `Path(output_path).exists()`. Expired jobs render immediately with an amber panel showing "Copy Script" (copies text to clipboard) and "Regenerate" — no extra round-trip needed.
+- **Expired file detection on load** — `GET /jobs` response includes a `file_available` boolean computed server-side via `Path(output_path).exists()`. Expired jobs render immediately with an amber panel and copy/regenerate actions where appropriate — no extra round-trip needed.
+- **Generation cancellation and global status bar** — queued/running jobs are tracked globally, continue across tab navigation, expose a compact top-bar status, and can be cancelled from both the global control and the Create result panel.
+- **Recent script history** — generated scripts are saved locally in a capped, deduped history dropdown on the Create page for quick reuse.
+- **Custom preset update/save-as flow** — saved user tones can now be updated in place, saved as a variant, renamed, or removed from the Create page.
+- **Network access mode** — Vox now defaults to `127.0.0.1` local-only access, with a Settings toggle for LAN access (`0.0.0.0`) and a restart-required badge when the saved host differs from the active server host.
+- **Modern menu bar status icon** — the native helper now uses a monochrome template `VOX` icon instead of colored status dots. Running shows a pulse underline; stopped shows a broken underline.
 - **Voices page — full React rewrite** — replaced placeholder with two-tab layout:
   - *Upload tab:* drag-and-drop or file picker with audio preview, name / description / tags fields, real-time upload to `POST /voices`.
   - *Record tab:* full mic permission flow with distinct `no-device` (amber, "Connect a microphone") and `denied` (red, "Open browser site settings") error states; device selector dropdown when more than one mic is available (`enumerateDevices()` after permission); MediaRecorder with 250 ms chunks; playback preview before saving; "Save as Voice Profile" calls `POST /voices`.
@@ -21,6 +26,13 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - **Audio player waveform sync** — waveform bars now update in sync with both playback timeline and manual seek slider dragging.
 - **Waveform bars disappearing at end** — bars now stay filled throughout end-of-playback instead of vanishing.
 - **ETA estimation** — progress bar no longer fills too fast; added 1.3× safety multiplier and improved messaging (shows "Finalizing…" when estimate exceeded).
+- **Create-page elapsed timer reset** — starting a new generation now resets the local Create result timer to `0:00`, matching the global status timer.
+- **Medium-script chunking stability** — sentence packing now avoids tiny standalone chunks that could stall Chatterbox on short sentences.
+- **Generation timeout and stale-job cleanup** — each chunk render has a bounded timeout, cancelled jobs cannot be overwritten by late failures/completions, and queued/processing jobs left behind by an agent restart are marked failed on startup.
+- **Persistent generation failure UI** — failed jobs render an inline error card with the server message, request ID, copy action, Retry, and Dismiss instead of relying on a disappearing toast.
+- **Menu bar helper address refresh** — the helper re-reads `.env` while polling, so switching between local-only and LAN access updates the displayed/copyable address after the local server restarts.
+- **Signed app copy preservation** — build and helper install scripts now use `ditto` and stop the helper before replacing it, preserving bundle code signatures through DMG build/install.
+- **Install/update git prerequisite checks** — `vox.sh`, `scripts/update.sh`, and `setup.sh` now surface clear Xcode Command Line Tools guidance when git is unavailable.
 - **Generation silently failing over Cloudflare tunnels and slow connections** — long generations (>100s) would complete successfully on the server but never deliver audio to the browser. Two-part fix:
 
   **Root cause 1 — synchronous HTTP response:** `POST /tts` previously held the HTTP connection open for the entire generation duration (up to several minutes). Cloudflare tunnels enforce a ~100s idle timeout and would kill the connection before the server could respond, leaving the file on disk but showing nothing in the UI.
@@ -31,7 +43,7 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
   **Fix:** `model.generate()` is now dispatched via `asyncio.get_running_loop().run_in_executor(None, ...)`, running inference in a thread pool so the event loop remains free to serve status polls throughout generation.
 
-- **Canvas waveform players across all screens** — all audio playback surfaces replaced with an `OutputPlayer`-style canvas player: `JobRow` in the Generate result and Recent list, `ClipCard` in Recordings, `ProfileCard` in Library, the Upload preview pane, and the voice preview player. Each renders a seeded-random peak waveform with a progress overlay, interactive seek, volume/speed controls, and time display. Single-player coordination via lifted `activePlayerId` state.
+- **Canvas waveform players across all screens** — all audio playback surfaces replaced with an `OutputPlayer`-style canvas player: `JobRow` in the Generate result and Recent list, `ClipCard` in Recordings, `ProfileCard` in Library, the Upload preview pane, and the voice preview player. Generated/recorded audio decodes real amplitude peaks where available, with deterministic placeholders only as fallbacks before audio is loaded. Single-player coordination via lifted `activePlayerId` state.
 
 - **Real mic waveform in RecordPane** — replaced the decorative sine-wave visualizer with a live RMS-driven canvas bar history while recording, and a decoded amplitude waveform shown during playback preview. Includes a playhead that advances with the audio element's `timeupdate` event.
 

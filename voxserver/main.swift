@@ -39,7 +39,7 @@ func portInUse(_ port: Int) -> Bool {
 // ── Main ─────────────────────────────────────────────────────────────────────
 
 let env = readEnv()
-let host   = env["VOX_HOST"]   ?? "0.0.0.0"
+let host   = env["VOX_HOST"]   ?? "127.0.0.1"
 let port   = Int(env["VOX_PORT"] ?? "8000") ?? 8000
 let device = env["VOX_DEVICE"] ?? "auto"
 

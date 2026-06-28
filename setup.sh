@@ -48,6 +48,13 @@ if [[ "$ARCH" != "arm64" ]]; then
     warn "CPU-only mode will be used. MPS acceleration unavailable."
 fi
 
+# Git is only needed when this source tree is a git checkout.
+if [[ -d "$ROOT/.git" ]] || [[ -f "$ROOT/.git" ]]; then
+    if ! command -v git &>/dev/null || ! xcode-select -p &>/dev/null; then
+        warn "Git/Xcode Command Line Tools are not available. Zip/manual installs can still continue, but git-based updates will need: xcode-select --install"
+    fi
+fi
+
 # ── Homebrew ──────────────────────────────────────────────────────────────────
 info "Checking Homebrew..."
 if ! command -v brew &>/dev/null; then
@@ -141,8 +148,8 @@ if [[ ! -f "$ENV_FILE" ]]; then
 # All variables use the VOX_ prefix unless noted.
 
 # Network
-# VOX_HOST=0.0.0.0    # default — reachable from any device on the network
-# VOX_PORT=8000
+VOX_HOST=127.0.0.1    # local only. Use 0.0.0.0 to allow LAN access.
+VOX_PORT=8000
 
 # Inference device: auto | mps | cpu
 # VOX_DEVICE=auto

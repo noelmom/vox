@@ -1,6 +1,11 @@
 import re
 from dataclasses import dataclass
 
+MEDIUM_SCRIPT_MIN_CHARS = 140
+MEDIUM_SCRIPT_MIN_SENTENCES = 3
+MEDIUM_CHUNK_MIN_CHARS = 80
+MEDIUM_CHUNK_TARGET_CHARS = 150
+
 
 @dataclass(frozen=True)
 class TextChunk:
@@ -57,6 +62,46 @@ def _split_long_sentence(sentence: str, max_chars: int) -> list[TextChunk]:
     return pieces
 
 
+def _pack_sentences(sentences: list[str], max_chars: int, target_chars: int, min_chars: int) -> list[TextChunk]:
+    chunks: list[TextChunk] = []
+    current = ""
+
+    for sentence in sentences:
+        if len(sentence) > max_chars:
+            if current:
+                chunks.append(TextChunk(current, _pause_for_text(current)))
+                current = ""
+            chunks.extend(_split_long_sentence(sentence, max_chars))
+            continue
+
+        candidate = f"{current} {sentence}".strip()
+        if current and len(candidate) > max_chars:
+            chunks.append(TextChunk(current, _pause_for_text(current)))
+            current = sentence
+            continue
+
+        if current and len(current) >= min_chars and len(candidate) > target_chars:
+            chunks.append(TextChunk(current, _pause_for_text(current)))
+            current = sentence
+            continue
+
+        current = candidate
+
+    if current:
+        if chunks and len(current) < min_chars:
+            previous = chunks.pop()
+            merged = f"{previous.text} {current}".strip()
+            if len(merged) <= max_chars:
+                chunks.append(TextChunk(merged, 0.0))
+            else:
+                chunks.append(previous)
+                chunks.append(TextChunk(current, 0.0))
+        else:
+            chunks.append(TextChunk(current, 0.0))
+
+    return chunks
+
+
 def split_text(text: str, max_chars: int, headroom_chars: int = 0) -> list[TextChunk]:
     text = re.sub(r"\s+", " ", text.strip())
 
@@ -64,11 +109,17 @@ def split_text(text: str, max_chars: int, headroom_chars: int = 0) -> list[TextC
         return []
 
     soft_max = max(1, max_chars - max(0, headroom_chars))
+    sentences = re.split(r"(?<=[.!?])\s+", text)
+    sentence_count = len([s for s in sentences if s.strip()])
 
-    if len(text) <= soft_max:
+    if len(text) <= soft_max and (len(text) < MEDIUM_SCRIPT_MIN_CHARS or sentence_count < MEDIUM_SCRIPT_MIN_SENTENCES):
         return [TextChunk(text, 0.0)]
 
-    sentences = re.split(r"(?<=[.!?])\s+", text)
+    if len(text) <= soft_max:
+        clean_sentences = [s.strip() for s in sentences if s.strip()]
+        target_chars = min(soft_max, max(MEDIUM_CHUNK_TARGET_CHARS, len(text) // 2))
+        return _pack_sentences(clean_sentences, soft_max, target_chars, MEDIUM_CHUNK_MIN_CHARS)
+
     chunks: list[TextChunk] = []
     current = ""
 

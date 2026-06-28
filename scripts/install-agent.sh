@@ -35,7 +35,7 @@ VENV="$APP_SUPPORT/venv"
 if [[ -f "$APP_SUPPORT/.env" ]]; then
     set -o allexport; source "$APP_SUPPORT/.env"; set +o allexport
 fi
-HOST="${VOX_HOST:-0.0.0.0}"
+HOST="${VOX_HOST:-127.0.0.1}"
 PORT="${VOX_PORT:-8000}"
 
 # Exit cleanly if another instance is already listening on the port
@@ -84,7 +84,6 @@ cat > "$PLIST_DST" <<EOF
   <key>TimeOut</key><integer>120</integer>
   <key>EnvironmentVariables</key>
   <dict>
-    <key>VOX_HOST</key><string>0.0.0.0</string>
     <key>VOX_PORT</key><string>8000</string>
     <key>VOX_DEVICE</key><string>auto</string>
   </dict>

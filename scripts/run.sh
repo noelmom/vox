@@ -23,7 +23,7 @@ if [[ -f "$APP_SUPPORT/.env" ]]; then
     set +o allexport
 fi
 
-HOST="${VOX_HOST:-0.0.0.0}"
+HOST="${VOX_HOST:-127.0.0.1}"
 PORT="${VOX_PORT:-8000}"
 
 echo "[vox] Starting (dev mode) on http://${HOST}:${PORT}"

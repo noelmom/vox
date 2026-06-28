@@ -19,12 +19,19 @@ echo "[vox-helper] Installing menu bar helper..."
 
 mkdir -p "$AGENTS_DIR" "$LOG_DIR"
 
+# Stop the running helper before replacing the app bundle. Replacing a live
+# signed .app can leave the installed bundle in an invalid signature state.
+UID_VAL=$(id -u)
+launchctl stop "gui/$UID_VAL/$LABEL" 2>/dev/null || true
+sleep 1
+launchctl unload "$PLIST_DST" 2>/dev/null || true
+
 # ── Install VoxHelper.app from DMG ───────────────────────────────────────────
 echo "[vox-helper] Installing VoxHelper.app from Vox.dmg..."
 mkdir -p "$MOUNT_POINT"
 hdiutil attach "$DMG" -nobrowse -quiet -mountpoint "$MOUNT_POINT"
 rm -rf /Applications/VoxHelper.app
-cp -r "$MOUNT_POINT/VoxHelper.app" /Applications/VoxHelper.app
+ditto "$MOUNT_POINT/VoxHelper.app" /Applications/VoxHelper.app
 hdiutil detach "$MOUNT_POINT" -quiet
 rm -df "$MOUNT_POINT"
 
@@ -51,10 +58,6 @@ EOF
 echo "[vox-helper] Plist written to: $PLIST_DST"
 
 # ── Reload LaunchAgent ────────────────────────────────────────────────────────
-UID_VAL=$(id -u)
-launchctl stop "gui/$UID_VAL/$LABEL" 2>/dev/null || true
-sleep 1
-launchctl unload "$PLIST_DST" 2>/dev/null || true
 launchctl load "$PLIST_DST"
 
 echo ""

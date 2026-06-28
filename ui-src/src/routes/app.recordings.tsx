@@ -27,7 +27,7 @@ import {
   Volume2,
   VolumeX,
 } from "lucide-react";
-import { type Job, type ApiVoice, listJobs, listVoices, getJobAudio, deleteJob } from "@/lib/api";
+import { type Job, type ApiVoice, listJobs, listVoices, getJobAudio, deleteJob, parseServerDate } from "@/lib/api";
 import { BRAND, BRAND_GRADIENT, BRAND_SECONDARY, BRAND_WARM } from "@/lib/theme";
 
 export const Route = createFileRoute("/app/recordings")({
@@ -41,7 +41,7 @@ type DateBucket = "Today" | "Yesterday" | "This Week" | "Earlier";
 
 function dateBucket(isoStr: string): DateBucket {
   const now = new Date();
-  const d = new Date(isoStr);
+  const d = parseServerDate(isoStr);
   const nowDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const dDay = new Date(d.getFullYear(), d.getMonth(), d.getDate());
   const days = Math.round((nowDay.getTime() - dDay.getTime()) / 86_400_000);
@@ -64,7 +64,7 @@ function fmtTime(s: number): string {
 }
 
 function fmtJobDate(isoStr: string): string {
-  const d = new Date(isoStr);
+  const d = parseServerDate(isoStr);
   const time = d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
   const bucket = dateBucket(isoStr);
   if (bucket === "Today") return time;

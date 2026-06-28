@@ -18,6 +18,13 @@ info()    { echo -e "${BOLD}[vox]${RESET} $*"; }
 success() { echo -e "${GREEN}[vox] ✓ $*${RESET}"; }
 warn()    { echo -e "${YELLOW}[vox] ⚠ $*${RESET}"; }
 fail()    { echo -e "${RED}[vox] ✗ $*${RESET}"; exit 1; }
+require_git() {
+    if command -v git &>/dev/null && xcode-select -p &>/dev/null; then
+        return 0
+    fi
+
+    fail "Git/Xcode Command Line Tools are required for this action. Run: xcode-select --install"
+}
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 APP_SUPPORT="$HOME/Library/Application Support/Vox"
@@ -56,24 +63,27 @@ if [[ -n "$ZIP_SRC" ]]; then
         --exclude='input/' \
         "$ZIP_SRC/" "$ROOT/"
     success "Source files updated from zip"
-elif git -C "$ROOT" rev-parse --git-dir &>/dev/null; then
-    BRANCH="$(git -C "$ROOT" rev-parse --abbrev-ref HEAD 2>/dev/null || echo "")"
-    if [[ -z "$BRANCH" ]]; then
-        warn "Could not determine git branch — skipping pull."
-    else
-        info "Pulling latest changes from origin/$BRANCH..."
-        BEFORE="$(git -C "$ROOT" rev-parse --short HEAD 2>/dev/null || echo "unknown")"
-        git -C "$ROOT" pull origin "$BRANCH"
-        AFTER="$(git -C "$ROOT" rev-parse --short HEAD 2>/dev/null || echo "unknown")"
-        if [[ "$BEFORE" == "$AFTER" ]]; then
-            warn "Already up to date ($AFTER) — reinstalling agents anyway."
-        else
-            success "Updated $BEFORE → $AFTER"
-        fi
-    fi
 else
-    warn "Not a git repo and no source folder provided."
-    warn "Proceeding with sync and agent reinstall only."
+    if [[ -d "$ROOT/.git" ]] || [[ -f "$ROOT/.git" ]]; then
+        require_git
+        BRANCH="$(git -C "$ROOT" rev-parse --abbrev-ref HEAD 2>/dev/null || echo "")"
+        if [[ -z "$BRANCH" ]]; then
+            warn "Could not determine git branch — skipping pull."
+        else
+            info "Pulling latest changes from origin/$BRANCH..."
+            BEFORE="$(git -C "$ROOT" rev-parse --short HEAD 2>/dev/null || echo "unknown")"
+            git -C "$ROOT" pull origin "$BRANCH"
+            AFTER="$(git -C "$ROOT" rev-parse --short HEAD 2>/dev/null || echo "unknown")"
+            if [[ "$BEFORE" == "$AFTER" ]]; then
+                warn "Already up to date ($AFTER) — reinstalling agents anyway."
+            else
+                success "Updated $BEFORE → $AFTER"
+            fi
+        fi
+    else
+        warn "Not a git repo and no source folder provided."
+        warn "Proceeding with sync and agent reinstall only."
+    fi
 fi
 
 # ── Sync Python dependencies ──────────────────────────────────────────────────
@@ -101,7 +111,7 @@ bash "$ROOT/scripts/install-helper.sh"
 echo ""
 echo -e "${GREEN}${BOLD}Vox updated successfully.${RESET}"
 echo ""
-if git -C "$ROOT" rev-parse --git-dir &>/dev/null; then
+if command -v git &>/dev/null && git -C "$ROOT" rev-parse --git-dir &>/dev/null; then
     echo "  Branch:  $(git -C "$ROOT" rev-parse --abbrev-ref HEAD 2>/dev/null || echo "unknown")"
     echo "  Version: $(git -C "$ROOT" rev-parse --short HEAD 2>/dev/null || echo "unknown")"
 fi

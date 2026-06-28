@@ -10,7 +10,7 @@ struct ServerState {
 }
 
 class ServerMonitor {
-    private var host = "0.0.0.0"
+    private var host = "127.0.0.1"
     private var port = "8000"
     private var timer: Timer?
     private var prevTicks: (UInt32, UInt32, UInt32, UInt32)?
@@ -54,6 +54,7 @@ class ServerMonitor {
     private func poll() {
         DispatchQueue.global(qos: .background).async { [weak self] in
             guard let self else { return }
+            self.readEnv()
             var s       = ServerState()
             s.running   = self.checkServer()
             s.addrLabel = self.addrLabel()

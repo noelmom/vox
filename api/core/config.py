@@ -6,9 +6,8 @@ from pydantic_settings import BaseSettings
 
 class Settings(BaseSettings):
     app_name: str = "Vox"
-    # TODO: default to "127.0.0.1" (localhost) once local macOS app packaging is in place.
-    # Currently 0.0.0.0 so the API is reachable from any device on the network during development.
-    host: str = "0.0.0.0"
+    # Local-only by default. Set VOX_HOST=0.0.0.0 to allow LAN access.
+    host: str = "127.0.0.1"
     port: int = 8000
     device: str = "auto"  # auto | mps | cpu
 

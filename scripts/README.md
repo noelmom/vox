@@ -56,7 +56,7 @@ The server prints its address and API docs URL on startup. Logs stream directly 
 | `../vox.sh` | **Unified entry point.** `install`, `update`, `uninstall` with flags (`--yes`, `--token`, `--purge`, `--zip`). Use this for all normal workflows. |
 | `install-agent.sh` | Register the **server** LaunchAgent with macOS launchd. Syncs `api/` and `ui/` to Application Support. |
 | `uninstall-agent.sh` | Stop and remove the server LaunchAgent. |
-| `install-helper.sh` | Install the **menu bar helper** LaunchAgent. Copies VoxHelper.app from the DMG and registers the LaunchAgent. |
+| `install-helper.sh` | Install the **menu bar helper** LaunchAgent. Stops the running helper, copies VoxHelper.app from the DMG with `ditto`, and registers the LaunchAgent. |
 | `uninstall-helper.sh` | Stop and remove the helper LaunchAgent. Icon disappears from menu bar. |
 | `run.sh` | Start the server manually in the foreground. Bypasses launchd entirely. |
 | `update.sh` | Pull latest changes + sync deps + re-register both agents. Called by `vox.sh update` — can also be run directly. |

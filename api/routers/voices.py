@@ -150,6 +150,7 @@ async def create_voice(
     safe = _safe_name(name)
     wav_dest = settings.voice_dir / f"{safe}.wav"
     tmp_paths: list[Path] = []
+    tmp_wav: Path | None = None
 
     raw_bytes = await file.read()
 
@@ -168,6 +169,9 @@ async def create_voice(
         finally:
             tmp.unlink(missing_ok=True)
         log.info("Converted %s -> %s", original_filename, wav_dest.name, extra={"request_id": rid})
+
+    if tmp_wav is None:
+        raise HTTPException(status_code=500, detail="Voice upload conversion failed.")
 
     try:
         trim_wav_edges(tmp_wav)

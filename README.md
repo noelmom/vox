@@ -10,7 +10,7 @@ It exposes a clean REST API and a web UI for generating high-quality audio from 
 
 - **Apple Silicon MPS acceleration** — Chatterbox runs on the Metal Performance Shaders backend for fast on-device inference
 - **Voice profiles** — store named voices with reference audio and per-voice TTS defaults
-- **Smart presets** — `default`, `youtube`, `hype`, `news` with full per-request parameter overrides
+- **Smart presets** — built-in tones like `confident`, `calm`, `newsreader`, and `storyteller` with full per-request parameter overrides
 - **Flexible audio ingest** — upload `.wav`, `.m4a`, `.mp3`, `.aiff`, `.flac`, `.ogg`, or `.webm`; all converted to WAV automatically
 - **Input folder watcher** — drop a voice recording into `input/` and it registers itself automatically
 - **Job history** — every generation is logged to SQLite with timing, RTF, and output path
@@ -23,9 +23,9 @@ It exposes a clean REST API and a web UI for generating high-quality audio from 
 - **Voice profile editing** — update description, tags, and TTS defaults without re-uploading audio
 - **Tag system** — tag voices (`uploaded`, `auto-import`, or custom) with filter pills on the Voices screen
 - **Custom tone** — "✦ Custom" pill opens a parameter panel with sliders for all 6 TTS params; persists via `localStorage`
-- **Generation ETA** — progress bar with elapsed/remaining time estimate while TTS is running
+- **Generation status** — global and Create-page progress indicators for queued/running jobs, with elapsed time and cancel controls
 - **Real upload progress** — live byte-count progress bar during voice file uploads
-- **macOS menu bar helper** — 🟢/🔴 status, CPU %, RAM, Start/Stop/Restart, Open in Browser, Copy Address — auto-starts on login
+- **macOS menu bar helper** — monochrome VOX status icon, CPU %, RAM, Start/Stop/Restart, Open in Browser, Copy Address — auto-starts on login
 - **LaunchAgent management** — server and helper managed by macOS launchd; crash-restart, structured logs to `~/Library/Logs/Vox/`
 
 ---
@@ -110,6 +110,7 @@ codename-vox/
 
 - macOS 13 Ventura or later
 - Apple Silicon (M1 or later) — Intel Macs are not supported
+- Xcode Command Line Tools / git (`xcode-select --install`) for clone-based installs and updates
 - Internet connection for first-time setup (Homebrew, Python, model weights)
 
 ### 1. Clone
@@ -162,7 +163,7 @@ launchctl kickstart -k gui/$(id -u)/com.melolabdev.vox       # restart
 tail -f ~/Library/Logs/Vox/vox.log                           # live logs
 ```
 
-The menu bar helper shows `localhost:8000 · local only` when `VOX_HOST=127.0.0.1`, or `192.168.x.x:8000 · network accessible` when `VOX_HOST=0.0.0.0` (default) — so you always know at a glance who can reach the server.
+The menu bar helper shows `localhost:8000 · local only` when `VOX_HOST=127.0.0.1` (default), or `192.168.x.x:8000 · network accessible` when `VOX_HOST=0.0.0.0` — so you always know at a glance who can reach the server.
 
 > **Shipping note:** When Vox ships as a one-click `.app`, set `RunAtLoad` to `true` in `launchagent/com.melolabdev.vox.plist` and re-run `scripts/install-agent.sh`. That single change enables server auto-start on login. The helper already auto-starts. See `BACKLOG.md` for details.
 
@@ -204,9 +205,9 @@ bash scripts/run.sh
 
 See [`scripts/README.md`](scripts/README.md) for a full reference of all scripts.
 
-The server starts on `http://0.0.0.0:8000` by default — reachable from any device on your local network. Open `http://localhost:8000/app` for the web UI or `http://localhost:8000/docs` for the interactive API docs.
+The server starts on `http://127.0.0.1:8000` by default — local to the Mac running Vox. Open `http://localhost:8000/app` for the web UI or `http://localhost:8000/docs` for the interactive API docs.
 
-> **Note for future packaging:** When Vox ships as a macOS `.app`, `VOX_HOST` should default to `127.0.0.1` (localhost only). Change the default in `api/core/config.py` and `scripts/run.sh` at that point. For now, `0.0.0.0` is intentional so you can test from phones, tablets, and other machines without extra config.
+To allow phones, tablets, or other machines on your LAN to reach Vox, open Settings → Runtime → Network access and switch to **Network accessible**. Restart the local server for the host change to take effect.
 
 ---
 
@@ -232,7 +233,7 @@ curl http://localhost:8000/health
 
 ### TTS — Generate Audio
 
-Generation is **asynchronous**. `POST /api/v1/tts` returns `202 Accepted` immediately with a `request_id`. Poll `GET /api/v1/jobs/{request_id}` until `status` is `completed` or `failed`, then download the audio from `GET /api/v1/jobs/{request_id}/audio`.
+Generation is **asynchronous**. `POST /api/v1/tts` returns `202 Accepted` immediately with a `request_id`. Poll `GET /api/v1/jobs/{request_id}` until `status` is `completed`, `failed`, or `cancelled`, then download completed audio from `GET /api/v1/jobs/{request_id}/audio`.
 
 ```
 POST /api/v1/tts
@@ -244,7 +245,7 @@ Content-Type: multipart/form-data
 | Field | Type | Required | Default | Description |
 |-------|------|----------|---------|-------------|
 | `text` | string | ✓ | — | Text to synthesise |
-| `preset` | string | | `default` | `default` \| `youtube` \| `hype` \| `news` |
+| `preset` | string | | `default` | Built-in/user preset name. Built-ins include `confident`, `calm`, `soft-spoken`, `polite`, `enthusiastic`, `dramatic`, `angry`, `sarcastic`, `newsreader`, `storyteller`, and legacy `default`. |
 | `output_format` | string | | `mp3` | `mp3` \| `wav` |
 | `voice_name` | string | | — | Name of a stored voice profile |
 | `voice` | file | | — | Upload a reference audio file directly (WAV, M4A, MP3, etc.) |
@@ -264,7 +265,7 @@ Content-Type: multipart/form-data
 { "request_id": "abc123-..." }
 ```
 
-Poll `GET /api/v1/jobs/{request_id}` until `status` is `completed`, then fetch `GET /api/v1/jobs/{request_id}/audio` to download the file.
+Poll `GET /api/v1/jobs/{request_id}` until `status` is `completed`, then fetch `GET /api/v1/jobs/{request_id}/audio` to download the file. Jobs are serialized through a single local model lock; if another generation is active, new jobs remain `queued` until the engine is free.
 
 **Response headers (on the 202):**
 
@@ -287,10 +288,10 @@ curl http://localhost:8000/api/v1/jobs/abc123-...          # check status
 curl http://localhost:8000/api/v1/jobs/abc123-.../audio \  # download when completed
   --output output.mp3
 
-# Generate with the hype preset
+# Generate with the enthusiastic preset
 curl -X POST http://localhost:8000/api/v1/tts \
   -F "text=This is going to be huge!" \
-  -F "preset=hype" \
+  -F "preset=enthusiastic" \
   -F "output_format=mp3"
 
 # Upload a voice file inline (M4A from iPhone Voice Memos)
@@ -301,7 +302,7 @@ curl -X POST http://localhost:8000/api/v1/tts \
 # Override individual params
 curl -X POST http://localhost:8000/api/v1/tts \
   -F "text=Calm and measured delivery." \
-  -F "preset=news" \
+  -F "preset=newsreader" \
   -F "exaggeration=0.1" \
   -F "cfg_weight=0.8"
 
@@ -364,6 +365,8 @@ cp ~/Downloads/Voice\ Memo.m4a ./input/my-voice.m4a
 GET /api/v1/jobs                          List recent jobs (newest first)
 GET /api/v1/jobs/{request_id}             Get a specific job (includes file_available bool)
 GET /api/v1/jobs/{request_id}/audio       Download the generated audio file
+POST /api/v1/tts/{request_id}/cancel      Cancel a queued/running generation
+DELETE /api/v1/jobs/{request_id}          Delete a job row and its generated file
 ```
 
 ```bash
@@ -375,6 +378,9 @@ curl http://localhost:8000/api/v1/jobs/abc123-...
 
 # Download audio once status == "completed"
 curl http://localhost:8000/api/v1/jobs/abc123-.../audio --output output.mp3
+
+# Cancel a queued/running generation
+curl -X POST http://localhost:8000/api/v1/tts/abc123-.../cancel
 
 # Paginate
 curl "http://localhost:8000/api/v1/jobs?limit=20&offset=40"
@@ -394,10 +400,16 @@ Built-in presets:
 
 | Preset | Character | Use case |
 |--------|-----------|----------|
-| `default` | Balanced | General purpose |
-| `youtube` | Slightly expressive | Video narration |
-| `hype` | High energy | Promos, trailers |
-| `news` | Flat, authoritative | News reading, documentation |
+| `confident` / `default` | Balanced | General purpose |
+| `calm` | Low-key | Measured narration |
+| `soft-spoken` | Gentle | Quiet reads and softer delivery |
+| `polite` | Clear | Helpful assistant-style reads |
+| `enthusiastic` | High energy | Promos, upbeat narration |
+| `dramatic` | Expressive | Story beats and trailers |
+| `angry` | Intense | Stylized emotional takes |
+| `sarcastic` | Dry | Wry or comedic delivery |
+| `newsreader` | Flat, authoritative | News reading, documentation |
+| `storyteller` | Warm, expressive | Narrative scripts |
 
 ---
 
@@ -407,7 +419,7 @@ All settings are controlled via environment variables with a `VOX_` prefix, or b
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `VOX_HOST` | `0.0.0.0` | Bind address. Set to `127.0.0.1` to restrict to localhost. |
+| `VOX_HOST` | `127.0.0.1` | Bind address. Use `127.0.0.1` for local-only access or `0.0.0.0` for LAN access. Host changes require restarting the local server. |
 | `VOX_PORT` | `8000` | Port to listen on |
 | `VOX_DEVICE` | `auto` | `auto` \| `mps` \| `cpu` |
 | `VOX_FFMPEG_PATH` | `/opt/homebrew/bin/ffmpeg` | Path to ffmpeg binary |
@@ -426,7 +438,7 @@ All settings are controlled via environment variables with a `VOX_` prefix, or b
 **Example `.env`:**
 
 ```env
-VOX_HOST=0.0.0.0
+VOX_HOST=127.0.0.1
 VOX_PORT=8000
 VOX_OUTPUT_TTL_HOURS=48
 VOX_CHUNK_HEADROOM_CHARS=40
@@ -449,7 +461,7 @@ Every request gets a `X-Request-ID` (UUID4) attached to:
 This means you can:
 1. Grab a `X-Request-ID` from a HAR file or curl `-v` output
 2. Query the DB: `SELECT * FROM jobs WHERE request_id = '<id>';`
-3. Grep the logs: `grep '<id>' server.log`
+3. Grep the logs: `grep '<id>' ~/Library/Logs/Vox/vox.log`
 
 To inspect the database directly:
 ```bash
@@ -482,7 +494,7 @@ sqlite3 ~/Library/Application\ Support/Vox/data/vox.db
 - [x] Chatterbox engine wrapper with MPS/CPU auto-detect
 - [x] FastAPI backend with async generation lock
 - [x] Built-in presets with per-request param overrides
-- [x] Long-text chunking with sentence-boundary splitting
+- [x] Long-text chunking with sentence-boundary splitting and medium-script sentence packing
 - [x] WAV and MP3 output via ffmpeg
 - [x] Voice profile management with SQLite registry
 - [x] Per-voice TTS parameter defaults
@@ -500,18 +512,18 @@ sqlite3 ~/Library/Application\ Support/Vox/data/vox.db
 - [x] In-browser microphone recording with live waveform
 - [x] Voice profile audio preview player with seek and volume
 - [x] Custom tone panel — per-request TTS parameter sliders, named presets saved to DB
+- [x] Custom tone update/save-as flow for saved user presets
 - [x] Sidebar widgets — lifetime and daily request/audio-minutes stats with sparklines
-- [x] Generation ETA — elapsed timer with M:SS display while processing
+- [x] Generation status — elapsed timer, queued/running state, global status bar, and cancel controls
 - [x] Result download with format and quality controls
 - [x] Recent recordings with inline play, download, and delete
-- [x] macOS menu bar helper (native Swift) — status, CPU/RAM, server control, copy address
+- [x] Persistent generation error UI with retry/dismiss and request ID copy
+- [x] macOS menu bar helper (native Swift) — monochrome VOX status icon, CPU/RAM, server control, copy address
 - [x] LaunchAgent for server (manual start, crash-restart, structured logs)
 - [x] LaunchAgent for helper (auto-starts on login)
 - [x] Swift menu bar rewrite — native AppKit, eliminates Python/PyObjC issues on macOS Sequoia
-- [ ] Real audio waveform visualisation (canvas players use seeded-random peaks — v1.0.0 blocker)
+- [ ] Finish real waveform coverage for every surface (some players decode real amplitude; remaining placeholders still exist)
 - [ ] Microphone error classification — distinct UI for no-device / access-denied / insecure context (regressed in React rewrite — v1.0.0 blocker)
-- [ ] Persistent error UI (replace ephemeral toasts with inline error cards)
-- [ ] Named custom tone profiles (save/delete user-defined presets)
 - [ ] Streaming audio response (chunked transfer)
 - [ ] One-click `.app` packaging and code signing
 - [ ] Auto-launch on login (server — helper already auto-starts)
