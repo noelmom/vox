@@ -199,10 +199,15 @@ if _UI_DIST.exists():
     app.mount("/assets", StaticFiles(directory=str(_UI_DIST / "assets")), name="ui-assets")
 
 _SPA_INDEX = _UI_DIST / "index.html"
+_NO_CACHE_HEADERS = {
+    "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
+    "Pragma": "no-cache",
+    "Expires": "0",
+}
 
 
 def _spa() -> FileResponse:
-    return FileResponse(str(_SPA_INDEX), media_type="text/html")
+    return FileResponse(str(_SPA_INDEX), media_type="text/html", headers=_NO_CACHE_HEADERS)
 
 
 @app.get("/docs", include_in_schema=False)
@@ -241,7 +246,7 @@ async def favicon():
     f = _UI_DIST / "favicon.png"
     if f.exists():
         return FileResponse(str(f), media_type="image/png")
-    return FileResponse(str(_SPA_INDEX), media_type="text/html")
+    return _spa()
 
 
 @app.get("/")
