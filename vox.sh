@@ -274,28 +274,17 @@ do_uninstall() {
 
     confirm "Continue?" || { info "Cancelled."; exit 0; }
 
-    if ! $OPT_HELPER_ONLY; then
-        bash "$ROOT/scripts/uninstall-agent.sh"
+    uninstall_args=(--yes)
+    if $OPT_AGENT_ONLY; then
+        uninstall_args+=(--agent)
+    elif $OPT_HELPER_ONLY; then
+        uninstall_args+=(--helper)
+    else
+        uninstall_args+=(--all)
     fi
-    if ! $OPT_AGENT_ONLY; then
-        bash "$ROOT/scripts/uninstall-helper.sh"
-    fi
+    $OPT_PURGE && uninstall_args+=(--data)
 
-    if $OPT_PURGE; then
-        info "Purging user data…"
-        rm -rf "$APP_SUPPORT/voices" \
-               "$APP_SUPPORT/outputs" \
-               "$APP_SUPPORT/data" \
-               "$APP_SUPPORT/input" \
-               "$APP_SUPPORT/venv" \
-               "$APP_SUPPORT/api" \
-               "$APP_SUPPORT/ui-dist" \
-               "$APP_SUPPORT/scripts" \
-               "$APP_SUPPORT/.env" \
-               "$HOME/Library/Logs/Vox"
-        rmdir "$APP_SUPPORT" 2>/dev/null || true
-        success "All Vox data removed"
-    fi
+    bash "$ROOT/scripts/uninstall.sh" "${uninstall_args[@]}"
 
     echo ""
     echo -e "${GREEN}${BOLD}  ✓ Vox uninstalled.${RESET}"

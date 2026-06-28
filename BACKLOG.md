@@ -662,14 +662,11 @@ Ideas and improvements to revisit. Not bugs — these are enhancements queued fo
 
   Existing individual scripts (`install-agent.sh`, `install-helper.sh`, `update.sh`, etc.) remain usable for lower-level troubleshooting.
 
-- [ ] **Unify uninstall scripts into a single `uninstall.sh`**
-  - Merge `uninstall-agent.sh` and `uninstall-helper.sh` into one `scripts/uninstall.sh` with an interactive prompt to choose what to remove.
-  - Support flags for non-interactive/CI use:
-    - `--all` — remove everything (agent + helper + app bundle)
-    - `--agent` — remove server agent only
-    - `--helper` — remove helper + app bundle only
-    - `--data` — also remove voices, outputs, data, input from Application Support (destructive, off by default)
-    - `--yes` — skip all confirmation prompts
+- [x] **Unify uninstall scripts into a single `uninstall.sh`**
+  - Implemented as `scripts/uninstall.sh`, with interactive prompts when run directly and flags for scripted use.
+  - Supports `--all`, `--agent`, `--helper`, `--data`, and `--yes`.
+  - `vox.sh uninstall` now delegates to the unified script while preserving existing `--agent-only`, `--helper-only`, and `--purge` behavior.
+  - Lower-level `uninstall-agent.sh` and `uninstall-helper.sh` remain available for troubleshooting and are called by the unified script.
 
 - [x] **Install script should surface Chatterbox model download/load expectations instead of silently returning**
   - Implemented the low-effort Option B in `vox.sh`: install completion now clearly says first-run model download/load may continue in the background and points users to Vox Helper → View Logs.
