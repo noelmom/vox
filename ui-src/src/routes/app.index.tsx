@@ -762,7 +762,7 @@ function GeneratePage() {
         {/* LEFT: Script + Output */}
         <div className="order-2 flex min-w-0 flex-col gap-6 xl:order-1">
         {/* Script card */}
-        <section className="rounded-2xl border border-border bg-white p-6">
+        <section className="vox-panel p-6">
           <div className="flex items-center justify-between">
             <h2 className="text-[18px] font-bold text-foreground">Script</h2>
             <div className="flex items-center gap-2">
@@ -771,7 +771,7 @@ function GeneratePage() {
                   <button
                     type="button"
                     disabled={scriptHistory.length === 0}
-                    className="group inline-flex items-center gap-1.5 rounded-lg border border-border bg-white px-3 py-1.5 text-[13px] font-medium text-foreground/70 transition-all hover:border-[var(--brand)] hover:bg-[var(--brand-soft)] hover:text-[var(--brand)] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-border disabled:hover:bg-white disabled:hover:text-foreground/70"
+                    className="vox-control group inline-flex items-center gap-1.5 px-3 py-1.5 text-[13px] font-medium disabled:hover:border-border disabled:hover:text-foreground/70"
                   >
                     <History className="h-3.5 w-3.5" />
                     History
@@ -823,7 +823,7 @@ function GeneratePage() {
               <button
                 onClick={() => setScript("")}
                 disabled={!script.length}
-                className="group inline-flex items-center gap-1.5 rounded-lg border border-border bg-white px-3 py-1.5 text-[13px] font-medium text-foreground/70 transition-all hover:border-[var(--brand)] hover:bg-[var(--brand-soft)] hover:text-[var(--brand)] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-border disabled:hover:bg-white disabled:hover:text-foreground/70"
+                className="vox-control group inline-flex items-center gap-1.5 px-3 py-1.5 text-[13px] font-medium disabled:hover:border-border disabled:hover:text-foreground/70"
               >
                 <Trash2 className="h-3.5 w-3.5 transition-transform group-hover:rotate-6 group-disabled:group-hover:rotate-0" />
                 Clear
@@ -837,7 +837,7 @@ function GeneratePage() {
               onChange={(e) => setScript(e.target.value.slice(0, max))}
               onClick={(e) => { if (script === SAMPLE_SCRIPT) (e.target as HTMLTextAreaElement).select(); }}
               placeholder="Type or paste your script..."
-              className="h-[360px] w-full resize-none rounded-xl border border-border bg-[var(--background)] px-5 py-4 text-[15px] leading-relaxed text-foreground placeholder:text-foreground/35 focus:border-[var(--brand)] focus:outline-none focus:ring-4 focus:ring-[color-mix(in oklch, var(--brand) 8%, transparent)]"
+              className="vox-input h-[360px] w-full resize-none px-5 py-4 text-[15px] leading-relaxed"
             />
             <div className="mt-3 flex items-center justify-between text-[12px] text-muted-foreground">
               <span>
@@ -886,11 +886,11 @@ function GeneratePage() {
         </section>
 
         {/* Output card — current generation only */}
-        <section className={`rounded-2xl border bg-white p-6 transition-colors duration-500 ${genResult && !isGenerating ? "border-[oklch(0.78_0.14_145)]" : "border-border"}`}>
+        <section className={`vox-panel p-6 transition-colors duration-500 ${genResult && !isGenerating ? "border-[var(--success)]" : ""}`}>
           <div className="flex items-center justify-between">
             <h2 className="text-[18px] font-bold text-foreground">Result</h2>
             {genResult && !isGenerating && (
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-[oklch(0.96_0.08_145)] px-3 py-1 text-[12px] font-semibold text-[oklch(0.38_0.14_145)]">
+              <span className="vox-success-pill">
                 <CheckCircle2 className="h-3.5 w-3.5" />
                 Ready
               </span>
@@ -931,7 +931,7 @@ function GeneratePage() {
         </section>
 
         {/* History card — previous recordings */}
-        <section className="rounded-2xl border border-border bg-white p-6">
+        <section className="vox-panel p-6">
           <div className="flex flex-wrap items-end justify-between gap-3">
             <div>
               <h2 className="text-[18px] font-bold text-foreground">Recent</h2>
@@ -942,14 +942,14 @@ function GeneratePage() {
             <div className="flex items-center gap-2">
               <button
                 onClick={() => setOutputSort((s) => (s === "desc" ? "asc" : "desc"))}
-                className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-[13px] font-medium transition-colors ${outputSort === "asc" ? "border-[var(--brand)] bg-[var(--brand-soft)] text-[var(--brand)]" : "border-border bg-white text-foreground/80 hover:bg-muted"}`}
+                className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-[13px] font-medium ${outputSort === "asc" ? "vox-control vox-control-active" : "vox-control"}`}
               >
                 {outputSort === "desc" ? "Newest First" : "Oldest First"}
                 <ArrowUpDown className="h-3.5 w-3.5 opacity-60" />
               </button>
               <button
                 onClick={() => setFilterOpen((v) => !v)}
-                className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-[13px] font-medium transition-colors ${filterOpen ? "border-[var(--brand)] bg-[var(--brand-soft)] text-[var(--brand)]" : "border-border bg-white text-foreground/80 hover:bg-muted"}`}
+                className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-[13px] font-medium ${filterOpen ? "vox-control vox-control-active" : "vox-control"}`}
               >
                 <Filter className="h-3.5 w-3.5" />
                 Filter
@@ -959,7 +959,7 @@ function GeneratePage() {
 
           <div className="mt-4 flex flex-col gap-3">
             {filterOpen && (
-              <div className="flex items-center gap-2 rounded-xl border border-border bg-[var(--background)] px-3 py-2">
+              <div className="vox-input flex items-center gap-2 px-3 py-2">
                 <Search className="h-3.5 w-3.5 shrink-0 text-foreground/40" />
                 <input
                   autoFocus
@@ -1024,7 +1024,7 @@ function GeneratePage() {
 
         {/* RIGHT: Voice Studio + side cards */}
         <aside className="order-1 flex flex-col gap-4 xl:order-2">
-        <section className="rounded-2xl border border-border bg-white p-5">
+        <section className="vox-panel p-5">
           <h2 className="text-[18px] font-bold text-foreground">Voice Studio</h2>
 
           <StudioSection title="Voice Profile" badge={<InfoTip text="Choose the voice persona used for generation. Each profile has a unique timbre, accent, and delivery style — e.g. 'Aurora' for warm narration, 'Vox' for crisp announcements." />}>
@@ -1033,7 +1033,7 @@ function GeneratePage() {
                 data-voice-picker-trigger
                 onClick={() => setPickerOpen((v) => !v)}
                 aria-expanded={pickerOpen}
-                className="group flex w-full items-center gap-3 rounded-xl border border-border bg-white px-3 py-2.5 text-left transition-all hover:border-[oklch(0.55_0.22_260/0.4)] hover:bg-[oklch(0.99_0.01_260)]"
+                className="vox-control group flex w-full items-center gap-3 px-3 py-2.5 text-left"
               >
                 <VoiceIcon voice={selectedVoice} size="lg" />
                 <span className="min-w-0 flex-1">
@@ -1081,7 +1081,7 @@ function GeneratePage() {
               <DropdownMenuTrigger asChild>
                 <button
                   type="button"
-                  className="flex w-full items-center gap-3 rounded-xl border border-border bg-white px-3 py-2.5 text-left transition-all hover:border-[oklch(0.55_0.22_260/0.4)] hover:bg-[oklch(0.99_0.01_260)]"
+                  className="vox-control flex w-full items-center gap-3 px-3 py-2.5 text-left"
                 >
                   <span
                     className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-white"
@@ -1163,7 +1163,7 @@ function GeneratePage() {
 
           <button
             onClick={() => setAdvancedOpen((v) => !v)}
-            className="mt-3 flex w-full items-center justify-between rounded-lg border border-border bg-white px-3 py-2.5 text-[13px] font-medium text-foreground/80 transition-colors hover:bg-muted"
+            className="vox-control mt-3 flex w-full items-center justify-between px-3 py-2.5 text-[13px] font-medium"
           >
             <span className="inline-flex items-center gap-2">
               Advanced Settings

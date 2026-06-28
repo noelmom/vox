@@ -172,7 +172,7 @@ function VoicesPage() {
         </div>
       </div>
       {/* Panel */}
-      <section className="rounded-2xl border border-border bg-white p-6">
+      <section className="vox-panel p-6">
         {tab === "upload" ? (
           <UploadPane onUploaded={handleUploaded} maxVoiceClipDurationSeconds={maxVoiceClipDurationSeconds} />
         ) : (
@@ -187,7 +187,7 @@ function VoicesPage() {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search voice profiles…"
-            className="w-full rounded-2xl border border-border bg-white py-3 pl-10 pr-4 text-[14px] outline-none placeholder:text-muted-foreground focus:border-[var(--brand)]"
+            className="vox-input w-full py-3 pl-10 pr-4 text-[14px]"
           />
         </div>
 
@@ -197,7 +197,7 @@ function VoicesPage() {
           <Loader2 className="h-6 w-6 animate-spin" />
         </div>
       ) : filtered.length === 0 ? (
-        <div className="flex flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-border bg-white py-14 text-center">
+        <div className="vox-panel-muted flex flex-col items-center justify-center gap-2 border-dashed py-14 text-center">
           <Mic className="h-8 w-8 text-foreground/20" />
           <p className="text-[14px] font-medium text-foreground/40">
             {query ? "No voices match your search" : "No voice profiles yet"}
@@ -1490,7 +1490,7 @@ function ProfileCard({
   const fmt = (s: number) => { const t = Math.max(0, Math.floor(s)); return `${Math.floor(t / 60)}:${String(t % 60).padStart(2, "0")}`; };
 
   return (
-    <div className="rounded-2xl border border-border bg-white p-4">
+    <div className="vox-panel p-4">
       {blobUrl && <audio ref={audioRef} src={blobUrl} preload="auto" className="hidden" />}
 
       {/* Header: name + tags + actions */}
@@ -1505,14 +1505,14 @@ function ProfileCard({
           )}
         </div>
         <div className="flex shrink-0 items-center gap-1.5">
-          <button onClick={onUse} className="rounded-lg border border-border bg-white px-3 py-1.5 text-[12.5px] font-semibold text-foreground/80 hover:bg-muted">Use</button>
+          <button onClick={onUse} className="vox-control px-3 py-1.5 text-[12.5px] font-semibold">Use</button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <button aria-label="More options" className="flex h-8 w-8 items-center justify-center rounded-lg border border-border bg-white text-foreground/60 hover:bg-muted">
+              <button aria-label="More options" className="vox-control flex h-8 w-8 items-center justify-center">
                 <MoreVertical className="h-3.5 w-3.5" />
               </button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-48 border-border bg-white text-foreground shadow-lg">
+            <DropdownMenuContent align="end" className="vox-popover w-48">
               <DropdownMenuItem onClick={() => setEditing((v) => !v)}>
                 <Pencil className="mr-2 h-3.5 w-3.5" />Edit profile
               </DropdownMenuItem>
