@@ -236,6 +236,18 @@ export async function cancelJob(requestId: string): Promise<void> {
   await apiFetch(`/api/v1/tts/${encodeURIComponent(requestId)}/cancel`, { method: "POST" });
 }
 
+export async function exportBackup(): Promise<Blob> {
+  const r = await apiFetch("/api/v1/backups/export");
+  return r.blob();
+}
+
+export async function restoreBackup(file: File): Promise<{ restored: boolean; voices_restored: number; message: string }> {
+  const fd = new FormData();
+  fd.append("file", file);
+  const r = await apiFetch("/api/v1/backups/restore", { method: "POST", body: fd });
+  return r.json();
+}
+
 type VoicePatch = Partial<
   Pick<ApiVoice, "description" | "tags" | "exaggeration" | "cfg_weight" | "temperature" | "repetition_penalty" | "top_p" | "min_p" | "is_favorite" | "display_name" | "icon_data">
 >;

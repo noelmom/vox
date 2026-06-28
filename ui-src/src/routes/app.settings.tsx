@@ -18,8 +18,10 @@ import {
   X,
   Info,
   LayoutGrid,
+  Download,
+  Upload,
 } from "lucide-react";
-import { type ServerSettings, getServerSettings, listVoices, listPresets, patchServerSettings } from "@/lib/api";
+import { type ServerSettings, exportBackup, getServerSettings, listVoices, listPresets, patchServerSettings, restoreBackup } from "@/lib/api";
 import { BRAND, BRAND_GRADIENT, BRAND_SECONDARY, BRAND_WARM } from "@/lib/theme";
 
 export const Route = createFileRoute("/app/settings")({
@@ -128,6 +130,40 @@ function SettingsPage() {
 
   const [saveFeedback, setSaveFeedback] = useState(false);
   const [confirmClear, setConfirmClear] = useState(false);
+  const [backupFeedback, setBackupFeedback] = useState("");
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const exportMutation = useMutation({
+    mutationFn: exportBackup,
+    onSuccess: (blob) => {
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      const stamp = new Date().toISOString().slice(0, 19).replace(/[-:T]/g, "");
+      link.href = url;
+      link.download = `Vox-Backup-${stamp}.zip`;
+      link.click();
+      URL.revokeObjectURL(url);
+      setBackupFeedback("Backup downloaded.");
+      setTimeout(() => setBackupFeedback(""), 1800);
+    },
+    onError: (err) => {
+      setBackupFeedback(err instanceof Error ? err.message : "Backup export failed.");
+    },
+  });
+
+  const restoreMutation = useMutation({
+    mutationFn: restoreBackup,
+    onSuccess: (result) => {
+      setBackupFeedback(result.message);
+      queryClient.invalidateQueries({ queryKey: ["settings"] });
+      queryClient.invalidateQueries({ queryKey: ["voices"] });
+      queryClient.invalidateQueries({ queryKey: ["presets"] });
+      queryClient.invalidateQueries({ queryKey: ["jobs"] });
+    },
+    onError: (err) => {
+      setBackupFeedback(err instanceof Error ? err.message : "Backup restore failed.");
+    },
+  });
 
   const currentSnapshot = JSON.stringify(prefs);
   const isDirty = currentSnapshot !== savedSnapshot;
@@ -362,6 +398,48 @@ function SettingsPage() {
                   {ttlLabel}
                 </span>
                 <span className="text-[11.5px] text-muted-foreground">Set via VOX_OUTPUT_TTL_HOURS in .env</span>
+              </div>
+            </InfoRow>
+            <InfoRow label="Backup & restore" hint="Backups include the database and voice assets. Generated output audio is excluded.">
+              <div className="flex flex-col gap-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => exportMutation.mutate()}
+                    disabled={exportMutation.isPending}
+                    className="inline-flex items-center gap-1.5 rounded-xl border border-border bg-white px-3 py-2 text-[13px] font-semibold text-foreground/80 transition-colors hover:bg-muted disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    <Download className="h-3.5 w-3.5" />
+                    {exportMutation.isPending ? "Exporting..." : "Export backup"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={restoreMutation.isPending}
+                    className="inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-[13px] font-bold text-white transition-all hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
+                    style={{ background: BRAND_GRADIENT, boxShadow: "var(--shadow-btn)" }}
+                  >
+                    <Upload className="h-3.5 w-3.5" />
+                    {restoreMutation.isPending ? "Restoring..." : "Restore backup"}
+                  </button>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept=".zip,application/zip"
+                    className="hidden"
+                    onChange={(event) => {
+                      const file = event.currentTarget.files?.[0];
+                      event.currentTarget.value = "";
+                      if (file) restoreMutation.mutate(file);
+                    }}
+                  />
+                </div>
+                <p className="text-[12px] leading-relaxed text-muted-foreground">
+                  Restore replaces current voice profiles and history with the selected backup.
+                </p>
+                {backupFeedback && (
+                  <p className="text-[12px] font-medium text-[var(--brand-secondary)]">{backupFeedback}</p>
+                )}
               </div>
             </InfoRow>
           </>

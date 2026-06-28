@@ -16,7 +16,7 @@ from api.core.logger import setup_logging
 from api.core.presets import PRESETS
 from api.core.watcher import watch_input_folder
 from api.middleware.request_id import RequestIDMiddleware
-from api.routers import alerts, jobs, logs, presets, tts, voices
+from api.routers import alerts, backups, jobs, logs, presets, tts, voices
 
 _UI_DIST = Path(__file__).parent.parent / "ui-dist"
 _ENV_PATH = Path(".env")
@@ -168,6 +168,10 @@ _TAGS = [
         "description": "Track generation jobs and download completed audio. Jobs move through `queued → processing → completed` (or `failed`).",
     },
     {
+        "name": "backups",
+        "description": "Export and restore Vox Studio data, including the SQLite database and voice assets.",
+    },
+    {
         "name": "presets",
         "description": "Named bundles of the six Chatterbox generation parameters. Built-in presets are read-only; custom presets can be created, overwritten, and deleted.",
     },
@@ -197,6 +201,7 @@ v1 = APIRouter(prefix="/api/v1")
 v1.include_router(tts.router)
 v1.include_router(voices.router)
 v1.include_router(jobs.router)
+v1.include_router(backups.router)
 v1.include_router(presets.router)
 v1.include_router(logs.router)
 v1.include_router(alerts.router)
