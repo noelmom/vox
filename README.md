@@ -566,6 +566,7 @@ Vox is now in a v1.0 scope freeze: only bug fixes, product polish, and true bloc
 - [ ] Post-v1: pronunciation dictionary / word replacement controls
 - [ ] Post-v1: finish dark theme visual polish; the toggle and theme tokens are wired, but dark mode still needs minor contrast/surface tweaks before it is release-ready
 - [ ] Post-v1: streaming audio response (chunked transfer)
+- [ ] Post-v1: review Python and JavaScript SDK support after the local REST API stabilizes
 - [ ] One-click `.app` packaging and code signing
 - [x] Auto-launch on login — server and helper both auto-start by default; users can disable either from Vox Helper
 
