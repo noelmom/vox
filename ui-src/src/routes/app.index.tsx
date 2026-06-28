@@ -2286,7 +2286,7 @@ function JobRow({
 
   return (
     <div
-      className={`rounded-xl border bg-gradient-to-br from-white to-[var(--background)] ${
+      className={`rounded-xl border bg-gradient-to-br from-[var(--card)] to-[var(--background)] ${
         timelineStyle
           ? "border-[color-mix(in_oklch,var(--brand)_12%,var(--border))] shadow-[0_14px_30px_-24px_oklch(0.16_0.02_260/0.35)]"
           : "border-border"
@@ -2604,7 +2604,7 @@ function VoicePreviewPlayer({ voiceId }: { voiceId: string }) {
   return (
     <div className="mt-2.5">
       <p className={`mb-1 text-[11px] font-semibold uppercase tracking-wide ${isGeneric ? "text-foreground/35" : "text-foreground/40"}`}>Preview</p>
-      <div className={`flex items-center gap-3 overflow-hidden rounded-xl border border-border bg-gradient-to-br from-white to-[var(--background)] px-3 py-2.5 ${isGeneric ? "opacity-50 select-none" : ""}`}>
+      <div className={`flex items-center gap-3 overflow-hidden rounded-xl border border-border bg-gradient-to-br from-[var(--card)] to-[var(--background)] px-3 py-2.5 ${isGeneric ? "opacity-50 select-none" : ""}`}>
         {!isGeneric && <audio ref={audioRef} src={src} preload="metadata" />}
 
         {/* Gradient play button */}

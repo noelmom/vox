@@ -784,7 +784,7 @@ function ClipCard({
             </span>
           </div>
         ) : (
-          <div className="overflow-hidden rounded-xl border border-border bg-gradient-to-br from-white to-[var(--background)]">
+          <div className="overflow-hidden rounded-xl border border-border bg-gradient-to-br from-[var(--card)] to-[var(--background)]">
             {/* Player header */}
             <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-3 px-4 pb-3 pt-4 sm:gap-4">
               <button

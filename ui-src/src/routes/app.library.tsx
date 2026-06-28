@@ -483,7 +483,7 @@ function UploadPane({
           )}
         </label>
         {previewUrl && (
-          <div className="flex items-center gap-3 overflow-hidden rounded-xl border border-border bg-gradient-to-br from-white to-[var(--background)] px-3 py-2.5">
+          <div className="flex items-center gap-3 overflow-hidden rounded-xl border border-border bg-gradient-to-br from-[var(--card)] to-[var(--background)] px-3 py-2.5">
             <audio ref={audioRef} src={previewUrl} preload="auto" />
             {/* Gradient play button */}
             <button
@@ -1006,7 +1006,7 @@ function RecordPane({
   };
 
   return (
-    <div className="rounded-2xl border border-border bg-gradient-to-br from-white to-[var(--background)] p-6 shadow-sm">
+    <div className="rounded-2xl border border-border bg-gradient-to-br from-[var(--card)] to-[var(--background)] p-6 shadow-sm">
 
       {/* ── Header ─────────────────────────────────────────────── */}
       <div className="flex items-center justify-between gap-4">
@@ -1573,7 +1573,7 @@ function ProfileCard({
       </AlertDialog>
 
       {/* Mini player */}
-      <div className="mt-3 flex items-center gap-3 overflow-hidden rounded-xl border border-border bg-gradient-to-br from-white to-[var(--background)] px-3 py-2.5">
+      <div className="mt-3 flex items-center gap-3 overflow-hidden rounded-xl border border-border bg-gradient-to-br from-[var(--card)] to-[var(--background)] px-3 py-2.5">
         {/* Gradient play button */}
         <button
           onClick={handlePlay}
