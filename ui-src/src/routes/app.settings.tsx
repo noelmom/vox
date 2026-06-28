@@ -111,6 +111,10 @@ function SettingsPage() {
     mutationFn: (host: "127.0.0.1" | "0.0.0.0") => patchServerSettings({ host }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["settings"] }),
   });
+  const mpsMemoryMutation = useMutation({
+    mutationFn: (mps_memory_fraction: 0.9 | 1.0) => patchServerSettings({ mps_memory_fraction }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["settings"] }),
+  });
 
   const { data: voices = [] } = useQuery({ queryKey: ["voices"], queryFn: listVoices });
   const { data: presetsData } = useQuery({ queryKey: ["presets"], queryFn: listPresets });
@@ -201,6 +205,8 @@ function SettingsPage() {
     : "—";
   const configuredHost = server?.configured_host || server?.host || "127.0.0.1";
   const hostRestartRequired = Boolean(server?.host_restart_required);
+  const configuredMpsMemory = server?.configured_mps_memory_fraction ?? 0.9;
+  const mpsMemoryRestartRequired = Boolean(server?.mps_memory_restart_required);
 
   return (
     <div className={`mx-auto flex max-w-[1280px] flex-col gap-5 ${isFloating ? "pb-24" : ""}`}>
@@ -223,6 +229,49 @@ function SettingsPage() {
                 <DeviceBadge device={server.device_resolved} />
                 {server.device_config === "auto" && (
                   <span className="text-[11.5px] text-muted-foreground">(auto-detected)</span>
+                )}
+              </div>
+            </InfoRow>
+            <InfoRow label="Stability mode" hint="Limits PyTorch MPS memory allocation, not generation randomness. Changes apply after restarting the local server.">
+              <div className="flex flex-col gap-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  <SegmentToggle
+                    value={configuredMpsMemory === 1 ? "max" : "stable"}
+                    onChange={(v) => mpsMemoryMutation.mutate(v === "max" ? 1.0 : 0.9)}
+                    options={[
+                      { value: "stable", label: "Stable 90%" },
+                      { value: "max", label: "Max 100%" },
+                    ]}
+                  />
+                  {mpsMemoryRestartRequired && (
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-[color-mix(in_oklch,var(--brand-warm)_30%,white)] bg-[color-mix(in_oklch,var(--brand-warm)_10%,white)] px-2.5 py-1 text-[11.5px] font-bold text-[var(--brand-warm)]">
+                      <AlertTriangle className="h-3.5 w-3.5" />
+                      Requires restarting local server
+                    </span>
+                  )}
+                  {mpsMemoryMutation.isPending && (
+                    <span className="text-[11.5px] font-medium text-muted-foreground">Saving...</span>
+                  )}
+                </div>
+                <div className="flex flex-wrap items-center gap-2 text-[12px] text-muted-foreground">
+                  <span>Active:</span>
+                  <code className="rounded-md border border-border bg-muted px-2 py-1 font-mono text-[12px] text-foreground/80">
+                    {Math.round(server.mps_memory_fraction * 100)}%
+                  </code>
+                  {mpsMemoryRestartRequired && (
+                    <>
+                      <span>After restart:</span>
+                      <code className="rounded-md border border-border bg-muted px-2 py-1 font-mono text-[12px] text-foreground/80">
+                        {Math.round(configuredMpsMemory * 100)}%
+                      </code>
+                    </>
+                  )}
+                </div>
+                <p className="text-[12px] leading-relaxed text-muted-foreground">
+                  Stable 90% leaves more shared memory headroom for macOS. Use Max 100% only if you need peak throughput and the system remains stable.
+                </p>
+                {mpsMemoryMutation.isError && (
+                  <p className="text-[12px] font-medium text-[var(--brand-warm)]">Could not save stability mode.</p>
                 )}
               </div>
             </InfoRow>

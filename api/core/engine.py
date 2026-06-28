@@ -43,11 +43,26 @@ def _configure_hf_token():
         log.info("No HF_TOKEN set — using anonymous HuggingFace downloads")
 
 
+def _configure_mps_memory(device: str):
+    if device != "mps":
+        return
+    setter = getattr(torch.mps, "set_per_process_memory_fraction", None)
+    if not callable(setter):
+        log.warning("PyTorch MPS memory fraction is not supported by this torch build")
+        return
+    try:
+        setter(settings.mps_memory_fraction)
+        log.info("MPS memory fraction set to %.0f%%", settings.mps_memory_fraction * 100)
+    except Exception as exc:
+        log.warning("Could not set MPS memory fraction to %.2f: %s", settings.mps_memory_fraction, exc)
+
+
 def load_model():
     global _model, _state, _detail, _started_at, _ready_at
     device = _resolve_device()
 
     _configure_hf_token()
+    _configure_mps_memory(device)
 
     _state = "loading"
     _detail = f"Loading Chatterbox model on {device}."

@@ -12,6 +12,7 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - **Server-sent job events** — `GET /api/v1/jobs/{request_id}/events` streams job updates to the Create page, with slower polling retained as a fallback.
 - **Backup and restore** — Settings can export/import a Vox backup zip containing SQLite history and voice assets.
 - **Theme preference** — Settings now supports System, Light, and Dark appearance modes.
+- **MPS stability mode** — Settings can choose Stable 90% or Max 100% MPS memory allocation via `VOX_MPS_MEMORY_FRACTION`.
 
 ## [0.5.3-beta] — 2026-06-28
 
