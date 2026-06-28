@@ -70,22 +70,18 @@ def _stitch_chunks(chunks: list[tuple[np.ndarray, float]], sample_rate: int) -> 
     if not chunks:
         return np.array([], dtype=np.float32)
 
-    output = chunks[0][0]
+    pieces: list[np.ndarray] = []
+    output_dtype = next((chunk.dtype for chunk, _ in chunks if chunk.size), np.float32)
 
-    for chunk, pause_after_s in chunks[1:]:
-        if output.size == 0:
-            output = chunk
-            continue
-        if chunk.size == 0:
-            continue
+    for index, (chunk, pause_after_s) in enumerate(chunks):
+        if chunk.size:
+            pieces.append(chunk)
+            if pause_after_s > 0 and index < len(chunks) - 1:
+                pieces.append(np.zeros(int(sample_rate * pause_after_s), dtype=output_dtype))
 
-        if pause_after_s > 0:
-            silence = np.zeros(int(sample_rate * pause_after_s), dtype=output.dtype)
-            output = np.concatenate([output, silence, chunk])
-        else:
-            output = np.concatenate([output, chunk])
-
-    return output
+    if not pieces:
+        return np.array([], dtype=np.float32)
+    return np.concatenate(pieces)
 
 
 def _minimum_expected_chunk_duration_s(text: str) -> float:

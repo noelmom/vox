@@ -749,6 +749,10 @@ Ideas and improvements to revisit. Not bugs — these are enhancements queued fo
   - Frontend JS — dead event listeners, missing error states, console warnings
   - Do this after the testing strategy is in place so issues found can be covered by tests
 
+  **Pass 1 completed:** fixed chunk-stitch pause placement and avoided repeated audio-array concatenation in `api/routers/tts.py`; reduced `/api/v1/stats` sparkline work from seven per-day queries to one grouped query; corrected `scripts/update.sh` so update stops the server before syncing instead of kickstarting it.
+
+  **Still open:** broader frontend component split, API error-shape consistency, full shell strict-mode audit, and generation queue/SSE architecture.
+
 ---
 
 ## API & Performance

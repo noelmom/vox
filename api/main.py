@@ -358,17 +358,28 @@ async def get_stats():
         loop.run_in_executor(None, _count_recordings, settings.output_dir),
     )
 
-    # 7-day sparklines
-    sparkline_requests = []
-    sparkline_minutes = []
-    for i in range(6, -1, -1):
-        async with db.execute(
-            "SELECT COUNT(*), COALESCE(SUM(audio_duration_s), 0) FROM jobs WHERE status='completed' AND date(created_at) = date('now', ? || ' days')",
-            (f"-{i}",),
-        ) as cur:
-            cnt, secs = await cur.fetchone()
-        sparkline_requests.append(cnt)
-        sparkline_minutes.append(round(secs / 60, 2))
+    sparkline_days = list(range(-6, 1))
+    sparkline_by_day = {day: (0, 0.0) for day in sparkline_days}
+    async with db.execute(
+        """
+        SELECT
+            CAST(julianday(date(created_at)) - julianday(date('now')) AS INTEGER) AS offset_days,
+            COUNT(*) AS request_count,
+            COALESCE(SUM(audio_duration_s), 0) AS audio_seconds
+        FROM jobs
+        WHERE status='completed'
+          AND date(created_at) >= date('now', '-6 days')
+        GROUP BY date(created_at)
+        """
+    ) as cur:
+        rows = await cur.fetchall()
+    for sparkline_row in rows:
+        offset_days = sparkline_row["offset_days"]
+        if offset_days in sparkline_by_day:
+            sparkline_by_day[offset_days] = (sparkline_row["request_count"], sparkline_row["audio_seconds"])
+
+    sparkline_requests = [sparkline_by_day[day][0] for day in sparkline_days]
+    sparkline_minutes = [round(sparkline_by_day[day][1] / 60, 2) for day in sparkline_days]
 
     return {
         "total_requests": total_requests,
