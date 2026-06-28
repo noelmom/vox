@@ -14,6 +14,9 @@ data/
 voices/*
 !voices/noelmo-normal.wav
 
+# Release artifacts — upload to GitHub Releases, do not commit
+assets/*.pkg
+
 # UI sketches — local design references only
 sketches/
 

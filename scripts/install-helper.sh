@@ -1,10 +1,14 @@
 #!/bin/bash
 # Install the Vox menu bar helper as a LaunchAgent.
-# Installs VoxHelper.app from assets/Vox.dmg to /Applications.
+# Installs VoxHelper.app from assets/Vox.dmg to /Applications/Vox.
 set -eo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+source "$ROOT/scripts/install-log.sh"
+setup_install_log "scripts/install-helper.sh"
+
 APP_SUPPORT="$HOME/Library/Application Support/Vox"
+APP_DIR="/Applications/Vox"
 VENV="$APP_SUPPORT/venv"
 AGENTS_DIR="$HOME/Library/LaunchAgents"
 PLIST_DST="$AGENTS_DIR/com.melolabdev.vox-helper.plist"
@@ -12,33 +16,89 @@ LOG_DIR="$HOME/Library/Logs/Vox"
 LABEL="com.melolabdev.vox-helper"
 DMG="$ROOT/assets/Vox.dmg"
 MOUNT_POINT=""
+PKG_MODE=false
+FORCE_APP=false
+
+for arg in "$@"; do
+  case "$arg" in
+    --pkg-mode) PKG_MODE=true ;;
+    --force-app) FORCE_APP=true ;;
+  esac
+done
+
+run_admin() {
+  if [[ "$EUID" -eq 0 ]]; then
+    "$@"
+  elif [[ -t 0 ]]; then
+    sudo "$@"
+  else
+    sudo -n "$@" 2>/dev/null || {
+      echo "[vox-helper] x Admin permission required to update $APP_DIR. Run this command in Terminal so macOS can ask for your password."
+      exit 1
+    }
+  fi
+}
+
+app_version() {
+  [[ -f "$1/Contents/Info.plist" ]] || return 0
+  /usr/libexec/PlistBuddy -c "Print CFBundleShortVersionString" "$1/Contents/Info.plist" 2>/dev/null || true
+}
 
 echo "[vox-helper] Installing menu bar helper..."
 
-[[ -f "$DMG" ]] || { echo "[vox-helper] x Vox.dmg not found — run bash scripts/build-apps.sh first."; exit 1; }
+if ! $PKG_MODE; then
+  [[ -f "$DMG" ]] || { echo "[vox-helper] x Vox.dmg not found — run bash scripts/build-apps.sh first."; exit 1; }
+fi
 
 mkdir -p "$AGENTS_DIR" "$LOG_DIR"
 
-# Stop the running helper before replacing the app bundle. Replacing a live
-# signed .app can leave the installed bundle in an invalid signature state.
-UID_VAL=$(id -u)
-launchctl stop "gui/$UID_VAL/$LABEL" 2>/dev/null || true
-sleep 1
-launchctl unload "$PLIST_DST" 2>/dev/null || true
+if $PKG_MODE; then
+  echo "[vox-helper] Using packaged VoxHelper.app at $APP_DIR/VoxHelper.app..."
+  [[ -d "$APP_DIR/VoxHelper.app" ]] || { echo "[vox-helper] x VoxHelper.app not found at $APP_DIR/VoxHelper.app"; exit 1; }
+else
+  # ── Install VoxHelper.app from DMG ─────────────────────────────────────────
+  echo "[vox-helper] Installing VoxHelper.app from Vox.dmg..."
+  MOUNT_POINT="$(mktemp -d "${TMPDIR:-/tmp}/vox-dmg-helper.XXXXXX")"
+  cleanup_dmg_mount() {
+    hdiutil detach "$MOUNT_POINT" -quiet 2>/dev/null || true
+    rmdir "$MOUNT_POINT" 2>/dev/null || true
+  }
+  trap cleanup_dmg_mount EXIT
+  hdiutil attach "$DMG" -nobrowse -quiet -mountpoint "$MOUNT_POINT"
 
-# ── Install VoxHelper.app from DMG ───────────────────────────────────────────
-echo "[vox-helper] Installing VoxHelper.app from Vox.dmg..."
-MOUNT_POINT="$(mktemp -d "${TMPDIR:-/tmp}/vox-dmg-helper.XXXXXX")"
-cleanup_dmg_mount() {
-  hdiutil detach "$MOUNT_POINT" -quiet 2>/dev/null || true
-  rmdir "$MOUNT_POINT" 2>/dev/null || true
-}
-trap cleanup_dmg_mount EXIT
-hdiutil attach "$DMG" -nobrowse -quiet -mountpoint "$MOUNT_POINT"
-rm -rf /Applications/VoxHelper.app
-ditto "$MOUNT_POINT/VoxHelper.app" /Applications/VoxHelper.app
-cleanup_dmg_mount
-trap - EXIT
+  INSTALLED_APP="$APP_DIR/VoxHelper.app"
+  BUNDLED_APP="$MOUNT_POINT/VoxHelper.app"
+  INSTALLED_VERSION="$(app_version "$INSTALLED_APP")"
+  BUNDLED_VERSION="$(app_version "$BUNDLED_APP")"
+
+  if ! $FORCE_APP && [[ -n "$INSTALLED_VERSION" && -n "$BUNDLED_VERSION" && "$INSTALLED_VERSION" == "$BUNDLED_VERSION" ]]; then
+    echo "[vox-helper] VoxHelper.app already at v$INSTALLED_VERSION — skipping app replacement."
+  else
+    if $FORCE_APP; then
+      echo "[vox-helper] Force installing VoxHelper.app..."
+    elif [[ -n "$INSTALLED_VERSION" && -n "$BUNDLED_VERSION" ]]; then
+      echo "[vox-helper] Updating VoxHelper.app v$INSTALLED_VERSION → v$BUNDLED_VERSION..."
+    else
+      echo "[vox-helper] Installing VoxHelper.app..."
+    fi
+    # Stop the running helper before replacing the app bundle. Replacing a live
+    # signed .app can leave the installed bundle in an invalid signature state.
+    UID_VAL=$(id -u)
+    launchctl stop "gui/$UID_VAL/$LABEL" 2>/dev/null || true
+    sleep 1
+    launchctl unload "$PLIST_DST" 2>/dev/null || true
+    run_admin mkdir -p "$APP_DIR"
+    if [[ -d "$INSTALLED_APP" ]]; then
+      xattr -cr "$INSTALLED_APP" 2>/dev/null || true
+    fi
+    run_admin rm -rf "$INSTALLED_APP"
+    run_admin ditto "$BUNDLED_APP" "$INSTALLED_APP"
+    chown -R "$USER":staff "$INSTALLED_APP" 2>/dev/null || true
+  fi
+
+  cleanup_dmg_mount
+  trap - EXIT
+fi
 
 # ── Write LaunchAgent plist ───────────────────────────────────────────────────
 cat > "$PLIST_DST" <<EOF
@@ -48,7 +108,7 @@ cat > "$PLIST_DST" <<EOF
   <key>Label</key><string>$LABEL</string>
   <key>ProgramArguments</key>
   <array>
-    <string>/Applications/VoxHelper.app/Contents/MacOS/VoxHelper</string>
+    <string>$APP_DIR/VoxHelper.app/Contents/MacOS/VoxHelper</string>
   </array>
   <key>WorkingDirectory</key><string>$APP_SUPPORT</string>
   <key>StandardOutPath</key><string>$LOG_DIR/vox-helper.log</string>
@@ -63,6 +123,10 @@ EOF
 echo "[vox-helper] Plist written to: $PLIST_DST"
 
 # ── Reload LaunchAgent ────────────────────────────────────────────────────────
+UID_VAL=$(id -u)
+launchctl stop "gui/$UID_VAL/$LABEL" 2>/dev/null || true
+sleep 1
+launchctl unload "$PLIST_DST" 2>/dev/null || true
 launchctl load "$PLIST_DST"
 
 echo ""

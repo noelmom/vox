@@ -1,0 +1,50 @@
+#!/bin/bash
+# macOS package postinstall for Vox.
+set -eo pipefail
+export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:$PATH"
+
+BOOTSTRAP="/Library/Application Support/Vox/Bootstrap"
+LOG_DIR="/Library/Logs/Vox"
+LOG_FILE="$LOG_DIR/pkg-install.log"
+
+mkdir -p "$LOG_DIR"
+exec >> "$LOG_FILE" 2>&1
+
+echo ""
+echo "===== Vox package postinstall ====="
+echo "Started: $(date)"
+echo "macOS: $(sw_vers -productVersion 2>/dev/null || echo unknown)"
+echo "Arch: $(uname -m 2>/dev/null || echo unknown)"
+
+CONSOLE_USER="$(stat -f %Su /dev/console)"
+if [[ -z "$CONSOLE_USER" || "$CONSOLE_USER" == "root" || "$CONSOLE_USER" == "loginwindow" ]]; then
+  echo "[vox-pkg] No logged-in console user found."
+  exit 1
+fi
+
+USER_HOME="$(dscl . -read "/Users/$CONSOLE_USER" NFSHomeDirectory 2>/dev/null | awk '{print $2}')"
+if [[ -z "$USER_HOME" || ! -d "$USER_HOME" ]]; then
+  echo "[vox-pkg] Could not resolve home directory for $CONSOLE_USER."
+  exit 1
+fi
+
+if [[ ! -f "$BOOTSTRAP/vox.sh" ]]; then
+  echo "[vox-pkg] Bootstrap not found at $BOOTSTRAP."
+  exit 1
+fi
+
+echo "[vox-pkg] Installing for user: $CONSOLE_USER"
+echo "[vox-pkg] User home: $USER_HOME"
+echo "[vox-pkg] Bootstrap: $BOOTSTRAP"
+
+chown -R "$CONSOLE_USER":staff "$BOOTSTRAP"
+chown -R "$CONSOLE_USER":staff "/Applications/Vox" 2>/dev/null || true
+
+/usr/bin/sudo -u "$CONSOLE_USER" \
+  /usr/bin/env \
+  HOME="$USER_HOME" \
+  VOX_PKG_MODE=1 \
+  PATH="/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin" \
+  /bin/bash "$BOOTSTRAP/vox.sh" install --yes --pkg-mode
+
+echo "[vox-pkg] Package postinstall complete."

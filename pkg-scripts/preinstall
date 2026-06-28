@@ -1,0 +1,55 @@
+#!/bin/bash
+# macOS package preinstall checks for Vox.
+set -eo pipefail
+export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:$PATH"
+
+LOG_DIR="/Library/Logs/Vox"
+LOG_FILE="$LOG_DIR/pkg-install.log"
+
+mkdir -p "$LOG_DIR"
+exec >> "$LOG_FILE" 2>&1
+
+echo ""
+echo "===== Vox package preinstall ====="
+echo "Started: $(date)"
+echo "macOS: $(sw_vers -productVersion 2>/dev/null || echo unknown)"
+echo "Arch: $(uname -m 2>/dev/null || echo unknown)"
+
+fail() {
+  echo "[vox-pkg] ERROR: $*"
+  exit 1
+}
+
+[[ "$(uname -m)" == "arm64" ]] || fail "Vox requires Apple Silicon (M1 or later)."
+
+CONSOLE_USER="$(stat -f %Su /dev/console)"
+[[ -n "$CONSOLE_USER" && "$CONSOLE_USER" != "root" && "$CONSOLE_USER" != "loginwindow" ]] \
+  || fail "No logged-in macOS user found. Log in to the desktop, then run the installer again."
+
+command -v curl >/dev/null 2>&1 || fail "curl is required but was not found."
+
+check_url() {
+  local label="$1"
+  local url="$2"
+  echo "[vox-pkg] Checking $label: $url"
+  curl --fail --silent --show-error --location --max-time 12 --output /dev/null "$url" \
+    || fail "Internet connectivity check failed for $label ($url). Check your network/VPN/firewall and try again."
+}
+
+check_url "GitHub" "https://github.com/"
+check_url "Python Package Index" "https://pypi.org/"
+check_url "Hugging Face" "https://huggingface.co/"
+
+if ! command -v brew >/dev/null 2>&1; then
+  fail "Homebrew is required for the one-click installer. Install Homebrew from https://brew.sh, then run this package again."
+else
+  echo "[vox-pkg] Homebrew found: $(brew --version | head -1)"
+fi
+
+if ! command -v python3.11 >/dev/null 2>&1; then
+  echo "[vox-pkg] Python 3.11 not found locally. setup.sh will install it with Homebrew."
+else
+  echo "[vox-pkg] Python 3.11 found: $(python3.11 --version 2>&1)"
+fi
+
+echo "[vox-pkg] Preinstall checks passed."

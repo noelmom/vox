@@ -2,6 +2,7 @@
 # Vox — one-shot setup script for macOS Apple Silicon
 # Run once after cloning: bash setup.sh
 set -e
+export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:$PATH"
 
 BOLD="\033[1m"
 GREEN="\033[0;32m"
@@ -15,13 +16,16 @@ warn()    { echo -e "${YELLOW}[vox] ⚠ $*${RESET}"; }
 fail()    { echo -e "${RED}[vox] ✗ $*${RESET}"; exit 1; }
 
 ROOT="$(cd "$(dirname "$0")" && pwd)"
+source "$ROOT/scripts/install-log.sh"
+setup_install_log "setup.sh"
+
 APP_SUPPORT="$HOME/Library/Application Support/Vox"
 
 # ── Already installed check ───────────────────────────────────────────────────
 AGENT_PLIST="$HOME/Library/LaunchAgents/com.melolabdev.vox.plist"
 HELPER_PLIST="$HOME/Library/LaunchAgents/com.melolabdev.vox-helper.plist"
 
-if [[ -f "$AGENT_PLIST" ]] || [[ -f "$HELPER_PLIST" ]]; then
+if [[ "${VOX_PKG_MODE:-0}" != "1" ]] && { [[ -f "$AGENT_PLIST" ]] || [[ -f "$HELPER_PLIST" ]]; }; then
     echo ""
     echo -e "${YELLOW}${BOLD}Vox is already installed on this machine.${RESET}"
     echo ""

@@ -15,6 +15,7 @@
 #   --helper-only        target helper only
 #   --purge              on uninstall, also delete user data + venv
 #   --zip /path/dir      update from extracted zip folder (not git pull)
+#   --pkg-mode           internal: package postinstall mode
 set -euo pipefail
 
 # ── Colours ───────────────────────────────────────────────────────────────────
@@ -52,6 +53,7 @@ OPT_HELPER_ONLY=false
 OPT_PURGE=false
 OPT_ZIP=""
 OPT_BRANCH=""
+OPT_PKG_MODE=false
 
 # ── Help ──────────────────────────────────────────────────────────────────────
 show_help() {
@@ -76,6 +78,7 @@ cat <<'EOF'
     --zip /path       (update) Use extracted zip folder instead of git pull
     --devbranch       Switch to the development branch before running command
     --branch NAME     Switch to a specific branch before running command
+    --pkg-mode        Internal: used by the signed macOS package postinstall
     --help            Show this help
 
   Examples:
@@ -109,6 +112,7 @@ while [[ $# -gt 0 ]]; do
         --zip)             shift; OPT_ZIP="${1:-}" ;;
         --branch)          shift; OPT_BRANCH="${1:-}" ;;
         --devbranch)       OPT_BRANCH="development" ;;
+        --pkg-mode)        OPT_PKG_MODE=true; OPT_YES=true ;;
         --help|-h)         show_help; exit 0 ;;
         *) warn "Unknown argument: $1 (run with --help to see usage)"; exit 1 ;;
     esac
@@ -175,14 +179,18 @@ do_install() {
     # Already installed check
     AGENT_PLIST="$HOME/Library/LaunchAgents/com.melolabdev.vox.plist"
     HELPER_PLIST="$HOME/Library/LaunchAgents/com.melolabdev.vox-helper.plist"
-    if [[ -f "$AGENT_PLIST" ]] || [[ -f "$HELPER_PLIST" ]]; then
+    if ! $OPT_PKG_MODE && { [[ -f "$AGENT_PLIST" ]] || [[ -f "$HELPER_PLIST" ]]; }; then
         warn "Vox appears to be already installed."
         confirm "Run update instead?" && { CMD="update"; do_update; return; }
         confirm "Reinstall anyway (will overwrite)?" || exit 0
     fi
 
     # Run setup.sh (creates venv, syncs code, creates .env)
-    bash "$ROOT/setup.sh"
+    if $OPT_PKG_MODE; then
+        VOX_PKG_MODE=1 bash "$ROOT/setup.sh"
+    else
+        bash "$ROOT/setup.sh"
+    fi
 
     # HF token
     if [[ -n "$OPT_TOKEN" ]]; then
@@ -198,10 +206,18 @@ do_install() {
 
     # Install agents
     if ! $OPT_HELPER_ONLY; then
-        bash "$ROOT/scripts/install-agent.sh"
+        if $OPT_PKG_MODE; then
+            bash "$ROOT/scripts/install-agent.sh" --pkg-mode
+        else
+            bash "$ROOT/scripts/install-agent.sh"
+        fi
     fi
     if ! $OPT_AGENT_ONLY; then
-        bash "$ROOT/scripts/install-helper.sh"
+        if $OPT_PKG_MODE; then
+            bash "$ROOT/scripts/install-helper.sh" --pkg-mode
+        else
+            bash "$ROOT/scripts/install-helper.sh"
+        fi
     fi
 
     echo ""

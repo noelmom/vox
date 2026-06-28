@@ -273,32 +273,34 @@ Ideas and improvements to revisit. Not bugs — these are enhancements queued fo
 
 ## Update Script
 
-- [ ] **Skip app reinstall when VoxServer and VoxHelper are already current**
+- [x] **Skip app replacement when VoxServer and VoxHelper are already current**
 
-  `vox.sh update` always reinstalls both LaunchAgents unconditionally, even when the DMG hasn't changed and the installed apps are identical. This means every `update` triggers a full stop→copy→reload cycle for both agents regardless of whether the Swift binaries changed — wasteful and causes an unnecessary server restart.
+  `vox.sh update` previously re-copied both app bundles unconditionally, even when the DMG hadn't changed and the installed apps were identical. This was wasteful and could fail after a signed `.pkg` install because the installed `/Applications/Vox/*.app` bundles may be root-owned.
 
   **Detection approach:**
   - Read the installed app's version from its `Info.plist`:
     ```bash
     installed=$(/usr/libexec/PlistBuddy -c "Print CFBundleShortVersionString" \
-      /Applications/VoxHelper.app/Contents/Info.plist 2>/dev/null)
+      /Applications/Vox/VoxHelper.app/Contents/Info.plist 2>/dev/null)
     bundled=$(/usr/libexec/PlistBuddy -c "Print CFBundleShortVersionString" \
       "$MOUNT_POINT/VoxHelper.app/Contents/Info.plist" 2>/dev/null)
     ```
   - Compare `$installed` vs `$bundled` (version string from `build-apps.sh`). If equal → skip reinstall for that app.
-  - Do the same comparison for `VoxServer.app` (installed at `~/Library/Application Support/Vox/VoxServer.app`).
+  - Do the same comparison for `VoxServer.app` (installed at `/Applications/Vox/VoxServer.app`).
   - Each app is checked and skipped independently — helper may be current while server needs update.
 
   **What gets skipped when app version is unchanged:**
   - `ditto` copy of the app bundle from DMG
-  - `launchctl unload` + `launchctl load` of the LaunchAgent plist
+  - privileged `rm -rf` of the installed app bundle
+  - ownership changes on the installed app bundle
 
   **What always runs regardless:**
   - `git pull` (already conditional on diff)
   - Python dependency sync (`pip install -r requirements.txt`)
   - API/UI code sync to Application Support
+  - LaunchAgent plist refresh/reload so the existing update flow still restarts cleanly
 
-  **Important — LaunchAgent reload vs server restart are separate concerns:**
+  **Future refinement — LaunchAgent reload vs server restart are separate concerns:**
   The LaunchAgent only needs to be unloaded/reloaded when the plist itself changes (new port, args, env vars) or when the app binary is replaced. Python code changes (API, UI) do **not** require a plist reload — the server just needs to be restarted so the new code is picked up by the running process. The update script should therefore:
   - Skip `launchctl unload/load` when neither the app binary nor the plist has changed
   - Always stop + start the server process at the end of update so fresh Python code is active
@@ -311,7 +313,7 @@ Ideas and improvements to revisit. Not bugs — these are enhancements queued fo
   ```
   vs current: `⚠ Already up to date — reinstalling agents anyway.`
 
-  **Blocked by:** version bump workflow — `CFBundleShortVersionString` in `build-apps.sh` must be kept in sync with the git tag. Covered by the vox.yaml unified version tracking backlog item.
+  **Follow-up:** version bump workflow — `CFBundleShortVersionString` in `build-apps.sh` must be kept in sync with the git tag. Covered by the vox.yaml unified version tracking backlog item.
 
 ## Packaging & Distribution
 
@@ -322,23 +324,22 @@ Ideas and improvements to revisit. Not bugs — these are enhancements queued fo
 - [x] **Fix `env` label** — server plist now uses `/bin/bash` directly; Login Items shows `bash` instead of `env`.
 - [x] **Fix `Python3` label** — helper rewritten in native Swift; shows as "Vox Helper" in Login Items and Activity Monitor.
 
-- [x] **Branding icons — temporary** — `install-helper.sh` builds `VoxHelper.app` at `/Applications/` (permanent — survives project folder deletion) with `Info.plist`, Vox icon, and a symlink to the permanent venv. `assets/Vox.icns` committed to repo.
+- [x] **Branded app icons** — `VoxHelper.app` and `VoxServer.app` use separate signed `.icns` assets and install under `/Applications/Vox/` so the app bundles survive project folder deletion while staying grouped together.
 - [x] **Permanent runtime layout** — everything runtime lives at `~/Library/Application Support/Vox/`: venv, api code, config/presets, helper script, voices, outputs, data, input, .env. Project folder is source-only. Server and helper both survive the project folder being moved or deleted.
 
-- [x] **Rewrite VoxHelper in native Swift** — replaced Python/rumps with a native AppKit app (`voxhelper/`). Eliminates PyObjC teardown hang, macOS Sequoia NSSceneStatusItem session context issue, and Python3 in Background Apps. Shows "Vox Helper" in Login Items with the Vox icon.
+- [x] **Rewrite VoxHelper in native Swift** — replaced Python/rumps with a native AppKit app (`voxhelper/`). Eliminates PyObjC teardown hang, macOS Sequoia NSSceneStatusItem session context issue, and Python3 in Background Apps. Shows "Vox Helper" in Login Items with the helper app icon.
 
 - [ ] **App Background Activity branding in System Settings**
   - Both LaunchAgents currently appear under "Noelmo Melo" (the Developer ID name) with no custom icon in System Settings → General → Login Items & Extensions → App Background Activity.
   - Two sub-issues to resolve:
-    1. **Icon** — `VoxHelper.app` and `VoxServer.app` bundles need a valid `CFBundleIconFile` that macOS picks up for the Login Items UI. Verify `Vox.icns` is correctly referenced and sized — macOS may require specific icon sizes (16, 32, 64px) to display in this context.
+    1. **Icon** — `VoxHelper.app` and `VoxServer.app` bundles have valid `CFBundleIconFile` entries backed by `assets/VoxHelper.icns` and `assets/VoxServer.icns`. Verify whether macOS System Settings picks those up in the Login Items UI; macOS may still group the background activity under the Developer ID label.
     2. **Developer label** — the grouping label comes from the Developer ID certificate name ("Noelmo Melo"). Options to make it more brand-friendly: register a company/org name with Apple (e.g. "MeloLabDev") and reissue the cert under that name, or use a vanity domain like `noelmom.github.io` or `melolabdev.com` as the org identifier. Decide on permanent brand name before reissuing — cert changes require re-signing and re-notarizing all apps.
   - Blocked by: final brand name decision and logo replacement.
 
-- [ ] **Replace temporary logo before public release**
-  - `assets/Vox.icns` is a placeholder. The app name "Vox" / "Vox" is not finalised.
-  - Once the permanent app name and logo are decided, replace `assets/Vox.icns` with the final `.icns` and update `CFBundleDisplayName` / `CFBundleIdentifier` in `install-helper.sh` to match.
-  - The `.icns` should include all required sizes: 16, 32, 64, 128, 256, 512, 1024px.
-  - Must be done before App Store submission or any public release.
+- [x] **Replace temporary app icons before public release**
+  - Replaced the legacy `assets/Vox.icns` placeholder with separate final-style app icons: `assets/VoxHelper.icns` and `assets/VoxServer.icns`.
+  - `scripts/build-apps.sh` writes matching `CFBundleIconFile` values for each app bundle.
+  - The old shared `assets/Vox.icns` file has been removed.
 
 - [ ] **Auto-launch on login (server)** — flip `RunAtLoad` from `<false/>` to `<true/>` in `launchagent/com.melolabdev.vox.plist` when shipping the `.app`. Helper already auto-starts.
 
@@ -363,17 +364,17 @@ Ideas and improvements to revisit. Not bugs — these are enhancements queued fo
 
 - [ ] **Single-instance enforcement (server — PID file)** — `run.sh` port check works but a PID file would give cleaner error messages and survive edge cases where the port is in use by another process.
 
-- [ ] **Signed `.pkg` installer for v1.0.0 release** — replace the DMG + `vox.sh` workflow with a single signed and notarized `.pkg` that handles everything: installs `VoxHelper.app` and `VoxServer.app` to `/Applications`, creates the LaunchAgents, sets up the runtime directory, and runs first-time setup. Built with `pkgbuild` + `productbuild`. Requires a Developer ID Installer certificate (separate from Developer ID Application). This is the target distribution format for v1.0.0 — clean one-double-click install with no terminal required.
+- [ ] **Signed `.pkg` installer for v1.0.0 release** — replace the DMG + `vox.sh` workflow with a single signed and notarized `.pkg` that handles everything: installs `VoxHelper.app` and `VoxServer.app` to `/Applications/Vox/`, creates the LaunchAgents, sets up the runtime directory, and runs first-time setup. Built with `pkgbuild` + `productbuild`. Developer ID Installer signing and package notarization are working; remaining work is the package bootstrap/postinstall flow.
 
 - [ ] **One-click `.app` packaging** — PyInstaller or py2app. Bundle Python, venv, and the server into a single distributable app.
 
 - [x] **Default `VOX_HOST` to `127.0.0.1`** — Vox now defaults to local-only access. Users can opt into LAN access by setting `VOX_HOST=0.0.0.0` or using Settings → Runtime → Network access.
 
-- [x] **Preserve app bundle signatures during build/install** — `build-apps.sh` and `install-helper.sh` now use `ditto` instead of recursive copy for `.app` bundles, and helper install stops the running helper before replacing `/Applications/VoxHelper.app`.
+- [x] **Preserve app bundle signatures during build/install** — `build-apps.sh`, `install-helper.sh`, and `install-agent.sh` use `ditto` instead of recursive copy for `.app` bundles, and helper install stops the running helper before replacing `/Applications/Vox/VoxHelper.app`.
 
 - [ ] **Streamline /Applications install UX once packaging is finalized** — current helper install still copies into `/Applications` via the install script. For public release, replace the terminal-driven install/update flow with a drag-to-Applications DMG or signed `.pkg` installer so users do not need to run shell commands.
 
-- [ ] **Fix Developer ID codesign (`errSecInternalComponent`)** — signing currently fails even with cert installed.
+- [x] **Fix Developer ID codesign (`errSecInternalComponent`)** — Developer ID Application signing, Developer ID Installer signing, notarization, and stapling now work through `scripts/build-apps.sh` and `scripts/build-pkg.sh`.
   - Cert is present and chain is valid (`F8:3A:0C:69` AKID matches intermediate SKID)
   - Likely cause: private key was generated via Keychain Access GUI with Secure Enclave access controls that block `codesign`
   - Fix: revoke current cert, generate new CSR via CLI (`openssl genrsa` + `openssl req`) to avoid Secure Enclave, re-download cert from Apple Developer portal, import with `-T /usr/bin/codesign`
@@ -710,7 +711,7 @@ Ideas and improvements to revisit. Not bugs — these are enhancements queued fo
 
   **Preferred approach:** a top-level `vox.yaml` (or `vox.config.yaml`) that is the single source of truth for version and other project-wide constants (bundle IDs, team ID, minimum OS versions, default port, app name, etc.). Every script, build step, and the API reads from this file — nothing hardcodes these values inline. A release is then: edit `version` in `vox.yaml` → run `bash scripts/release.sh` → done.
 
-  Whichever approach, the release checklist should be: update `vox.yaml` → build DMG → notarize → push tag. No hunting for hardcoded strings.
+  Whichever approach, the release checklist should be: update `vox.yaml` → build DMG/package → notarize → push tag → upload package to GitHub Releases → update the landing page package filename, download URL, size, and SHA256 checksum. No hunting for hardcoded strings.
 
 - [ ] **Track installed version and prevent redundant installs/updates**
   - Write the current git SHA (or version tag) to `~/Library/Application Support/Vox/version` at the end of install and update.
@@ -723,7 +724,7 @@ Ideas and improvements to revisit. Not bugs — these are enhancements queued fo
 
 ## Installation & Diagnostics
 
-- [ ] **Write install log to `~/Library/Logs/Vox/install.log`**
+- [x] **Write install log to `~/Library/Logs/Vox/install.log`**
   - `setup.sh`, `install-agent.sh`, and `install-helper.sh` should tee all output to a timestamped install log so failed installs can be diagnosed without the user having to reproduce the issue in front of you.
   - Each script appends to the same file with a clear header (script name + timestamp + macOS version + architecture).
   - On failure, the error and the last few lines of context are preserved so the exact step that failed is obvious.

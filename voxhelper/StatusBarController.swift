@@ -16,6 +16,7 @@ class StatusBarController {
     private let stopItem    = NSMenuItem(title: "■  Stop Server",        action: nil, keyEquivalent: "")
     private let restartItem = NSMenuItem(title: "↺  Restart Server",     action: nil, keyEquivalent: "")
     private let logsItem    = NSMenuItem(title: "📋  View Logs",          action: nil, keyEquivalent: "")
+    private let uninstallItem = NSMenuItem(title: "Uninstall Vox…",        action: nil, keyEquivalent: "")
     private let quitItem    = NSMenuItem(title: "Quit Helper",            action: nil, keyEquivalent: "")
 
     init() {
@@ -37,7 +38,7 @@ class StatusBarController {
     private func setupMenu() {
         [statusItem, addrItem, cpuItem, gpuItem, ramItem].forEach { $0.isEnabled = false }
         [copyItem, openItem, inputItem, startItem, stopItem,
-         restartItem, logsItem, quitItem].forEach { $0.target = self }
+         restartItem, logsItem, uninstallItem, quitItem].forEach { $0.target = self }
 
         copyItem.action    = #selector(copyAddress)
         openItem.action    = #selector(openBrowser)
@@ -46,6 +47,7 @@ class StatusBarController {
         stopItem.action    = #selector(stopServer)
         restartItem.action = #selector(restartServer)
         logsItem.action    = #selector(viewLogs)
+        uninstallItem.action = #selector(confirmUninstall)
         quitItem.action    = #selector(quitApp)
 
         let menu = NSMenu()
@@ -57,6 +59,7 @@ class StatusBarController {
                   NSMenuItem.separator(),
                   logsItem,
                   NSMenuItem.separator(),
+                  uninstallItem,
                   quitItem] { menu.addItem(i) }
 
         item.menu = menu
@@ -116,6 +119,75 @@ class StatusBarController {
     @objc private func viewLogs() {
         let log = NSHomeDirectory() + "/Library/Logs/Vox/vox.log"
         NSWorkspace.shared.open(URL(fileURLWithPath: log))
+    }
+
+    @objc private func confirmUninstall() {
+        let alert = NSAlert()
+        alert.messageText = "Uninstall Vox?"
+        alert.informativeText = "This removes the Vox server, menu bar helper, and launch agents. Your voices, recordings, settings, and data will be kept."
+        alert.alertStyle = .warning
+        alert.addButton(withTitle: "Uninstall")
+        alert.addButton(withTitle: "Cancel")
+
+        guard alert.runModal() == .alertFirstButtonReturn else { return }
+        runUninstallInTerminal()
+    }
+
+    private func runUninstallInTerminal() {
+        guard let command = uninstallCommand() else {
+            showUninstallError("Could not find the Vox uninstall script. Run `bash vox.sh uninstall` from your Vox folder.")
+            return
+        }
+
+        let script = """
+        tell application "Terminal"
+          activate
+          do script "\(appleScriptEscaped(command))"
+        end tell
+        """
+
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/osascript")
+        process.arguments = ["-e", script]
+        do {
+            try process.run()
+        } catch {
+            showUninstallError("Could not open Terminal to uninstall Vox.")
+        }
+    }
+
+    private func uninstallCommand() -> String? {
+        let candidates = [
+            NSHomeDirectory() + "/Library/Application Support/Vox/scripts/uninstall.sh",
+            "/Library/Application Support/Vox/Bootstrap/vox.sh",
+        ]
+
+        for path in candidates where FileManager.default.fileExists(atPath: path) {
+            if path.hasSuffix("vox.sh") {
+                return "bash \(shellQuoted(path)) uninstall --yes; echo; read -n 1 -s -r -p 'Press any key to close...'"
+            }
+            return "bash \(shellQuoted(path)); echo; read -n 1 -s -r -p 'Press any key to close...'"
+        }
+        return nil
+    }
+
+    private func showUninstallError(_ message: String) {
+        let alert = NSAlert()
+        alert.messageText = "Unable to uninstall Vox"
+        alert.informativeText = message
+        alert.alertStyle = .critical
+        alert.addButton(withTitle: "OK")
+        alert.runModal()
+    }
+
+    private func shellQuoted(_ value: String) -> String {
+        return "'" + value.replacingOccurrences(of: "'", with: "'\\''") + "'"
+    }
+
+    private func appleScriptEscaped(_ value: String) -> String {
+        return value
+            .replacingOccurrences(of: "\\", with: "\\\\")
+            .replacingOccurrences(of: "\"", with: "\\\"")
     }
 
     @objc private func quitApp() {

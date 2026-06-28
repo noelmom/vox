@@ -6,6 +6,20 @@ set -eo pipefail
 LABEL="com.melolabdev.vox-helper"
 PLIST_DST="$HOME/Library/LaunchAgents/$LABEL.plist"
 APP_SUPPORT="$HOME/Library/Application Support/Vox"
+APP_DIR="/Applications/Vox"
+
+run_admin() {
+    if [[ "$EUID" -eq 0 ]]; then
+        "$@"
+    elif [[ -t 0 ]]; then
+        sudo "$@"
+    else
+        sudo -n "$@" 2>/dev/null || {
+            echo "[vox-helper] x Admin permission required to remove $APP_DIR. Run this command in Terminal so macOS can ask for your password."
+            exit 1
+        }
+    fi
+}
 
 if [[ ! -f "$PLIST_DST" ]]; then
     echo "[vox-helper] Helper not installed — nothing to do."
@@ -29,12 +43,13 @@ if pgrep -x "VoxHelper" &>/dev/null; then
     done
 fi
 
-# Remove VoxHelper.app from /Applications
-if [[ -d "/Applications/VoxHelper.app" ]]; then
-    rm -rf "/Applications/VoxHelper.app"
-    echo "[vox-helper] Removed VoxHelper.app from /Applications"
+# Remove VoxHelper.app from /Applications/Vox
+if [[ -d "$APP_DIR/VoxHelper.app" ]]; then
+    run_admin rm -rf "$APP_DIR/VoxHelper.app"
+    echo "[vox-helper] Removed VoxHelper.app from $APP_DIR"
 fi
 
+run_admin rmdir "$APP_DIR" 2>/dev/null || true
 
 echo ""
 echo "[vox-helper] Helper uninstalled."

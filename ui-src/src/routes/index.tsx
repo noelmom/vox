@@ -649,7 +649,10 @@ function GetStarted() {
   const [hashCopied, setHashCopied] = useState(false);
   const [tab, setTab] = useState<"oneclick" | "manual">("oneclick");
   const command = `git clone git@github.com:MeloLabDev/codename-vox\ncd codename-vox\nbash vox.sh install`;
-  const sha256 = "a1b2c3d4e5f6789012345678901234567890abcdef1234567890abcdeff9c4";
+  const pkgName = "Vox-0.5.1-beta.pkg";
+  const pkgSize = "8.8 MB";
+  const pkgUrl = "https://github.com/MeloLabDev/codename-vox/releases/download/v0.5.1-beta/Vox-0.5.1-beta.pkg";
+  const sha256 = "d67ab5423e81dffb2328765ae7c6fe9cbd323d64ac087bee0cc6f4c39972cb58";
 
   const handleCopy = async () => {
     try {
@@ -772,7 +775,7 @@ function GetStarted() {
                 ) : (
                   <>
                     <Package className="h-3.5 w-3.5" />
-                    Vox-1.0.0.pkg
+                    {pkgName}
                   </>
                 )}
               </div>
@@ -832,10 +835,10 @@ function GetStarted() {
 
                   <div className="min-w-0 flex-1">
                     <div className="text-[16px] font-bold text-black">
-                      Vox-1.0.0.pkg
+                      {pkgName}
                     </div>
                     <div className="mt-1 text-[12.5px] text-black/60">
-                      macOS · Apple Silicon · 84 MB
+                      macOS · Apple Silicon · {pkgSize}
                     </div>
                     <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-black/55">
                       <span className="inline-flex items-center gap-1">
@@ -843,7 +846,7 @@ function GetStarted() {
                         Notarized
                       </span>
                       <span className="inline-flex items-center gap-1.5">
-                        <span className="font-mono text-[var(--brand-secondary)]">SHA256 a1b2…f9c4</span>
+                        <span className="font-mono text-[var(--brand-secondary)]">SHA256 d67a…cb58</span>
 
                         <button
                           type="button"
@@ -870,7 +873,8 @@ function GetStarted() {
                 </div>
 
                 <a
-                  href="#download"
+                  href={pkgUrl}
+                  download
                   className="group mt-6 inline-flex w-full items-center justify-center gap-2 rounded-lg px-6 py-3 text-sm font-bold text-white transition-all hover:brightness-110"
                   style={{
                     background:

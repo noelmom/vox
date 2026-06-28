@@ -927,9 +927,6 @@ function ClipCard({
                 {copied ? <><Check className="h-3 w-3" /> Copied</> : <><Copy className="h-3 w-3" /> Copy script</>}
               </button>
             </div>
-            {(noAudio || failed) && (
-              <RegenerateButton voiceMissing={voiceMissing} onRegenerate={onRegenerate} />
-            )}
           </div>
         </div>
 
