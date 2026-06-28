@@ -108,6 +108,7 @@ codename-vox/
 ├── AGENTS.md                    # Maintainer/AI-agent operating procedures
 ├── requirements.txt             # Python dependencies
 ├── requirements-dev.txt         # Python test/lint dependencies
+├── requirements-ci.txt          # Lightweight backend deps for CI tests
 ├── pyproject.toml               # Pytest + Ruff configuration
 ├── tests/                       # Baseline backend tests
 ├── .github/workflows/ci.yml     # GitHub Actions CI

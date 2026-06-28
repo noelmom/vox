@@ -89,6 +89,8 @@ Backend tests and lint:
 "$HOME/Library/Application Support/Vox/venv/bin/python3" -m ruff check api tests
 ```
 
+GitHub Actions installs `requirements-ci.txt` plus `requirements-dev.txt` for backend checks so CI does not download Torch/Chatterbox model dependencies just to run unit tests.
+
 Frontend checks:
 
 ```bash
