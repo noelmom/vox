@@ -209,18 +209,20 @@ do_install() {
     fi
 
     # Install agents
+    force_app_args=()
+    $OPT_FORCE && force_app_args+=("--force-app")
     if ! $OPT_HELPER_ONLY; then
         if $OPT_PKG_MODE; then
             bash "$ROOT/scripts/install-agent.sh" --pkg-mode
         else
-            bash "$ROOT/scripts/install-agent.sh"
+            bash "$ROOT/scripts/install-agent.sh" "${force_app_args[@]}"
         fi
     fi
     if ! $OPT_AGENT_ONLY; then
         if $OPT_PKG_MODE; then
             bash "$ROOT/scripts/install-helper.sh" --pkg-mode
         else
-            bash "$ROOT/scripts/install-helper.sh"
+            bash "$ROOT/scripts/install-helper.sh" "${force_app_args[@]}"
         fi
     fi
 

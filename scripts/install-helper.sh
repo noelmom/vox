@@ -47,6 +47,11 @@ app_version() {
   /usr/libexec/PlistBuddy -c "Print CFBundleShortVersionString" "$1/Contents/Info.plist" 2>/dev/null || true
 }
 
+app_build_commit() {
+  [[ -f "$1/Contents/Info.plist" ]] || return 0
+  /usr/libexec/PlistBuddy -c "Print VoxBuildCommit" "$1/Contents/Info.plist" 2>/dev/null || true
+}
+
 echo "[vox-helper] Installing menu bar helper..."
 
 if ! $PKG_MODE; then
@@ -76,12 +81,18 @@ else
   BUNDLED_APP="$MOUNT_POINT/VoxHelper.app"
   INSTALLED_VERSION="$(app_version "$INSTALLED_APP")"
   BUNDLED_VERSION="$(app_version "$BUNDLED_APP")"
+  INSTALLED_BUILD="$(app_build_commit "$INSTALLED_APP")"
+  BUNDLED_BUILD="$(app_build_commit "$BUNDLED_APP")"
 
-  if ! $FORCE_APP && [[ -n "$INSTALLED_VERSION" && -n "$BUNDLED_VERSION" && "$INSTALLED_VERSION" == "$BUNDLED_VERSION" ]]; then
+  if ! $FORCE_APP \
+    && [[ -n "$INSTALLED_VERSION" && -n "$BUNDLED_VERSION" && "$INSTALLED_VERSION" == "$BUNDLED_VERSION" ]] \
+    && [[ -z "$BUNDLED_BUILD" || "$INSTALLED_BUILD" == "$BUNDLED_BUILD" ]]; then
     echo "[vox-helper] VoxHelper.app already at v$INSTALLED_VERSION — skipping app replacement."
   else
     if $FORCE_APP; then
       echo "[vox-helper] Force installing VoxHelper.app..."
+    elif [[ -n "$INSTALLED_BUILD" && -n "$BUNDLED_BUILD" && "$INSTALLED_BUILD" != "$BUNDLED_BUILD" ]]; then
+      echo "[vox-helper] Updating VoxHelper.app build $INSTALLED_BUILD → $BUNDLED_BUILD..."
     elif [[ -n "$INSTALLED_VERSION" && -n "$BUNDLED_VERSION" ]]; then
       echo "[vox-helper] Updating VoxHelper.app v$INSTALLED_VERSION → v$BUNDLED_VERSION..."
     else

@@ -188,21 +188,24 @@ if ! $HELPER_ONLY; then
 fi
 
 # ── Re-register agents ────────────────────────────────────────────────────────
+force_app_args=()
+$FORCE && force_app_args+=("--force-app")
+
 if ! $HELPER_ONLY; then
     info "Reinstalling server LaunchAgent…"
     if $NO_RESTART; then
-        bash "$ROOT/scripts/install-agent.sh" --no-reload
+        bash "$ROOT/scripts/install-agent.sh" --no-reload "${force_app_args[@]}"
     else
-        bash "$ROOT/scripts/install-agent.sh"
+        bash "$ROOT/scripts/install-agent.sh" "${force_app_args[@]}"
     fi
 fi
 
 if ! $AGENT_ONLY; then
     info "Reinstalling menu bar helper…"
     if $NO_RESTART; then
-        bash "$ROOT/scripts/install-helper.sh" --no-reload
+        bash "$ROOT/scripts/install-helper.sh" --no-reload "${force_app_args[@]}"
     else
-        bash "$ROOT/scripts/install-helper.sh"
+        bash "$ROOT/scripts/install-helper.sh" "${force_app_args[@]}"
     fi
 fi
 
