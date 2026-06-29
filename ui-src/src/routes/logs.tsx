@@ -155,7 +155,13 @@ function LogsPage() {
       <header className="sticky top-0 z-30 border-b border-border/70 bg-white/86 backdrop-blur-xl">
         <div className="mx-auto flex min-h-[76px] max-w-[1500px] flex-wrap items-center justify-between gap-4 px-6 lg:px-10">
           <div className="flex items-center gap-4">
-            <img src={voxLogoV2} alt="VOX studio" className="h-12 w-auto" />
+            <Link
+              to="/app"
+              aria-label="Open Vox Studio app"
+              className="inline-flex items-center rounded-lg transition-opacity hover:opacity-80"
+            >
+              <img src={voxLogoV2} alt="VOX studio" className="h-12 w-auto" />
+            </Link>
             <div className="hidden h-8 w-px bg-border sm:block" />
             <div>
               <div className="flex flex-wrap items-center gap-2">
