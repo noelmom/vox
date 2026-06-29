@@ -51,14 +51,14 @@ type SettingsResponse = {
   build_commit: string;
 };
 
-const API_SAMPLE = `curl -X POST http://localhost:8000/api/v1/tts \\
+const API_GENERATE_SAMPLE = `curl -X POST http://localhost:8000/api/v1/tts \\
   -F "text=Hello from Vox Studio." \\
   -F "voice_name=noelmo-normal" \\
-  -F "preset=default"
+  -F "preset=default"`;
 
-curl http://localhost:8000/api/v1/jobs/{request_id}
+const API_STATUS_SAMPLE = `curl http://localhost:8000/api/v1/jobs/{request_id}`;
 
-curl -L http://localhost:8000/api/v1/jobs/{request_id}/audio \\
+const API_DOWNLOAD_SAMPLE = `curl -L http://localhost:8000/api/v1/jobs/{request_id}/audio \\
   --output voice.mp3`;
 
 export const Route = createFileRoute("/")({
@@ -199,14 +199,48 @@ function Welcome() {
                 <StepLine />
                 <Step number="3" label="Download audio" />
               </div>
-              <div className="mt-6">
-                <h3 className="text-[15px] font-black">Step 1: Generate</h3>
-                <p className="mt-1 text-sm font-semibold text-muted-foreground">Create a generation job.</p>
+              <div className="mt-6 grid gap-5">
+                <ApiStep title="Step 1: Generate" description="Create a generation job. Copy the request id from the JSON response.">
+                  <CodeBlock code={API_GENERATE_SAMPLE}>
+                    <span className="text-[oklch(0.34_0.13_250)]">curl</span>{" "}
+                    <span className="text-[oklch(0.45_0.14_150)]">-X POST</span>{" "}
+                    <span>http://localhost:8000/api/v1/tts</span> {"\\"}
+                    {"\n  "}
+                    <span className="text-[oklch(0.45_0.14_150)]">-F</span>{" "}
+                    <span className="text-[oklch(0.55_0.18_350)]">"text=Hello from Vox Studio."</span> {"\\"}
+                    {"\n  "}
+                    <span className="text-[oklch(0.45_0.14_150)]">-F</span>{" "}
+                    <span className="text-[oklch(0.55_0.18_350)]">"voice_name=noelmo-normal"</span> {"\\"}
+                    {"\n  "}
+                    <span className="text-[oklch(0.45_0.14_150)]">-F</span>{" "}
+                    <span className="text-[oklch(0.55_0.18_350)]">"preset=default"</span>
+                  </CodeBlock>
+                </ApiStep>
+
+                <ApiStep title="Step 2: Check status" description="Replace {request_id} with the id returned from step 1 and poll until the job is complete.">
+                  <CodeBlock code={API_STATUS_SAMPLE}>
+                    <span className="text-[oklch(0.34_0.13_250)]">curl</span>{" "}
+                    <span>http://localhost:8000/api/v1/jobs/</span>
+                    <span className="text-[oklch(0.55_0.18_285)]">{"{request_id}"}</span>
+                  </CodeBlock>
+                </ApiStep>
+
+                <ApiStep title="Step 3: Download audio" description="Download the finished audio file to the current folder.">
+                  <CodeBlock code={API_DOWNLOAD_SAMPLE}>
+                    <span className="text-[oklch(0.34_0.13_250)]">curl</span>{" "}
+                    <span className="text-[oklch(0.45_0.14_150)]">-L</span>{" "}
+                    <span>http://localhost:8000/api/v1/jobs/</span>
+                    <span className="text-[oklch(0.55_0.18_285)]">{"{request_id}"}</span>
+                    <span>/audio</span> {"\\"}
+                    {"\n  "}
+                    <span className="text-[oklch(0.45_0.14_150)]">--output</span>{" "}
+                    <span className="text-[oklch(0.55_0.18_350)]">voice.mp3</span>
+                  </CodeBlock>
+                </ApiStep>
               </div>
-              <CodeBlock code={API_SAMPLE} />
-              <p className="mt-4 flex items-center gap-2 text-sm font-semibold text-muted-foreground">
+              <p className="mt-5 flex items-center gap-2 text-sm font-semibold text-muted-foreground">
                 <Info className="h-4 w-4 shrink-0" />
-                The response includes a request id. Use it to check status and download the audio.
+                The local API docs include the full schema and response fields if you want to automate this from an agent or script.
               </p>
               <div className="mt-5 flex flex-wrap gap-8 text-sm font-black text-[var(--brand)]">
                 <a className="inline-flex items-center gap-2 hover:underline" href="/docs">
@@ -388,35 +422,22 @@ function StepLine() {
   return <span className="hidden h-px w-24 bg-border md:inline-block" />;
 }
 
-function CodeBlock({ code }: { code: string }) {
+function ApiStep({ title, description, children }: { title: string; description: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <h3 className="text-[15px] font-black">{title}</h3>
+      <p className="mt-1 text-sm font-semibold text-muted-foreground">{description}</p>
+      {children}
+    </div>
+  );
+}
+
+function CodeBlock({ code, children }: { code: string; children: React.ReactNode }) {
   return (
     <div className="relative mt-4 overflow-hidden rounded-2xl border border-[oklch(0.88_0.035_245)] bg-[oklch(0.985_0.012_245)]">
       <CopyButton value={code} label="Copy" className="absolute right-4 top-4" />
       <pre className="overflow-x-auto p-6 pr-28 text-[14px] leading-7 text-[oklch(0.22_0.03_245)]">
-        <code>
-          <span className="text-[oklch(0.34_0.13_250)]">curl</span>{" "}
-          <span className="text-[oklch(0.45_0.14_150)]">-X POST</span>{" "}
-          <span>http://localhost:8000/api/v1/tts</span> {"\\"}
-          {"\n  "}
-          <span className="text-[oklch(0.45_0.14_150)]">-F</span>{" "}
-          <span className="text-[oklch(0.55_0.18_350)]">"text=Hello from Vox Studio."</span> {"\\"}
-          {"\n  "}
-          <span className="text-[oklch(0.45_0.14_150)]">-F</span>{" "}
-          <span className="text-[oklch(0.55_0.18_350)]">"voice_name=noelmo-normal"</span> {"\\"}
-          {"\n  "}
-          <span className="text-[oklch(0.45_0.14_150)]">-F</span>{" "}
-          <span className="text-[oklch(0.55_0.18_350)]">"preset=default"</span>
-          {"\n\n"}
-          <span className="text-[oklch(0.34_0.13_250)]">curl</span> http://localhost:8000/api/v1/jobs/
-          <span className="text-[oklch(0.55_0.18_285)]">{"{request_id}"}</span>
-          {"\n\n"}
-          <span className="text-[oklch(0.34_0.13_250)]">curl</span>{" "}
-          <span className="text-[oklch(0.45_0.14_150)]">-L</span> http://localhost:8000/api/v1/jobs/
-          <span className="text-[oklch(0.55_0.18_285)]">{"{request_id}"}</span>/audio {"\\"}
-          {"\n  "}
-          <span className="text-[oklch(0.45_0.14_150)]">--output</span>{" "}
-          <span className="text-[oklch(0.55_0.18_350)]">voice.mp3</span>
-        </code>
+        <code>{children}</code>
       </pre>
     </div>
   );
