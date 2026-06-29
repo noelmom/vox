@@ -234,14 +234,24 @@ type GenState =
   | { phase: "error"; message: string; requestId?: string };
 
 const SCRIPT_HISTORY_KEY = "vox:script-history";
+const SCRIPT_DRAFT_KEY = "vox:draft-script";
 const SCRIPT_HISTORY_LIMIT = 10;
 const LAST_REQUEST_KEY = "vox:last-generation-request";
 
 const SAMPLE_SCRIPT =
   "Welcome to Vox Studio — a private, on-device voice lab.\n\nEverything you type here is synthesized locally on your Mac. No cloud uploads, no accounts, no telemetry. Just paste a script, pick a voice, and hit Generate.\n\nTry it: change the voice on the right, drag the Expressiveness slider, and listen to how the same words come alive.";
 
+function readScriptDraft(): string {
+  try {
+    const stored = localStorage.getItem(SCRIPT_DRAFT_KEY);
+    return stored !== null ? stored : SAMPLE_SCRIPT;
+  } catch {
+    return SAMPLE_SCRIPT;
+  }
+}
+
 function GeneratePage() {
-  const [script, setScript] = useState(SAMPLE_SCRIPT);
+  const [script, setScript] = useState(readScriptDraft);
   const importInputRef = useRef<HTMLInputElement>(null);
   const [tone, setTone] = useLocalStorage("vox:tone", "Default");
   const [format, setFormat] = useLocalStorage<"mp3" | "wav">("vox:format", "mp3");
@@ -311,6 +321,15 @@ function GeneratePage() {
     }, 600);
     return () => window.clearTimeout(timeout);
   }, [advanced, format, mp3Quality, tone, voiceId, wavQuality]);
+
+  useEffect(() => {
+    const timeout = window.setTimeout(() => {
+      try {
+        localStorage.setItem(SCRIPT_DRAFT_KEY, script);
+      } catch {}
+    }, 250);
+    return () => window.clearTimeout(timeout);
+  }, [script]);
 
   const displayVoices = useMemo<Voice[]>(() => {
     if (!voicesData) return [GENERIC_VOICE];
@@ -862,6 +881,9 @@ function GeneratePage() {
               onChange={(e) => setScript(e.target.value.slice(0, max))}
               onClick={(e) => { if (script === SAMPLE_SCRIPT) (e.target as HTMLTextAreaElement).select(); }}
               placeholder="Type or paste your script..."
+              spellCheck
+              autoCorrect="on"
+              autoCapitalize="sentences"
               className="vox-input h-[360px] w-full resize-none px-5 py-4 text-[15px] leading-relaxed"
             />
             <div className="mt-3 flex items-center justify-between text-[12px] text-muted-foreground">
