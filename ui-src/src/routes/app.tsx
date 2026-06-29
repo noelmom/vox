@@ -407,11 +407,17 @@ function SidebarContent({
       {/* Scrollable top — logo + nav */}
       <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
         <div className={`mb-7 flex items-center ${collapsed ? "justify-center" : "px-2"}`}>
-          {collapsed ? (
-            <img src={voxIcon} alt="Vox" className="h-9 w-9" />
-          ) : (
-            <img src={voxLogo} alt="Vox Studio" className="h-10 w-auto" />
-          )}
+          <Link
+            to="/"
+            aria-label="Open Vox Studio welcome page"
+            className="inline-flex items-center rounded-lg transition-opacity hover:opacity-80"
+          >
+            {collapsed ? (
+              <img src={voxIcon} alt="Vox" className="h-9 w-9" />
+            ) : (
+              <img src={voxLogo} alt="Vox Studio" className="h-10 w-auto" />
+            )}
+          </Link>
         </div>
         <nav className="flex flex-col gap-1">
           {NAV.map(({ label, to, Icon }) => {

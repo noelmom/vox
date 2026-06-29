@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -22,6 +22,7 @@ import {
   Upload,
   Monitor,
   Sun,
+  FileText,
 } from "lucide-react";
 import { type ServerSettings, exportBackup, getServerSettings, listVoices, listPresets, patchServerSettings, restoreBackup } from "@/lib/api";
 import { hydrateCachedPreferences, readCachedPreference, savePreferences, writeCachedPreference } from "@/lib/preferences";
@@ -226,11 +227,20 @@ function SettingsPage() {
   return (
     <div className={`mx-auto flex max-w-[1280px] flex-col gap-5 ${isFloating ? "pb-24" : ""}`}>
       {/* Header */}
-      <div>
-        <h1 className="text-[28px] font-black tracking-tight text-foreground">Settings</h1>
-        <p className="mt-0.5 text-[13px] text-muted-foreground">
-          Everything runs locally. Changes are saved to this device only.
-        </p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-[28px] font-black tracking-tight text-foreground">Settings</h1>
+          <p className="mt-0.5 text-[13px] text-muted-foreground">
+            Everything runs locally. Changes are saved to this device only.
+          </p>
+        </div>
+        <Link
+          to="/logs"
+          className="vox-control inline-flex h-10 items-center gap-2 px-3 text-[12.5px] font-bold"
+        >
+          <FileText className="h-4 w-4" />
+          View logs
+        </Link>
       </div>
 
       {/* RUNTIME (server read-only) */}

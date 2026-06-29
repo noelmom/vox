@@ -158,7 +158,12 @@ function LogsPage() {
             <img src={voxLogoV2} alt="VOX studio" className="h-12 w-auto" />
             <div className="hidden h-8 w-px bg-border sm:block" />
             <div>
-              <h1 className="text-[24px] font-black tracking-tight">Logs</h1>
+              <div className="flex flex-wrap items-center gap-2">
+                <h1 className="text-[24px] font-black tracking-tight">Logs</h1>
+                <span className="rounded-full border border-[oklch(0.86_0.1_80)] bg-[oklch(0.98_0.04_85)] px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-[oklch(0.5_0.13_80)]">
+                  Beta
+                </span>
+              </div>
               <p className="text-[12px] font-semibold text-muted-foreground">Readable local server, helper, and install logs</p>
             </div>
           </div>
