@@ -107,7 +107,7 @@ function Welcome() {
         <div className="mx-auto flex min-h-[74px] max-w-[1600px] items-center justify-between gap-5 px-7 xl:px-10">
           <div className="flex min-w-0 items-center gap-6">
             <div className="flex shrink-0 items-center gap-2">
-              <img src={voxLogoV2} alt="VOX studio" className="h-12 w-auto" />
+              <img src={voxLogoV2} alt="VOX studio" className="h-14 w-auto" />
             </div>
             <StatusBadge
               tone={serverOk ? "ok" : health.isError ? "bad" : "wait"}

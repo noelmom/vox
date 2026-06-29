@@ -160,7 +160,7 @@ function LogsPage() {
               aria-label="Open Vox Studio app"
               className="inline-flex items-center rounded-lg transition-opacity hover:opacity-80"
             >
-              <img src={voxLogoV2} alt="VOX studio" className="h-12 w-auto" />
+              <img src={voxLogoV2} alt="VOX studio" className="h-14 w-auto" />
             </Link>
             <div className="hidden h-8 w-px bg-border sm:block" />
             <div>

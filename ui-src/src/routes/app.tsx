@@ -143,7 +143,7 @@ function AppLayout() {
               <Menu className="h-4 w-4" />
             </button>
             <div className="flex shrink-0 items-center lg:hidden" aria-label="Vox Studio">
-              <img src={voxLogo} alt="Vox" className="h-8 w-auto" />
+              <img src={voxLogo} alt="Vox" className="h-10 w-auto" />
             </div>
           </div>
           <div className="hidden items-center gap-3 md:flex">
@@ -189,7 +189,7 @@ function AppLayout() {
                 aria-label="Go to landing page"
                 className="inline-flex items-center justify-center transition-all hover:-translate-y-0.5"
               >
-                <img src={voxLogoDark} alt="Vox" className="h-6 w-auto" />
+                <img src={voxLogoDark} alt="Vox" className="h-7 w-auto" />
               </Link>
               <a
                 href="https://noelmom.github.io"
@@ -413,9 +413,9 @@ function SidebarContent({
             className="inline-flex items-center rounded-lg transition-opacity hover:opacity-80"
           >
             {collapsed ? (
-              <img src={voxIcon} alt="Vox" className="h-9 w-9" />
+              <img src={voxIcon} alt="Vox" className="h-10 w-10" />
             ) : (
-              <img src={voxLogo} alt="Vox Studio" className="h-10 w-auto" />
+              <img src={voxLogo} alt="Vox Studio" className="h-12 w-auto" />
             )}
           </Link>
         </div>
