@@ -39,6 +39,14 @@ export type Job = {
   file_available: boolean;
 };
 
+export type LogFileName = "server" | "server-error" | "helper" | "helper-error" | "install";
+
+export type LogFileTail = {
+  name: LogFileName;
+  path: string;
+  lines: string[];
+};
+
 export function parseServerDate(value: string): Date {
   const hasTimezone = /(?:Z|[+-]\d{2}:?\d{2})$/.test(value);
   const normalized = value.includes("T") ? value : value.replace(" ", "T");
@@ -60,6 +68,11 @@ async function apiFetch(path: string, init?: RequestInit): Promise<Response> {
 
 export async function healthCheck() {
   return apiFetch("/health").then((r) => r.json());
+}
+
+export async function getLogFile(name: LogFileName, lines = 200): Promise<LogFileTail> {
+  const q = new URLSearchParams({ lines: String(lines) });
+  return apiFetch(`/api/v1/logs/files/${encodeURIComponent(name)}?${q}`).then((r) => r.json());
 }
 
 export async function listVoices(): Promise<ApiVoice[]> {

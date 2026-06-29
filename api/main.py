@@ -298,6 +298,7 @@ async def landing():
 @app.get("/app/library")
 @app.get("/app/recordings")
 @app.get("/app/settings")
+@app.get("/logs")
 async def spa_routes():
     if _SPA_INDEX.exists():
         return _spa()

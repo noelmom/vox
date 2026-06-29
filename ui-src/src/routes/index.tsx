@@ -128,7 +128,7 @@ function Welcome() {
               <h2 className="mt-4 text-[18px] font-black">API Docs</h2>
               <p className="mt-2 text-sm leading-relaxed text-muted-foreground">Explore the local REST API reference.</p>
             </a>
-            <a href="/api/v1/logs" className="group rounded-2xl border border-border bg-white p-5 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-lg">
+            <a href="/logs" className="group rounded-2xl border border-border bg-white p-5 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-lg">
               <ActionIcon tone="warm"><Terminal className="h-5 w-5" /></ActionIcon>
               <h2 className="mt-4 text-[18px] font-black">View Logs</h2>
               <p className="mt-2 text-sm leading-relaxed text-muted-foreground">Check recent server activity and install clues.</p>
