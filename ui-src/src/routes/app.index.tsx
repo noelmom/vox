@@ -877,11 +877,15 @@ function GeneratePage() {
 
           <div className="mt-4">
             <textarea
+              name="script"
+              aria-label="Script"
               value={script}
               onChange={(e) => setScript(e.target.value.slice(0, max))}
               onClick={(e) => { if (script === SAMPLE_SCRIPT) (e.target as HTMLTextAreaElement).select(); }}
               placeholder="Type or paste your script..."
-              spellCheck
+              spellCheck={true}
+              lang="en-US"
+              autoComplete="on"
               autoCorrect="on"
               autoCapitalize="sentences"
               className="vox-input h-[360px] w-full resize-none px-5 py-4 text-[15px] leading-relaxed"
