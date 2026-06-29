@@ -171,9 +171,9 @@ Until v1.0 ships, avoid adding new product features. Pre-v1 work should be limit
 
 - [x] **[LOW] Move generation progress out of the Generate button**
 
-  Implemented in `ui-src/src/routes/app.index.tsx` and `ui-src/src/routes/app.tsx`. The Generate button stays focused on submission state, while queued/running progress is shown in the Create result panel and compact global status bar with elapsed time, queue position, chunk progress, and cancel controls. This avoids overcrowding the button while still giving users visible progress during long generations.
+  Implemented in `ui-src/src/routes/app.index.tsx` and `ui-src/src/routes/app.tsx`. The Generate button stays focused on submission state, while queued/running state is shown in the Create result panel and compact global status bar with elapsed time and cancel controls. This avoids overcrowding the button while still giving users visible status during long generations.
 
-  Explicit chunk-progress fields are stored on `jobs` and surfaced through job responses. The UI falls back to the staged display when exact progress is not available.
+  Explicit queue position and chunk-progress fields were removed from the v1 baseline after stability testing showed the simpler serialized generation path was more reliable.
 
 - [x] **[MEDIUM] Server-sent events for generation progress**
 
@@ -792,7 +792,7 @@ Until v1.0 ships, avoid adding new product features. Pre-v1 work should be limit
 - [ ] **Post-v1: review SDK support** — revisit Python and JavaScript SDKs after the local REST API surface stabilizes. Keep the landing page focused on the curl example for v1.
 - [ ] **Post-v1: proper worker queue architecture** — replace single `asyncio.Lock` with an explicit worker queue only if real-world testing shows the current serialized lock is not enough.
   - Backend: queue incoming requests when a generation is already in progress instead of letting overlapping jobs stack up; return a job ID immediately with `202 Accepted` and expose `GET /jobs/{id}/status` for polling or SSE.
-  - Current state: requests are accepted immediately as `queued`, serialized by a single local model lock, and the UI shows queued/running states, queue position, chunk progress, and elapsed time in both the global top bar and Create result panel.
+  - Current state: requests are accepted immediately, serialized by a single local model lock, and the UI shows simple queued/running states plus elapsed time in both the global top bar and Create result panel.
   - Future UI: consider a compact queue-status widget that shows `Queued`, `Running`, and `Next up` states across multiple pending jobs.
   - Pair with the sidebar stats item below so queue depth can live alongside session metrics.
   - Recovery: if the app restarts while a job is in flight, reconcile the persisted job state on startup so the UI does not show duplicate or orphaned runs.
@@ -802,7 +802,7 @@ Until v1.0 ships, avoid adding new product features. Pre-v1 work should be limit
   - The left sidebar now includes Requests, Audio Generated, and Library & Storage widgets using `/api/v1/stats`.
   - Widgets are user-toggleable from Settings and persist via localStorage.
 
-  Future optional work: add queue depth once the backend exposes explicit queue position.
+  Future optional work: add queue depth if a dedicated queue architecture is reintroduced after v1.
 
   Original proposal:
   - Use the empty space in the left navigation bar to surface live server stats.
