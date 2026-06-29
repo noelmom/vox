@@ -14,6 +14,7 @@ from pydantic import BaseModel
 from api.core import db as db_core
 from api.core.config import settings
 from api.core.db import get_db
+from api.core.validation import validate_upload_size
 
 router = APIRouter(prefix="/backups", tags=["backups"])
 
@@ -91,9 +92,7 @@ async def export_backup():
     description="Restores a backup created by `GET /api/v1/backups/export`. This replaces the current database and voice assets.",
 )
 async def restore_backup(file: UploadFile = File(...)):
-    payload = await file.read()
-    if not payload:
-        raise HTTPException(status_code=400, detail="Backup file is empty")
+    payload = validate_upload_size(await file.read(), "Backup")
 
     with tempfile.TemporaryDirectory(prefix="vox-restore-") as tmp_dir:
         restore_root = Path(tmp_dir) / "restore"

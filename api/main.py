@@ -5,7 +5,7 @@ from pathlib import Path
 
 from fastapi import APIRouter, FastAPI, HTTPException, Request
 from fastapi.exception_handlers import http_exception_handler
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -30,9 +30,9 @@ _model_task: asyncio.Task | None = None
 
 class SettingsPatch(BaseModel):
     host: str | None = None
-    output_ttl_hours: int | None = None
-    max_voice_clip_duration_s: int | None = None
-    chunk_headroom_chars: int | None = None
+    output_ttl_hours: int | None = Field(None, ge=0, le=8760)
+    max_voice_clip_duration_s: int | None = Field(None, ge=5, le=600)
+    chunk_headroom_chars: int | None = Field(None, ge=0, le=1000)
 
 
 def _read_env_value(key: str, default: str | None = None) -> str | None:

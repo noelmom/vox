@@ -3,6 +3,7 @@ from pydantic import BaseModel, Field
 
 from api.core.db import get_db
 from api.core.presets import PRESETS
+from api.core.validation import normalize_preset_name
 
 router = APIRouter(prefix="/presets", tags=["presets"])
 
@@ -36,9 +37,7 @@ Custom presets appear alongside built-ins in `GET /api/v1/presets` and can be pa
     },
 )
 async def save_preset(name: str, body: PresetBody):
-    name = name.strip().lower()
-    if not name:
-        raise HTTPException(status_code=422, detail="Preset name cannot be empty.")
+    name = normalize_preset_name(name)
     if name in _BUILTIN:
         raise HTTPException(status_code=409, detail=f"'{name}' is a built-in preset and cannot be overwritten.")
     db = await get_db()
@@ -72,7 +71,7 @@ async def save_preset(name: str, body: PresetBody):
     },
 )
 async def delete_preset(name: str):
-    name = name.strip().lower()
+    name = normalize_preset_name(name)
     if name in _BUILTIN:
         raise HTTPException(status_code=409, detail=f"'{name}' is a built-in preset and cannot be deleted.")
     db = await get_db()
