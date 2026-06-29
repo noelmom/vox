@@ -4,6 +4,8 @@ import { useMemo, useState } from "react";
 import {
   AlertTriangle,
   Check,
+  ChevronDown,
+  ChevronRight,
   Copy,
   Download,
   Filter,
@@ -42,6 +44,13 @@ type ParsedLogLine = {
   lineNumber: number;
 };
 
+type LogGroup = {
+  id: string;
+  requestId: string;
+  entries: ParsedLogLine[];
+  grouped: boolean;
+};
+
 const FILE_OPTIONS: { value: LogFileName; label: string; path: string }[] = [
   { value: "server", label: "Server", path: "~/Library/Logs/Vox/vox.log" },
   { value: "server-error", label: "Server Errors", path: "~/Library/Logs/Vox/vox-error.log" },
@@ -54,11 +63,13 @@ const LINE_OPTIONS = [100, 200, 500, 1000];
 
 function LogsPage() {
   const [fileName, setFileName] = useState<LogFileName>("server");
-  const [lineCount, setLineCount] = useState(200);
+  const [lineCount, setLineCount] = useState(1000);
   const [level, setLevel] = useState<Level | "all">("all");
   const [query, setQuery] = useState("");
   const [autoRefresh, setAutoRefresh] = useState(true);
+  const [showAccessLogs, setShowAccessLogs] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
   const [copied, setCopied] = useState(false);
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
 
@@ -74,22 +85,28 @@ function LogsPage() {
     return lines.map((line, index) => parseLogLine(line, index));
   }, [logs.data?.lines]);
 
+  const visibleRows = useMemo(() => {
+    return showAccessLogs ? rows : rows.filter((row) => !isUvicornAccessLine(row));
+  }, [rows, showAccessLogs]);
+
   const filtered = useMemo(() => {
     const needle = query.trim().toLowerCase();
-    return rows.filter((row) => {
+    return visibleRows.filter((row) => {
       const levelOk = level === "all" || row.level === level;
       const queryOk = !needle || [row.timestamp, row.level, row.source, row.requestId, row.message, row.raw]
         .some((value) => value.toLowerCase().includes(needle));
       return levelOk && queryOk;
     });
-  }, [rows, level, query]);
+  }, [visibleRows, level, query]);
+
+  const groups = useMemo(() => groupLogRows(filtered), [filtered]);
 
   const selected = filtered.find((row) => row.id === selectedId) ?? filtered[0] ?? null;
   const selectedFile = FILE_OPTIONS.find((file) => file.value === fileName) ?? FILE_OPTIONS[0];
 
   const copyVisible = async () => {
     try {
-      await navigator.clipboard.writeText(filtered.map((row) => row.raw).join("\n"));
+      await navigator.clipboard.writeText(groups.flatMap((group) => group.entries.map((row) => row.raw)).join("\n"));
       setCopied(true);
       window.setTimeout(() => setCopied(false), 1500);
     } catch {
@@ -108,13 +125,27 @@ function LogsPage() {
   };
 
   const downloadVisible = () => {
-    const blob = new Blob([filtered.map((row) => row.raw).join("\n") + "\n"], { type: "text/plain;charset=utf-8" });
+    const blob = new Blob([groups.flatMap((group) => group.entries.map((row) => row.raw)).join("\n") + "\n"], { type: "text/plain;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
     a.download = `${fileName}-logs.txt`;
     a.click();
     URL.revokeObjectURL(url);
+  };
+
+  const toggleGroup = (group: LogGroup) => {
+    setSelectedId(group.entries[0]?.id ?? null);
+    if (!group.grouped) return;
+    setExpandedGroups((current) => {
+      const next = new Set(current);
+      if (next.has(group.id)) {
+        next.delete(group.id);
+      } else {
+        next.add(group.id);
+      }
+      return next;
+    });
   };
 
   return (
@@ -167,7 +198,7 @@ function LogsPage() {
               </p>
             </div>
             <span className="rounded-full border border-border bg-muted px-3 py-1 text-[12px] font-black text-muted-foreground">
-              {filtered.length} visible · {rows.length} loaded
+              {filtered.length} visible · {groups.length} grouped · {rows.length} loaded
             </span>
           </div>
           <div className="grid grid-cols-1 gap-3 lg:grid-cols-[minmax(0,1fr)_auto_minmax(240px,320px)_auto] lg:items-center">
@@ -238,6 +269,15 @@ function LogsPage() {
                 />
                 Auto refresh
               </label>
+              <label className="inline-flex h-10 items-center gap-2 rounded-lg border border-border bg-white px-3 text-[12.5px] font-bold text-foreground/75 shadow-sm">
+                <input
+                  type="checkbox"
+                  checked={showAccessLogs}
+                  onChange={(event) => setShowAccessLogs(event.target.checked)}
+                  className="h-4 w-4 accent-[var(--brand)]"
+                />
+                HTTP access
+              </label>
             </div>
           </div>
         </div>
@@ -261,7 +301,7 @@ function LogsPage() {
                 <div>Message</div>
               </div>
               <div className="max-h-[620px] overflow-auto">
-                {filtered.length === 0 ? (
+                {groups.length === 0 ? (
                   <div className="flex min-h-[260px] flex-col items-center justify-center px-6 text-center">
                     <span className="inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-[var(--brand-soft)] text-[var(--brand)]">
                       <Search className="h-6 w-6" />
@@ -271,24 +311,63 @@ function LogsPage() {
                       Try another source, clear the search text, or increase the line count.
                     </p>
                   </div>
-                ) : filtered.map((row) => (
-                  <button
-                    key={row.id}
-                    onClick={() => setSelectedId(row.id)}
-                    className={`grid w-full grid-cols-[150px_96px_minmax(150px,200px)_minmax(150px,190px)_minmax(300px,1fr)] items-start gap-0 border-b border-border/70 px-4 py-3 text-left text-[12.5px] transition-colors hover:bg-[var(--brand-soft)]/50 ${
-                      selected?.id === row.id ? "bg-[var(--brand-soft)]" : "bg-white"
-                    }`}
-                  >
-                    <div className="font-mono text-[11.5px] text-foreground/55">{formatTimestamp(row.timestamp)}</div>
-                    <div><LevelBadge level={row.level} /></div>
-                    <div className="break-words pr-3 font-semibold text-foreground/70">{row.source}</div>
-                    <div className="break-all pr-3 font-mono text-[11.5px] text-foreground/55">{row.requestId}</div>
-                    <div className="min-w-0 whitespace-normal break-words pr-3 font-medium leading-relaxed text-foreground/82">{row.message}</div>
-                  </button>
-                ))}
+                ) : groups.map((group) => {
+                  const summary = summarizeGroup(group);
+                  const expanded = expandedGroups.has(group.id);
+                  const selectedInGroup = selected ? group.entries.some((row) => row.id === selected.id) : false;
+                  return (
+                    <div key={group.id} className="border-b border-border/70 last:border-b-0">
+                      <button
+                        onClick={() => toggleGroup(group)}
+                        className={`grid w-full grid-cols-[150px_96px_minmax(150px,200px)_minmax(150px,190px)_minmax(300px,1fr)] items-start gap-0 px-4 py-3 text-left text-[12.5px] transition-colors hover:bg-[var(--brand-soft)]/50 ${
+                          selectedInGroup ? "bg-[var(--brand-soft)]" : "bg-white"
+                        }`}
+                      >
+                        <div className="font-mono text-[11.5px] text-foreground/55">{formatTimestamp(summary.timestamp)}</div>
+                        <div><LevelBadge level={summary.level} /></div>
+                        <div className="break-words pr-3 font-semibold text-foreground/70">{summary.source}</div>
+                        <div className="break-all pr-3 font-mono text-[11.5px] text-foreground/55">
+                          {group.grouped ? (
+                            <span className="inline-flex items-center gap-1.5">
+                              {expanded ? <ChevronDown className="h-3.5 w-3.5 text-[var(--brand)]" /> : <ChevronRight className="h-3.5 w-3.5 text-[var(--brand)]" />}
+                              {group.requestId}
+                            </span>
+                          ) : group.requestId}
+                        </div>
+                        <div className="min-w-0 whitespace-normal break-words pr-3 font-medium leading-relaxed text-foreground/82">
+                          <span>{summary.message}</span>
+                          {group.grouped ? (
+                            <span className="ml-2 rounded-full border border-border bg-white px-2 py-0.5 text-[11px] font-black text-muted-foreground">
+                              {group.entries.length} entries
+                            </span>
+                          ) : null}
+                        </div>
+                      </button>
+                      {group.grouped && expanded ? (
+                        <div className="bg-[oklch(0.985_0.012_245)]">
+                          {group.entries.map((row) => (
+                            <button
+                              key={row.id}
+                              onClick={() => setSelectedId(row.id)}
+                              className={`grid w-full grid-cols-[150px_96px_minmax(150px,200px)_minmax(150px,190px)_minmax(300px,1fr)] items-start gap-0 border-t border-border/60 px-4 py-2.5 pl-8 text-left text-[12px] transition-colors hover:bg-white ${
+                                selected?.id === row.id ? "bg-white" : ""
+                              }`}
+                            >
+                              <div className="font-mono text-[11px] text-foreground/55">{formatTimestamp(row.timestamp)}</div>
+                              <div><LevelBadge level={row.level} /></div>
+                              <div className="break-words pr-3 font-semibold text-foreground/65">{row.source}</div>
+                              <div className="break-all pr-3 font-mono text-[11px] text-foreground/45">line {row.lineNumber}</div>
+                              <div className="min-w-0 whitespace-normal break-words pr-3 font-medium leading-relaxed text-foreground/78">{row.message}</div>
+                            </button>
+                          ))}
+                        </div>
+                      ) : null}
+                    </div>
+                  );
+                })}
               </div>
               <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border bg-muted/40 px-4 py-3 text-[12px] font-semibold text-muted-foreground">
-                <span>Showing {filtered.length} of latest {rows.length} log lines</span>
+                <span>Showing {filtered.length} log lines in {groups.length} row(s)</span>
                 <button
                   type="button"
                   onClick={() => copyValue("path", logs.data?.path ?? selectedFile.path)}
@@ -376,6 +455,81 @@ function parseLogLine(raw: string, index: number): ParsedLogLine {
     message: raw || "(blank line)",
     lineNumber: index + 1,
   };
+}
+
+function isUvicornAccessLine(row: ParsedLogLine): boolean {
+  return row.source === "uvicorn" && /"\w+\s+\/.*HTTP\/[\d.]+"\s+\d{3}/.test(row.message);
+}
+
+function groupLogRows(rows: ParsedLogLine[]): LogGroup[] {
+  const groups: LogGroup[] = [];
+  const byRequest = new Map<string, LogGroup>();
+
+  rows.forEach((row) => {
+    const hasRequest = row.requestId && row.requestId !== "—" && row.requestId !== "-";
+    if (!hasRequest) {
+      groups.push({ id: row.id, requestId: row.requestId, entries: [row], grouped: false });
+      return;
+    }
+
+    const existing = byRequest.get(row.requestId);
+    if (existing) {
+      existing.entries.push(row);
+      return;
+    }
+
+    const group: LogGroup = {
+      id: `request-${row.requestId}`,
+      requestId: row.requestId,
+      entries: [row],
+      grouped: true,
+    };
+    byRequest.set(row.requestId, group);
+    groups.push(group);
+  });
+
+  return groups;
+}
+
+const LEVEL_RANK: Record<Level, number> = {
+  error: 4,
+  warning: 3,
+  info: 2,
+  debug: 1,
+  other: 0,
+};
+
+function summarizeGroup(group: LogGroup): ParsedLogLine {
+  if (!group.grouped) return group.entries[0]!;
+
+  const first = group.entries[0]!;
+  const last = group.entries[group.entries.length - 1]!;
+  const highest = group.entries.reduce((best, row) => (
+    LEVEL_RANK[row.level] > LEVEL_RANK[best.level] ? row : best
+  ), first);
+
+  return {
+    ...last,
+    id: group.id,
+    timestamp: last.timestamp || first.timestamp,
+    level: highest.level,
+    source: commonSource(group.entries),
+    requestId: group.requestId,
+    message: buildGroupMessage(group.entries),
+    raw: group.entries.map((row) => row.raw).join("\n"),
+  };
+}
+
+function commonSource(entries: ParsedLogLine[]): string {
+  const sources = [...new Set(entries.map((entry) => entry.source).filter(Boolean))];
+  return sources.length === 1 ? sources[0]! : `${sources.length} sources`;
+}
+
+function buildGroupMessage(entries: ParsedLogLine[]): string {
+  const first = entries[0]?.message ?? "";
+  const last = entries[entries.length - 1]?.message ?? "";
+  if (entries.length === 1 || first === last) return first;
+  return `${first} -> ${last}`;
 }
 
 function normalizeLevel(value: string): Level {
