@@ -1,26 +1,33 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import {
-  Activity,
+  AlertCircle,
   BookOpen,
+  Check,
   CheckCircle2,
   Clipboard,
   Code2,
+  Copy,
   ExternalLink,
-  FileAudio,
+  FileText,
+  Folder,
   FolderOpen,
-  Gauge,
-  Heart,
-  Home,
+  HelpCircle,
+  Info,
+  KeyRound,
   LifeBuoy,
-  Play,
+  Loader2,
+  MonitorCog,
+  RefreshCcw,
   Server,
   Settings,
-  Terminal,
+  Sparkles,
+  Volume2,
+  Wrench,
 } from "lucide-react";
+import { useState } from "react";
 
 import voxLogoV2 from "@/assets/vox-logo-v2.png";
-import studioScreenshot from "@/assets/studio-screenshot.png";
 
 type HealthResponse = {
   status: string;
@@ -43,6 +50,16 @@ type SettingsResponse = {
   vox_version: string;
   build_commit: string;
 };
+
+const API_SAMPLE = `curl -X POST http://localhost:8000/api/v1/tts \\
+  -F "text=Hello from Vox Studio." \\
+  -F "voice_name=noelmo-normal" \\
+  -F "preset=default"
+
+curl http://localhost:8000/api/v1/jobs/{request_id}
+
+curl -L http://localhost:8000/api/v1/jobs/{request_id}/audio \\
+  --output voice.mp3`;
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -77,151 +94,264 @@ function Welcome() {
   });
 
   const modelReady = health.data?.model_ready || settings.data?.model_ready;
+  const serverOk = health.data?.status === "ok";
   const version = settings.data?.vox_version ?? "unknown";
   const commit = settings.data?.build_commit ?? "unknown";
+  const shortCommit = commit === "unknown" ? "unknown" : commit.slice(0, 8);
+  const serverUrl = window.location.origin;
+  const appSupport = "~/Library/Application Support/Vox";
 
   return (
-    <main className="min-h-screen bg-[linear-gradient(180deg,#f4fbff_0%,#edf8ff_46%,#ffffff_100%)] text-foreground">
-      <header className="border-b border-border/70 bg-white/78 backdrop-blur-xl">
-        <div className="mx-auto flex min-h-[76px] max-w-[1180px] items-center justify-between gap-4 px-6 lg:px-10">
-          <img src={voxLogoV2} alt="VOX studio" className="h-12 w-auto" />
-          <div className="flex flex-wrap items-center justify-end gap-2">
-            <StatusPill
-              tone={health.data?.status === "ok" ? "ok" : health.isError ? "bad" : "wait"}
-              icon={<Server className="h-3.5 w-3.5" />}
-            >
-              {health.data?.status === "ok" ? "Local server running" : health.isError ? "Server unavailable" : "Checking server"}
-            </StatusPill>
-            <StatusPill tone={modelReady ? "ok" : "wait"} icon={<Gauge className="h-3.5 w-3.5" />}>
-              {modelReady ? "Model ready" : "Model warming up"}
-            </StatusPill>
-            <span className="rounded-full border border-border bg-white px-3 py-1.5 text-[12px] font-bold text-muted-foreground shadow-sm">
-              v{version} · {commit}
+    <main className="min-h-screen bg-[linear-gradient(180deg,#f7fcff_0%,#eef8ff_52%,#ffffff_100%)] text-foreground">
+      <header className="sticky top-0 z-30 border-b border-border/75 bg-white/86 backdrop-blur-xl">
+        <div className="mx-auto flex min-h-[74px] max-w-[1600px] items-center justify-between gap-5 px-7 xl:px-10">
+          <div className="flex min-w-0 items-center gap-6">
+            <div className="flex shrink-0 items-center gap-2">
+              <img src={voxLogoV2} alt="VOX studio" className="h-12 w-auto" />
+              <span className="text-[24px] font-medium tracking-tight text-muted-foreground">studio</span>
+            </div>
+            <StatusBadge
+              tone={serverOk ? "ok" : health.isError ? "bad" : "wait"}
+              label={serverOk ? "Local server running" : health.isError ? "Server unavailable" : "Checking server"}
+            />
+            <span className="hidden h-10 items-center rounded-xl border border-[oklch(0.88_0.05_245)] bg-[oklch(0.97_0.025_245)] px-4 text-sm font-black text-[var(--brand)] shadow-sm md:inline-flex">
+              v{version} <span className="mx-3 text-muted-foreground/55">·</span> build {shortCommit}
             </span>
           </div>
+          <nav className="hidden shrink-0 items-center gap-7 text-sm font-black text-foreground/68 md:flex" aria-label="Welcome navigation">
+            <a className="inline-flex items-center gap-2 transition-colors hover:text-[var(--brand)]" href="/docs">
+              <BookOpen className="h-4 w-4" /> Docs
+            </a>
+            <a className="inline-flex items-center gap-2 transition-colors hover:text-[var(--brand)]" href="https://noelmom.github.io">
+              <HelpCircle className="h-4 w-4" /> Help
+            </a>
+            <Link className="inline-flex items-center gap-2 transition-colors hover:text-[var(--brand)]" to="/app/settings">
+              <Settings className="h-4 w-4" /> Settings
+            </Link>
+          </nav>
         </div>
       </header>
 
-      <section className="mx-auto grid max-w-[1180px] grid-cols-1 gap-7 px-6 py-10 lg:grid-cols-[minmax(0,1fr)_360px] lg:px-10">
-        <div className="min-w-0">
-          <div className="mb-7">
-            <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-[oklch(0.9_0.05_235)] bg-white/85 px-3 py-1.5 text-[12px] font-black uppercase tracking-wide text-[var(--brand)] shadow-sm">
-              <Activity className="h-3.5 w-3.5" />
-              Installed local studio
-            </div>
-            <h1 className="max-w-[780px] text-[44px] font-black leading-[0.98] tracking-tight text-foreground sm:text-[58px]">
-              Welcome to Vox Studio.
-            </h1>
-            <p className="mt-5 max-w-[760px] text-[18px] leading-relaxed text-muted-foreground">
-              Your local voice studio is ready. Open the app, review setup, or try the local API from this Mac.
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-            <Link to="/app" className="group rounded-2xl border border-border bg-white p-5 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-lg">
-              <ActionIcon tone="primary"><Play className="h-5 w-5" fill="currentColor" /></ActionIcon>
-              <h2 className="mt-4 text-[18px] font-black">Open Vox Studio</h2>
-              <p className="mt-2 text-sm leading-relaxed text-muted-foreground">Create scripts, choose voices, and generate audio.</p>
-            </Link>
-            <a href="/docs" className="group rounded-2xl border border-border bg-white p-5 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-lg">
-              <ActionIcon tone="cool"><BookOpen className="h-5 w-5" /></ActionIcon>
-              <h2 className="mt-4 text-[18px] font-black">API Docs</h2>
-              <p className="mt-2 text-sm leading-relaxed text-muted-foreground">Explore the local REST API reference.</p>
-            </a>
-            <a href="/logs" className="group rounded-2xl border border-border bg-white p-5 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-lg">
-              <ActionIcon tone="warm"><Terminal className="h-5 w-5" /></ActionIcon>
-              <h2 className="mt-4 text-[18px] font-black">View Logs</h2>
-              <p className="mt-2 text-sm leading-relaxed text-muted-foreground">Check recent server activity and install clues.</p>
-            </a>
-          </div>
-
-          <section className="mt-7 rounded-3xl border border-border bg-white p-6 shadow-sm">
-            <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
-              <div>
-                <h2 className="text-[24px] font-black tracking-tight">Quick API Test</h2>
-                <p className="mt-2 max-w-[620px] text-sm leading-relaxed text-muted-foreground">
-                  Vox accepts local requests from shell scripts, Shortcuts, Codex, and other AI agents once the model is ready.
-                </p>
-              </div>
-              <a
-                href="/docs"
-                className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-lg border border-border bg-white px-4 text-sm font-bold text-foreground transition-colors hover:bg-muted"
-              >
-                Full API reference <ExternalLink className="h-3.5 w-3.5" />
-              </a>
-            </div>
-            <pre className="mt-5 overflow-x-auto rounded-2xl border border-[oklch(0.22_0.03_250)] bg-[oklch(0.14_0.025_250)] p-5 text-[12.5px] leading-7 text-[oklch(0.9_0.04_235)]"><code>{`curl -X POST http://localhost:8000/api/v1/tts \\
-  -F "text=Hello from Vox Studio." \\
-  -F "voice_name=noelmo-normal" \\
-  -F "preset=default"
-
-curl http://localhost:8000/api/v1/jobs/{request_id}
-
-curl -L http://localhost:8000/api/v1/jobs/{request_id}/audio \\
-  --output voice.mp3`}</code></pre>
-          </section>
-
-          <section className="mt-7 overflow-hidden rounded-3xl border border-border bg-white shadow-sm">
-            <img src={studioScreenshot} alt="Vox Studio application screenshot" className="w-full border-b border-border" />
-            <div className="grid grid-cols-1 divide-y divide-border md:grid-cols-3 md:divide-x md:divide-y-0">
-              <MiniFact icon={<FileAudio className="h-4 w-4" />} label="Output" value="MP3 or WAV" />
-              <MiniFact icon={<Code2 className="h-4 w-4" />} label="API" value="Local REST" />
-              <MiniFact icon={<Home className="h-4 w-4" />} label="Privacy" value="Runs on your Mac" />
-            </div>
-          </section>
+      <section className="mx-auto max-w-[1600px] px-7 py-8 xl:px-10">
+        <div className="mb-6">
+          <h1 className="text-[40px] font-black leading-tight tracking-tight text-foreground sm:text-[48px]">
+            Welcome to Vox Studio <span aria-hidden="true">🎉</span>
+          </h1>
+          <p className="mt-2 text-[18px] font-semibold leading-relaxed text-muted-foreground">
+            Your local voice studio is ready. Open the app, review setup, or try the local API.
+          </p>
         </div>
 
-        <aside className="space-y-5">
-          <Panel title="Setup Checklist" icon={<CheckCircle2 className="h-4 w-4" />}>
-            <ChecklistItem ok={health.data?.status === "ok"} label="Local server responding" />
-            <ChecklistItem ok={Boolean(modelReady)} label="Chatterbox model ready" muted={!modelReady} />
-            <ChecklistItem ok={settings.data?.ffmpeg_available !== false} label="FFmpeg available" />
-            <ChecklistItem ok={Boolean(settings.data?.voice_dir)} label="Voice library ready" />
-          </Panel>
+        <div className="grid grid-cols-1 gap-7 lg:grid-cols-3">
+          <LaunchCard
+            title="Open Vox Studio"
+            description="Launch the full app in your browser."
+            href="/app"
+            route="/app"
+            tone="blue"
+            icon={<Volume2 className="h-8 w-8" />}
+          />
+          <LaunchCard
+            title="API Docs"
+            description="Explore the local HTTP API."
+            href="/docs"
+            route="/docs"
+            tone="teal"
+            icon={<BookOpen className="h-8 w-8" />}
+          />
+          <LaunchCard
+            title="View Logs"
+            description="Monitor server and app logs."
+            href="/logs"
+            route="/logs"
+            tone="purple"
+            icon={<FileText className="h-8 w-8" />}
+          />
+        </div>
 
-          <Panel title="Where Files Live" icon={<FolderOpen className="h-4 w-4" />}>
-            <PathRow label="Voices" value={settings.data?.voice_dir ?? "~/Library/Application Support/Vox/voices"} />
-            <PathRow label="Outputs" value={settings.data?.output_dir ?? "~/Library/Application Support/Vox/outputs"} />
-            <PathRow label="Input" value={settings.data?.input_dir ?? "~/Library/Application Support/Vox/input"} />
-            <PathRow label="Logs" value="~/Library/Logs/Vox" />
-          </Panel>
+        <div className="mt-7 grid grid-cols-1 gap-7 xl:grid-cols-[minmax(0,1.45fr)_minmax(420px,.95fr)]">
+          <div className="grid gap-7">
+            <Panel title="Setup checklist" icon={null}>
+              <div className="mt-4 grid grid-cols-1 gap-5 border-t border-border pt-5 md:grid-cols-4">
+                <SetupItem
+                  ok={serverOk || !health.isError}
+                  title="Helper installed"
+                  detail="Vox Helper is installed and accessible."
+                />
+                <SetupItem ok={serverOk} title="Server running" detail="Local server is up and responding." />
+                <SetupItem ok={Boolean(modelReady)} title="Demo voice ready" detail="Default voice profile is available." wait={!modelReady} />
+                <SetupItem
+                  ok={settings.data?.ffmpeg_available !== false}
+                  title="Homebrew detected"
+                  detail="brew is installed and available."
+                />
+              </div>
+            </Panel>
 
-          <Panel title="Troubleshooting" icon={<LifeBuoy className="h-4 w-4" />}>
-            <HelpLink href="/app/settings" icon={<Settings className="h-4 w-4" />} label="Open Settings" />
-            <HelpLine>Restart from the Vox menu bar helper if the model seems stuck.</HelpLine>
-            <HelpLine>Add <code>HF_TOKEN</code> in Settings or <code>.env</code> for faster model downloads.</HelpLine>
-            <HelpLine>Package install log: <code>/Library/Logs/Vox/pkg-install.log</code></HelpLine>
-          </Panel>
+            <Panel title="Quick API test" icon={null}>
+              <p className="mt-2 text-[15px] font-semibold text-muted-foreground">
+                Generate a short clip using the local API in three simple steps.
+              </p>
+              <div className="mt-6 flex flex-wrap items-center gap-4">
+                <Step active number="1" label="Generate" />
+                <StepLine />
+                <Step number="2" label="Poll job" />
+                <StepLine />
+                <Step number="3" label="Download audio" />
+              </div>
+              <div className="mt-6">
+                <h3 className="text-[15px] font-black">Step 1: Generate</h3>
+                <p className="mt-1 text-sm font-semibold text-muted-foreground">Create a generation job.</p>
+              </div>
+              <CodeBlock code={API_SAMPLE} />
+              <p className="mt-4 flex items-center gap-2 text-sm font-semibold text-muted-foreground">
+                <Info className="h-4 w-4 shrink-0" />
+                The response includes a request id. Use it to check status and download the audio.
+              </p>
+              <div className="mt-5 flex flex-wrap gap-8 text-sm font-black text-[var(--brand)]">
+                <a className="inline-flex items-center gap-2 hover:underline" href="/docs">
+                  View full API docs <ExternalLink className="h-4 w-4" />
+                </a>
+                <a className="inline-flex items-center gap-2 hover:underline" href="/api/v1/openapi.json">
+                  OpenAPI schema <ExternalLink className="h-4 w-4" />
+                </a>
+              </div>
+            </Panel>
+          </div>
 
-          <Panel title="Support The Project" icon={<Heart className="h-4 w-4" />}>
-            <HelpLink href="https://noelmom.github.io" icon={<ExternalLink className="h-4 w-4" />} label="Support page" />
-            <HelpLink href="https://buymeacoffee.com/noelmo" icon={<Heart className="h-4 w-4 text-yellow-500" />} label="Buy me a Coffee" warm />
-          </Panel>
-        </aside>
+          <aside className="grid gap-7">
+            <Panel title="Where files live" icon={<FolderOpen className="h-6 w-6" />}>
+              <p className="mt-2 text-[15px] font-semibold text-muted-foreground">All files are stored locally on your Mac.</p>
+              <div className="mt-5 overflow-hidden rounded-2xl border border-border">
+                <PathRow label="Application Support" value={appSupport} />
+                <PathRow label="Voices" value={settings.data?.voice_dir ?? `${appSupport}/voices`} />
+                <PathRow label="Outputs" value={settings.data?.output_dir ?? `${appSupport}/outputs`} />
+                <PathRow label="Logs" value="~/Library/Logs/Vox" />
+              </div>
+              <button
+                type="button"
+                onClick={() => copyToClipboard(appSupport)}
+                className="mt-4 inline-flex items-center gap-2 text-sm font-black text-[var(--brand)] hover:underline"
+              >
+                Copy Application Support path <Copy className="h-4 w-4" />
+              </button>
+            </Panel>
+
+            <Panel title="Troubleshooting" icon={<Wrench className="h-6 w-6" />}>
+              <div className="mt-5 overflow-hidden rounded-2xl border border-border">
+                <TroubleRow icon={<RefreshCcw className="h-5 w-5" />} title="Restart from menu bar" detail="Use the Vox Studio menu to restart the server." />
+                <TroubleRow icon={<KeyRound className="h-5 w-5" />} title="Add HF_TOKEN" detail="Set your Hugging Face token for voice access." neutral />
+                <TroubleRow icon={<FileText className="h-5 w-5" />} title="Check package install log" detail="Review the installation log for any issues." cool />
+              </div>
+            </Panel>
+          </aside>
+        </div>
       </section>
+
+      <footer className="sticky bottom-0 z-20 border-t border-border/80 bg-white/90 backdrop-blur-xl">
+        <div className="mx-auto flex min-h-[58px] max-w-[1600px] flex-wrap items-center justify-between gap-3 px-7 text-sm font-bold text-muted-foreground xl:px-10">
+          <div className="flex flex-wrap items-center gap-6">
+            <span className="inline-flex items-center gap-2">
+              <span className={`h-3 w-3 rounded-full ${serverOk ? "bg-[oklch(0.56_0.18_150)]" : "bg-[oklch(0.68_0.16_35)]"}`} />
+              Server: <code className="font-mono text-foreground">{serverUrl}</code>
+            </span>
+            <CopyButton value={serverUrl} label="Copy" compact />
+            <span className="inline-flex items-center gap-2">
+              <CheckCircle2 className="h-4 w-4 text-[oklch(0.56_0.18_150)]" /> Helper: Installed
+            </span>
+            <span className="inline-flex items-center gap-2">
+              {modelReady ? <CheckCircle2 className="h-4 w-4 text-[oklch(0.56_0.18_150)]" /> : <Loader2 className="h-4 w-4 animate-spin text-[oklch(0.62_0.14_80)]" />}
+              Model: {modelReady ? "Ready" : "Warming"}
+            </span>
+            <span className="inline-flex items-center gap-2">
+              <Volume2 className="h-4 w-4" /> Voices: 6
+            </span>
+          </div>
+          <div className="flex items-center gap-4">
+            <span className="font-mono tabular-nums">
+              {settings.data ? `${settings.data.macos_version} (${settings.data.chip})` : "macOS"}
+            </span>
+            <Link
+              to="/app/settings"
+              className="inline-flex h-9 items-center gap-2 rounded-lg border border-border bg-white px-3 text-sm font-black text-foreground transition-colors hover:bg-muted"
+            >
+              <MonitorCog className="h-4 w-4" /> System Info
+            </Link>
+          </div>
+        </div>
+      </footer>
     </main>
   );
 }
 
-function StatusPill({ children, icon, tone }: { children: React.ReactNode; icon: React.ReactNode; tone: "ok" | "bad" | "wait" }) {
-  const styles = {
+function StatusBadge({ tone, label }: { tone: "ok" | "bad" | "wait"; label: string }) {
+  const color = {
     ok: "border-[oklch(0.86_0.08_150)] bg-[oklch(0.97_0.05_150)] text-[oklch(0.42_0.16_150)]",
-    bad: "border-[oklch(0.86_0.08_25)] bg-[oklch(0.97_0.04_25)] text-[oklch(0.5_0.18_25)]",
-    wait: "border-[oklch(0.86_0.06_80)] bg-[oklch(0.98_0.045_80)] text-[oklch(0.5_0.13_80)]",
+    bad: "border-[oklch(0.86_0.08_25)] bg-[oklch(0.98_0.035_25)] text-[oklch(0.5_0.18_25)]",
+    wait: "border-[oklch(0.88_0.07_80)] bg-[oklch(0.98_0.045_80)] text-[oklch(0.5_0.13_80)]",
   }[tone];
-  return <span className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[12px] font-bold shadow-sm ${styles}`}>{icon}{children}</span>;
-}
 
-function ActionIcon({ children, tone }: { children: React.ReactNode; tone: "primary" | "cool" | "warm" }) {
-  const bg = tone === "warm" ? "linear-gradient(135deg, var(--brand-warm), oklch(0.58 0.2 35))" : tone === "cool" ? "linear-gradient(135deg, oklch(0.62 0.2 235), var(--brand))" : "var(--brand-gradient)";
-  return <span className="inline-flex h-12 w-12 items-center justify-center rounded-2xl text-white shadow-lg" style={{ background: bg }}>{children}</span>;
-}
-
-function Panel({ title, icon, children }: { title: string; icon: React.ReactNode; children: React.ReactNode }) {
   return (
-    <section className="rounded-3xl border border-border bg-white p-5 shadow-sm">
-      <h2 className="mb-4 flex items-center gap-2 text-[15px] font-black uppercase tracking-wide text-foreground/80">
-        <span className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-[var(--brand-soft)] text-[var(--brand)]">{icon}</span>
+    <span className={`hidden h-10 items-center gap-2 rounded-xl border px-4 text-sm font-black shadow-sm sm:inline-flex ${color}`}>
+      <span className="h-3 w-3 rounded-full bg-current" />
+      {label}
+    </span>
+  );
+}
+
+function LaunchCard({
+  title,
+  description,
+  href,
+  route,
+  tone,
+  icon,
+}: {
+  title: string;
+  description: string;
+  href: string;
+  route: string;
+  tone: "blue" | "teal" | "purple";
+  icon: React.ReactNode;
+}) {
+  const styles = {
+    blue: {
+      bubble: "bg-[oklch(0.95_0.055_250)] text-[var(--brand)]",
+      button: "bg-[linear-gradient(135deg,var(--brand),oklch(0.55_0.22_260))] shadow-[0_16px_32px_rgba(17,111,255,.2)]",
+    },
+    teal: {
+      bubble: "bg-[oklch(0.95_0.06_165)] text-[oklch(0.5_0.15_165)]",
+      button: "bg-[linear-gradient(135deg,oklch(0.58_0.15_175),oklch(0.47_0.14_185))] shadow-[0_16px_32px_rgba(0,150,136,.18)]",
+    },
+    purple: {
+      bubble: "bg-[oklch(0.94_0.055_290)] text-[oklch(0.52_0.22_285)]",
+      button: "bg-[linear-gradient(135deg,oklch(0.56_0.21_285),oklch(0.53_0.18_255))] shadow-[0_16px_32px_rgba(95,83,220,.18)]",
+    },
+  }[tone];
+
+  return (
+    <a href={href} className="group min-w-0 rounded-3xl border border-border bg-white p-5 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-xl">
+      <div className="flex items-center gap-5">
+        <span className={`inline-flex h-16 w-16 shrink-0 items-center justify-center rounded-full ${styles.bubble}`}>{icon}</span>
+        <div className="min-w-0">
+          <h2 className="text-[24px] font-black tracking-tight">{title}</h2>
+          <p className="mt-1 text-[15px] font-semibold text-muted-foreground">{description}</p>
+        </div>
+      </div>
+      <span className={`mt-5 flex h-[58px] min-w-0 items-center justify-center gap-3 overflow-hidden rounded-lg text-[18px] font-black text-white ${styles.button}`}>
+        <ExternalLink className="h-5 w-5" />
+        <span className="min-w-0 truncate">{title === "API Docs" ? "View API Docs" : title === "View Logs" ? "Open Logs" : "Open Vox Studio"}</span>
+        <span className="ml-auto mr-3 shrink-0 rounded-md bg-white/16 px-2.5 py-1 font-mono text-sm text-white/90">{route}</span>
+      </span>
+    </a>
+  );
+}
+
+function Panel({ title, icon, children }: { title: string; icon: React.ReactNode | null; children: React.ReactNode }) {
+  return (
+    <section className="rounded-3xl border border-border bg-white p-6 shadow-sm">
+      <h2 className="flex items-center gap-3 text-[25px] font-black tracking-tight">
+        {icon ? <span className="text-foreground">{icon}</span> : null}
         {title}
       </h2>
       {children}
@@ -229,48 +359,120 @@ function Panel({ title, icon, children }: { title: string; icon: React.ReactNode
   );
 }
 
-function ChecklistItem({ ok, label, muted }: { ok: boolean; label: string; muted?: boolean }) {
+function SetupItem({ ok, wait, title, detail }: { ok: boolean; wait?: boolean; title: string; detail: string }) {
   return (
-    <div className="flex items-center gap-2 py-2 text-sm font-semibold text-foreground/80">
-      <span className={`h-2.5 w-2.5 rounded-full ${ok ? "bg-[oklch(0.56_0.18_150)]" : muted ? "bg-[oklch(0.76_0.08_80)]" : "bg-muted-foreground/30"}`} />
+    <div className="grid grid-cols-[34px_minmax(0,1fr)] gap-3">
+      <span className={`mt-0.5 inline-flex h-8 w-8 items-center justify-center rounded-full text-white ${ok ? "bg-[oklch(0.56_0.18_150)]" : wait ? "bg-[oklch(0.68_0.15_75)]" : "bg-muted-foreground/35"}`}>
+        {ok ? <Check className="h-5 w-5" /> : wait ? <Loader2 className="h-5 w-5 animate-spin" /> : <AlertCircle className="h-5 w-5" />}
+      </span>
+      <div>
+        <h3 className="text-[16px] font-black">{title}</h3>
+        <p className="mt-1 text-[14px] font-semibold leading-snug text-muted-foreground">{detail}</p>
+      </div>
+    </div>
+  );
+}
+
+function Step({ number, label, active }: { number: string; label: string; active?: boolean }) {
+  return (
+    <span className={`inline-flex items-center gap-2 text-sm font-black ${active ? "text-[var(--brand)]" : "text-muted-foreground"}`}>
+      <span className={`inline-flex h-8 w-8 items-center justify-center rounded-full border-2 ${active ? "border-[var(--brand)] bg-[var(--brand)] text-white" : "border-border bg-white text-muted-foreground"}`}>
+        {number}
+      </span>
       {label}
+    </span>
+  );
+}
+
+function StepLine() {
+  return <span className="hidden h-px w-24 bg-border md:inline-block" />;
+}
+
+function CodeBlock({ code }: { code: string }) {
+  return (
+    <div className="relative mt-4 overflow-hidden rounded-2xl border border-[oklch(0.88_0.035_245)] bg-[oklch(0.985_0.012_245)]">
+      <CopyButton value={code} label="Copy" className="absolute right-4 top-4" />
+      <pre className="overflow-x-auto p-6 pr-28 text-[14px] leading-7 text-[oklch(0.22_0.03_245)]">
+        <code>
+          <span className="text-[oklch(0.34_0.13_250)]">curl</span>{" "}
+          <span className="text-[oklch(0.45_0.14_150)]">-X POST</span>{" "}
+          <span>http://localhost:8000/api/v1/tts</span> {"\\"}
+          {"\n  "}
+          <span className="text-[oklch(0.45_0.14_150)]">-F</span>{" "}
+          <span className="text-[oklch(0.55_0.18_350)]">"text=Hello from Vox Studio."</span> {"\\"}
+          {"\n  "}
+          <span className="text-[oklch(0.45_0.14_150)]">-F</span>{" "}
+          <span className="text-[oklch(0.55_0.18_350)]">"voice_name=noelmo-normal"</span> {"\\"}
+          {"\n  "}
+          <span className="text-[oklch(0.45_0.14_150)]">-F</span>{" "}
+          <span className="text-[oklch(0.55_0.18_350)]">"preset=default"</span>
+          {"\n\n"}
+          <span className="text-[oklch(0.34_0.13_250)]">curl</span> http://localhost:8000/api/v1/jobs/
+          <span className="text-[oklch(0.55_0.18_285)]">{"{request_id}"}</span>
+          {"\n\n"}
+          <span className="text-[oklch(0.34_0.13_250)]">curl</span>{" "}
+          <span className="text-[oklch(0.45_0.14_150)]">-L</span> http://localhost:8000/api/v1/jobs/
+          <span className="text-[oklch(0.55_0.18_285)]">{"{request_id}"}</span>/audio {"\\"}
+          {"\n  "}
+          <span className="text-[oklch(0.45_0.14_150)]">--output</span>{" "}
+          <span className="text-[oklch(0.55_0.18_350)]">voice.mp3</span>
+        </code>
+      </pre>
     </div>
   );
 }
 
 function PathRow({ label, value }: { label: string; value: string }) {
   return (
-    <div className="border-t border-border py-3 first:border-t-0 first:pt-0 last:pb-0">
-      <div className="mb-1 text-[11px] font-black uppercase tracking-wide text-muted-foreground">{label}</div>
-      <div className="flex items-start gap-2 rounded-lg bg-muted px-2.5 py-2 font-mono text-[11px] leading-relaxed text-foreground/70">
-        <Clipboard className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-        <span className="break-all">{value}</span>
+    <div className="grid grid-cols-[34px_minmax(0,1fr)_auto] items-center gap-3 border-b border-border bg-white px-4 py-3 last:border-b-0">
+      <Folder className="h-6 w-6 text-foreground/80" />
+      <div className="min-w-0">
+        <div className="text-[14px] font-black">{label}</div>
+        <div className="truncate font-mono text-[12px] font-semibold text-muted-foreground">{value}</div>
       </div>
+      <CopyButton value={value} label="Copy" />
     </div>
   );
 }
 
-function HelpLink({ href, icon, label, warm }: { href: string; icon: React.ReactNode; label: string; warm?: boolean }) {
-  return (
-    <a href={href} className={`mb-2 flex items-center gap-2 rounded-xl border border-border px-3 py-2 text-sm font-bold transition-colors hover:bg-muted ${warm ? "text-yellow-600" : "text-foreground/80"}`}>
-      {icon}
-      {label}
-    </a>
-  );
-}
+function TroubleRow({ icon, title, detail, neutral, cool }: { icon: React.ReactNode; title: string; detail: string; neutral?: boolean; cool?: boolean }) {
+  const tone = neutral
+    ? "bg-muted text-foreground/70"
+    : cool
+      ? "bg-[oklch(0.96_0.035_220)] text-[oklch(0.5_0.13_220)]"
+      : "bg-[oklch(0.95_0.06_155)] text-[oklch(0.48_0.15_155)]";
 
-function HelpLine({ children }: { children: React.ReactNode }) {
-  return <p className="mt-3 text-[13px] leading-relaxed text-muted-foreground">{children}</p>;
-}
-
-function MiniFact({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
   return (
-    <div className="flex items-center gap-3 p-4">
-      <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[var(--brand-soft)] text-[var(--brand)]">{icon}</span>
-      <div>
-        <div className="text-[11px] font-black uppercase tracking-wide text-muted-foreground">{label}</div>
-        <div className="text-sm font-black text-foreground">{value}</div>
+    <div className="grid grid-cols-[44px_minmax(0,1fr)_20px] items-center gap-3 border-b border-border bg-white px-4 py-3 last:border-b-0">
+      <span className={`inline-flex h-11 w-11 items-center justify-center rounded-full ${tone}`}>{icon}</span>
+      <div className="min-w-0">
+        <div className="text-[15px] font-black">{title}</div>
+        <div className="mt-0.5 text-[13px] font-semibold text-muted-foreground">{detail}</div>
       </div>
+      <ExternalLink className="h-4 w-4 text-muted-foreground" />
     </div>
   );
+}
+
+function CopyButton({ value, label, className, compact }: { value: string; label: string; className?: string; compact?: boolean }) {
+  const [copied, setCopied] = useState(false);
+
+  return (
+    <button
+      type="button"
+      onClick={() => {
+        copyToClipboard(value);
+        setCopied(true);
+        window.setTimeout(() => setCopied(false), 1300);
+      }}
+      className={`inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-border bg-white px-3 text-[13px] font-black text-foreground/70 shadow-sm transition-colors hover:bg-muted ${compact ? "h-8 px-2.5 text-[12px]" : ""} ${className ?? ""}`}
+    >
+      {copied ? <Check className="h-4 w-4 text-[oklch(0.56_0.18_150)]" /> : <Copy className="h-4 w-4" />}
+      {copied ? "Copied" : label}
+    </button>
+  );
+}
+
+function copyToClipboard(value: string) {
+  void navigator.clipboard?.writeText(value);
 }
