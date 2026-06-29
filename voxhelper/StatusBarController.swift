@@ -363,7 +363,7 @@ class StatusBarController: NSObject {
               let image = NSImage(contentsOf: url) else {
             return nil
         }
-        image.size = NSSize(width: 18, height: 18)
+        image.size = NSSize(width: 44, height: 18)
         image.isTemplate = true
         return image
     }

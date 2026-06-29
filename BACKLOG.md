@@ -432,7 +432,7 @@ Until v1.0 ships, avoid adding new product features. Pre-v1 work should be limit
   - Builds `assets/Vox-<version>.pkg`, signs with the Developer ID Installer certificate, submits to Apple notarization, staples the ticket, and verifies Gatekeeper install assessment.
   - Package payload installs `VoxHelper.app` and `VoxServer.app` under `/Applications/Vox/`.
   - `pkg-scripts/preinstall` checks Apple Silicon, logged-in console user, curl, internet access to GitHub/PyPI/Hugging Face, Homebrew, and Python 3.11 availability.
-  - `pkg-scripts/postinstall` runs the bootstrap installer as the console user, creates the runtime directory, installs LaunchAgents, and starts the helper.
+  - `pkg-scripts/postinstall` runs the bootstrap installer as the console user, creates the runtime directory, installs LaunchAgents, starts the helper, waits briefly for the local server, and opens the local Welcome page as the logged-in user.
   - Release asset is uploaded to GitHub Releases; landing page download section tracks filename, size, URL, and SHA256.
   - Note: macOS Installer owns the optional "move installer to Trash" prompt after install; the `.pkg` cannot suppress that prompt.
 

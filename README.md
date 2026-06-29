@@ -183,6 +183,7 @@ The installer walks you through everything interactively:
 | `.env` scaffold | Writes a commented config file with all available options |
 | HF token prompt | Optional — speeds up model downloads |
 | LaunchAgents | Registers the server agent and menu bar helper |
+| First-run welcome | The signed `.pkg` opens the local Welcome page after bootstrap completes |
 
 **Non-interactive install** (CI or scripted):
 ```bash
@@ -192,7 +193,7 @@ bash vox.sh install --yes --token hf_xxx         # also set HF token
 
 > `.env` is git-ignored and never committed. Keep your token out of any other files.
 
-The **Vox icon** appears in your menu bar within a few seconds. Use it to start, stop, and restart the server, open the web UI, monitor CPU/RAM/GPU, and confirm the installed Studio/helper build versions.
+The **VOX icon** appears in your menu bar within a few seconds. Use it to start, stop, and restart the server, open the web UI, monitor CPU/RAM/GPU, and confirm the installed Studio/helper build versions.
 
 ### 3. Start the server
 

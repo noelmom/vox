@@ -15,9 +15,11 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Added
 - **Public/local page split** — added `public-site/index.html` for GitHub Pages marketing/download SEO and `public-site/agents/SKILL.md` for AI-agent REST API integration.
 - **Installed welcome page** — local `/` now focuses on post-install setup status, app/docs links, API examples, file locations, and troubleshooting while `/app` remains Vox Studio.
+- **First-run package launch** — signed `.pkg` installs now open the local Welcome page as the logged-in user after bootstrap completes.
 
 ### Changed
 - **Release metadata target** — `scripts/release.sh` now updates package filename, URL, size, and SHA256 in `public-site/index.html`.
+- **Menu bar status icon** — Vox Helper now uses a compact VOX wordmark where the O carries the running/stopped state.
 
 ---
 
