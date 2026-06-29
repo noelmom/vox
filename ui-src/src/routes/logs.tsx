@@ -4,9 +4,9 @@ import { useMemo, useState } from "react";
 import {
   AlertTriangle,
   Check,
-  Clipboard,
   Copy,
   Download,
+  Filter,
   FileText,
   Home,
   Info,
@@ -60,6 +60,7 @@ function LogsPage() {
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [copiedKey, setCopiedKey] = useState<string | null>(null);
 
   const logs = useQuery({
     queryKey: ["log-file", fileName, lineCount],
@@ -96,6 +97,16 @@ function LogsPage() {
     }
   };
 
+  const copyValue = async (key: string, value: string) => {
+    try {
+      await navigator.clipboard.writeText(value);
+      setCopiedKey(key);
+      window.setTimeout(() => setCopiedKey(null), 1400);
+    } catch {
+      /* noop */
+    }
+  };
+
   const downloadVisible = () => {
     const blob = new Blob([filtered.map((row) => row.raw).join("\n") + "\n"], { type: "text/plain;charset=utf-8" });
     const url = URL.createObjectURL(blob);
@@ -107,15 +118,15 @@ function LogsPage() {
   };
 
   return (
-    <main className="min-h-screen bg-[linear-gradient(180deg,#f4fbff_0%,#edf8ff_48%,#ffffff_100%)] text-foreground">
-      <header className="border-b border-border/70 bg-white/80 backdrop-blur-xl">
-        <div className="mx-auto flex min-h-[76px] max-w-[1280px] flex-wrap items-center justify-between gap-4 px-6 lg:px-10">
+    <main className="min-h-screen bg-[linear-gradient(180deg,#f7fcff_0%,#eef8ff_48%,#ffffff_100%)] text-foreground">
+      <header className="sticky top-0 z-30 border-b border-border/70 bg-white/86 backdrop-blur-xl">
+        <div className="mx-auto flex min-h-[76px] max-w-[1500px] flex-wrap items-center justify-between gap-4 px-6 lg:px-10">
           <div className="flex items-center gap-4">
             <img src={voxLogoV2} alt="VOX studio" className="h-12 w-auto" />
             <div className="hidden h-8 w-px bg-border sm:block" />
             <div>
-              <h1 className="text-[22px] font-black tracking-tight">Logs</h1>
-              <p className="text-[12px] font-semibold text-muted-foreground">Human-readable local log viewer</p>
+              <h1 className="text-[24px] font-black tracking-tight">Logs</h1>
+              <p className="text-[12px] font-semibold text-muted-foreground">Readable local server, helper, and install logs</p>
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-2">
@@ -143,34 +154,50 @@ function LogsPage() {
         </div>
       </header>
 
-      <section className="mx-auto max-w-[1280px] px-6 py-7 lg:px-10">
-        <div className="mb-5 rounded-3xl border border-border bg-white p-4 shadow-sm">
-          <div className="grid grid-cols-1 gap-3 lg:grid-cols-[1fr_auto_auto_auto] lg:items-center">
+      <section className="mx-auto max-w-[1500px] px-6 py-7 lg:px-10">
+        <div className="mb-5 rounded-3xl border border-border bg-white p-5 shadow-sm">
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 className="flex items-center gap-2 text-[18px] font-black tracking-tight">
+                <Filter className="h-5 w-5 text-[var(--brand)]" />
+                Filter logs
+              </h2>
+              <p className="mt-1 text-sm font-semibold text-muted-foreground">
+                Viewing <span className="text-foreground">{selectedFile.label}</span> from <code className="font-mono">{logs.data?.path ?? selectedFile.path}</code>
+              </p>
+            </div>
+            <span className="rounded-full border border-border bg-muted px-3 py-1 text-[12px] font-black text-muted-foreground">
+              {filtered.length} visible · {rows.length} loaded
+            </span>
+          </div>
+          <div className="grid grid-cols-1 gap-3 lg:grid-cols-[minmax(0,1fr)_auto_minmax(240px,320px)_auto] lg:items-center">
             <div className="flex flex-wrap gap-2">
               {FILE_OPTIONS.map((file) => (
                 <button
                   key={file.value}
                   onClick={() => { setFileName(file.value); setSelectedId(null); }}
-                  className={`h-10 rounded-lg px-3 text-[12.5px] font-black transition-colors ${
+                  className={`inline-flex h-10 items-center gap-2 rounded-lg px-3 text-[12.5px] font-black transition-colors ${
                     fileName === file.value
                       ? "bg-[var(--brand)] text-white shadow-md"
-                      : "border border-border bg-white text-foreground/70 hover:bg-muted"
+                      : "border border-border bg-white text-foreground/70 hover:border-[var(--brand)]/35 hover:bg-[var(--brand-soft)]/40"
                   }`}
                 >
+                  <FileText className="h-3.5 w-3.5" />
                   {file.label}
                 </button>
               ))}
             </div>
 
-            <div className="flex overflow-hidden rounded-lg border border-border bg-white p-1">
+            <div className="flex overflow-hidden rounded-lg border border-border bg-white p-1 shadow-sm">
               {(["all", "info", "warning", "error"] as const).map((value) => (
                 <button
                   key={value}
                   onClick={() => setLevel(value)}
-                  className={`h-8 rounded-md px-3 text-[12px] font-black capitalize transition-colors ${
+                  className={`inline-flex h-8 items-center gap-1.5 rounded-md px-3 text-[12px] font-black capitalize transition-colors ${
                     level === value ? "bg-[var(--brand-soft)] text-[var(--brand)]" : "text-foreground/55 hover:text-foreground"
                   }`}
                 >
+                  {value === "all" ? <Filter className="h-3.5 w-3.5" /> : <LevelDot level={value} />}
                   {value}
                 </button>
               ))}
@@ -182,19 +209,27 @@ function LogsPage() {
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
                 placeholder="Search logs"
-                className="h-10 w-full rounded-lg border border-border bg-white pl-9 pr-3 text-sm outline-none transition-colors focus:border-[var(--brand)]"
+                className="h-10 w-full rounded-lg border border-border bg-white pl-9 pr-3 text-sm font-semibold outline-none transition-colors placeholder:text-muted-foreground/70 focus:border-[var(--brand)] focus:ring-4 focus:ring-[var(--brand-soft)]"
               />
             </label>
 
             <div className="flex flex-wrap items-center gap-2">
-              <select
-                value={lineCount}
-                onChange={(event) => setLineCount(Number(event.target.value))}
-                className="h-10 rounded-lg border border-border bg-white px-3 text-[12.5px] font-bold text-foreground/75 outline-none"
-              >
-                {LINE_OPTIONS.map((count) => <option key={count} value={count}>Last {count} lines</option>)}
-              </select>
-              <label className="inline-flex h-10 items-center gap-2 rounded-lg border border-border bg-white px-3 text-[12.5px] font-bold text-foreground/75">
+              <div className="flex h-10 items-center overflow-hidden rounded-lg border border-border bg-white p-1 shadow-sm">
+                {LINE_OPTIONS.map((count) => (
+                  <button
+                    key={count}
+                    type="button"
+                    onClick={() => setLineCount(count)}
+                    className={`h-8 rounded-md px-2.5 text-[11.5px] font-black tabular-nums transition-colors ${
+                      lineCount === count ? "bg-[var(--brand-soft)] text-[var(--brand)]" : "text-foreground/55 hover:text-foreground"
+                    }`}
+                    aria-label={`Show last ${count} lines`}
+                  >
+                    {count}
+                  </button>
+                ))}
+              </div>
+              <label className="inline-flex h-10 items-center gap-2 rounded-lg border border-border bg-white px-3 text-[12.5px] font-bold text-foreground/75 shadow-sm">
                 <input
                   type="checkbox"
                   checked={autoRefresh}
@@ -216,9 +251,9 @@ function LogsPage() {
             <p className="mt-2 text-sm">The log file may not exist yet. Try another log source or generate activity first.</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
+          <div className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1fr)_420px]">
             <section className="overflow-hidden rounded-3xl border border-border bg-white shadow-sm">
-              <div className="grid grid-cols-[150px_92px_minmax(130px,190px)_minmax(104px,130px)_1fr] border-b border-border bg-muted/70 px-4 py-3 text-[11px] font-black uppercase tracking-wide text-muted-foreground">
+              <div className="grid grid-cols-[150px_96px_minmax(150px,200px)_minmax(150px,190px)_minmax(300px,1fr)] border-b border-border bg-[linear-gradient(180deg,#f8fcff,#eef7ff)] px-4 py-3 text-[11px] font-black uppercase tracking-wide text-muted-foreground">
                 <div>Time</div>
                 <div>Level</div>
                 <div>Source</div>
@@ -227,28 +262,41 @@ function LogsPage() {
               </div>
               <div className="max-h-[620px] overflow-auto">
                 {filtered.length === 0 ? (
-                  <div className="flex min-h-[220px] items-center justify-center px-6 text-center text-sm text-muted-foreground">
-                    No log lines match the current filters.
+                  <div className="flex min-h-[260px] flex-col items-center justify-center px-6 text-center">
+                    <span className="inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-[var(--brand-soft)] text-[var(--brand)]">
+                      <Search className="h-6 w-6" />
+                    </span>
+                    <h3 className="mt-4 text-[17px] font-black text-foreground">No matching log lines</h3>
+                    <p className="mt-1 max-w-[360px] text-sm font-semibold leading-relaxed text-muted-foreground">
+                      Try another source, clear the search text, or increase the line count.
+                    </p>
                   </div>
                 ) : filtered.map((row) => (
                   <button
                     key={row.id}
                     onClick={() => setSelectedId(row.id)}
-                    className={`grid w-full grid-cols-[150px_92px_minmax(130px,190px)_minmax(104px,130px)_1fr] items-start gap-0 border-b border-border/70 px-4 py-3 text-left text-[12.5px] transition-colors hover:bg-[var(--brand-soft)]/50 ${
+                    className={`grid w-full grid-cols-[150px_96px_minmax(150px,200px)_minmax(150px,190px)_minmax(300px,1fr)] items-start gap-0 border-b border-border/70 px-4 py-3 text-left text-[12.5px] transition-colors hover:bg-[var(--brand-soft)]/50 ${
                       selected?.id === row.id ? "bg-[var(--brand-soft)]" : "bg-white"
                     }`}
                   >
                     <div className="font-mono text-[11.5px] text-foreground/55">{formatTimestamp(row.timestamp)}</div>
                     <div><LevelBadge level={row.level} /></div>
-                    <div className="truncate font-semibold text-foreground/70">{row.source}</div>
-                    <div className="truncate font-mono text-[11.5px] text-foreground/55">{row.requestId}</div>
-                    <div className="min-w-0 truncate font-medium text-foreground/82">{row.message}</div>
+                    <div className="break-words pr-3 font-semibold text-foreground/70">{row.source}</div>
+                    <div className="break-all pr-3 font-mono text-[11.5px] text-foreground/55">{row.requestId}</div>
+                    <div className="min-w-0 whitespace-normal break-words pr-3 font-medium leading-relaxed text-foreground/82">{row.message}</div>
                   </button>
                 ))}
               </div>
               <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border bg-muted/40 px-4 py-3 text-[12px] font-semibold text-muted-foreground">
                 <span>Showing {filtered.length} of latest {rows.length} log lines</span>
-                <span className="font-mono">{logs.data?.path ?? selectedFile.path}</span>
+                <button
+                  type="button"
+                  onClick={() => copyValue("path", logs.data?.path ?? selectedFile.path)}
+                  className="inline-flex min-w-0 items-center gap-2 rounded-lg border border-border bg-white px-2.5 py-1.5 font-mono text-[11.5px] text-foreground/60 hover:bg-muted"
+                >
+                  <span className="truncate">{logs.data?.path ?? selectedFile.path}</span>
+                  {copiedKey === "path" ? <Check className="h-3.5 w-3.5 text-[oklch(0.56_0.18_150)]" /> : <Copy className="h-3.5 w-3.5" />}
+                </button>
               </div>
             </section>
 
@@ -260,16 +308,22 @@ function LogsPage() {
               {selected ? (
                 <div className="space-y-4">
                   <DetailRow label="Level"><LevelBadge level={selected.level} /></DetailRow>
-                  <DetailRow label="Timestamp">{selected.timestamp || "—"}</DetailRow>
-                  <DetailRow label="Source">{selected.source || "—"}</DetailRow>
-                  <DetailRow label="Request ID">{selected.requestId || "—"}</DetailRow>
+                  <CopyDetailRow label="Timestamp" value={selected.timestamp || "—"} copied={copiedKey === "timestamp"} onCopy={() => copyValue("timestamp", selected.timestamp || "")} />
+                  <CopyDetailRow label="Source" value={selected.source || "—"} copied={copiedKey === "source"} onCopy={() => copyValue("source", selected.source || "")} />
+                  <CopyDetailRow label="Request ID" value={selected.requestId || "—"} copied={copiedKey === "request"} onCopy={() => copyValue("request", selected.requestId || "")} />
                   <div>
-                    <div className="mb-1 text-[11px] font-black uppercase tracking-wide text-muted-foreground">Message</div>
-                    <div className="rounded-xl border border-border bg-muted p-3 text-[13px] leading-relaxed text-foreground/80">{selected.message || selected.raw}</div>
+                    <div className="mb-1 flex items-center justify-between gap-2 text-[11px] font-black uppercase tracking-wide text-muted-foreground">
+                      Message
+                      <CopyIconButton copied={copiedKey === "message"} onClick={() => copyValue("message", selected.message || selected.raw)} />
+                    </div>
+                    <div className="whitespace-pre-wrap break-words rounded-xl border border-border bg-muted p-3 text-[13px] leading-relaxed text-foreground/80">{selected.message || selected.raw}</div>
                   </div>
                   <div>
-                    <div className="mb-1 text-[11px] font-black uppercase tracking-wide text-muted-foreground">Raw Line</div>
-                    <pre className="max-h-[220px] overflow-auto rounded-xl border border-border bg-[oklch(0.14_0.025_250)] p-3 text-[11.5px] leading-relaxed text-[oklch(0.9_0.04_235)]"><code>{selected.raw}</code></pre>
+                    <div className="mb-1 flex items-center justify-between gap-2 text-[11px] font-black uppercase tracking-wide text-muted-foreground">
+                      Raw Line
+                      <CopyIconButton copied={copiedKey === "raw"} onClick={() => copyValue("raw", selected.raw)} />
+                    </div>
+                    <pre className="max-h-[260px] overflow-auto whitespace-pre-wrap break-words rounded-xl border border-border bg-[oklch(0.14_0.025_250)] p-3 text-[11.5px] leading-relaxed text-[oklch(0.9_0.04_235)]"><code>{selected.raw}</code></pre>
                   </div>
                 </div>
               ) : (
@@ -357,11 +411,47 @@ function LevelBadge({ level }: { level: Level }) {
   );
 }
 
+function LevelDot({ level }: { level: Exclude<Level, "debug" | "other"> }) {
+  const color = {
+    info: "bg-[oklch(0.58_0.18_235)]",
+    warning: "bg-[oklch(0.66_0.15_80)]",
+    error: "bg-[oklch(0.58_0.2_25)]",
+  }[level];
+  return <span className={`h-2 w-2 rounded-full ${color}`} />;
+}
+
 function DetailRow({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div>
       <div className="mb-1 text-[11px] font-black uppercase tracking-wide text-muted-foreground">{label}</div>
       <div className="break-all text-[13px] font-semibold text-foreground/80">{children}</div>
     </div>
+  );
+}
+
+function CopyDetailRow({ label, value, copied, onCopy }: { label: string; value: string; copied: boolean; onCopy: () => void }) {
+  return (
+    <div>
+      <div className="mb-1 flex items-center justify-between gap-2 text-[11px] font-black uppercase tracking-wide text-muted-foreground">
+        {label}
+        {value !== "—" ? <CopyIconButton copied={copied} onClick={onCopy} /> : null}
+      </div>
+      <div className="break-all rounded-lg border border-border bg-muted/55 px-2.5 py-2 font-mono text-[12px] font-semibold leading-relaxed text-foreground/75">
+        {value}
+      </div>
+    </div>
+  );
+}
+
+function CopyIconButton({ copied, onClick }: { copied: boolean; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-border bg-white text-foreground/55 shadow-sm transition-colors hover:bg-muted hover:text-foreground"
+      aria-label="Copy value"
+    >
+      {copied ? <Check className="h-3.5 w-3.5 text-[oklch(0.56_0.18_150)]" /> : <Copy className="h-3.5 w-3.5" />}
+    </button>
   );
 }
