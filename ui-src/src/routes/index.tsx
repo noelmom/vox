@@ -677,10 +677,10 @@ function GetStarted() {
   const [hashCopied, setHashCopied] = useState(false);
   const [tab, setTab] = useState<"oneclick" | "manual">("oneclick");
   const command = `git clone git@github.com:MeloLabDev/codename-vox\ncd codename-vox\nbash vox.sh install`;
-  const pkgName = "Vox-1.0.0-rc2.pkg";
+  const pkgName = "Vox-1.0.0-rc3.pkg";
   const pkgSize = "8.8 MB";
-  const pkgUrl = "https://github.com/MeloLabDev/codename-vox/releases/download/v1.0.0-rc2/Vox-1.0.0-rc2.pkg";
-  const sha256 = "f1f81ba6efad49af072ea11930a1241033825749bc9d1dbcde590e9b79dd6a7a";
+  const pkgUrl = "https://github.com/MeloLabDev/codename-vox/releases/download/v1.0.0-rc3/Vox-1.0.0-rc3.pkg";
+  const sha256 = "d120bcfbae366810c8c7d763fddab72d792f4ac72c19a6192eabe11667c65c79";
 
   const handleCopy = async () => {
     try {
@@ -874,7 +874,7 @@ function GetStarted() {
                         Notarized
                       </span>
                       <span className="inline-flex items-center gap-1.5">
-                        <span className="font-mono text-[var(--brand-secondary)]">SHA256 f1f8…6a7a</span>
+                        <span className="font-mono text-[var(--brand-secondary)]">SHA256 d120…5c79</span>
 
                         <button
                           type="button"
