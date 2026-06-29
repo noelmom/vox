@@ -324,6 +324,10 @@ class StatusBarController: NSObject {
     }
 
     private func makeMenuBarIcon(running: Bool, copied: Bool = false) -> NSImage {
+        if !copied, let image = bundledMenuBarIcon(named: running ? "MenuBarRunning" : "MenuBarStopped") {
+            return image
+        }
+
         let size = NSSize(width: 44, height: 18)
         let image = NSImage(size: size)
 
@@ -350,6 +354,16 @@ class StatusBarController: NSObject {
         }
 
         image.unlockFocus()
+        image.isTemplate = true
+        return image
+    }
+
+    private func bundledMenuBarIcon(named name: String) -> NSImage? {
+        guard let url = Bundle.main.url(forResource: name, withExtension: "png"),
+              let image = NSImage(contentsOf: url) else {
+            return nil
+        }
+        image.size = NSSize(width: 18, height: 18)
         image.isTemplate = true
         return image
     }
