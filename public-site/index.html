@@ -127,21 +127,7 @@
 
     .nav-links a:hover { color: var(--brand); }
 
-    .nav-action {
-      justify-self: end;
-      display: inline-flex;
-      min-height: 38px;
-      align-items: center;
-      gap: 9px;
-      border: 1px solid var(--line-strong);
-      border-radius: 10px;
-      padding: 0 15px;
-      background: white;
-      color: #192738;
-      font-size: 14px;
-      font-weight: 900;
-      box-shadow: 0 8px 22px rgba(18, 45, 76, 0.08);
-    }
+    .nav-spacer { min-width: 0; }
 
     .hero {
       overflow: hidden;
@@ -153,9 +139,9 @@
 
     .hero-grid {
       display: grid;
-      grid-template-columns: minmax(520px, 0.86fr) minmax(520px, 1.14fr);
+      grid-template-columns: minmax(470px, 0.72fr) minmax(720px, 1.28fr);
       align-items: start;
-      gap: clamp(28px, 3.6vw, 58px);
+      gap: clamp(30px, 4vw, 70px);
     }
 
     .eyebrow {
@@ -184,9 +170,14 @@
       font-size: 15px;
     }
 
+    .icon {
+      display: inline-block;
+      line-height: 1;
+    }
+
     h1 {
       margin: 28px 0 0;
-      max-width: 620px;
+      max-width: 680px;
       font-size: clamp(43px, 4.9vw, 62px);
       line-height: 1.05;
       letter-spacing: 0;
@@ -196,7 +187,7 @@
 
     .hero-copy {
       margin: 20px 0 0;
-      max-width: 548px;
+      max-width: 640px;
       color: var(--muted);
       font-size: clamp(18px, 2vw, 22px);
       line-height: 1.56;
@@ -260,23 +251,35 @@
       box-shadow: 0 8px 22px rgba(18, 45, 76, 0.06);
     }
 
+    .requirement .icon {
+      display: inline-grid;
+      place-items: center;
+      width: 18px;
+      height: 18px;
+      color: var(--brand);
+      font-size: 15px;
+      font-weight: 950;
+    }
+
     .download-card {
       display: grid;
-      grid-template-columns: 78px minmax(0, 1fr) auto;
-      gap: 18px;
+      grid-template-columns: 92px minmax(0, 1fr) auto;
+      gap: 20px;
       align-items: center;
-      max-width: 520px;
+      max-width: 610px;
       margin-top: 26px;
       border: 1px solid var(--line);
       border-radius: 16px;
-      padding: 20px;
-      background: rgba(255, 255, 255, 0.92);
+      padding: 22px;
+      background:
+        linear-gradient(135deg, rgba(255,255,255,.96), rgba(248,252,255,.92)),
+        white;
       box-shadow: var(--shadow);
     }
 
     .installer-icon {
-      width: 70px;
-      height: 70px;
+      width: 86px;
+      height: 86px;
       object-fit: contain;
     }
 
@@ -305,13 +308,35 @@
       font-weight: 900;
     }
 
-    .checksum {
+    .checksum-row {
       grid-column: 2 / 4;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-width: 0;
+    }
+
+    .checksum {
+      flex: 1 1 auto;
       min-width: 0;
       color: var(--soft);
       font-size: 12px;
       line-height: 1.5;
       word-break: break-all;
+    }
+
+    .copy-hash {
+      display: inline-grid;
+      place-items: center;
+      flex: 0 0 auto;
+      width: 32px;
+      height: 32px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: white;
+      color: #5a6879;
+      cursor: pointer;
+      box-shadow: 0 6px 14px rgba(18,45,76,.07);
     }
 
     .screenshot-wrap {
@@ -381,13 +406,15 @@
     }
 
     .feature {
-      display: grid;
-      grid-template-columns: 74px minmax(0, 1fr);
-      gap: 18px;
+      display: flex;
+      min-height: 150px;
+      flex-direction: column;
       align-items: center;
-      min-height: 122px;
-      padding: 24px 30px;
+      justify-content: center;
+      gap: 14px;
+      padding: 28px 34px;
       border-right: 1px solid var(--line);
+      text-align: center;
     }
 
     .feature:last-child { border-right: 0; }
@@ -418,7 +445,8 @@
     }
 
     .feature p {
-      margin: 8px 0 0;
+      margin: 8px auto 0;
+      max-width: 320px;
       color: var(--muted);
       font-size: 15px;
       line-height: 1.42;
@@ -428,9 +456,14 @@
       padding: 70px 0;
     }
 
+    .section .wrap {
+      width: min(1320px, calc(100% - 64px));
+    }
+
     .section-head {
       max-width: 760px;
-      margin-bottom: 26px;
+      margin: 0 auto 30px;
+      text-align: center;
     }
 
     .section h2 {
@@ -454,9 +487,26 @@
     .info-card {
       border: 1px solid var(--line);
       border-radius: 15px;
-      padding: 22px;
-      background: white;
-      box-shadow: 0 14px 34px rgba(18, 45, 76, 0.08);
+      padding: 28px 24px;
+      background:
+        linear-gradient(180deg, #ffffff, #f7fbff);
+      box-shadow: 0 16px 38px rgba(18, 45, 76, 0.09);
+      text-align: center;
+    }
+
+    .info-icon {
+      display: inline-grid;
+      place-items: center;
+      width: 58px;
+      height: 58px;
+      margin-bottom: 16px;
+      border: 1px solid #d7e8fb;
+      border-radius: 17px;
+      background: #f0f7ff;
+      color: var(--brand);
+      font-size: 24px;
+      font-weight: 950;
+      box-shadow: 0 10px 26px rgba(17, 111, 255, 0.1);
     }
 
     .info-card h3 {
@@ -465,8 +515,54 @@
     }
 
     .info-card p {
-      margin: 0;
+      margin: 0 auto;
+      max-width: 360px;
       font-size: 15px;
+    }
+
+    .api-panel {
+      display: grid;
+      grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr);
+      gap: 26px;
+      align-items: center;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      padding: 28px;
+      background:
+        linear-gradient(135deg, rgba(240,247,255,.88), rgba(236,250,247,.88)),
+        white;
+      box-shadow: var(--shadow);
+    }
+
+    .agent-callout {
+      display: grid;
+      gap: 14px;
+      text-align: center;
+    }
+
+    .agent-callout h2 {
+      margin: 0;
+      font-size: clamp(26px, 3vw, 38px);
+      line-height: 1.12;
+    }
+
+    .agent-callout p {
+      margin: 0 auto;
+      max-width: 520px;
+    }
+
+    .agent-badge {
+      display: inline-flex;
+      justify-self: center;
+      align-items: center;
+      gap: 9px;
+      border: 1px solid #d4e7ff;
+      border-radius: 999px;
+      padding: 8px 14px;
+      background: white;
+      color: var(--brand);
+      font-size: 13px;
+      font-weight: 900;
     }
 
     .code-card {
@@ -474,17 +570,52 @@
       overflow: hidden;
       border: 1px solid #dbe6f0;
       border-radius: 14px;
-      background: #f8fbff;
+      background: #071624;
+      box-shadow: 0 18px 42px rgba(7, 22, 36, 0.16);
+    }
+
+    .code-head {
+      display: flex;
+      min-height: 44px;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      border-bottom: 1px solid rgba(255,255,255,.1);
+      padding: 0 14px 0 18px;
+      color: #9fb0c4;
+      font-size: 12px;
+      font-weight: 850;
+    }
+
+    .copy-code {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      border: 1px solid rgba(255,255,255,.16);
+      border-radius: 8px;
+      background: rgba(255,255,255,.08);
+      color: #dce8f5;
+      padding: 7px 10px;
+      font-size: 12px;
+      font-weight: 850;
+      cursor: pointer;
     }
 
     pre {
       margin: 0;
       padding: 22px;
       overflow-x: auto;
-      color: #202b38;
+      color: #d9e7f5;
       font-size: 13px;
       line-height: 1.7;
     }
+
+    .tok-cmd { color: #7cc7ff; }
+    .tok-flag { color: #98f5c7; }
+    .tok-url { color: #ffd166; }
+    .tok-key { color: #ff8ab3; }
+    .tok-val { color: #b6f7ff; }
+    .tok-var { color: #c8b6ff; }
 
     .footer {
       border-top: 1px solid var(--line);
@@ -508,7 +639,11 @@
       gap: 22px;
     }
 
-    .coffee { color: var(--warm); }
+    .coffee {
+      color: #c88600;
+      font-weight: 950;
+      text-shadow: 0 1px 0 rgba(255,255,255,.8);
+    }
 
     @media (max-width: 1040px) {
       .topbar-inner {
@@ -528,7 +663,8 @@
       }
 
       .feature-grid,
-      .info-grid {
+      .info-grid,
+      .api-panel {
         grid-template-columns: 1fr;
       }
 
@@ -552,7 +688,6 @@
 
       .logo { width: 92px; }
       .logo-studio { display: none; }
-      .nav-action { padding: 0 12px; font-size: 13px; }
       .hero { padding-top: 34px; }
       h1 { margin-top: 26px; }
       .button { width: 100%; }
@@ -571,7 +706,7 @@
         justify-self: start;
       }
 
-      .checksum {
+      .checksum-row {
         grid-column: 1 / 3;
       }
 
@@ -581,12 +716,6 @@
 
       .app-window img {
         aspect-ratio: 4 / 3;
-      }
-
-      .feature {
-        grid-template-columns: 54px minmax(0, 1fr);
-        gap: 14px;
-        padding: 22px;
       }
 
       .feature-icon {
@@ -612,10 +741,7 @@
         <a href="https://github.com/MeloLabDev/codename-vox">GitHub</a>
         <a href="https://noelmom.github.io">Support</a>
       </nav>
-      <a class="nav-action" href="https://github.com/MeloLabDev/codename-vox" aria-label="View Vox Studio on GitHub">
-        <span aria-hidden="true">GH</span>
-        GitHub
-      </a>
+      <div class="nav-spacer" aria-hidden="true"></div>
     </div>
   </header>
 
@@ -630,23 +756,23 @@
 
             <div class="hero-actions" id="install">
               <a class="button primary" href="https://github.com/MeloLabDev/codename-vox/releases/download/v1.0.0-rc3/Vox-1.0.0-rc3.pkg">
-                <span aria-hidden="true">↓</span>
+                <span class="icon" aria-hidden="true">↓</span>
                 Download for macOS
               </a>
               <a class="button secondary" href="https://github.com/MeloLabDev/codename-vox">
-                <span aria-hidden="true">GH</span>
+                <span class="icon" aria-hidden="true">GH</span>
                 View on GitHub
               </a>
             </div>
 
             <div class="requirement-row" aria-label="Requirements">
-              <span class="requirement">Apple Silicon</span>
-              <span class="requirement">macOS 12+</span>
-              <a class="requirement" href="https://brew.sh/">Homebrew required</a>
-              <span class="requirement">Local only</span>
+              <span class="requirement"><span class="icon" aria-hidden="true"></span> Apple Silicon</span>
+              <span class="requirement"><span class="icon" aria-hidden="true">⌘</span> macOS 12+</span>
+              <a class="requirement" href="https://brew.sh/"><span class="icon" aria-hidden="true">⌂</span> Homebrew required</a>
+              <span class="requirement"><span class="icon" aria-hidden="true">▣</span> Local only</span>
             </div>
 
-            <a class="download-card" href="https://github.com/MeloLabDev/codename-vox/releases/download/v1.0.0-rc3/Vox-1.0.0-rc3.pkg" aria-label="Download Vox 1.0.0 RC3 package">
+            <div class="download-card" aria-label="Vox 1.0.0 RC3 package details">
               <img class="installer-icon" src="assets/vox-installer-icon.png" alt="" />
               <div>
                 <strong>Vox-1.0.0-rc3.pkg</strong>
@@ -654,8 +780,11 @@
                 <span>macOS installer package for Apple Silicon Macs.</span>
               </div>
               <span class="version-pill">v1.0.0-rc3</span>
-              <div class="checksum">SHA256 d120bcfbae366810c8c7d763fddab72d792f4ac72c19a6192eabe11667c65c79</div>
-            </a>
+              <div class="checksum-row">
+                <div class="checksum">SHA256 d120bcfbae366810c8c7d763fddab72d792f4ac72c19a6192eabe11667c65c79</div>
+                <button class="copy-hash" type="button" data-copy="d120bcfbae366810c8c7d763fddab72d792f4ac72c19a6192eabe11667c65c79" aria-label="Copy SHA256 checksum">⧉</button>
+              </div>
+            </div>
           </div>
 
           <div class="screenshot-wrap" id="screenshots">
@@ -672,7 +801,7 @@
         <div class="feature-strip" id="features">
           <div class="feature-grid">
             <article class="feature">
-              <div class="feature-icon" aria-hidden="true">S</div>
+              <div class="feature-icon" aria-hidden="true">♢</div>
               <div>
                 <h2>Private by default</h2>
                 <p>Everything runs locally on your Mac. Your scripts, voices, and audio never leave your machine.</p>
@@ -705,14 +834,17 @@
         </div>
         <div class="info-grid">
           <article class="info-card">
+            <div class="info-icon" aria-hidden="true">✎</div>
             <h3>Studio workflow</h3>
             <p>Write or import scripts, choose a voice profile, preview audio, and keep generated clips in a clean local library.</p>
           </article>
           <article class="info-card">
+            <div class="info-icon" aria-hidden="true">AI</div>
             <h3>Agent-ready API</h3>
             <p>After install, local tools can create jobs, check status, and download audio without sending scripts to a hosted service.</p>
           </article>
           <article class="info-card">
+            <div class="info-icon" aria-hidden="true">⌘</div>
             <h3>Mac-native helper</h3>
             <p>The menu bar helper starts, stops, updates, and monitors the local Vox server from a familiar macOS surface.</p>
           </article>
@@ -726,8 +858,17 @@
           <h2 id="api-title">Simple localhost API after install.</h2>
           <p>Use curl, shell scripts, Shortcuts, or an AI agent skill to generate audio from local text once Vox Studio is running.</p>
         </div>
-        <div class="code-card">
-          <pre><code>curl -X POST http://localhost:8000/api/v1/tts \
+        <div class="api-panel">
+          <div class="agent-callout">
+            <span class="agent-badge"><span aria-hidden="true">✣</span> Localhost voice API</span>
+            <h2>Easy for agents to call, easy for humans to inspect.</h2>
+            <p>Keep the public page focused on install, then let the local app expose full docs once Vox is running on the user’s Mac.</p>
+            <p><a href="agents/SKILL.md">Read the Vox AI agent skill</a> for a compact integration guide.</p>
+          </div>
+          <div class="code-card">
+            <div class="code-head">
+              <span>curl example</span>
+              <button class="copy-code" type="button" data-copy='curl -X POST http://localhost:8000/api/v1/tts \
   -F "text=Hello from Vox Studio." \
   -F "voice_name=noelmo-normal" \
   -F "preset=default"
@@ -735,9 +876,19 @@
 curl http://localhost:8000/api/v1/jobs/{request_id}
 
 curl -L http://localhost:8000/api/v1/jobs/{request_id}/audio \
-  --output voice.mp3</code></pre>
+  --output voice.mp3'><span aria-hidden="true">⧉</span> Copy</button>
+            </div>
+            <pre><code><span class="tok-cmd">curl</span> <span class="tok-flag">-X POST</span> <span class="tok-url">http://localhost:8000/api/v1/tts</span> \
+  <span class="tok-flag">-F</span> <span class="tok-key">"text</span>=<span class="tok-val">Hello from Vox Studio."</span> \
+  <span class="tok-flag">-F</span> <span class="tok-key">"voice_name</span>=<span class="tok-val">noelmo-normal"</span> \
+  <span class="tok-flag">-F</span> <span class="tok-key">"preset</span>=<span class="tok-val">default"</span>
+
+<span class="tok-cmd">curl</span> <span class="tok-url">http://localhost:8000/api/v1/jobs/<span class="tok-var">{request_id}</span></span>
+
+<span class="tok-cmd">curl</span> <span class="tok-flag">-L</span> <span class="tok-url">http://localhost:8000/api/v1/jobs/<span class="tok-var">{request_id}</span>/audio</span> \
+  <span class="tok-flag">--output</span> <span class="tok-val">voice.mp3</span></code></pre>
+          </div>
         </div>
-        <p><a href="agents/SKILL.md">Read the Vox AI agent skill</a> for a compact integration guide.</p>
       </div>
     </section>
   </main>
@@ -748,10 +899,26 @@ curl -L http://localhost:8000/api/v1/jobs/{request_id}/audio \
       <div class="footer-links">
         <a href="https://github.com/MeloLabDev/codename-vox">GitHub</a>
         <a href="https://noelmom.github.io">Support</a>
-        <a class="coffee" href="https://buymeacoffee.com/noelmo">Coffee</a>
+        <a class="coffee" href="https://buymeacoffee.com/noelmo">☕ Buy me a coffee</a>
         <span>MIT License</span>
       </div>
     </div>
   </footer>
+  <script>
+    document.querySelectorAll("[data-copy]").forEach((button) => {
+      button.addEventListener("click", async () => {
+        const text = button.getAttribute("data-copy") || "";
+        const original = button.textContent;
+        try {
+          await navigator.clipboard.writeText(text);
+          button.textContent = button.classList.contains("copy-code") ? "Copied" : "✓";
+          window.setTimeout(() => { button.textContent = original; }, 1400);
+        } catch {
+          button.textContent = "Copy";
+          window.setTimeout(() => { button.textContent = original; }, 1400);
+        }
+      });
+    });
+  </script>
 </body>
 </html>
