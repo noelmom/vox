@@ -20,7 +20,7 @@
   <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:title" content="Vox Studio - Private Local AI Voice Generation for Mac" />
   <meta name="twitter:description" content="Private local AI voice generation for Apple Silicon Macs, with a REST API built for automations and AI agents." />
-  <meta name="theme-color" content="#0f8af2" />
+  <meta name="theme-color" content="#0f75ff" />
 
   <script type="application/ld+json">
     {
@@ -49,15 +49,17 @@
     :root {
       color-scheme: light;
       --ink: #071624;
-      --muted: #667383;
-      --soft: #eef8ff;
-      --line: #d9e4ee;
-      --brand: #0f75ff;
+      --muted: #687588;
+      --line: #dbe6f0;
+      --panel: rgba(255, 255, 255, 0.88);
+      --brand: #116fff;
       --brand-2: #00a69a;
-      --brand-3: #45b8ff;
+      --violet: #635bff;
       --warm: #f3b325;
-      --card: rgba(255, 255, 255, 0.86);
-      --shadow: 0 24px 70px rgba(21, 45, 74, 0.14);
+      --green: #1fa15a;
+      --soft-blue: #edf7ff;
+      --shadow: 0 18px 48px rgba(18, 45, 76, 0.11);
+      --shadow-strong: 0 30px 90px rgba(18, 45, 76, 0.17);
       font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     }
 
@@ -65,533 +67,571 @@
     html { scroll-behavior: smooth; }
     body {
       margin: 0;
+      min-height: 100vh;
       color: var(--ink);
       background:
-        linear-gradient(90deg, rgba(15, 117, 255, 0.045) 1px, transparent 1px),
-        linear-gradient(180deg, rgba(15, 117, 255, 0.045) 1px, transparent 1px),
-        linear-gradient(135deg, #fbfdff 0%, #eef8ff 42%, #ffffff 100%);
-      background-size: 44px 44px, 44px 44px, auto;
+        radial-gradient(circle at 82% 10%, rgba(0, 166, 154, 0.13), transparent 34rem),
+        radial-gradient(circle at 8% 4%, rgba(17, 111, 255, 0.12), transparent 30rem),
+        linear-gradient(180deg, #f7fcff 0%, #eef8ff 42%, #ffffff 100%);
     }
 
     a { color: inherit; text-decoration: none; }
     img { display: block; max-width: 100%; }
-    code { font-family: "SFMono-Regular", Consolas, monospace; }
-
+    code, pre { font-family: "SFMono-Regular", Consolas, ui-monospace, monospace; }
     .wrap { width: min(1220px, calc(100% - 40px)); margin: 0 auto; }
-    .nav {
+
+    .topbar {
       position: sticky;
       top: 0;
-      z-index: 10;
-      border-bottom: 1px solid rgba(217, 228, 238, 0.72);
+      z-index: 20;
+      border-bottom: 1px solid rgba(219, 230, 240, 0.86);
       background: rgba(255, 255, 255, 0.82);
       backdrop-filter: blur(18px);
     }
-    .nav-inner {
+    .topbar-inner {
       display: flex;
+      min-height: 74px;
       align-items: center;
       justify-content: space-between;
-      min-height: 76px;
-      gap: 24px;
+      gap: 20px;
     }
-    .logo { width: 152px; }
-    .nav-links { display: flex; align-items: center; gap: 26px; color: #526171; font-size: 14px; font-weight: 700; }
-    .nav-links a:hover { color: var(--ink); }
-    .nav-cta {
+    .brand { display: flex; align-items: center; gap: 18px; min-width: 0; }
+    .logo { width: 150px; }
+    .status-pills { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+    .pill {
       display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      min-height: 42px;
-      padding: 0 18px;
-      border-radius: 10px;
-      background: linear-gradient(135deg, var(--brand), var(--brand-2));
-      color: white;
-      box-shadow: 0 14px 26px rgba(15, 117, 255, 0.22);
-    }
-
-    .hero {
-      padding: 56px 0 30px;
-      min-height: calc(100vh - 76px);
-      display: flex;
-      align-items: center;
-    }
-    .hero-grid {
-      display: grid;
-      grid-template-columns: minmax(360px, 0.78fr) minmax(520px, 1.22fr);
-      gap: 42px;
-      align-items: center;
-    }
-    .hero-copy {
-      padding: 20px 0;
-    }
-    .eyebrow {
-      display: inline-flex;
+      min-height: 34px;
       align-items: center;
       gap: 8px;
-      padding: 8px 12px;
-      border: 1px solid rgba(15, 117, 255, 0.16);
-      border-radius: 999px;
-      background: rgba(255,255,255,0.9);
-      color: #1358b7;
+      border-radius: 10px;
+      border: 1px solid var(--line);
+      padding: 0 13px;
+      background: rgba(255, 255, 255, 0.86);
+      color: #526171;
       font-size: 13px;
-      font-weight: 800;
-      box-shadow: 0 10px 30px rgba(40, 80, 120, 0.08);
+      font-weight: 850;
+      box-shadow: 0 8px 22px rgba(18, 45, 76, 0.06);
     }
-    .pulse { width: 8px; height: 8px; border-radius: 50%; background: var(--brand-2); box-shadow: 0 0 0 5px rgba(0,166,154,.12); }
-    h1 {
-      margin: 22px 0 18px;
-      max-width: 760px;
-      font-size: clamp(48px, 6.2vw, 84px);
-      line-height: 0.91;
+    .pill.green { border-color: #cdebd8; background: #edf9f1; color: #176f3c; }
+    .pill.blue { border-color: #cfe2ff; background: #eff6ff; color: #116fff; }
+    .dot { width: 9px; height: 9px; border-radius: 999px; background: currentColor; }
+    .nav-links { display: flex; gap: 30px; align-items: center; color: #536274; font-size: 14px; font-weight: 800; }
+    .nav-links a { display: inline-flex; gap: 7px; align-items: center; }
+    .nav-links a:hover { color: var(--ink); }
+
+    .hero { padding: 42px 0 30px; }
+    .headline h1 {
+      margin: 0;
+      font-size: clamp(44px, 5vw, 72px);
+      line-height: 0.96;
       letter-spacing: 0;
     }
-    .lead {
-      margin: 0;
-      max-width: 640px;
-      color: #536272;
-      font-size: clamp(18px, 2vw, 21px);
+    .headline p {
+      margin: 16px 0 0;
+      max-width: 860px;
+      color: var(--muted);
+      font-size: clamp(18px, 1.7vw, 22px);
       line-height: 1.55;
     }
-    .hero-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-top: 30px; }
-    .button {
-      display: inline-flex;
-      min-height: 52px;
-      align-items: center;
-      justify-content: center;
-      gap: 9px;
-      border-radius: 12px;
-      padding: 0 22px;
-      font-size: 15px;
-      font-weight: 850;
-      border: 1px solid transparent;
-    }
-    .button.primary { background: linear-gradient(135deg, var(--brand), var(--brand-2)); color: #fff; box-shadow: 0 18px 36px rgba(15,117,255,.24); }
-    .button.secondary { background: rgba(255,255,255,.88); border-color: var(--line); color: #233242; }
-    .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 22px; }
-    .chip {
-      padding: 8px 10px;
-      border-radius: 999px;
-      background: rgba(255,255,255,.82);
-      border: 1px solid rgba(217,228,238,.85);
-      color: #536272;
-      font-size: 12px;
-      font-weight: 800;
-    }
-    .hero-stats {
+
+    .action-grid {
       display: grid;
       grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 10px;
+      gap: 18px;
       margin-top: 28px;
-      max-width: 590px;
     }
-    .stat {
-      min-height: 86px;
-      padding: 14px;
-      border: 1px solid rgba(217,228,238,.9);
-      border-radius: 16px;
-      background: rgba(255,255,255,.84);
-      box-shadow: 0 12px 30px rgba(21,45,74,.07);
+    .action-card {
+      min-height: 188px;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: var(--panel);
+      box-shadow: var(--shadow);
+      padding: 20px;
     }
-    .stat strong { display: block; font-size: 24px; line-height: 1; }
-    .stat span { display: block; margin-top: 7px; color: var(--muted); font-size: 12px; font-weight: 800; line-height: 1.35; }
+    .action-head { display: flex; gap: 16px; align-items: center; }
+    .bubble {
+      display: inline-flex;
+      width: 58px;
+      height: 58px;
+      flex: 0 0 auto;
+      align-items: center;
+      justify-content: center;
+      border-radius: 999px;
+      background: #e9f3ff;
+      color: var(--brand);
+      font-size: 26px;
+      font-weight: 950;
+    }
+    .bubble.green { background: #e9f8f1; color: var(--brand-2); }
+    .bubble.violet { background: #eeecff; color: var(--violet); }
+    .action-card h2 { margin: 0; font-size: 22px; line-height: 1.1; }
+    .action-card p { margin: 8px 0 0; color: var(--muted); font-size: 14px; line-height: 1.4; }
+    .action-button {
+      display: flex;
+      min-height: 48px;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      margin-top: 20px;
+      border-radius: 8px;
+      color: white;
+      font-size: 15px;
+      font-weight: 900;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.22), 0 14px 26px rgba(17, 111, 255, 0.17);
+    }
+    .action-button.blue { background: linear-gradient(135deg, var(--brand), #2e79ff); }
+    .action-button.green { background: linear-gradient(135deg, var(--brand-2), #008f84); }
+    .action-button.violet { background: linear-gradient(135deg, var(--violet), #5968d9); }
+    .route-chip {
+      margin-left: auto;
+      padding: 4px 9px;
+      border-radius: 7px;
+      background: rgba(255,255,255,.18);
+      color: rgba(255,255,255,.86);
+      font-family: "SFMono-Regular", Consolas, ui-monospace, monospace;
+      font-size: 13px;
+    }
 
-    .app-frame {
-      position: relative;
-      border-radius: 30px;
-      padding: 13px;
-      background:
-        linear-gradient(135deg, rgba(255,255,255,.98), rgba(236,248,255,.9)),
-        linear-gradient(135deg, rgba(15,117,255,.14), rgba(0,166,154,.12));
-      border: 1px solid rgba(185, 210, 230, 0.72);
-      box-shadow: 0 30px 90px rgba(17, 45, 80, 0.18);
-      overflow: hidden;
+    .content-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1.08fr) minmax(360px, .72fr);
+      gap: 18px;
+      align-items: start;
+      padding-bottom: 88px;
     }
-    .window-bar {
-      position: relative;
+    .stack { display: grid; gap: 18px; }
+    .panel {
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: rgba(255,255,255,.9);
+      box-shadow: var(--shadow);
+      padding: 22px;
+    }
+    .panel h2 {
       display: flex;
       align-items: center;
-      justify-content: space-between;
-      height: 38px;
-      padding: 0 12px;
-      color: #738296;
+      gap: 10px;
+      margin: 0;
+      font-size: 22px;
+      line-height: 1.1;
+    }
+    .panel-sub { margin: 10px 0 0; color: var(--muted); line-height: 1.5; }
+    .divider { height: 1px; background: var(--line); margin: 18px 0; }
+
+    .check-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 18px;
+    }
+    .check {
+      display: grid;
+      grid-template-columns: 34px minmax(0, 1fr);
+      gap: 12px;
+      align-items: start;
+    }
+    .check-icon {
+      display: inline-flex;
+      width: 30px;
+      height: 30px;
+      align-items: center;
+      justify-content: center;
+      border-radius: 999px;
+      background: var(--green);
+      color: white;
+      font-weight: 950;
+    }
+    .check strong { display: block; font-size: 15px; }
+    .check span { display: block; margin-top: 5px; color: var(--muted); font-size: 13px; line-height: 1.35; }
+
+    .tabs {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      margin: 22px 0;
+      color: #7c8796;
+      font-size: 14px;
+      font-weight: 850;
+    }
+    .tab {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--brand);
+    }
+    .tab-num {
+      display: inline-flex;
+      width: 30px;
+      height: 30px;
+      align-items: center;
+      justify-content: center;
+      border-radius: 999px;
+      border: 2px solid #d6e1ed;
+      background: white;
+      color: #91a0b2;
+      font-weight: 950;
+    }
+    .tab.active .tab-num {
+      border-color: var(--brand);
+      background: var(--brand);
+      color: white;
+    }
+    .tab-line { flex: 1; max-width: 105px; height: 2px; background: #dce6f0; }
+    .code-card {
+      position: relative;
+      margin-top: 14px;
+      overflow: hidden;
+      border: 1px solid #dce6f0;
+      border-radius: 12px;
+      background: #f8fbff;
+    }
+    pre {
+      margin: 0;
+      padding: 18px 20px;
+      color: #202b38;
+      font-size: 13px;
+      line-height: 1.75;
+      overflow-x: auto;
+    }
+    .copy-btn {
+      position: absolute;
+      right: 12px;
+      top: 12px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: white;
+      color: #536274;
+      padding: 7px 10px;
       font-size: 12px;
       font-weight: 850;
     }
-    .traffic { display: flex; gap: 7px; }
-    .traffic span { width: 10px; height: 10px; border-radius: 999px; background: #d7e2ed; }
-    .traffic span:nth-child(1) { background: #ff6b66; }
-    .traffic span:nth-child(2) { background: #ffc84d; }
-    .traffic span:nth-child(3) { background: #31cf73; }
-    .window-title {
-      display: inline-flex;
-      align-items: center;
-      gap: 7px;
-      padding: 6px 10px;
-      border-radius: 999px;
-      background: rgba(255,255,255,.76);
-      border: 1px solid rgba(217,228,238,.8);
+    .api-foot {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 28px;
+      margin-top: 16px;
+      color: var(--brand);
+      font-size: 14px;
+      font-weight: 900;
     }
-    .screenshot {
-      position: relative;
-      border-radius: 20px;
-      border: 1px solid rgba(185,210,230,.74);
-      overflow: hidden;
-      background: #f7fbff;
-    }
-    .download-card {
-      position: absolute;
-      right: 26px;
-      bottom: 26px;
-      width: min(380px, calc(100% - 52px));
-      padding: 18px;
-      border-radius: 20px;
-      border: 1px solid rgba(217,228,238,.92);
-      background: rgba(255,255,255,.92);
-      box-shadow: 0 18px 42px rgba(18, 48, 86, 0.14);
-      backdrop-filter: blur(14px);
-    }
-    .download-card::before {
-      content: "Recommended";
-      display: inline-flex;
-      margin-bottom: 12px;
-      padding: 5px 9px;
-      border-radius: 999px;
-      background: linear-gradient(135deg, rgba(15,117,255,.11), rgba(0,166,154,.11));
-      color: #1164cf;
-      font-size: 11px;
-      font-weight: 950;
-      text-transform: uppercase;
-      letter-spacing: .08em;
-    }
-    .pkg-row { display: flex; gap: 12px; align-items: center; }
-    .pkg-icon { width: 52px; height: 52px; border-radius: 12px; box-shadow: 0 10px 20px rgba(21,45,74,.10); }
-    .pkg-title { font-size: 15px; font-weight: 900; }
-    .pkg-meta { margin-top: 2px; color: var(--muted); font-size: 12px; font-weight: 700; }
-    .hash { margin-top: 12px; padding: 10px; border-radius: 10px; background: #f3f7fb; color: #536272; font-size: 11px; overflow-wrap: anywhere; }
-    .install-note {
+
+    .screenshot-panel { overflow: hidden; padding: 0; }
+    .shot-top {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      gap: 10px;
-      margin-top: 12px;
-      padding-top: 12px;
-      border-top: 1px solid rgba(217,228,238,.85);
-      color: #667383;
-      font-size: 12px;
-      font-weight: 800;
+      gap: 14px;
+      padding: 16px 18px;
+      border-bottom: 1px solid var(--line);
+    }
+    .shot-window {
+      margin: 16px;
+      overflow: hidden;
+      border: 1px solid #cfe0ef;
+      border-radius: 14px;
+      background: #f7fbff;
+      box-shadow: 0 20px 45px rgba(18,45,76,.1);
     }
 
-    section { padding: 72px 0; }
-    .section-head { max-width: 760px; margin-bottom: 28px; }
-    .section-kicker { color: var(--brand); font-size: 13px; font-weight: 900; text-transform: uppercase; letter-spacing: .12em; }
-    h2 { margin: 10px 0 12px; font-size: clamp(32px, 4vw, 52px); line-height: 1; letter-spacing: 0; }
-    .section-copy { margin: 0; color: var(--muted); font-size: 17px; line-height: 1.6; }
-    .feature-band {
-      margin-top: -10px;
-      padding-top: 42px;
+    .file-list, .trouble-list {
+      margin-top: 16px;
+      border: 1px solid var(--line);
+      border-radius: 13px;
+      overflow: hidden;
     }
-    .cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; }
-    .card {
-      min-height: 245px;
-      padding: 26px;
-      border: 1px solid rgba(217,228,238,.9);
-      border-radius: 22px;
-      background:
-        linear-gradient(180deg, rgba(255,255,255,.96), rgba(250,253,255,.86));
-      box-shadow: 0 18px 42px rgba(21,45,74,.08);
+    .file-row, .trouble-row {
+      display: grid;
+      grid-template-columns: 34px minmax(0, 1fr) auto;
+      gap: 12px;
+      align-items: center;
+      min-height: 58px;
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--line);
+      background: rgba(255,255,255,.76);
     }
-    .icon {
+    .file-row:last-child, .trouble-row:last-child { border-bottom: 0; }
+    .file-icon {
       display: inline-flex;
-      width: 46px;
-      height: 46px;
+      width: 28px;
+      height: 28px;
       align-items: center;
       justify-content: center;
-      border-radius: 14px;
-      color: white;
-      background: linear-gradient(135deg, var(--brand), var(--brand-2));
-      font-weight: 900;
+      border-radius: 7px;
+      border: 2px solid #1c2938;
+      color: #1c2938;
+      font-size: 12px;
+      font-weight: 950;
     }
-    .card h3 { margin: 18px 0 10px; font-size: 20px; }
-    .card p { margin: 0; color: var(--muted); line-height: 1.58; }
-    .card ul {
-      margin: 18px 0 0;
-      padding: 0;
-      list-style: none;
-      display: grid;
-      gap: 8px;
-      color: #425063;
-      font-size: 13px;
-      font-weight: 800;
+    .file-row strong, .trouble-row strong { display: block; font-size: 14px; }
+    .file-row span, .trouble-row span { display: block; margin-top: 2px; color: var(--muted); font-size: 12px; }
+    .small-btn {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: white;
+      padding: 7px 10px;
+      color: #536274;
+      font-size: 12px;
+      font-weight: 850;
     }
-    .card li::before {
-      content: "✓";
+    .trouble-icon {
+      display: inline-flex;
+      width: 34px;
+      height: 34px;
+      align-items: center;
+      justify-content: center;
+      border-radius: 999px;
+      background: #e9f8f1;
       color: var(--brand-2);
-      margin-right: 7px;
+      font-size: 18px;
       font-weight: 950;
     }
 
-    .agent-panel {
-      display: grid;
-      grid-template-columns: minmax(0, .95fr) minmax(360px, 1.05fr);
-      gap: 24px;
-      align-items: stretch;
-      border-radius: 28px;
-      padding: 30px;
-      background:
-        linear-gradient(135deg, #071624 0%, #0b2235 56%, #052d2c 100%);
-      color: white;
-      box-shadow: var(--shadow);
+    .bottom-bar {
+      position: sticky;
+      bottom: 0;
+      border-top: 1px solid rgba(219, 230, 240, 0.92);
+      background: rgba(255,255,255,.86);
+      backdrop-filter: blur(18px);
     }
-    .agent-panel p { color: rgba(255,255,255,.68); }
-    .code {
-      margin: 0;
-      padding: 20px;
-      border-radius: 16px;
-      background: #06101b;
-      border: 1px solid rgba(255,255,255,.08);
-      color: #d8efff;
-      overflow-x: auto;
-      font-size: 12px;
-      line-height: 1.75;
-    }
-    .agent-links { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 22px; }
-    .agent-links a { border-color: rgba(255,255,255,.16); background: rgba(255,255,255,.08); color: white; }
-    .agent-points {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 10px;
-      margin-top: 22px;
-    }
-    .agent-point {
-      border: 1px solid rgba(255,255,255,.1);
-      border-radius: 14px;
-      padding: 12px;
-      background: rgba(255,255,255,.055);
-      color: rgba(255,255,255,.78);
+    .bottom-inner {
+      display: flex;
+      min-height: 58px;
+      align-items: center;
+      justify-content: space-between;
+      gap: 18px;
+      color: #667383;
       font-size: 13px;
       font-weight: 800;
     }
+    .bottom-left, .bottom-right { display: flex; flex-wrap: wrap; gap: 20px; align-items: center; }
+    .status { display: inline-flex; gap: 8px; align-items: center; }
+    .green-dot { width: 9px; height: 9px; border-radius: 999px; background: var(--green); }
+    .coffee { color: #b87900; }
 
-    .faq { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
-    details {
-      border: 1px solid rgba(217,228,238,.9);
-      border-radius: 18px;
-      background: rgba(255,255,255,.86);
-      padding: 20px 22px;
-      box-shadow: 0 10px 26px rgba(21,45,74,.055);
-    }
-    summary { cursor: pointer; font-weight: 900; }
-    details p { margin: 12px 0 0; color: var(--muted); line-height: 1.55; }
-
-    footer {
-      padding: 42px 0;
-      border-top: 1px solid var(--line);
-      color: #607080;
-      background: rgba(255,255,255,.72);
-    }
-    .footer-inner { display: flex; align-items: center; justify-content: space-between; gap: 18px; flex-wrap: wrap; }
-    .footer-links { display: flex; gap: 18px; align-items: center; flex-wrap: wrap; font-size: 14px; font-weight: 800; }
-    .coffee { color: #c58a00; }
-
-    @media (max-width: 920px) {
+    @media (max-width: 980px) {
+      .topbar-inner { align-items: flex-start; flex-direction: column; padding: 14px 0; }
+      .brand { align-items: flex-start; flex-direction: column; gap: 10px; }
       .nav-links { display: none; }
-      .hero-grid, .agent-panel { grid-template-columns: 1fr; }
-      .cards, .faq, .hero-stats, .agent-points { grid-template-columns: 1fr; }
-      .download-card { position: static; width: auto; margin-top: 12px; }
-      .hero { padding-top: 42px; }
+      .action-grid, .content-grid, .check-grid { grid-template-columns: 1fr; }
+      .tabs { align-items: flex-start; flex-direction: column; }
+      .tab-line { display: none; }
+      .bottom-inner { align-items: flex-start; flex-direction: column; padding: 14px 0; }
     }
   </style>
 </head>
 <body>
-  <nav class="nav" aria-label="Primary navigation">
-    <div class="wrap nav-inner">
-      <a href="#top" aria-label="Vox Studio home"><img class="logo" src="assets/vox-logo-v2.png" alt="VOX studio" /></a>
-      <div class="nav-links">
-        <a href="#features">Features</a>
-        <a href="#agents">AI Agents</a>
-        <a href="#install">Install</a>
-        <a href="#faq">FAQ</a>
-        <a href="https://github.com/MeloLabDev/codename-vox">GitHub</a>
-        <a class="nav-cta" href="https://github.com/MeloLabDev/codename-vox/releases/download/v1.0.0-rc3/Vox-1.0.0-rc3.pkg">Download</a>
+  <header class="topbar">
+    <div class="wrap topbar-inner">
+      <div class="brand">
+        <a href="#top" aria-label="Vox Studio home"><img class="logo" src="assets/vox-logo-v2.png" alt="VOX studio" /></a>
+        <div class="status-pills" aria-label="Project status">
+          <span class="pill green"><span class="dot"></span> Local-first app</span>
+          <span class="pill blue">v1.0.0-rc3 <span aria-hidden="true">·</span> Apple Silicon</span>
+        </div>
       </div>
+      <nav class="nav-links" aria-label="Primary navigation">
+        <a href="#api">Docs</a>
+        <a href="https://noelmom.github.io">Help</a>
+        <a href="https://github.com/MeloLabDev/codename-vox">GitHub</a>
+      </nav>
     </div>
-  </nav>
+  </header>
 
   <main id="top">
     <section class="hero">
-      <div class="wrap hero-grid">
-        <div class="hero-copy">
-          <div class="eyebrow"><span class="pulse"></span> Local AI voice generation for Mac</div>
-          <h1>Private voice generation on your Mac.</h1>
-          <p class="lead">
-            Vox Studio creates natural MP3 and WAV voice clips locally on Apple Silicon, with a polished studio UI and a REST API that AI agents can call after install.
-          </p>
-          <div class="hero-actions">
-            <a class="button primary" href="https://github.com/MeloLabDev/codename-vox/releases/download/v1.0.0-rc3/Vox-1.0.0-rc3.pkg">Download for macOS</a>
-            <a class="button secondary" href="https://github.com/MeloLabDev/codename-vox">View source on GitHub</a>
-          </div>
-          <div class="chips" aria-label="Requirements and product traits">
-            <span class="chip">Apple Silicon</span>
-            <span class="chip">macOS</span>
-            <span class="chip">Homebrew required</span>
-            <span class="chip">Local REST API</span>
-            <span class="chip">No accounts</span>
-          </div>
-          <div class="hero-stats" aria-label="Vox highlights">
-            <div class="stat">
-              <strong>Local</strong>
-              <span>Scripts and voice profiles stay on your Mac</span>
-            </div>
-            <div class="stat">
-              <strong>REST</strong>
-              <span>Simple API for agents and automations</span>
-            </div>
-            <div class="stat">
-              <strong>MP3/WAV</strong>
-              <span>Ready for videos, podcasts, and tools</span>
-            </div>
-          </div>
+      <div class="wrap">
+        <div class="headline">
+          <h1>Private AI voice generation for Mac.</h1>
+          <p>Your local voice studio for creating natural MP3 and WAV clips, with a REST API that AI agents and automations can call after install.</p>
         </div>
 
-        <div class="app-frame" aria-label="Vox Studio application screenshot and package download card">
-          <div class="window-bar" aria-hidden="true">
-            <div class="traffic"><span></span><span></span><span></span></div>
-            <div class="window-title"><span class="pulse"></span> Running locally</div>
-          </div>
-          <div class="screenshot">
-            <img src="assets/studio-screenshot.png" alt="Vox Studio app showing script generation, voice controls, and local generation progress" />
-          </div>
-          <div class="download-card" id="install">
-            <div class="pkg-row">
-              <img class="pkg-icon" src="assets/vox-installer-icon.png" alt="" aria-hidden="true" />
+        <div class="action-grid" id="install">
+          <article class="action-card">
+            <div class="action-head">
+              <div class="bubble">▥</div>
               <div>
-                <div class="pkg-title">Vox-1.0.0-rc3.pkg</div>
-                <div class="pkg-meta">8.8 MB · signed, notarized, stapled</div>
+                <h2>Download Vox Studio</h2>
+                <p>Signed, notarized package for Apple Silicon Macs.</p>
               </div>
             </div>
-            <div class="hash"><strong>SHA256</strong><br />d120bcfbae366810c8c7d763fddab72d792f4ac72c19a6192eabe11667c65c79</div>
-            <div class="install-note">
-              <span>Homebrew required</span>
-              <span>Apple Silicon</span>
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
+            <a class="action-button blue" href="https://github.com/MeloLabDev/codename-vox/releases/download/v1.0.0-rc3/Vox-1.0.0-rc3.pkg">
+              Download .pkg <span class="route-chip">8.8 MB</span>
+            </a>
+          </article>
 
-    <section id="features" class="feature-band">
-      <div class="wrap">
-        <div class="section-head">
-          <div class="section-kicker">Why Vox</div>
-          <h2>Local voice generation without cloud ceremony.</h2>
-          <p class="section-copy">Vox is built for creators, developers, and automation-heavy workflows that need speech output without uploading every script to a hosted service.</p>
-        </div>
-        <div class="cards">
-          <article class="card">
-            <span class="icon">P</span>
-            <h3>Private by default</h3>
-            <p>Your scripts, voice profiles, and generated audio live on your Mac. Vox runs as a local service with no account system or telemetry pipeline.</p>
-            <ul>
-              <li>Local files</li>
-              <li>No cloud account</li>
-              <li>No usage dashboard</li>
-            </ul>
+          <article class="action-card">
+            <div class="action-head">
+              <div class="bubble green">▣</div>
+              <div>
+                <h2>AI Agent Skill</h2>
+                <p>Give Codex and local tools a simple voice-generation API.</p>
+              </div>
+            </div>
+            <a class="action-button green" href="agents/SKILL.md">
+              Read SKILL.md <span class="route-chip">agents</span>
+            </a>
           </article>
-          <article class="card">
-            <span class="icon">M</span>
-            <h3>Made for Mac</h3>
-            <p>The one-click package installs the native helper, local server, demo voice profile, and runtime files under standard macOS locations.</p>
-            <ul>
-              <li>Menu bar helper</li>
-              <li>Signed package</li>
-              <li>Local welcome page</li>
-            </ul>
-          </article>
-          <article class="card">
-            <span class="icon">A</span>
-            <h3>Agent-ready API</h3>
-            <p>After install, AI agents and scripts can submit text, choose a voice profile, poll async jobs, and download generated MP3 or WAV output.</p>
-            <ul>
-              <li>Async jobs</li>
-              <li>Voice profiles</li>
-              <li>Curl-friendly</li>
-            </ul>
+
+          <article class="action-card">
+            <div class="action-head">
+              <div class="bubble violet">▤</div>
+              <div>
+                <h2>View Source</h2>
+                <p>Review the app, API, packaging scripts, and release flow.</p>
+              </div>
+            </div>
+            <a class="action-button violet" href="https://github.com/MeloLabDev/codename-vox">
+              Open GitHub <span class="route-chip">repo</span>
+            </a>
           </article>
         </div>
       </div>
     </section>
 
-    <section id="agents">
-      <div class="wrap">
-        <div class="agent-panel">
-          <div>
-            <div class="section-kicker">For AI agents</div>
-            <h2>Give agents a local voice tool.</h2>
-            <p class="section-copy">
-              Vox exposes a local REST API at <code>http://localhost:8000</code> after installation. That makes it simple for Codex, local automations, shell scripts, and other agents to create speech clips without a cloud TTS account.
-            </p>
-            <div class="agent-points" aria-label="Agent integration capabilities">
-              <div class="agent-point">Check readiness with /health</div>
-              <div class="agent-point">Submit scripts as async jobs</div>
-              <div class="agent-point">Reuse named voice profiles</div>
-              <div class="agent-point">Download finished MP3/WAV files</div>
+    <section>
+      <div class="wrap content-grid">
+        <div class="stack">
+          <section class="panel">
+            <h2>Setup checklist</h2>
+            <div class="divider"></div>
+            <div class="check-grid">
+              <div class="check">
+                <span class="check-icon">✓</span>
+                <div><strong>Apple Silicon</strong><span>M1 or later Mac recommended.</span></div>
+              </div>
+              <div class="check">
+                <span class="check-icon">✓</span>
+                <div><strong>Homebrew required</strong><span>Installer uses Homebrew dependencies.</span></div>
+              </div>
+              <div class="check">
+                <span class="check-icon">✓</span>
+                <div><strong>Demo voice ready</strong><span>Includes a starter profile.</span></div>
+              </div>
+              <div class="check">
+                <span class="check-icon">✓</span>
+                <div><strong>Local API</strong><span>Runs on localhost after install.</span></div>
+              </div>
             </div>
-            <div class="agent-links">
-              <a class="button secondary" href="agents/SKILL.md">Read the agent skill</a>
-              <a class="button secondary" href="https://github.com/MeloLabDev/codename-vox">View API source</a>
+          </section>
+
+          <section class="panel" id="api">
+            <h2>Quick API test</h2>
+            <p class="panel-sub">Generate a short clip using the local API in three simple steps once Vox is installed and running.</p>
+            <div class="tabs" aria-label="API steps">
+              <span class="tab active"><span class="tab-num">1</span> Generate</span>
+              <span class="tab-line"></span>
+              <span class="tab"><span class="tab-num">2</span> Poll job</span>
+              <span class="tab-line"></span>
+              <span class="tab"><span class="tab-num">3</span> Download audio</span>
             </div>
-          </div>
-          <pre class="code"><code>curl -X POST http://localhost:8000/api/v1/tts \
-  -F "text=Hello from a local AI agent." \
+            <strong>Step 1: Generate</strong>
+            <p class="panel-sub">Create a generation job from a local script.</p>
+            <div class="code-card">
+              <button class="copy-btn" type="button">Copy</button>
+              <pre><code>curl -X POST http://localhost:8000/api/v1/tts \
+  -F "text=Hello from Vox Studio." \
   -F "voice_name=noelmo-normal" \
   -F "preset=default"
 
-# Poll the returned request_id:
 curl http://localhost:8000/api/v1/jobs/{request_id}
 
-# Download completed audio:
 curl -L http://localhost:8000/api/v1/jobs/{request_id}/audio \
   --output voice.mp3</code></pre>
-        </div>
-      </div>
-    </section>
+            </div>
+            <div class="api-foot">
+              <a href="agents/SKILL.md">View agent skill →</a>
+              <a href="https://github.com/MeloLabDev/codename-vox">Review API source →</a>
+            </div>
+          </section>
 
-    <section id="faq">
-      <div class="wrap">
-        <div class="section-head">
-          <div class="section-kicker">FAQ</div>
-          <h2>Good questions before you install.</h2>
+          <section class="panel screenshot-panel">
+            <div class="shot-top">
+              <h2>Studio UI</h2>
+              <span class="pill blue">Create · Library · Recordings</span>
+            </div>
+            <div class="shot-window">
+              <img src="assets/studio-screenshot.png" alt="Vox Studio app showing script generation, voice controls, and local generation progress" />
+            </div>
+          </section>
         </div>
-        <div class="faq">
-          <details open>
-            <summary>Does Vox run locally?</summary>
-            <p>Yes. Vox runs a local server and web studio on your Mac. The app opens from localhost after install.</p>
-          </details>
-          <details>
-            <summary>Can AI agents use Vox?</summary>
-            <p>Yes. Agents can call the local REST API to generate audio, poll job status, and download MP3 or WAV files.</p>
-          </details>
-          <details>
-            <summary>Does Vox require Homebrew?</summary>
-            <p>Yes for the current one-click installer path. Homebrew provides system dependencies such as Python 3.11 and ffmpeg.</p>
-          </details>
-          <details>
-            <summary>Where are API docs?</summary>
-            <p>After installing and starting Vox, open <code>http://localhost:8000/docs</code> on the same Mac.</p>
-          </details>
-        </div>
+
+        <aside class="stack">
+          <section class="panel">
+            <h2>Where files live</h2>
+            <p class="panel-sub">Vox stores runtime data locally on your Mac after install.</p>
+            <div class="file-list">
+              <div class="file-row">
+                <span class="file-icon">F</span>
+                <div><strong>Application Support</strong><span>~/Library/Application Support/Vox</span></div>
+                <span class="small-btn">Local</span>
+              </div>
+              <div class="file-row">
+                <span class="file-icon">V</span>
+                <div><strong>Voices</strong><span>~/Library/Application Support/Vox/voices</span></div>
+                <span class="small-btn">Profiles</span>
+              </div>
+              <div class="file-row">
+                <span class="file-icon">O</span>
+                <div><strong>Outputs</strong><span>~/Library/Application Support/Vox/outputs</span></div>
+                <span class="small-btn">Audio</span>
+              </div>
+              <div class="file-row">
+                <span class="file-icon">L</span>
+                <div><strong>Logs</strong><span>~/Library/Logs/Vox</span></div>
+                <span class="small-btn">Debug</span>
+              </div>
+            </div>
+          </section>
+
+          <section class="panel">
+            <h2>Install package</h2>
+            <p class="panel-sub">Current public release candidate.</p>
+            <div class="file-list">
+              <div class="file-row">
+                <img src="assets/vox-installer-icon.png" alt="" width="34" height="34" />
+                <div><strong>Vox-1.0.0-rc3.pkg</strong><span>8.8 MB · signed, notarized, stapled</span></div>
+                <span class="small-btn">RC3</span>
+              </div>
+            </div>
+            <p class="panel-sub"><strong>SHA256</strong><br />d120bcfbae366810c8c7d763fddab72d792f4ac72c19a6192eabe11667c65c79</p>
+          </section>
+
+          <section class="panel">
+            <h2>Troubleshooting</h2>
+            <div class="trouble-list">
+              <div class="trouble-row">
+                <span class="trouble-icon">↻</span>
+                <div><strong>Restart from menu bar</strong><span>Use Vox Helper to restart the local server.</span></div>
+                <span>›</span>
+              </div>
+              <div class="trouble-row">
+                <span class="trouble-icon">K</span>
+                <div><strong>Add HF_TOKEN</strong><span>Optional token improves model downloads.</span></div>
+                <span>›</span>
+              </div>
+              <div class="trouble-row">
+                <span class="trouble-icon">D</span>
+                <div><strong>Open local docs</strong><span>After install: http://localhost:8000/docs</span></div>
+                <span>›</span>
+              </div>
+            </div>
+          </section>
+        </aside>
       </div>
     </section>
   </main>
 
-  <footer>
-    <div class="wrap footer-inner">
-      <img class="logo" src="assets/vox-logo-v2.png" alt="VOX studio" />
-      <div class="footer-links">
-        <a href="https://github.com/MeloLabDev/codename-vox">GitHub</a>
-        <a href="https://noelmom.github.io">Support</a>
-        <a class="coffee" href="https://buymeacoffee.com/noelmo">☕ Buy me a Coffee</a>
+  <footer class="bottom-bar">
+    <div class="wrap bottom-inner">
+      <div class="bottom-left">
+        <span class="status"><span class="green-dot"></span> Private local generation</span>
+        <span class="status"><span class="green-dot"></span> API after install</span>
+        <span class="status">Voices stay on your Mac</span>
       </div>
-      <div>© 2026 Vox Studio · MIT License</div>
+      <div class="bottom-right">
+        <a href="https://noelmom.github.io">Support</a>
+        <a class="coffee" href="https://buymeacoffee.com/noelmo">Coffee</a>
+        <span>MIT License</span>
+      </div>
     </div>
   </footer>
 </body>
