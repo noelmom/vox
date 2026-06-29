@@ -111,7 +111,7 @@ cleanup_pid() {
 trap cleanup_pid EXIT
 
 cd "$APP_SUPPORT"
-exec "$VENV/bin/uvicorn" api.main:app --host "$HOST" --port "$PORT"
+exec "$VENV/bin/uvicorn" api.main:app --host "$HOST" --port "$PORT" --no-access-log
 RUNSCRIPT
 chmod +x "$APP_SUPPORT/scripts/run.sh"
 

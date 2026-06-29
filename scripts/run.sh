@@ -50,4 +50,4 @@ echo "[vox] Serving from: $ROOT"
 echo ""
 
 cd "$ROOT"
-exec "$VENV/bin/uvicorn" api.main:app --host "$HOST" --port "$PORT" --reload
+exec "$VENV/bin/uvicorn" api.main:app --host "$HOST" --port "$PORT" --reload --no-access-log
