@@ -589,6 +589,16 @@ function GeneratePage() {
     }
   };
 
+  const handleDeleteCurrentResult = async () => {
+    if (!genResult) return;
+    await deleteJob(genResult.job.request_id).catch(() => {});
+    if (genResult.url.startsWith("blob:")) URL.revokeObjectURL(genResult.url);
+    setGenState({ phase: "idle" });
+    setGenerationState({ phase: "idle" });
+    localStorage.removeItem(LAST_REQUEST_KEY);
+    queryClient.invalidateQueries({ queryKey: ["jobs"] });
+  };
+
   const genResult = genState.phase === "done" ? genState.result : null;
 
   const sortedJobs = useMemo(() => {
@@ -824,7 +834,7 @@ function GeneratePage() {
                 {script.length.toLocaleString()} / {max.toLocaleString()} characters
               </span>
               <span className="inline-flex items-center gap-1">
-                Est. {Math.max(0, Math.round(script.length / 14))} sec
+                Est. {formatEstimateDuration(Math.max(0, Math.round(script.length / 14)))}
                 <InfoTip text="Rough estimate of audio length based on ~14 characters per second of speech. Actual duration varies with tone, pace, and pauses in the final render." />
               </span>
             </div>
@@ -898,6 +908,7 @@ function GeneratePage() {
                 activePlayerId={activePlayerId}
                 onActivate={setActivePlayerId}
                 onRegenerate={handleGenerate}
+                onDelete={handleDeleteCurrentResult}
               />
             ) : (
               <EmptyOutputState />
@@ -1764,6 +1775,15 @@ function fmtTime(s: number) {
   const m = Math.floor(s / 60);
   const r = Math.floor(s % 60);
   return `${m}:${r.toString().padStart(2, "0")}`;
+}
+
+function formatEstimateDuration(seconds: number) {
+  if (seconds < 60) return `${seconds} sec`;
+  const minutes = Math.floor(seconds / 60);
+  const remainder = seconds % 60;
+  return remainder === 0
+    ? `${minutes} min`
+    : `${minutes} min ${remainder.toString().padStart(2, "0")} sec`;
 }
 
 const GENERATION_STEPS = [
