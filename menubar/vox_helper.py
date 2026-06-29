@@ -4,6 +4,7 @@ Vox menu bar helper.
 Controls the Vox server LaunchAgent and shows live CPU / RAM stats.
 """
 import fcntl
+import json
 import os
 import socket
 import subprocess

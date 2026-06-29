@@ -18,11 +18,6 @@ class JobOut(BaseModel):
     voice_name: str | None = None
     device: str | None = None
     user_agent: str | None = None
-    queue_position: int | None = None
-    progress_current: int | None = None
-    progress_total: int | None = None
-    progress_pct: float | None = None
-    progress_message: str | None = None
     created_at: str
     completed_at: str | None
     file_available: bool = False

@@ -103,10 +103,6 @@ async def _migrate(db: aiosqlite.Connection):
         ("deleted_at",   "ALTER TABLE voices ADD COLUMN deleted_at TEXT"),
         ("device",       "ALTER TABLE jobs ADD COLUMN device TEXT"),
         ("user_agent",   "ALTER TABLE jobs ADD COLUMN user_agent TEXT"),
-        ("progress_current", "ALTER TABLE jobs ADD COLUMN progress_current INTEGER"),
-        ("progress_total",   "ALTER TABLE jobs ADD COLUMN progress_total INTEGER"),
-        ("progress_pct",     "ALTER TABLE jobs ADD COLUMN progress_pct REAL"),
-        ("progress_message", "ALTER TABLE jobs ADD COLUMN progress_message TEXT"),
     ]:
         try:
             await db.execute(ddl)
