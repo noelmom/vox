@@ -250,6 +250,32 @@ function readScriptDraft(): string {
   }
 }
 
+function capitalizeSentenceStarts(text: string): string {
+  let shouldCapitalize = true;
+  let result = "";
+  const neutralBeforeWord = /[\s"'“”‘’([{]/;
+
+  for (const char of text) {
+    if (shouldCapitalize && /[A-Za-z]/.test(char)) {
+      result += char.toUpperCase();
+      shouldCapitalize = false;
+      continue;
+    }
+
+    result += char;
+
+    if (/[.!?]/.test(char)) {
+      shouldCapitalize = true;
+    } else if (char === "\n") {
+      shouldCapitalize = true;
+    } else if (!neutralBeforeWord.test(char)) {
+      shouldCapitalize = false;
+    }
+  }
+
+  return result;
+}
+
 function GeneratePage() {
   const [script, setScript] = useState(readScriptDraft);
   const importInputRef = useRef<HTMLInputElement>(null);
@@ -852,7 +878,7 @@ function GeneratePage() {
                   const file = e.target.files?.[0];
                   if (!file) return;
                   const text = await file.text();
-                  setScript(text.slice(0, max));
+                  setScript(capitalizeSentenceStarts(text.slice(0, max)));
                   e.currentTarget.value = "";
                 }}
               />
@@ -880,7 +906,7 @@ function GeneratePage() {
               name="script"
               aria-label="Script"
               value={script}
-              onChange={(e) => setScript(e.target.value.slice(0, max))}
+              onChange={(e) => setScript(capitalizeSentenceStarts(e.target.value.slice(0, max)))}
               onClick={(e) => { if (script === SAMPLE_SCRIPT) (e.target as HTMLTextAreaElement).select(); }}
               placeholder="Type or paste your script..."
               spellCheck={true}
