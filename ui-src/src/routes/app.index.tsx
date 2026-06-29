@@ -276,9 +276,18 @@ function capitalizeSentenceStarts(text: string): string {
   return result;
 }
 
+function shouldCapitalizeInsertedCharacter(textBeforeCursor: string): boolean {
+  if (/\n[\s"'“”‘’([{]*$/.test(textBeforeCursor)) return true;
+  const trimmedBefore = textBeforeCursor.replace(/[\s"'“”‘’([{]+$/g, "");
+  return trimmedBefore.length === 0 || /[.!?]$/.test(trimmedBefore);
+}
+
 function GeneratePage() {
   const [script, setScript] = useState(readScriptDraft);
   const importInputRef = useRef<HTMLInputElement>(null);
+  const scriptTextareaRef = useRef<HTMLTextAreaElement>(null);
+  const autoCapitalizedPositionsRef = useRef<Set<number>>(new Set());
+  const suppressedAutoCapPositionsRef = useRef<Set<number>>(new Set());
   const [tone, setTone] = useLocalStorage("vox:tone", "Default");
   const [format, setFormat] = useLocalStorage<"mp3" | "wav">("vox:format", "mp3");
   const [mp3Quality, setMp3Quality] = useLocalStorage("vox:mp3Quality", "128");
@@ -399,6 +408,49 @@ function GeneratePage() {
   }, []);
 
   const max = 3000;
+
+  const handleScriptChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const textarea = e.target;
+    const nextRaw = textarea.value.slice(0, max);
+    const cursor = Math.min(textarea.selectionStart ?? nextRaw.length, nextRaw.length);
+
+    if (nextRaw.length === script.length + 1 && cursor > 0) {
+      const inserted = nextRaw[cursor - 1];
+      if (
+        /[a-z]/.test(inserted) &&
+        !suppressedAutoCapPositionsRef.current.has(cursor - 1) &&
+        shouldCapitalizeInsertedCharacter(nextRaw.slice(0, cursor - 1))
+      ) {
+        const next = `${nextRaw.slice(0, cursor - 1)}${inserted.toUpperCase()}${nextRaw.slice(cursor)}`;
+        autoCapitalizedPositionsRef.current.add(cursor - 1);
+        setScript(next);
+        window.requestAnimationFrame(() => {
+          scriptTextareaRef.current?.setSelectionRange(cursor, cursor);
+        });
+        return;
+      }
+    }
+
+    setScript(nextRaw);
+  }, [max, script.length]);
+
+  const handleScriptKeyDown = useCallback((e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    const textarea = e.currentTarget;
+    const start = textarea.selectionStart ?? 0;
+    const end = textarea.selectionEnd ?? start;
+
+    if (start !== end) return;
+
+    const deletedPosition =
+      e.key === "Backspace" ? start - 1 :
+      e.key === "Delete" ? start :
+      -1;
+
+    if (deletedPosition >= 0 && autoCapitalizedPositionsRef.current.has(deletedPosition)) {
+      autoCapitalizedPositionsRef.current.delete(deletedPosition);
+      suppressedAutoCapPositionsRef.current.add(deletedPosition);
+    }
+  }, []);
 
   // Values the sliders should compare against for the "Modified" badge
   const baseAdvanced = useMemo(() => {
@@ -903,10 +955,12 @@ function GeneratePage() {
 
           <div className="mt-4">
             <textarea
+              ref={scriptTextareaRef}
               name="script"
               aria-label="Script"
               value={script}
-              onChange={(e) => setScript(capitalizeSentenceStarts(e.target.value.slice(0, max)))}
+              onChange={handleScriptChange}
+              onKeyDown={handleScriptKeyDown}
               onClick={(e) => { if (script === SAMPLE_SCRIPT) (e.target as HTMLTextAreaElement).select(); }}
               placeholder="Type or paste your script..."
               spellCheck={true}
