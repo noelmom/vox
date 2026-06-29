@@ -152,7 +152,8 @@ if [[ ! -f "$ENV_FILE" ]]; then
 # All variables use the VOX_ prefix unless noted.
 
 # Network
-VOX_HOST=127.0.0.1    # local only. Use 0.0.0.0 to allow LAN access.
+# Local only by default. Use 0.0.0.0 to allow LAN access.
+VOX_HOST=127.0.0.1
 VOX_PORT=8000
 
 # Inference device: auto | mps | cpu

@@ -47,13 +47,15 @@ class ServerMonitor {
         for line in raw.components(separatedBy: .newlines) {
             let t = line.trimmingCharacters(in: .whitespaces)
             guard !t.isEmpty, !t.hasPrefix("#"), t.contains("=") else { continue }
-            let parts = t.components(separatedBy: "=")
+            let parts = t.split(separator: "=", maxSplits: 1, omittingEmptySubsequences: false)
+            guard parts.count == 2 else { continue }
             let key   = parts[0].trimmingCharacters(in: .whitespaces)
-            let val   = parts.dropFirst().joined(separator: "=")
+            let val   = String(parts[1])
+                .split(separator: "#", maxSplits: 1, omittingEmptySubsequences: false)[0]
                 .trimmingCharacters(in: .whitespaces)
                 .trimmingCharacters(in: CharacterSet(charactersIn: "\"'"))
-            if key == "VOX_HOST" { host = val }
-            else if key == "VOX_PORT" { port = val }
+            if key == "VOX_HOST", !val.isEmpty { host = val }
+            else if key == "VOX_PORT", Int(val) != nil { port = val }
         }
     }
 
