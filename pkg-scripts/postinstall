@@ -76,19 +76,25 @@ if [[ -f "$VOX_ENV" ]]; then
 fi
 
 WELCOME_URL="http://127.0.0.1:$VOX_PORT/"
-echo "[vox-pkg] Waiting briefly for local server: $WELCOME_URL"
-for _ in {1..30}; do
+SERVER_READY=false
+echo "[vox-pkg] Waiting for local server before opening Welcome: $WELCOME_URL"
+for _ in {1..180}; do
   if curl --silent --fail --max-time 1 "http://127.0.0.1:$VOX_PORT/health" >/dev/null 2>&1; then
-    echo "[vox-pkg] Server responded; opening welcome page."
+    SERVER_READY=true
+    echo "[vox-pkg] Server responded."
     break
   fi
   sleep 1
 done
 
-if /bin/launchctl asuser "$CONSOLE_UID" /usr/bin/open "$WELCOME_URL"; then
-  echo "[vox-pkg] Welcome page open request sent."
+if [[ "$SERVER_READY" == "true" ]]; then
+  if /bin/launchctl asuser "$CONSOLE_UID" /usr/bin/open "$WELCOME_URL"; then
+    echo "[vox-pkg] Welcome page open request sent."
+  else
+    echo "[vox-pkg] Could not open welcome page automatically; install still completed. URL: $WELCOME_URL"
+  fi
 else
-  echo "[vox-pkg] Could not open welcome page automatically; install still completed. URL: $WELCOME_URL"
+  echo "[vox-pkg] Local server was not reachable after waiting; skipping automatic Welcome launch. URL: $WELCOME_URL"
 fi
 
 echo "[vox-pkg] Package postinstall complete."
