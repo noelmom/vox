@@ -158,10 +158,6 @@ VOX_PORT=8000
 # Inference device: auto | mps | cpu
 # VOX_DEVICE=auto
 
-# Experimental Apple GPU memory allocator cap.
-# 1.0 = max/default, 0.9 = extra macOS headroom. Requires restart.
-VOX_MPS_MEMORY_FRACTION=1.0
-
 # ffmpeg (brew default for Apple Silicon)
 # VOX_FFMPEG_PATH=/opt/homebrew/bin/ffmpeg
 

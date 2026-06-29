@@ -28,7 +28,6 @@ _model_task: asyncio.Task | None = None
 
 class SettingsPatch(BaseModel):
     host: str | None = None
-    mps_memory_fraction: float | None = None
 
 
 def _read_env_value(key: str, default: str | None = None) -> str | None:
@@ -65,14 +64,6 @@ def _write_env_value(key: str, value: str):
         updated.append(next_line)
 
     _ENV_PATH.write_text("\n".join(updated) + "\n")
-
-
-def _read_env_float(key: str, default: float) -> float:
-    raw = _read_env_value(key, str(default))
-    try:
-        return float(raw) if raw is not None else default
-    except ValueError:
-        return default
 
 
 @asynccontextmanager
@@ -424,7 +415,6 @@ async def get_settings():
     ffmpeg = settings.ffmpeg_path
     ffmpeg_ok = bool(shutil.which(ffmpeg) or shutil.which("ffmpeg"))
     configured_host = _read_env_value("VOX_HOST", settings.host) or settings.host
-    configured_mps_memory_fraction = _read_env_float("VOX_MPS_MEMORY_FRACTION", settings.mps_memory_fraction)
     mac_ver, _, _ = platform.mac_ver()
     try:
         import subprocess
@@ -437,9 +427,6 @@ async def get_settings():
         "host": settings.host,
         "configured_host": configured_host,
         "host_restart_required": configured_host != settings.host,
-        "mps_memory_fraction": settings.mps_memory_fraction,
-        "configured_mps_memory_fraction": configured_mps_memory_fraction,
-        "mps_memory_restart_required": configured_mps_memory_fraction != settings.mps_memory_fraction,
         "port": settings.port,
         "output_dir": str(settings.output_dir.resolve()),
         "voice_dir": str(settings.voice_dir.resolve()),
@@ -468,7 +455,7 @@ async def get_settings():
     "/settings",
     tags=["system"],
     summary="Update server configuration",
-    description="Persists editable server configuration to `.env`. Host and MPS memory changes require restarting the local Vox server before they become active.",
+    description="Persists editable server configuration to `.env`. Host changes require restarting the local Vox server before they become active.",
 )
 async def patch_settings(patch: SettingsPatch):
     changed: dict[str, str] = {}
@@ -480,23 +467,12 @@ async def patch_settings(patch: SettingsPatch):
         _write_env_value("VOX_HOST", host)
         changed["host"] = host
 
-    if patch.mps_memory_fraction is not None:
-        fraction = patch.mps_memory_fraction
-        if fraction not in (0.9, 1.0):
-            raise HTTPException(status_code=422, detail="mps_memory_fraction must be 0.9 or 1.0")
-        _write_env_value("VOX_MPS_MEMORY_FRACTION", str(fraction))
-        changed["mps_memory_fraction"] = str(fraction)
-
     configured_host = _read_env_value("VOX_HOST", settings.host) or settings.host
-    configured_mps_memory_fraction = _read_env_float("VOX_MPS_MEMORY_FRACTION", settings.mps_memory_fraction)
     return {
         "changed": changed,
         "host": settings.host,
         "configured_host": configured_host,
         "host_restart_required": configured_host != settings.host,
-        "mps_memory_fraction": settings.mps_memory_fraction,
-        "configured_mps_memory_fraction": configured_mps_memory_fraction,
-        "mps_memory_restart_required": configured_mps_memory_fraction != settings.mps_memory_fraction,
     }
 
 

@@ -7,9 +7,6 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## Unreleased
 
-### Added
-- **Experimental MPS memory setting** — Settings can choose Max 100% (default) or Stable 90% for PyTorch's MPS allocator. Changes are persisted to `.env` and require restarting the local server.
-
 ---
 
 ## [1.0.0-rc1] — 2026-06-28

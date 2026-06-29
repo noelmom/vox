@@ -10,9 +10,6 @@ class Settings(BaseSettings):
     host: str = "127.0.0.1"
     port: int = 8000
     device: str = "auto"  # auto | mps | cpu
-    # Experimental PyTorch MPS allocator cap, not a GPU compute throttle.
-    # 1.0 uses the full recommended MPS memory. 0.9 leaves extra macOS headroom.
-    mps_memory_fraction: float = 1.0
 
     output_dir: Path = Path("outputs")
     voice_dir: Path = Path("voices")
@@ -77,22 +74,6 @@ class Settings(BaseSettings):
         except (TypeError, ValueError):
             return default
         return parsed if parsed >= 0 else default
-
-    @field_validator("mps_memory_fraction", mode="before")
-    @classmethod
-    def _parse_mps_memory_fraction(cls, value):
-        default = 1.0
-        if value is None:
-            return default
-        if isinstance(value, str):
-            value = value.strip()
-            if not value:
-                return default
-        try:
-            parsed = float(value)
-        except (TypeError, ValueError):
-            return default
-        return parsed if parsed in (0.9, 1.0) else default
 
 
 settings = Settings()
