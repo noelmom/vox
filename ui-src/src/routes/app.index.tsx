@@ -52,6 +52,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { type ApiVoice, type Job, listVoices, listPresets, listJobs, submitTTS, getJob, getJobAudio, savePreset, deletePreset, deleteJob, cancelJob, patchVoice, parseServerDate } from "@/lib/api";
 import { setGenerationState } from "@/lib/generation";
+import { hydrateCachedPreferences, savePreferences, writeCachedPreference } from "@/lib/preferences";
 import { tagStyle } from "@/lib/utils";
 import { BRAND, BRAND_GRADIENT, BRAND_SECONDARY, BRAND_WARM } from "@/lib/theme";
 
@@ -176,7 +177,7 @@ function useLocalStorage<T>(key: string, defaultValue: T) {
     (value: T | ((prev: T) => T)) => {
       setState((prev) => {
         const next = typeof value === "function" ? (value as (p: T) => T)(prev) : value;
-        try { localStorage.setItem(key, JSON.stringify(next)); } catch {}
+        writeCachedPreference(key, next);
         return next;
       });
     },
@@ -276,6 +277,40 @@ function GeneratePage() {
   const { data: voicesData } = useQuery({ queryKey: ["voices"], queryFn: listVoices });
   const { data: presetsData } = useQuery({ queryKey: ["presets"], queryFn: listPresets });
   const { data: jobsData } = useQuery({ queryKey: ["jobs"], queryFn: () => listJobs({ limit: 100 }) });
+
+  useEffect(() => {
+    let cancelled = false;
+    hydrateCachedPreferences()
+      .then((prefs) => {
+        if (cancelled) return;
+        if (typeof prefs["vox:tone"] === "string") setTone(prefs["vox:tone"]);
+        if (prefs["vox:format"] === "mp3" || prefs["vox:format"] === "wav") setFormat(prefs["vox:format"]);
+        if (typeof prefs["vox:mp3Quality"] === "string") setMp3Quality(prefs["vox:mp3Quality"]);
+        if (typeof prefs["vox:wavQuality"] === "string") setWavQuality(prefs["vox:wavQuality"]);
+        if (typeof prefs["vox:voiceId"] === "string") setVoiceId(prefs["vox:voiceId"]);
+        if (prefs["vox:advanced"] && typeof prefs["vox:advanced"] === "object") {
+          setAdvanced({ ...ADVANCED_DEFAULTS, ...(prefs["vox:advanced"] as Partial<typeof ADVANCED_DEFAULTS>) });
+        }
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [setAdvanced, setFormat, setMp3Quality, setTone, setVoiceId, setWavQuality]);
+
+  useEffect(() => {
+    const timeout = window.setTimeout(() => {
+      savePreferences({
+        "vox:tone": tone,
+        "vox:format": format,
+        "vox:mp3Quality": mp3Quality,
+        "vox:wavQuality": wavQuality,
+        "vox:advanced": advanced,
+        "vox:voiceId": voiceId,
+      }).catch(() => {});
+    }, 600);
+    return () => window.clearTimeout(timeout);
+  }, [advanced, format, mp3Quality, tone, voiceId, wavQuality]);
 
   const displayVoices = useMemo<Voice[]>(() => {
     if (!voicesData) return [GENERIC_VOICE];

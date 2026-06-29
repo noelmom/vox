@@ -49,7 +49,11 @@ async function apiFetch(path: string, init?: RequestInit): Promise<Response> {
   const r = await fetch(path, init);
   if (!r.ok) {
     const err = await r.json().catch(() => ({ detail: r.statusText }));
-    throw new Error((err as { detail?: string }).detail ?? r.statusText);
+    const data = err as { detail?: unknown; error?: { message?: string }; request_id?: string };
+    const detail = typeof data.detail === "string" ? data.detail : undefined;
+    const message = data.error?.message ?? detail ?? r.statusText;
+    const suffix = data.request_id ? ` (${data.request_id})` : "";
+    throw new Error(`${message}${suffix}`);
   }
   return r;
 }
@@ -203,6 +207,20 @@ export async function getStats(): Promise<Stats> {
 
 export async function getAlerts(): Promise<SystemAlert[]> {
   return apiFetch("/api/v1/alerts").then((r) => r.json());
+}
+
+export type UserPreferences = Record<string, unknown>;
+
+export async function getUserPreferences(): Promise<UserPreferences> {
+  return apiFetch("/api/v1/preferences").then((r) => r.json());
+}
+
+export async function patchUserPreferences(preferences: UserPreferences): Promise<void> {
+  await apiFetch("/api/v1/preferences", {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ preferences }),
+  });
 }
 
 export async function getServerSettings(): Promise<ServerSettings> {

@@ -7,6 +7,18 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## Unreleased
 
+---
+
+## [1.0.0-rc2] — 2026-06-29
+
+### Added
+- **Server-backed UI preferences** — Create and Settings now sync generation defaults through `GET/PATCH /api/v1/preferences` while keeping localStorage as a fast cache.
+- **Structured API error envelope** — HTTP errors keep the existing `detail` field and now include `error.code`, `error.message`, and `request_id` for easier API/debug support.
+
+### Changed
+- **Backlog and release docs** — post-v1 feature decisions are documented, including pause insertion, pronunciation controls, URL voice import, non-verbal cues, history exports, dark mode polish, and single self-contained `.app` packaging.
+- **Shell hardening** — manual run/update scripts now use stricter shell settings and remain covered by syntax checks.
+
 ### Removed
 - **Experimental MPS memory setting** — removed `VOX_MPS_MEMORY_FRACTION` and the PyTorch MPS memory-fraction hook after testing showed repeatable MPS out-of-memory regressions. Vox now leaves PyTorch MPS allocator behavior at its normal default.
 

@@ -21,11 +21,21 @@ Until v1.0 ships, avoid adding new product features. Pre-v1 work should be limit
   - Add a real `Insert Pause` flow for the script editor.
   - Suggested approach: insert a lightweight token at the cursor such as `[pause:0.5s]`, parse it before chunking, and translate it into explicit silence between generated text spans.
   - Needs script validation, readable UI chips/markup, and backend parser support. Do not ship before v1.0 unless it becomes a blocker.
+  - Product decision: after v1.0.
 
 - [ ] **Pronunciation dictionary / word replacement controls**
   - Add a real `Add Pronunciation` flow for words, names, acronyms, and brand terms.
   - Suggested approach: store pronunciation aliases in SQLite, apply replacements before TTS generation, and expose per-script or global rules in the Create UI.
   - Needs careful UX so users understand this is text normalization, not true phoneme-level model control. Post-v1 only.
+  - Product decision: after v1.0.
+
+- [ ] **Remote URL audio import for voice profiles**
+  - Let users create a voice profile from an audio URL, then trim it in the existing upload/trim flow.
+  - Product decision: after v1.0.
+
+- [ ] **Non-verbal speech cue support**
+  - Explore whether profile-bound cue audio splicing or text normalization can support laughs, breaths, sighs, and other non-verbal moments.
+  - Product decision: after v1.0.
 
 ---
 
@@ -201,7 +211,7 @@ Until v1.0 ships, avoid adding new product features. Pre-v1 work should be limit
   - Each dropdown item shows the first ~80 chars of the script followed by an ellipsis if truncated.
   - Limit is 10 entries for now; make it configurable via Settings later (low priority).
 
-- [ ] **[LOW] Top-bar header actions — partially deferred to future release**
+- [ ] **[LOW] Top-bar header actions — after v1.0**
 
   Three buttons were removed from the top-right of the app header (`app.tsx`) pending future implementation. Theme selection was removed from the v1 UI while dark-mode polish is deferred; re-add appearance controls when the theme is release-ready. All used `lucide-react` icons and the `IconBtn` helper component (also removed — trivial to restore).
 
@@ -210,6 +220,8 @@ Until v1.0 ships, avoid adding new product features. Pre-v1 work should be limit
   2. **Notifications bell** (`Bell` icon) — silence/unmute in-app alerts. Intended to pair with a future alert system that notifies when a generation completes or errors. Backend already has an `/alerts` router stub. Suggested key: `vox:notifications` in localStorage.
 
   3. **User profile / account** (`ChevronDown` + avatar initials) — not needed for local single-user deployment but useful if multi-user or cloud sync is ever added. Low priority. Would need an auth layer.
+
+  Product decision: theme preference, notifications bell, and profile/account controls are after v1.0.
 
 ---
 
@@ -380,12 +392,12 @@ Until v1.0 ships, avoid adding new product features. Pre-v1 work should be limit
 
 - [x] **Rewrite VoxHelper in native Swift** — replaced Python/rumps with a native AppKit app (`voxhelper/`). Eliminates PyObjC teardown hang, macOS Sequoia NSSceneStatusItem session context issue, and Python3 in Background Apps. Shows "Vox Helper" in Login Items with the helper app icon.
 
-- [ ] **App Background Activity branding in System Settings**
+- [x] **App Background Activity branding in System Settings**
   - Both LaunchAgents currently appear under "Noelmo Melo" (the Developer ID name) with no custom icon in System Settings → General → Login Items & Extensions → App Background Activity.
   - Two sub-issues to resolve:
     1. **Icon** — `VoxHelper.app` and `VoxServer.app` bundles have valid `CFBundleIconFile` entries backed by `assets/VoxHelper.icns` and `assets/VoxServer.icns`. Verify whether macOS System Settings picks those up in the Login Items UI; macOS may still group the background activity under the Developer ID label.
     2. **Developer label** — the grouping label comes from the Developer ID certificate name ("Noelmo Melo"). Options to make it more brand-friendly: register a company/org name with Apple (e.g. "MeloLabDev") and reissue the cert under that name, or use a vanity domain like `noelmom.github.io` or `melolabdev.com` as the org identifier. Decide on permanent brand name before reissuing — cert changes require re-signing and re-notarizing all apps.
-  - Blocked by: final brand name decision and logo replacement.
+  - Product decision: keep the Developer ID label as "Noelmo Melo" for v1.0.
 
 - [x] **Replace temporary app icons before public release**
   - Replaced the legacy `assets/Vox.icns` placeholder with separate final-style app icons: `assets/VoxHelper.icns` and `assets/VoxServer.icns`.
@@ -409,7 +421,7 @@ Until v1.0 ships, avoid adding new product features. Pre-v1 work should be limit
     - Server: `~/Library/LaunchAgents/com.melolabdev.vox.plist`
   - No changes needed to `ServerMonitor.swift`
 
-- [ ] **Mac App Store distribution** — requires sandboxing: replace `launchctl` calls with `SMAppService` + XPC, replace LaunchAgent plists with `SMAppService.register()`. Helper is already native Swift so this is the natural next step for public distribution.
+- [ ] **Mac App Store distribution — not needed at this time** — would require sandboxing: replace `launchctl` calls with `SMAppService` + XPC, replace LaunchAgent plists with `SMAppService.register()`. Helper is already native Swift, but the signed/notarized direct distribution path is the current plan.
 
 - [x] **Single-instance enforcement** — VoxHelper uses `fcntl F_SETLK` on `.helper.lock`; OS releases lock on process exit. Server uses port connectivity check in `run.sh` before exec'ing uvicorn.
 
@@ -424,7 +436,11 @@ Until v1.0 ships, avoid adding new product features. Pre-v1 work should be limit
   - Release asset is uploaded to GitHub Releases; landing page download section tracks filename, size, URL, and SHA256.
   - Note: macOS Installer owns the optional "move installer to Trash" prompt after install; the `.pkg` cannot suppress that prompt.
 
-- [ ] **One-click `.app` packaging** — PyInstaller or py2app. Bundle Python, venv, and the server into a single distributable app.
+- [ ] **Post-v1: single self-contained `.app` packaging**
+  - Current v1 path: signed/notarized `.pkg` and `.dmg` are the right installer flow because Vox needs a runtime directory, LaunchAgents, a Python environment, Homebrew/ffmpeg/Python checks, demo data, and helper/server app placement under `/Applications/Vox/`.
+  - A single self-contained `.app` would be a different distribution model: bundle Python, dependencies, server code, and startup orchestration inside one draggable app bundle, likely with PyInstaller/py2app or a custom native wrapper.
+  - Why it may be useful later: simpler drag-and-drop mental model, fewer installer scripts, and easier rollback by deleting one app bundle.
+  - Why it is not needed for v1: the current `.pkg` provides the one-click experience we want today, including bootstrap setup and LaunchAgent installation. A self-contained app would be a separate architecture effort and could destabilize the RC.
 
 - [x] **Default `VOX_HOST` to `127.0.0.1`** — Vox now defaults to local-only access. Users can opt into LAN access by setting `VOX_HOST=0.0.0.0` or using Settings → Runtime → Network access.
 
@@ -451,6 +467,8 @@ Until v1.0 ships, avoid adding new product features. Pre-v1 work should be limit
 - [ ] **[LOW] Remote audio source for voice profiles — URL import with trim**
 
   Add a third tab to the Voices page ("URL") alongside Upload and Record. The user pastes a direct audio URL, previews the audio in-browser, optionally trims it to a start/end range, then saves it as a voice profile.
+
+  Product decision: after v1.0.
 
   **UI flow:**
   1. User pastes a URL into a text field and clicks "Load" (or presses Enter).
@@ -576,6 +594,8 @@ Until v1.0 ships, avoid adding new product features. Pre-v1 work should be limit
 - [ ] **Column visibility toggle** — show/hide columns via a "Columns" dropdown. Persist to localStorage.
 - [ ] **CSV export** — download current filtered view. Button in topbar next to Refresh.
 
+Product decision: after v1.0.
+
 ---
 
 ## Backup & Restore
@@ -589,11 +609,11 @@ Until v1.0 ships, avoid adding new product features. Pre-v1 work should be limit
 
 ## User Preferences
 
-- [ ] **Server-side preferences store — replace localStorage with DB persistence**
+- [x] **Server-side preferences store — DB-backed UI defaults with local cache**
 
-  Currently, UI preferences (selected voice, tone, format, quality, advanced sliders, favorites) are stored in `localStorage`. This works for a single browser but is lost if the user clears browser data, switches browsers, or accesses Vox from a different device on the same network.
+  Implemented with `user_preferences` in SQLite, `GET /api/v1/preferences`, `PATCH /api/v1/preferences`, and frontend write-through caching in `ui-src/src/lib/preferences.ts`.
 
-  **Proposed approach:**
+  **Implemented approach:**
   - Add a `user_preferences` table to SQLite:
     ```sql
     CREATE TABLE user_preferences (
@@ -602,10 +622,11 @@ Until v1.0 ships, avoid adding new product features. Pre-v1 work should be limit
         updated_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
     ```
-  - Add `GET /preferences` (returns all key-value pairs as a JSON object) and `PATCH /preferences` (upserts one or more keys).
-  - On app load, fetch preferences from the server and hydrate the UI state instead of reading from localStorage.
-  - On any preference change, debounce and `PATCH /preferences` to persist server-side.
-  - Keep localStorage as a write-through cache so the UI feels instant (no round-trip on load if cache is fresh).
+  - `GET /api/v1/preferences` returns all key-value pairs as a JSON object.
+  - `PATCH /api/v1/preferences` upserts one or more `vox:*` keys; `null` deletes a key.
+  - Settings hydrates from the server on page load and saves generation defaults to both SQLite and localStorage.
+  - Create hydrates server preferences on load and debounces changes back to the server.
+  - localStorage remains a write-through cache so the UI feels instant.
 
   **Keys to persist server-side:**
   - `voiceId` — selected voice profile
@@ -614,7 +635,9 @@ Until v1.0 ships, avoid adding new product features. Pre-v1 work should be limit
   - `mp3Quality` — selected MP3 bitrate
   - `wavQuality` — selected WAV bit depth
   - `advanced` — all 6 slider values
-  - `favorites` — array of starred voice profile names
+  - `widget.requests` and `widget.minutes` — sidebar widget visibility
+
+  Voice favorites are already persisted on voice records via `voices.is_favorite`, so they are intentionally not duplicated in `user_preferences`.
 
   **Why:** a single-user local app doesn't need multi-user sessions, but server-side persistence means preferences survive browser resets and work consistently across Safari, Chrome, or any other browser pointed at the local server. Also a prerequisite for any future multi-device or remote access scenario.
 
@@ -772,7 +795,7 @@ Until v1.0 ships, avoid adding new product features. Pre-v1 work should be limit
 
 ## Pre-Release Code Review
 
-- [ ] **Full codebase optimization pass** — before cutting v1.0, do a complete review of all code for:
+- [x] **Full codebase optimization pass** — before cutting v1.0, do a complete review of all code for:
   - Dead code, unused imports, redundant logic
   - API response consistency (error shapes, status codes, headers)
   - SQL queries — missing indexes, N+1 patterns, unbounded SELECTs
@@ -785,7 +808,9 @@ Until v1.0 ships, avoid adding new product features. Pre-v1 work should be limit
 
   **Pass 1 completed:** fixed chunk-stitch pause placement and avoided repeated audio-array concatenation in `api/routers/tts.py`; reduced `/api/v1/stats` sparkline work from seven per-day queries to one grouped query; corrected `scripts/update.sh` so update stops the server before syncing instead of kickstarting it.
 
-  **Still open:** broader frontend component split, API error-shape consistency, full shell strict-mode audit, and optional post-v1 worker-queue architecture.
+  **Pass 2 completed:** added shared frontend preference helpers, added DB-backed preference endpoints, kept API error compatibility while adding structured `error` and `request_id` fields, tightened the main manual run/update shell scripts, and re-audited the remaining shell entry points for quoting/destructive operations.
+
+  **Deferred by decision:** optional post-v1 worker-queue architecture.
 
 ---
 

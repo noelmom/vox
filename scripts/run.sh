@@ -4,7 +4,7 @@
 # but serves the API code from this project folder (live reload enabled).
 #
 # For production use: bash scripts/install-agent.sh, then launchctl kickstart gui/$(id -u)/com.melolabdev.vox
-set -e
+set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 APP_SUPPORT="$HOME/Library/Application Support/Vox"

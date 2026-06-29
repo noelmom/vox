@@ -6,7 +6,7 @@
 #
 # Safe to re-run — install scripts unload before reloading.
 # User data (.env, voices/, outputs/, data/, input/) is never touched.
-set -eo pipefail
+set -euo pipefail
 
 BOLD="\033[1m"
 GREEN="\033[0;32m"

@@ -92,6 +92,12 @@ async def _migrate(db: aiosqlite.Connection):
             value               TEXT NOT NULL,
             updated_at          TEXT NOT NULL DEFAULT (datetime('now'))
         );
+
+        CREATE TABLE IF NOT EXISTS user_preferences (
+            key                 TEXT PRIMARY KEY,
+            value               TEXT NOT NULL,
+            updated_at          TEXT NOT NULL DEFAULT (datetime('now'))
+        );
     """)
     # Additive migrations for columns added after initial release
     for col, ddl in [

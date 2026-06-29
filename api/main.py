@@ -1,8 +1,10 @@
 import asyncio
+import json
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import APIRouter, FastAPI, HTTPException
+from fastapi import APIRouter, FastAPI, HTTPException, Request
+from fastapi.exception_handlers import http_exception_handler
 from pydantic import BaseModel
 from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
@@ -16,7 +18,7 @@ from api.core.logger import setup_logging
 from api.core.presets import PRESETS
 from api.core.watcher import watch_input_folder
 from api.middleware.request_id import RequestIDMiddleware
-from api.routers import alerts, backups, jobs, logs, presets, tts, voices
+from api.routers import alerts, backups, jobs, logs, preferences, presets, tts, voices
 
 _UI_DIST = Path(__file__).parent.parent / "ui-dist"
 _ENV_PATH = Path(".env")
@@ -197,6 +199,27 @@ app = FastAPI(
 
 app.add_middleware(RequestIDMiddleware)
 
+
+@app.exception_handler(HTTPException)
+async def vox_http_exception_handler(request: Request, exc: HTTPException):
+    response = await http_exception_handler(request, exc)
+    detail = exc.detail
+    message = detail if isinstance(detail, str) else "Request failed."
+    response.body = (
+        json.dumps(
+            {
+                "detail": detail,
+                "error": {
+                    "code": exc.status_code,
+                    "message": message,
+                },
+                "request_id": getattr(request.state, "request_id", None),
+            }
+        ).encode("utf-8")
+    )
+    response.headers["content-length"] = str(len(response.body))
+    return response
+
 v1 = APIRouter(prefix="/api/v1")
 v1.include_router(tts.router)
 v1.include_router(voices.router)
@@ -205,6 +228,7 @@ v1.include_router(backups.router)
 v1.include_router(presets.router)
 v1.include_router(logs.router)
 v1.include_router(alerts.router)
+v1.include_router(preferences.router)
 
 # Serve React SPA built assets
 if _UI_DIST.exists():

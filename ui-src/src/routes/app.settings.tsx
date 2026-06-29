@@ -24,6 +24,7 @@ import {
   Sun,
 } from "lucide-react";
 import { type ServerSettings, exportBackup, getServerSettings, listVoices, listPresets, patchServerSettings, restoreBackup } from "@/lib/api";
+import { hydrateCachedPreferences, readCachedPreference, savePreferences, writeCachedPreference } from "@/lib/preferences";
 import { BRAND, BRAND_GRADIENT, BRAND_SECONDARY, BRAND_WARM } from "@/lib/theme";
 
 export const Route = createFileRoute("/app/settings")({
@@ -38,12 +39,7 @@ function capitalize(s: string) {
 }
 
 function lsGet<T>(key: string, fallback: T): T {
-  try {
-    const v = localStorage.getItem(key);
-    return v !== null ? (JSON.parse(v) as T) : fallback;
-  } catch {
-    return fallback;
-  }
+  return readCachedPreference(key, fallback);
 }
 
 function loadPrefs() {
@@ -61,15 +57,15 @@ function loadPrefs() {
 }
 
 function savePrefs(p: ReturnType<typeof loadPrefs>) {
-  localStorage.setItem("vox:format", JSON.stringify(p.format));
-  localStorage.setItem("vox:mp3Quality", JSON.stringify(p.mp3Quality));
-  localStorage.setItem("vox:wavQuality", JSON.stringify(p.wavQuality));
-  localStorage.setItem("vox:advanced", JSON.stringify(p.advanced));
-  localStorage.setItem("vox:voiceId", JSON.stringify(p.voiceId));
-  localStorage.setItem("vox:tone", JSON.stringify(p.tone));
-  localStorage.setItem("vox:theme", JSON.stringify("light"));
-  localStorage.setItem("vox:widget.requests", JSON.stringify(p.widgetRequests));
-  localStorage.setItem("vox:widget.minutes", JSON.stringify(p.widgetMinutes));
+  writeCachedPreference("vox:format", p.format);
+  writeCachedPreference("vox:mp3Quality", p.mp3Quality);
+  writeCachedPreference("vox:wavQuality", p.wavQuality);
+  writeCachedPreference("vox:advanced", p.advanced);
+  writeCachedPreference("vox:voiceId", p.voiceId);
+  writeCachedPreference("vox:tone", p.tone);
+  writeCachedPreference("vox:theme", "light");
+  writeCachedPreference("vox:widget.requests", p.widgetRequests);
+  writeCachedPreference("vox:widget.minutes", p.widgetMinutes);
   window.dispatchEvent(new CustomEvent("vox:prefschanged"));
 }
 
@@ -137,6 +133,21 @@ function SettingsPage() {
   const [backupFeedback, setBackupFeedback] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  useEffect(() => {
+    let cancelled = false;
+    hydrateCachedPreferences()
+      .then(() => {
+        if (cancelled) return;
+        const next = loadPrefs();
+        setPrefs(next);
+        setSavedSnapshot(JSON.stringify(next));
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const exportMutation = useMutation({
     mutationFn: exportBackup,
     onSuccess: (blob) => {
@@ -180,9 +191,20 @@ function SettingsPage() {
   const setAdvField = (key: keyof typeof ADVANCED_DEFAULTS, val: number) =>
     set("advanced", { ...prefs.advanced, [key]: val });
 
-  const handleSave = () => {
+  const handleSave = async () => {
     savePrefs(prefs);
-    setSavedSnapshot(currentSnapshot);
+    await savePreferences({
+      "vox:format": prefs.format,
+      "vox:mp3Quality": prefs.mp3Quality,
+      "vox:wavQuality": prefs.wavQuality,
+      "vox:advanced": prefs.advanced,
+      "vox:voiceId": prefs.voiceId,
+      "vox:tone": prefs.tone,
+      "vox:theme": "light",
+      "vox:widget.requests": prefs.widgetRequests,
+      "vox:widget.minutes": prefs.widgetMinutes,
+    }).catch(() => {});
+    setSavedSnapshot(JSON.stringify(prefs));
     setDismissed(false);
     setSaveFeedback(true);
     setTimeout(() => setSaveFeedback(false), 1600);
