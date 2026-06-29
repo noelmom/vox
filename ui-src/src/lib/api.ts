@@ -153,6 +153,9 @@ export type ServerSettings = {
   host: string;
   configured_host: string;
   host_restart_required: boolean;
+  mps_memory_fraction: number;
+  configured_mps_memory_fraction: number;
+  mps_memory_restart_required: boolean;
   port: number;
   output_dir: string;
   voice_dir: string;
@@ -209,11 +212,14 @@ export async function getServerSettings(): Promise<ServerSettings> {
   return apiFetch("/api/v1/settings").then((r) => r.json());
 }
 
-export async function patchServerSettings(patch: { host?: "127.0.0.1" | "0.0.0.0" }): Promise<{
+export async function patchServerSettings(patch: { host?: "127.0.0.1" | "0.0.0.0"; mps_memory_fraction?: 0.9 | 1.0 }): Promise<{
   changed: Record<string, string>;
   host: string;
   configured_host: string;
   host_restart_required: boolean;
+  mps_memory_fraction: number;
+  configured_mps_memory_fraction: number;
+  mps_memory_restart_required: boolean;
 }> {
   const r = await apiFetch("/api/v1/settings", {
     method: "PATCH",

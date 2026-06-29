@@ -465,6 +465,7 @@ All settings are controlled via environment variables with a `VOX_` prefix, or b
 | `VOX_HOST` | `127.0.0.1` | Bind address. Use `127.0.0.1` for local-only access or `0.0.0.0` for LAN access. Host changes require restarting the local server. |
 | `VOX_PORT` | `8000` | Port to listen on |
 | `VOX_DEVICE` | `auto` | `auto` \| `mps` \| `cpu` |
+| `VOX_MPS_MEMORY_FRACTION` | `1.0` | Experimental Apple GPU memory allocator cap applied before model load. `1.0` is the max/default setting; `0.9` leaves extra macOS shared-memory headroom. This is not a GPU compute throttle. Changes require restarting the local server. |
 | `VOX_FFMPEG_PATH` | `/opt/homebrew/bin/ffmpeg` | Path to ffmpeg binary |
 | `VOX_OUTPUT_TTL_HOURS` | `24` | Hours to keep generated output files. `0` = keep forever. |
 | `VOX_WATCHER_INTERVAL_S` | `10` | How often (seconds) the input folder is polled |
@@ -487,6 +488,7 @@ VOX_OUTPUT_TTL_HOURS=48
 VOX_CHUNK_HEADROOM_CHARS=40
 VOX_MAX_VOICE_CLIP_DURATION_S=120
 VOX_DEVICE=mps
+VOX_MPS_MEMORY_FRACTION=1.0
 HF_TOKEN=hf_xxxxxxxxxxxxx
 ```
 
