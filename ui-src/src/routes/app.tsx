@@ -408,7 +408,7 @@ function SidebarContent({
       <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
         <div className={`mb-7 flex items-center ${collapsed ? "justify-center" : "px-2"}`}>
           {collapsed ? (
-            <img src={voxIcon} alt="Vox" className="h-8 w-8 rounded-lg" />
+            <img src={voxIcon} alt="Vox" className="h-9 w-9" />
           ) : (
             <img src={voxLogo} alt="Vox Studio" className="h-10 w-auto" />
           )}
