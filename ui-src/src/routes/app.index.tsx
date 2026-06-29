@@ -59,7 +59,7 @@ import { BRAND, BRAND_GRADIENT, BRAND_SECONDARY, BRAND_WARM } from "@/lib/theme"
 export const Route = createFileRoute("/app/")({
   head: () => ({
     meta: [
-      { title: "Generate — Vox Studio" },
+      { title: "Create — Vox Studio" },
       { name: "description", content: "Turn scripts into private, local speech." },
     ],
   }),

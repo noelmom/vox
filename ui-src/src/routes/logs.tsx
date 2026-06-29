@@ -151,7 +151,7 @@ function LogsPage() {
   };
 
   return (
-    <main className="min-h-screen bg-[linear-gradient(180deg,#f7fcff_0%,#eef8ff_48%,#ffffff_100%)] text-foreground">
+    <main className="min-h-screen bg-[var(--page-bg)] text-foreground">
       <header className="sticky top-0 z-30 border-b border-border/70 bg-white/86 backdrop-blur-xl">
         <div className="mx-auto flex min-h-[76px] max-w-[1500px] flex-wrap items-center justify-between gap-4 px-6 lg:px-10">
           <div className="flex items-center gap-4">

@@ -23,7 +23,7 @@ import { getGenerationState, subscribeGenerationState, type GenerationStatus } f
 export const Route = createFileRoute("/app")({
   head: () => ({
     meta: [
-      { title: "Studio — Vox" },
+      { title: "Vox Studio" },
       { name: "description", content: "Generate private, local text-to-speech with Vox." },
     ],
   }),

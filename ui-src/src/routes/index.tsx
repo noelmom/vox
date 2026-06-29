@@ -102,7 +102,7 @@ function Welcome() {
   const appSupport = "~/Library/Application Support/Vox";
 
   return (
-    <main className="min-h-screen bg-[linear-gradient(180deg,#f7fcff_0%,#eef8ff_52%,#ffffff_100%)] text-foreground">
+    <main className="min-h-screen bg-[var(--page-bg)] text-foreground">
       <header className="sticky top-0 z-30 border-b border-border/75 bg-white/86 backdrop-blur-xl">
         <div className="mx-auto flex min-h-[74px] max-w-[1600px] items-center justify-between gap-5 px-7 xl:px-10">
           <div className="flex min-w-0 items-center gap-6">
