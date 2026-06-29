@@ -11,6 +11,7 @@ This repository ships a local Apple Silicon text-to-speech app with a FastAPI ba
 - Preserve user/runtime data. Never delete `voices/`, `outputs/`, `data/`, `input/`, `.env`, or anything under `~/Library/Application Support/Vox/` unless the user explicitly asks for a purge.
 - The source tree is not the runtime install. Installed runtime files live in `~/Library/Application Support/Vox/`; app bundles live in `/Applications/Vox/`.
 - `.pkg` artifacts are release assets, not repo files. Do not commit `assets/*.pkg`.
+- Do not reintroduce `VOX_MPS_MEMORY_FRACTION` or `torch.mps.set_per_process_memory_fraction` without an explicit test plan and user approval. Testing on June 28, 2026 showed that adding this allocator cap caused repeatable MPS out-of-memory regressions on scripts that were stable with normal PyTorch MPS defaults.
 
 ## Architecture Quick Map
 

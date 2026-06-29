@@ -6,6 +6,13 @@ Ideas and improvements to revisit. Not bugs — these are enhancements queued fo
 
 Until v1.0 ships, avoid adding new product features. Pre-v1 work should be limited to bug fixes, polish, documentation accuracy, release hardening, and true blockers. Feature ideas below are post-v1 unless explicitly reclassified as blockers.
 
+## Stability Findings
+
+- [x] **Do not use PyTorch MPS memory-fraction controls for v1**
+  - Finding: `VOX_MPS_MEMORY_FRACTION` / `torch.mps.set_per_process_memory_fraction(...)` caused repeatable `MPS backend out of memory` regressions after being added, even at `1.0`.
+  - Stable behavior: leaving PyTorch MPS allocator behavior alone allowed long scripts to complete reliably again.
+  - Decision: remove the Settings control, `.env` option, API fields, and model-loader hook. Do not reintroduce this before v1. Any future revisit needs a controlled test matrix across clean restart, repeated generations, short/medium/long scripts, and multiple Apple Silicon memory sizes.
+
 ---
 
 ## Post-v1 Feature Ideas

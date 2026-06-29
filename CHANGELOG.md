@@ -7,6 +7,9 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## Unreleased
 
+### Removed
+- **Experimental MPS memory setting** — removed `VOX_MPS_MEMORY_FRACTION` and the PyTorch MPS memory-fraction hook after testing showed repeatable MPS out-of-memory regressions. Vox now leaves PyTorch MPS allocator behavior at its normal default.
+
 ---
 
 ## [1.0.0-rc1] — 2026-06-28
