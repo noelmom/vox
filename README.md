@@ -89,7 +89,7 @@ codename-vox/
 ├── ui-src/                      # React SPA source (Vite + TypeScript + Tailwind v4)
 │   ├── src/
 │   │   ├── routes/              # TanStack Router file-based routes
-│   │   │   ├── index.tsx        # Landing page
+│   │   │   ├── index.tsx        # Local installed welcome page
 │   │   │   ├── app.tsx          # Shell layout — sidebar, header, footer
 │   │   │   ├── app.index.tsx    # Create page (TTS generation)
 │   │   │   ├── app.library.tsx  # Library page (voice profile management)
@@ -104,6 +104,10 @@ codename-vox/
 │   ├── vite.config.ts
 │   └── package.json
 ├── ui-dist/                     # Production build output (served by FastAPI)
+├── public-site/                 # GitHub Pages marketing/download page
+│   ├── index.html               # SEO-optimized public landing page
+│   └── agents/SKILL.md          # Local REST API integration guide for AI agents
+├── design-inspiration/          # Archived landing references and future sketches
 ├── voices/                      # Stored voice profile WAV files
 ├── outputs/                     # Generated audio files (auto-cleaned by TTL)
 ├── input/                       # Drop audio files here for auto-ingest

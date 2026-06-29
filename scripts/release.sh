@@ -5,7 +5,7 @@
 #   bash scripts/release.sh 0.5.4-beta
 #
 # This script updates VERSION/changelog shell metadata, builds signed/notarized
-# DMG + pkg artifacts, updates the landing page package checksum, commits,
+# DMG + pkg artifacts, updates the public-site package checksum, commits,
 # tags, pushes, and uploads the pkg to GitHub Releases.
 set -eo pipefail
 
@@ -91,12 +91,13 @@ python3 - "$VERSION" "$SIZE_MB" "$HASH" "$SHORT_HASH" <<'PY'
 from pathlib import Path
 import re, sys
 version, size, sha, short = sys.argv[1:5]
-path = Path("ui-src/src/routes/index.tsx")
+path = Path("public-site/index.html")
 text = path.read_text()
-text = re.sub(r'const pkgName = "Vox-[^"]+\.pkg";', f'const pkgName = "Vox-{version}.pkg";', text)
-text = re.sub(r'const pkgSize = "[^"]+";', f'const pkgSize = "{size}";', text)
-text = re.sub(r'const pkgUrl = "https://github.com/MeloLabDev/codename-vox/releases/download/v[^"]+/Vox-[^"]+\.pkg";', f'const pkgUrl = "https://github.com/MeloLabDev/codename-vox/releases/download/v{version}/Vox-{version}.pkg";', text)
-text = re.sub(r'const sha256 = "[a-f0-9]{64}";', f'const sha256 = "{sha}";', text)
+text = re.sub(r'Vox-[0-9]+\.[0-9]+\.[0-9]+(?:-[A-Za-z0-9.-]+)?\.pkg', f'Vox-{version}.pkg', text)
+text = re.sub(r'v[0-9]+\.[0-9]+\.[0-9]+(?:-[A-Za-z0-9.-]+)?/Vox-', f'v{version}/Vox-', text)
+text = re.sub(r'"softwareVersion": "[^"]+"', f'"softwareVersion": "{version}"', text)
+text = re.sub(r'[0-9]+(?:\.[0-9]+)? MB · signed, notarized, stapled', f'{size} · signed, notarized, stapled', text)
+text = re.sub(r'[a-f0-9]{64}', sha, text)
 text = re.sub(r'SHA256 [a-f0-9]{4}…[a-f0-9]{4}', f'SHA256 {short}', text)
 path.write_text(text)
 PY
@@ -104,7 +105,7 @@ PY
 npm --prefix ui-src run build
 
 info "Committing release metadata"
-git add build_info.json ui-src/src/routes/index.tsx ui-dist assets/Vox.dmg
+git add build_info.json public-site/index.html ui-dist assets/Vox.dmg
 git commit -m "docs: update $VERSION package metadata"
 
 info "Pushing branch and tag"

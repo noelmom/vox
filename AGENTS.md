@@ -23,7 +23,8 @@ This repository ships a local Apple Silicon text-to-speech app with a FastAPI ba
 - LaunchAgent templates: `launchagent/`
 - Installer/update/build scripts: `vox.sh`, `setup.sh`, `scripts/`
 - Release/build identity: `VERSION`, `build_info.json`, `scripts/write-build-info.sh`
-- Public landing page package metadata: `ui-src/src/routes/index.tsx`
+- Public landing page package metadata: `public-site/index.html`
+- Local installed welcome page: `ui-src/src/routes/index.tsx`
 - Backlog/release notes: `BACKLOG.md`, `CHANGELOG.md`
 
 ## Runtime Layout
@@ -143,7 +144,7 @@ The release script:
 5. Builds/signs/notarizes/staples `assets/Vox.dmg`.
 6. Builds/signs/notarizes/staples `assets/Vox-<version>.pkg`.
 7. Computes package size and SHA256.
-8. Updates landing package metadata in `ui-src/src/routes/index.tsx`.
+8. Updates public landing package metadata in `public-site/index.html`.
 9. Rebuilds `ui-dist`.
 10. Commits final release metadata.
 11. Pushes branch and tag.

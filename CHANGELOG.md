@@ -12,6 +12,13 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## Unreleased
 
+### Added
+- **Public/local page split** — added `public-site/index.html` for GitHub Pages marketing/download SEO and `public-site/agents/SKILL.md` for AI-agent REST API integration.
+- **Installed welcome page** — local `/` now focuses on post-install setup status, app/docs links, API examples, file locations, and troubleshooting while `/app` remains Vox Studio.
+
+### Changed
+- **Release metadata target** — `scripts/release.sh` now updates package filename, URL, size, and SHA256 in `public-site/index.html`.
+
 ---
 
 ## [1.0.0-rc2] — 2026-06-29
