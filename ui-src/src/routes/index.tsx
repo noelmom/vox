@@ -944,15 +944,6 @@ function GetStarted() {
             <Github className="h-4 w-4" />
             Support
           </a>
-          <a
-            href="https://buymeacoffee.com/noelmo"
-            target="_blank"
-            rel="noreferrer noopener"
-            className="inline-flex items-center gap-2 rounded-lg border border-white/15 bg-white/5 px-6 py-3 text-sm font-semibold text-white backdrop-blur transition-colors hover:bg-white/10"
-          >
-            <CoffeeCup />
-            Buy me a Coffee
-          </a>
         </div>
       </div>
     </section>
@@ -1020,6 +1011,15 @@ function Footer() {
             >
               <Github className="h-3.5 w-3.5" />
               Support
+            </a>
+            <a
+              href="https://buymeacoffee.com/noelmo"
+              target="_blank"
+              rel="noreferrer noopener"
+              className="inline-flex items-center gap-1.5 text-yellow-300 transition-colors hover:text-yellow-200"
+            >
+              <CoffeeCup />
+              Buy me a Coffee
             </a>
           </div>
 
