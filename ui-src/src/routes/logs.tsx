@@ -40,6 +40,8 @@ type ParsedLogLine = {
   level: Level;
   source: string;
   requestId: string;
+  groupKey?: string;
+  groupLabel?: string;
   message: string;
   lineNumber: number;
 };
@@ -297,7 +299,7 @@ function LogsPage() {
                 <div>Time</div>
                 <div>Level</div>
                 <div>Source</div>
-                <div>Request ID</div>
+                <div>Request ID / Port</div>
                 <div>Message</div>
               </div>
               <div className="max-h-[620px] overflow-auto">
@@ -389,7 +391,7 @@ function LogsPage() {
                   <DetailRow label="Level"><LevelBadge level={selected.level} /></DetailRow>
                   <CopyDetailRow label="Timestamp" value={selected.timestamp || "—"} copied={copiedKey === "timestamp"} onCopy={() => copyValue("timestamp", selected.timestamp || "")} />
                   <CopyDetailRow label="Source" value={selected.source || "—"} copied={copiedKey === "source"} onCopy={() => copyValue("source", selected.source || "")} />
-                  <CopyDetailRow label="Request ID" value={selected.requestId || "—"} copied={copiedKey === "request"} onCopy={() => copyValue("request", selected.requestId || "")} />
+                  <CopyDetailRow label="Request ID / Port" value={selected.requestId || "—"} copied={copiedKey === "request"} onCopy={() => copyValue("request", selected.requestId || "")} />
                   <div>
                     <div className="mb-1 flex items-center justify-between gap-2 text-[11px] font-black uppercase tracking-wide text-muted-foreground">
                       Message
@@ -433,6 +435,23 @@ function parseLogLine(raw: string, index: number): ParsedLogLine {
 
   const uvicornMatch = raw.match(/^(INFO|WARNING|ERROR|DEBUG):\s+(.*)$/i);
   if (uvicornMatch) {
+    const accessMatch = uvicornMatch[2].match(/^(\S+):(\d+)\s+-\s+"(\w+)\s+([^"]+?)\s+HTTP\/[\d.]+"\s+(\d{3})(?:\s+(.*))?$/);
+    if (accessMatch) {
+      const [, host, port, method, path, status, rest] = accessMatch;
+      return {
+        id: `${index}-${raw}`,
+        raw,
+        timestamp: "",
+        level: normalizeLevel(uvicornMatch[1]),
+        requestId: `port ${port}`,
+        groupKey: `access-${host}:${port}`,
+        groupLabel: `${host}:${port}`,
+        source: "http access",
+        message: `${method} ${path} -> ${status}${rest ? ` ${rest}` : ""}`,
+        lineNumber: index + 1,
+      };
+    }
+
     return {
       id: `${index}-${raw}`,
       raw,
@@ -458,7 +477,7 @@ function parseLogLine(raw: string, index: number): ParsedLogLine {
 }
 
 function isUvicornAccessLine(row: ParsedLogLine): boolean {
-  return row.source === "uvicorn" && /"\w+\s+\/.*HTTP\/[\d.]+"\s+\d{3}/.test(row.message);
+  return row.source === "http access" || (row.source === "uvicorn" && /"\w+\s+\/.*HTTP\/[\d.]+"\s+\d{3}/.test(row.message));
 }
 
 function groupLogRows(rows: ParsedLogLine[]): LogGroup[] {
@@ -466,6 +485,24 @@ function groupLogRows(rows: ParsedLogLine[]): LogGroup[] {
   const byRequest = new Map<string, LogGroup>();
 
   rows.forEach((row) => {
+    if (row.groupKey) {
+      const existing = byRequest.get(row.groupKey);
+      if (existing) {
+        existing.entries.push(row);
+        return;
+      }
+
+      const group: LogGroup = {
+        id: row.groupKey,
+        requestId: row.groupLabel ?? row.requestId,
+        entries: [row],
+        grouped: true,
+      };
+      byRequest.set(row.groupKey, group);
+      groups.push(group);
+      return;
+    }
+
     const hasRequest = row.requestId && row.requestId !== "—" && row.requestId !== "-";
     if (!hasRequest) {
       groups.push({ id: row.id, requestId: row.requestId, entries: [row], grouped: false });
