@@ -30,6 +30,9 @@ _model_task: asyncio.Task | None = None
 
 class SettingsPatch(BaseModel):
     host: str | None = None
+    output_ttl_hours: int | None = None
+    max_voice_clip_duration_s: int | None = None
+    chunk_headroom_chars: int | None = None
 
 
 def _read_env_value(key: str, default: str | None = None) -> str | None:
@@ -66,6 +69,14 @@ def _write_env_value(key: str, value: str):
         updated.append(next_line)
 
     _ENV_PATH.write_text("\n".join(updated) + "\n")
+
+
+def _read_env_int(key: str, default: int) -> int:
+    raw = _read_env_value(key, str(default))
+    try:
+        return int(raw) if raw is not None else default
+    except (TypeError, ValueError):
+        return default
 
 
 @asynccontextmanager
@@ -440,6 +451,9 @@ async def get_settings():
     ffmpeg = settings.ffmpeg_path
     ffmpeg_ok = bool(shutil.which(ffmpeg) or shutil.which("ffmpeg"))
     configured_host = _read_env_value("VOX_HOST", settings.host) or settings.host
+    configured_output_ttl_hours = _read_env_int("VOX_OUTPUT_TTL_HOURS", settings.output_ttl_hours)
+    configured_max_voice_clip_duration_s = _read_env_int("VOX_MAX_VOICE_CLIP_DURATION_S", settings.max_voice_clip_duration_s)
+    configured_chunk_headroom_chars = _read_env_int("VOX_CHUNK_HEADROOM_CHARS", settings.chunk_headroom_chars)
     mac_ver, _, _ = platform.mac_ver()
     try:
         import subprocess
@@ -457,9 +471,13 @@ async def get_settings():
         "voice_dir": str(settings.voice_dir.resolve()),
         "input_dir": str(settings.input_dir.resolve()),
         "output_ttl_hours": settings.output_ttl_hours,
+        "configured_output_ttl_hours": configured_output_ttl_hours,
+        "output_ttl_restart_required": configured_output_ttl_hours != settings.output_ttl_hours,
         "job_retention_days": settings.job_retention_days,
         "deleted_voice_ttl_hours": settings.deleted_voice_ttl_hours,
         "chunk_headroom_chars": settings.chunk_headroom_chars,
+        "configured_chunk_headroom_chars": configured_chunk_headroom_chars,
+        "chunk_headroom_restart_required": configured_chunk_headroom_chars != settings.chunk_headroom_chars,
         "ffmpeg_available": ffmpeg_ok,
         "ffmpeg_path": ffmpeg,
         "model_name": "Chatterbox Turbo",
@@ -467,6 +485,8 @@ async def get_settings():
         "model_ready": get_model_status()["ready"],
         "default_max_chars": settings.default_max_chars,
         "max_voice_clip_duration_s": settings.max_voice_clip_duration_s,
+        "configured_max_voice_clip_duration_s": configured_max_voice_clip_duration_s,
+        "max_voice_clip_duration_restart_required": configured_max_voice_clip_duration_s != settings.max_voice_clip_duration_s,
         "voice_icon_max_kb": settings.voice_icon_max_kb,
         "macos_version": mac_ver,
         "chip": chip,
@@ -492,12 +512,42 @@ async def patch_settings(patch: SettingsPatch):
         _write_env_value("VOX_HOST", host)
         changed["host"] = host
 
+    if patch.output_ttl_hours is not None:
+        if patch.output_ttl_hours < 0 or patch.output_ttl_hours > 8760:
+            raise HTTPException(status_code=422, detail="output_ttl_hours must be between 0 and 8760")
+        _write_env_value("VOX_OUTPUT_TTL_HOURS", str(patch.output_ttl_hours))
+        changed["output_ttl_hours"] = str(patch.output_ttl_hours)
+
+    if patch.max_voice_clip_duration_s is not None:
+        if patch.max_voice_clip_duration_s < 5 or patch.max_voice_clip_duration_s > 600:
+            raise HTTPException(status_code=422, detail="max_voice_clip_duration_s must be between 5 and 600")
+        _write_env_value("VOX_MAX_VOICE_CLIP_DURATION_S", str(patch.max_voice_clip_duration_s))
+        changed["max_voice_clip_duration_s"] = str(patch.max_voice_clip_duration_s)
+
+    if patch.chunk_headroom_chars is not None:
+        if patch.chunk_headroom_chars < 0 or patch.chunk_headroom_chars > 1000:
+            raise HTTPException(status_code=422, detail="chunk_headroom_chars must be between 0 and 1000")
+        _write_env_value("VOX_CHUNK_HEADROOM_CHARS", str(patch.chunk_headroom_chars))
+        changed["chunk_headroom_chars"] = str(patch.chunk_headroom_chars)
+
     configured_host = _read_env_value("VOX_HOST", settings.host) or settings.host
+    configured_output_ttl_hours = _read_env_int("VOX_OUTPUT_TTL_HOURS", settings.output_ttl_hours)
+    configured_max_voice_clip_duration_s = _read_env_int("VOX_MAX_VOICE_CLIP_DURATION_S", settings.max_voice_clip_duration_s)
+    configured_chunk_headroom_chars = _read_env_int("VOX_CHUNK_HEADROOM_CHARS", settings.chunk_headroom_chars)
     return {
         "changed": changed,
         "host": settings.host,
         "configured_host": configured_host,
         "host_restart_required": configured_host != settings.host,
+        "output_ttl_hours": settings.output_ttl_hours,
+        "configured_output_ttl_hours": configured_output_ttl_hours,
+        "output_ttl_restart_required": configured_output_ttl_hours != settings.output_ttl_hours,
+        "max_voice_clip_duration_s": settings.max_voice_clip_duration_s,
+        "configured_max_voice_clip_duration_s": configured_max_voice_clip_duration_s,
+        "max_voice_clip_duration_restart_required": configured_max_voice_clip_duration_s != settings.max_voice_clip_duration_s,
+        "chunk_headroom_chars": settings.chunk_headroom_chars,
+        "configured_chunk_headroom_chars": configured_chunk_headroom_chars,
+        "chunk_headroom_restart_required": configured_chunk_headroom_chars != settings.chunk_headroom_chars,
     }
 
 

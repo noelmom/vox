@@ -94,6 +94,12 @@ const TTL_LABELS: Record<number, string> = {
   0: "Keep forever",
 };
 
+const SERVER_LIMITS = {
+  outputTtlHours: { min: 0, max: 8760 },
+  maxVoiceClipDurationS: { min: 5, max: 600 },
+  chunkHeadroomChars: { min: 0, max: 1000 },
+};
+
 // ─── page ────────────────────────────────────────────────────────────────────
 
 function SettingsPage() {
@@ -105,6 +111,11 @@ function SettingsPage() {
 
   const networkMutation = useMutation({
     mutationFn: (host: "127.0.0.1" | "0.0.0.0") => patchServerSettings({ host }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["settings"] }),
+  });
+
+  const serverSettingsMutation = useMutation({
+    mutationFn: patchServerSettings,
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["settings"] }),
   });
 
@@ -132,6 +143,12 @@ function SettingsPage() {
   const [saveFeedback, setSaveFeedback] = useState(false);
   const [confirmClear, setConfirmClear] = useState(false);
   const [backupFeedback, setBackupFeedback] = useState("");
+  const [serverDrafts, setServerDrafts] = useState({
+    outputTtlHours: "",
+    maxVoiceClipDurationS: "",
+    chunkHeadroomChars: "",
+  });
+  const [serverDraftErrors, setServerDraftErrors] = useState<Record<string, string>>({});
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -218,11 +235,52 @@ function SettingsPage() {
 
   const handleDismiss = () => setDismissed(true);
 
+  useEffect(() => {
+    if (!server) return;
+    setServerDrafts({
+      outputTtlHours: String(server.configured_output_ttl_hours ?? server.output_ttl_hours),
+      maxVoiceClipDurationS: String(server.configured_max_voice_clip_duration_s ?? server.max_voice_clip_duration_s),
+      chunkHeadroomChars: String(server.configured_chunk_headroom_chars ?? server.chunk_headroom_chars),
+    });
+    setServerDraftErrors({});
+  }, [
+    server?.configured_output_ttl_hours,
+    server?.output_ttl_hours,
+    server?.configured_max_voice_clip_duration_s,
+    server?.max_voice_clip_duration_s,
+    server?.configured_chunk_headroom_chars,
+    server?.chunk_headroom_chars,
+  ]);
+
+  const saveServerNumber = (
+    draftKey: keyof typeof serverDrafts,
+    patchKey: "output_ttl_hours" | "max_voice_clip_duration_s" | "chunk_headroom_chars",
+    limits: { min: number; max: number },
+  ) => {
+    const raw = serverDrafts[draftKey].trim();
+    const value = Number(raw);
+    if (!raw || !Number.isInteger(value) || value < limits.min || value > limits.max) {
+      setServerDraftErrors((prev) => ({
+        ...prev,
+        [draftKey]: `Enter a whole number from ${limits.min.toLocaleString()} to ${limits.max.toLocaleString()}.`,
+      }));
+      return;
+    }
+    setServerDraftErrors((prev) => ({ ...prev, [draftKey]: "" }));
+    serverSettingsMutation.mutate({ [patchKey]: value });
+  };
+
   const ttlLabel = server
     ? TTL_LABELS[server.output_ttl_hours] ?? `${server.output_ttl_hours}h`
     : "—";
   const configuredHost = server?.configured_host || server?.host || "127.0.0.1";
   const hostRestartRequired = Boolean(server?.host_restart_required);
+  const anyServerRestartRequired = Boolean(
+    server?.host_restart_required ||
+    server?.output_ttl_restart_required ||
+    server?.max_voice_clip_duration_restart_required ||
+    server?.chunk_headroom_restart_required,
+  );
 
   return (
     <div className={`mx-auto flex max-w-[1280px] flex-col gap-5 ${isFloating ? "pb-24" : ""}`}>
@@ -322,11 +380,45 @@ function SettingsPage() {
               )}
             </InfoRow>
             <InfoRow label="Voice clip limit" hint="Maximum uploaded or recorded voice sample length. Invalid or empty env values fall back to 120 seconds.">
-              <span className="text-[13.5px] font-semibold text-foreground">{server.max_voice_clip_duration_s}s</span>
+              <EditableServerNumber
+                value={serverDrafts.maxVoiceClipDurationS}
+                unit="sec"
+                min={SERVER_LIMITS.maxVoiceClipDurationS.min}
+                max={SERVER_LIMITS.maxVoiceClipDurationS.max}
+                activeValue={`${server.max_voice_clip_duration_s}s active`}
+                restartRequired={server.max_voice_clip_duration_restart_required}
+                error={serverDraftErrors.maxVoiceClipDurationS}
+                saving={serverSettingsMutation.isPending}
+                onChange={(value) => {
+                  setServerDraftErrors((prev) => ({ ...prev, maxVoiceClipDurationS: "" }));
+                  setServerDrafts((prev) => ({ ...prev, maxVoiceClipDurationS: value }));
+                }}
+                onSave={() => saveServerNumber("maxVoiceClipDurationS", "max_voice_clip_duration_s", SERVER_LIMITS.maxVoiceClipDurationS)}
+              />
             </InfoRow>
             <InfoRow label="Chunk headroom" hint="Extra breathing room Vox reserves below the hard max chunk size so sentence endings are less likely to be cut off.">
-              <span className="text-[13.5px] font-semibold text-foreground">{server.chunk_headroom_chars} chars</span>
+              <EditableServerNumber
+                value={serverDrafts.chunkHeadroomChars}
+                unit="chars"
+                min={SERVER_LIMITS.chunkHeadroomChars.min}
+                max={SERVER_LIMITS.chunkHeadroomChars.max}
+                activeValue={`${server.chunk_headroom_chars} chars active`}
+                restartRequired={server.chunk_headroom_restart_required}
+                expert
+                error={serverDraftErrors.chunkHeadroomChars}
+                saving={serverSettingsMutation.isPending}
+                onChange={(value) => {
+                  setServerDraftErrors((prev) => ({ ...prev, chunkHeadroomChars: "" }));
+                  setServerDrafts((prev) => ({ ...prev, chunkHeadroomChars: value }));
+                }}
+                onSave={() => saveServerNumber("chunkHeadroomChars", "chunk_headroom_chars", SERVER_LIMITS.chunkHeadroomChars)}
+              />
             </InfoRow>
+            {anyServerRestartRequired && (
+              <div className="border-t border-border px-5 py-3">
+                <RestartNotice />
+              </div>
+            )}
           </>
         ) : (
           <div className="px-5 py-5 text-[13px] text-[var(--brand-warm)]">
@@ -438,13 +530,22 @@ function SettingsPage() {
             <InfoRow label="Input folder" hint="Drop audio here for automatic voice profile import.">
               <StoragePath path={server.input_dir} />
             </InfoRow>
-            <InfoRow label="Output TTL" hint="How long generated audio is kept before auto-deletion.">
-              <div className="flex items-center gap-2">
-                <span className="rounded-lg border border-border bg-white px-3 py-2 text-[13.5px] font-semibold text-foreground">
-                  {ttlLabel}
-                </span>
-                <span className="text-[11.5px] text-muted-foreground">Set via VOX_OUTPUT_TTL_HOURS in .env</span>
-              </div>
+            <InfoRow label="Output TTL" hint="How long generated audio is kept before auto-deletion. Use 0 to keep generated audio forever.">
+              <EditableServerNumber
+                value={serverDrafts.outputTtlHours}
+                unit="hours"
+                min={SERVER_LIMITS.outputTtlHours.min}
+                max={SERVER_LIMITS.outputTtlHours.max}
+                activeValue={`${ttlLabel} active`}
+                restartRequired={server.output_ttl_restart_required}
+                error={serverDraftErrors.outputTtlHours}
+                saving={serverSettingsMutation.isPending}
+                onChange={(value) => {
+                  setServerDraftErrors((prev) => ({ ...prev, outputTtlHours: "" }));
+                  setServerDrafts((prev) => ({ ...prev, outputTtlHours: value }));
+                }}
+                onSave={() => saveServerNumber("outputTtlHours", "output_ttl_hours", SERVER_LIMITS.outputTtlHours)}
+              />
             </InfoRow>
             <InfoRow label="Backup & restore" hint="Backups include the database and voice assets. Generated output audio is excluded.">
               <div className="flex flex-col gap-2">
@@ -600,6 +701,99 @@ function SettingsPage() {
 }
 
 // ─── StoragePath ─────────────────────────────────────────────────────────────
+
+function EditableServerNumber({
+  value,
+  unit,
+  min,
+  max,
+  activeValue,
+  restartRequired,
+  expert,
+  error,
+  saving,
+  onChange,
+  onSave,
+}: {
+  value: string;
+  unit: string;
+  min: number;
+  max: number;
+  activeValue: string;
+  restartRequired: boolean;
+  expert?: boolean;
+  error?: string;
+  saving?: boolean;
+  onChange: (value: string) => void;
+  onSave: () => void;
+}) {
+  return (
+    <div className="flex flex-col gap-2">
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="relative">
+          <input
+            type="number"
+            inputMode="numeric"
+            min={min}
+            max={max}
+            step={1}
+            value={value}
+            onChange={(event) => onChange(event.target.value)}
+            className="h-10 w-32 rounded-lg border border-border bg-white px-3 pr-12 text-[13.5px] font-bold text-foreground outline-none focus:border-[var(--brand)] focus:ring-4 focus:ring-[var(--brand-soft)]"
+          />
+          <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-[11px] font-semibold text-muted-foreground">
+            {unit}
+          </span>
+        </div>
+        <button
+          type="button"
+          onClick={onSave}
+          disabled={saving}
+          className="inline-flex h-10 items-center rounded-lg border border-border bg-white px-3 text-[12.5px] font-bold text-foreground/80 transition-colors hover:bg-muted disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          {saving ? "Saving..." : "Save"}
+        </button>
+        <span className="rounded-lg border border-border bg-muted px-2.5 py-1.5 text-[11.5px] font-semibold text-muted-foreground">
+          {activeValue}
+        </span>
+        {expert && <ExpertBadge />}
+        {restartRequired && <RestartBadge />}
+      </div>
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11.5px] text-muted-foreground">
+        <span>Allowed range: {min.toLocaleString()}–{max.toLocaleString()}.</span>
+        {error && <span className="font-semibold text-[var(--brand-warm)]">{error}</span>}
+      </div>
+    </div>
+  );
+}
+
+function RestartBadge() {
+  return (
+    <span className="inline-flex items-center gap-1.5 rounded-full border border-[color-mix(in_oklch,var(--brand-warm)_30%,white)] bg-[color-mix(in_oklch,var(--brand-warm)_10%,white)] px-2.5 py-1 text-[11.5px] font-bold text-[var(--brand-warm)]">
+      <AlertTriangle className="h-3.5 w-3.5" />
+      Requires restarting local server
+    </span>
+  );
+}
+
+function RestartNotice() {
+  return (
+    <div className="flex items-start gap-2 rounded-xl border border-[color-mix(in_oklch,var(--brand-warm)_25%,white)] bg-[color-mix(in_oklch,var(--brand-warm)_7%,white)] px-3 py-2.5 text-[12px] leading-relaxed text-[var(--brand-warm)]">
+      <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+      <span>
+        One or more server settings are saved for the next launch. Restart the local Vox server from the helper menu for them to take effect.
+      </span>
+    </div>
+  );
+}
+
+function ExpertBadge() {
+  return (
+    <span className="rounded-full border border-[oklch(0.82_0.08_265)] bg-[oklch(0.96_0.035_265)] px-2 py-1 text-[10.5px] font-black uppercase tracking-wide text-[var(--brand)]">
+      Expert
+    </span>
+  );
+}
 
 function StoragePath({ path }: { path: string }) {
   const [copied, setCopied] = useState(false);

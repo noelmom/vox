@@ -175,10 +175,16 @@ export type ServerSettings = {
   voice_dir: string;
   input_dir: string;
   output_ttl_hours: number;
+  configured_output_ttl_hours: number;
+  output_ttl_restart_required: boolean;
   job_retention_days: number;
   deleted_voice_ttl_hours: number;
   chunk_headroom_chars: number;
+  configured_chunk_headroom_chars: number;
+  chunk_headroom_restart_required: boolean;
   max_voice_clip_duration_s: number;
+  configured_max_voice_clip_duration_s: number;
+  max_voice_clip_duration_restart_required: boolean;
   voice_icon_max_kb: number;
   ffmpeg_available: boolean;
   ffmpeg_path: string;
@@ -240,11 +246,27 @@ export async function getServerSettings(): Promise<ServerSettings> {
   return apiFetch("/api/v1/settings").then((r) => r.json());
 }
 
-export async function patchServerSettings(patch: { host?: "127.0.0.1" | "0.0.0.0" }): Promise<{
+export type ServerSettingsPatch = {
+  host?: "127.0.0.1" | "0.0.0.0";
+  output_ttl_hours?: number;
+  max_voice_clip_duration_s?: number;
+  chunk_headroom_chars?: number;
+};
+
+export async function patchServerSettings(patch: ServerSettingsPatch): Promise<{
   changed: Record<string, string>;
   host: string;
   configured_host: string;
   host_restart_required: boolean;
+  output_ttl_hours: number;
+  configured_output_ttl_hours: number;
+  output_ttl_restart_required: boolean;
+  max_voice_clip_duration_s: number;
+  configured_max_voice_clip_duration_s: number;
+  max_voice_clip_duration_restart_required: boolean;
+  chunk_headroom_chars: number;
+  configured_chunk_headroom_chars: number;
+  chunk_headroom_restart_required: boolean;
 }> {
   const r = await apiFetch("/api/v1/settings", {
     method: "PATCH",
