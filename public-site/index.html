@@ -54,6 +54,7 @@
       --line: #d9e4ee;
       --brand: #0f75ff;
       --brand-2: #00a69a;
+      --brand-3: #45b8ff;
       --warm: #f3b325;
       --card: rgba(255, 255, 255, 0.86);
       --shadow: 0 24px 70px rgba(21, 45, 74, 0.14);
@@ -66,22 +67,23 @@
       margin: 0;
       color: var(--ink);
       background:
-        radial-gradient(circle at 12% 4%, rgba(15, 117, 255, 0.12), transparent 30rem),
-        radial-gradient(circle at 90% 10%, rgba(0, 166, 154, 0.12), transparent 28rem),
-        linear-gradient(180deg, #f7fcff 0%, #eef8ff 48%, #ffffff 100%);
+        linear-gradient(90deg, rgba(15, 117, 255, 0.045) 1px, transparent 1px),
+        linear-gradient(180deg, rgba(15, 117, 255, 0.045) 1px, transparent 1px),
+        linear-gradient(135deg, #fbfdff 0%, #eef8ff 42%, #ffffff 100%);
+      background-size: 44px 44px, 44px 44px, auto;
     }
 
     a { color: inherit; text-decoration: none; }
     img { display: block; max-width: 100%; }
     code { font-family: "SFMono-Regular", Consolas, monospace; }
 
-    .wrap { width: min(1160px, calc(100% - 40px)); margin: 0 auto; }
+    .wrap { width: min(1220px, calc(100% - 40px)); margin: 0 auto; }
     .nav {
       position: sticky;
       top: 0;
       z-index: 10;
       border-bottom: 1px solid rgba(217, 228, 238, 0.72);
-      background: rgba(255, 255, 255, 0.78);
+      background: rgba(255, 255, 255, 0.82);
       backdrop-filter: blur(18px);
     }
     .nav-inner {
@@ -91,7 +93,7 @@
       min-height: 76px;
       gap: 24px;
     }
-    .logo { width: 150px; }
+    .logo { width: 152px; }
     .nav-links { display: flex; align-items: center; gap: 26px; color: #526171; font-size: 14px; font-weight: 700; }
     .nav-links a:hover { color: var(--ink); }
     .nav-cta {
@@ -107,13 +109,19 @@
     }
 
     .hero {
-      padding: 70px 0 34px;
+      padding: 56px 0 30px;
+      min-height: calc(100vh - 76px);
+      display: flex;
+      align-items: center;
     }
     .hero-grid {
       display: grid;
-      grid-template-columns: minmax(0, 0.92fr) minmax(420px, 1.08fr);
-      gap: 46px;
+      grid-template-columns: minmax(360px, 0.78fr) minmax(520px, 1.22fr);
+      gap: 42px;
       align-items: center;
+    }
+    .hero-copy {
+      padding: 20px 0;
     }
     .eyebrow {
       display: inline-flex;
@@ -122,7 +130,7 @@
       padding: 8px 12px;
       border: 1px solid rgba(15, 117, 255, 0.16);
       border-radius: 999px;
-      background: rgba(255,255,255,0.82);
+      background: rgba(255,255,255,0.9);
       color: #1358b7;
       font-size: 13px;
       font-weight: 800;
@@ -132,8 +140,8 @@
     h1 {
       margin: 22px 0 18px;
       max-width: 760px;
-      font-size: clamp(46px, 7vw, 86px);
-      line-height: 0.93;
+      font-size: clamp(48px, 6.2vw, 84px);
+      line-height: 0.91;
       letter-spacing: 0;
     }
     .lead {
@@ -157,7 +165,7 @@
       border: 1px solid transparent;
     }
     .button.primary { background: linear-gradient(135deg, var(--brand), var(--brand-2)); color: #fff; box-shadow: 0 18px 36px rgba(15,117,255,.24); }
-    .button.secondary { background: rgba(255,255,255,.8); border-color: var(--line); color: #233242; }
+    .button.secondary { background: rgba(255,255,255,.88); border-color: var(--line); color: #233242; }
     .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 22px; }
     .chip {
       padding: 8px 10px;
@@ -168,87 +176,168 @@
       font-size: 12px;
       font-weight: 800;
     }
+    .hero-stats {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+      margin-top: 28px;
+      max-width: 590px;
+    }
+    .stat {
+      min-height: 86px;
+      padding: 14px;
+      border: 1px solid rgba(217,228,238,.9);
+      border-radius: 16px;
+      background: rgba(255,255,255,.84);
+      box-shadow: 0 12px 30px rgba(21,45,74,.07);
+    }
+    .stat strong { display: block; font-size: 24px; line-height: 1; }
+    .stat span { display: block; margin-top: 7px; color: var(--muted); font-size: 12px; font-weight: 800; line-height: 1.35; }
 
     .app-frame {
       position: relative;
-      border-radius: 28px;
-      padding: 12px;
-      background: linear-gradient(135deg, rgba(255,255,255,.95), rgba(236,248,255,.88));
+      border-radius: 30px;
+      padding: 13px;
+      background:
+        linear-gradient(135deg, rgba(255,255,255,.98), rgba(236,248,255,.9)),
+        linear-gradient(135deg, rgba(15,117,255,.14), rgba(0,166,154,.12));
       border: 1px solid rgba(185, 210, 230, 0.72);
-      box-shadow: var(--shadow);
+      box-shadow: 0 30px 90px rgba(17, 45, 80, 0.18);
       overflow: hidden;
     }
-    .app-frame::before {
-      content: "";
-      position: absolute;
-      inset: -120px auto auto -120px;
-      width: 320px;
-      height: 320px;
-      border-radius: 50%;
-      background: rgba(15,117,255,.10);
-      filter: blur(20px);
+    .window-bar {
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 38px;
+      padding: 0 12px;
+      color: #738296;
+      font-size: 12px;
+      font-weight: 850;
+    }
+    .traffic { display: flex; gap: 7px; }
+    .traffic span { width: 10px; height: 10px; border-radius: 999px; background: #d7e2ed; }
+    .traffic span:nth-child(1) { background: #ff6b66; }
+    .traffic span:nth-child(2) { background: #ffc84d; }
+    .traffic span:nth-child(3) { background: #31cf73; }
+    .window-title {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      padding: 6px 10px;
+      border-radius: 999px;
+      background: rgba(255,255,255,.76);
+      border: 1px solid rgba(217,228,238,.8);
     }
     .screenshot {
       position: relative;
-      border-radius: 18px;
+      border-radius: 20px;
       border: 1px solid rgba(185,210,230,.74);
       overflow: hidden;
       background: #f7fbff;
     }
     .download-card {
       position: absolute;
-      right: 24px;
-      bottom: 24px;
-      width: min(360px, calc(100% - 48px));
+      right: 26px;
+      bottom: 26px;
+      width: min(380px, calc(100% - 52px));
       padding: 18px;
-      border-radius: 18px;
+      border-radius: 20px;
       border: 1px solid rgba(217,228,238,.92);
       background: rgba(255,255,255,.92);
       box-shadow: 0 18px 42px rgba(18, 48, 86, 0.14);
       backdrop-filter: blur(14px);
+    }
+    .download-card::before {
+      content: "Recommended";
+      display: inline-flex;
+      margin-bottom: 12px;
+      padding: 5px 9px;
+      border-radius: 999px;
+      background: linear-gradient(135deg, rgba(15,117,255,.11), rgba(0,166,154,.11));
+      color: #1164cf;
+      font-size: 11px;
+      font-weight: 950;
+      text-transform: uppercase;
+      letter-spacing: .08em;
     }
     .pkg-row { display: flex; gap: 12px; align-items: center; }
     .pkg-icon { width: 52px; height: 52px; border-radius: 12px; box-shadow: 0 10px 20px rgba(21,45,74,.10); }
     .pkg-title { font-size: 15px; font-weight: 900; }
     .pkg-meta { margin-top: 2px; color: var(--muted); font-size: 12px; font-weight: 700; }
     .hash { margin-top: 12px; padding: 10px; border-radius: 10px; background: #f3f7fb; color: #536272; font-size: 11px; overflow-wrap: anywhere; }
+    .install-note {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-top: 12px;
+      padding-top: 12px;
+      border-top: 1px solid rgba(217,228,238,.85);
+      color: #667383;
+      font-size: 12px;
+      font-weight: 800;
+    }
 
-    section { padding: 70px 0; }
+    section { padding: 72px 0; }
     .section-head { max-width: 760px; margin-bottom: 28px; }
     .section-kicker { color: var(--brand); font-size: 13px; font-weight: 900; text-transform: uppercase; letter-spacing: .12em; }
     h2 { margin: 10px 0 12px; font-size: clamp(32px, 4vw, 52px); line-height: 1; letter-spacing: 0; }
     .section-copy { margin: 0; color: var(--muted); font-size: 17px; line-height: 1.6; }
+    .feature-band {
+      margin-top: -10px;
+      padding-top: 42px;
+    }
     .cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; }
     .card {
-      min-height: 220px;
-      padding: 24px;
+      min-height: 245px;
+      padding: 26px;
       border: 1px solid rgba(217,228,238,.9);
-      border-radius: 20px;
-      background: var(--card);
-      box-shadow: 0 12px 30px rgba(21,45,74,.07);
+      border-radius: 22px;
+      background:
+        linear-gradient(180deg, rgba(255,255,255,.96), rgba(250,253,255,.86));
+      box-shadow: 0 18px 42px rgba(21,45,74,.08);
     }
     .icon {
       display: inline-flex;
-      width: 42px;
-      height: 42px;
+      width: 46px;
+      height: 46px;
       align-items: center;
       justify-content: center;
-      border-radius: 12px;
+      border-radius: 14px;
       color: white;
       background: linear-gradient(135deg, var(--brand), var(--brand-2));
       font-weight: 900;
     }
     .card h3 { margin: 18px 0 10px; font-size: 20px; }
     .card p { margin: 0; color: var(--muted); line-height: 1.58; }
+    .card ul {
+      margin: 18px 0 0;
+      padding: 0;
+      list-style: none;
+      display: grid;
+      gap: 8px;
+      color: #425063;
+      font-size: 13px;
+      font-weight: 800;
+    }
+    .card li::before {
+      content: "✓";
+      color: var(--brand-2);
+      margin-right: 7px;
+      font-weight: 950;
+    }
 
     .agent-panel {
       display: grid;
       grid-template-columns: minmax(0, .95fr) minmax(360px, 1.05fr);
-      gap: 22px;
+      gap: 24px;
       align-items: stretch;
       border-radius: 28px;
-      padding: 26px;
-      background: #071624;
+      padding: 30px;
+      background:
+        linear-gradient(135deg, #071624 0%, #0b2235 56%, #052d2c 100%);
       color: white;
       box-shadow: var(--shadow);
     }
@@ -266,13 +355,29 @@
     }
     .agent-links { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 22px; }
     .agent-links a { border-color: rgba(255,255,255,.16); background: rgba(255,255,255,.08); color: white; }
+    .agent-points {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+      margin-top: 22px;
+    }
+    .agent-point {
+      border: 1px solid rgba(255,255,255,.1);
+      border-radius: 14px;
+      padding: 12px;
+      background: rgba(255,255,255,.055);
+      color: rgba(255,255,255,.78);
+      font-size: 13px;
+      font-weight: 800;
+    }
 
     .faq { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
     details {
       border: 1px solid rgba(217,228,238,.9);
-      border-radius: 16px;
+      border-radius: 18px;
       background: rgba(255,255,255,.86);
-      padding: 18px 20px;
+      padding: 20px 22px;
+      box-shadow: 0 10px 26px rgba(21,45,74,.055);
     }
     summary { cursor: pointer; font-weight: 900; }
     details p { margin: 12px 0 0; color: var(--muted); line-height: 1.55; }
@@ -290,7 +395,7 @@
     @media (max-width: 920px) {
       .nav-links { display: none; }
       .hero-grid, .agent-panel { grid-template-columns: 1fr; }
-      .cards, .faq { grid-template-columns: 1fr; }
+      .cards, .faq, .hero-stats, .agent-points { grid-template-columns: 1fr; }
       .download-card { position: static; width: auto; margin-top: 12px; }
       .hero { padding-top: 42px; }
     }
@@ -314,7 +419,7 @@
   <main id="top">
     <section class="hero">
       <div class="wrap hero-grid">
-        <div>
+        <div class="hero-copy">
           <div class="eyebrow"><span class="pulse"></span> Local AI voice generation for Mac</div>
           <h1>Private voice generation on your Mac.</h1>
           <p class="lead">
@@ -331,9 +436,27 @@
             <span class="chip">Local REST API</span>
             <span class="chip">No accounts</span>
           </div>
+          <div class="hero-stats" aria-label="Vox highlights">
+            <div class="stat">
+              <strong>Local</strong>
+              <span>Scripts and voice profiles stay on your Mac</span>
+            </div>
+            <div class="stat">
+              <strong>REST</strong>
+              <span>Simple API for agents and automations</span>
+            </div>
+            <div class="stat">
+              <strong>MP3/WAV</strong>
+              <span>Ready for videos, podcasts, and tools</span>
+            </div>
+          </div>
         </div>
 
         <div class="app-frame" aria-label="Vox Studio application screenshot and package download card">
+          <div class="window-bar" aria-hidden="true">
+            <div class="traffic"><span></span><span></span><span></span></div>
+            <div class="window-title"><span class="pulse"></span> Running locally</div>
+          </div>
           <div class="screenshot">
             <img src="assets/studio-screenshot.png" alt="Vox Studio app showing script generation, voice controls, and local generation progress" />
           </div>
@@ -346,12 +469,16 @@
               </div>
             </div>
             <div class="hash"><strong>SHA256</strong><br />d120bcfbae366810c8c7d763fddab72d792f4ac72c19a6192eabe11667c65c79</div>
+            <div class="install-note">
+              <span>Homebrew required</span>
+              <span>Apple Silicon</span>
+            </div>
           </div>
         </div>
       </div>
     </section>
 
-    <section id="features">
+    <section id="features" class="feature-band">
       <div class="wrap">
         <div class="section-head">
           <div class="section-kicker">Why Vox</div>
@@ -363,16 +490,31 @@
             <span class="icon">P</span>
             <h3>Private by default</h3>
             <p>Your scripts, voice profiles, and generated audio live on your Mac. Vox runs as a local service with no account system or telemetry pipeline.</p>
+            <ul>
+              <li>Local files</li>
+              <li>No cloud account</li>
+              <li>No usage dashboard</li>
+            </ul>
           </article>
           <article class="card">
             <span class="icon">M</span>
             <h3>Made for Mac</h3>
             <p>The one-click package installs the native helper, local server, demo voice profile, and runtime files under standard macOS locations.</p>
+            <ul>
+              <li>Menu bar helper</li>
+              <li>Signed package</li>
+              <li>Local welcome page</li>
+            </ul>
           </article>
           <article class="card">
             <span class="icon">A</span>
             <h3>Agent-ready API</h3>
             <p>After install, AI agents and scripts can submit text, choose a voice profile, poll async jobs, and download generated MP3 or WAV output.</p>
+            <ul>
+              <li>Async jobs</li>
+              <li>Voice profiles</li>
+              <li>Curl-friendly</li>
+            </ul>
           </article>
         </div>
       </div>
@@ -387,6 +529,12 @@
             <p class="section-copy">
               Vox exposes a local REST API at <code>http://localhost:8000</code> after installation. That makes it simple for Codex, local automations, shell scripts, and other agents to create speech clips without a cloud TTS account.
             </p>
+            <div class="agent-points" aria-label="Agent integration capabilities">
+              <div class="agent-point">Check readiness with /health</div>
+              <div class="agent-point">Submit scripts as async jobs</div>
+              <div class="agent-point">Reuse named voice profiles</div>
+              <div class="agent-point">Download finished MP3/WAV files</div>
+            </div>
             <div class="agent-links">
               <a class="button secondary" href="agents/SKILL.md">Read the agent skill</a>
               <a class="button secondary" href="https://github.com/MeloLabDev/codename-vox">View API source</a>
