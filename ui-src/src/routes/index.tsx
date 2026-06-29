@@ -372,8 +372,8 @@ function LaunchCard({
           <p className="mt-1 text-[15px] font-semibold text-muted-foreground">{description}</p>
         </div>
       </div>
-      <span className={`mt-5 flex h-[58px] min-w-0 items-center justify-center gap-3 overflow-hidden rounded-lg text-[18px] font-black text-white ${styles.button}`}>
-        <ExternalLink className="h-5 w-5" />
+      <span className={`mt-5 flex h-[58px] min-w-0 items-center gap-4 overflow-hidden rounded-lg pl-7 pr-4 text-[18px] font-black text-white ${styles.button}`}>
+        <ExternalLink className="h-5 w-5 shrink-0" />
         <span className="min-w-0 truncate">{title === "API Docs" ? "View API Docs" : title === "View Logs" ? "Open Logs" : "Open Vox Studio"}</span>
         <span className="ml-auto mr-3 shrink-0 rounded-md bg-white/16 px-2.5 py-1 font-mono text-sm text-white/90">{route}</span>
       </span>
