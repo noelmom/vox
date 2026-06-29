@@ -108,12 +108,12 @@ while [[ $# -gt 0 ]]; do
     case "$1" in
         install|update|uninstall) CMD="$1" ;;
         --yes|-y)          OPT_YES=true ;;
-        --token)           shift; OPT_TOKEN="${1:-}" ;;
+        --token)           shift; [[ -n "${1:-}" ]] || fail "--token requires a value"; OPT_TOKEN="${1:-}" ;;
         --agent-only)      OPT_AGENT_ONLY=true ;;
         --helper-only)     OPT_HELPER_ONLY=true ;;
         --purge)           OPT_PURGE=true ;;
-        --zip)             shift; OPT_ZIP="${1:-}" ;;
-        --branch)          shift; OPT_BRANCH="${1:-}" ;;
+        --zip)             shift; [[ -n "${1:-}" ]] || fail "--zip requires a path"; OPT_ZIP="${1:-}" ;;
+        --branch)          shift; [[ -n "${1:-}" ]] || fail "--branch requires a name"; OPT_BRANCH="${1:-}" ;;
         --devbranch)       OPT_BRANCH="development" ;;
         --pkg-mode)        OPT_PKG_MODE=true; OPT_YES=true ;;
         --force)           OPT_FORCE=true ;;
@@ -225,6 +225,7 @@ do_install() {
     fi
 
     _write_installed_version
+    _verify_install
 
     echo ""
     echo -e "${GREEN}${BOLD}  ✓ Vox installed.${RESET}"
@@ -236,6 +237,26 @@ do_install() {
     echo "  Start the server from the Vox icon in your menu bar."
     echo "  Open the app at: http://localhost:8000/app"
     echo ""
+}
+
+_verify_install() {
+    local app_dir="/Applications/Vox"
+    local agent_plist="$HOME/Library/LaunchAgents/com.melolabdev.vox.plist"
+    local helper_plist="$HOME/Library/LaunchAgents/com.melolabdev.vox-helper.plist"
+
+    if ! $OPT_HELPER_ONLY; then
+        [[ -x "$app_dir/VoxServer.app/Contents/MacOS/vox-server" ]] \
+            || fail "VoxServer.app was not installed correctly at $app_dir/VoxServer.app"
+        [[ -f "$agent_plist" ]] \
+            || fail "Server LaunchAgent was not installed at $agent_plist"
+    fi
+
+    if ! $OPT_AGENT_ONLY; then
+        [[ -x "$app_dir/VoxHelper.app/Contents/MacOS/VoxHelper" ]] \
+            || fail "VoxHelper.app was not installed correctly at $app_dir/VoxHelper.app"
+        [[ -f "$helper_plist" ]] \
+            || fail "Helper LaunchAgent was not installed at $helper_plist"
+    fi
 }
 
 _write_token() {

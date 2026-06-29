@@ -328,4 +328,59 @@ class ServerMonitor {
         proc.arguments = args
         try? proc.run()
     }
+
+    func stopServer() {
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            guard let self else { return }
+            self.launchctl("stop", "gui/\(getuid())/com.melolabdev.vox")
+            self.waitForServerStop(seconds: 3)
+
+            guard self.checkServer() || self.hasUvicornProcess() else {
+                self.poll()
+                return
+            }
+
+            self.pkill(signal: "TERM")
+            self.waitForServerStop(seconds: 2)
+
+            if self.checkServer() || self.hasUvicornProcess() {
+                self.pkill(signal: "KILL")
+                self.waitForServerStop(seconds: 1)
+            }
+
+            self.poll()
+        }
+    }
+
+    private func waitForServerStop(seconds: Int) {
+        guard seconds > 0 else { return }
+        for _ in 0..<seconds {
+            if !checkServer() && !hasUvicornProcess() { return }
+            Thread.sleep(forTimeInterval: 1)
+        }
+    }
+
+    private func hasUvicornProcess() -> Bool {
+        runQuiet("/usr/bin/pgrep", ["-f", "uvicorn api.main:app"])
+    }
+
+    private func pkill(signal: String) {
+        _ = runQuiet("/usr/bin/pkill", ["-\(signal)", "-f", "uvicorn api.main:app"])
+    }
+
+    @discardableResult
+    private func runQuiet(_ executable: String, _ arguments: [String]) -> Bool {
+        let proc = Process()
+        proc.executableURL = URL(fileURLWithPath: executable)
+        proc.arguments = arguments
+        proc.standardOutput = Pipe()
+        proc.standardError = Pipe()
+        do {
+            try proc.run()
+            proc.waitUntilExit()
+            return proc.terminationStatus == 0
+        } catch {
+            return false
+        }
+    }
 }

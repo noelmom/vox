@@ -25,6 +25,7 @@ for arg in "$@"; do
     --pkg-mode) PKG_MODE=true ;;
     --force-app) FORCE_APP=true ;;
     --no-reload) NO_RELOAD=true ;;
+    *) echo "[vox-helper] Unknown argument: $arg"; exit 1 ;;
   esac
 done
 
@@ -101,6 +102,11 @@ else
   cleanup_dmg_mount
   trap - EXIT
 fi
+
+[[ -x "$APP_DIR/VoxHelper.app/Contents/MacOS/VoxHelper" ]] || {
+  echo "[vox-helper] x VoxHelper.app is missing its executable at $APP_DIR/VoxHelper.app/Contents/MacOS/VoxHelper"
+  exit 1
+}
 
 # ── Write LaunchAgent plist ───────────────────────────────────────────────────
 cat > "$PLIST_DST" <<EOF

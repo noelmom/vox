@@ -155,6 +155,16 @@ else
         pgrep -f "uvicorn api.main:app" &>/dev/null || break
         sleep 1
     done
+    if pgrep -f "uvicorn api.main:app" &>/dev/null; then
+        warn "Server did not stop via launchctl; sending TERM to uvicorn."
+        pkill -TERM -f "uvicorn api.main:app" 2>/dev/null || true
+        sleep 2
+    fi
+    if pgrep -f "uvicorn api.main:app" &>/dev/null; then
+        warn "Server still running; sending KILL to uvicorn."
+        pkill -KILL -f "uvicorn api.main:app" 2>/dev/null || true
+        sleep 1
+    fi
 fi
 
 # ── Sync Python dependencies ──────────────────────────────────────────────────

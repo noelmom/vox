@@ -153,7 +153,7 @@ class StatusBarController: NSObject {
     }
 
     @objc private func stopServer() {
-        monitor.launchctl("stop", "gui/\(getuid())/com.melolabdev.vox")
+        monitor.stopServer()
     }
 
     @objc private func restartServer() {
