@@ -27,3 +27,13 @@ setup_install_log() {
   exec > >(tee -a "$log_file") 2>&1
   echo "[vox] Install log: $log_file"
 }
+
+install_step() {
+  local current="$1"
+  local total="$2"
+  shift 2
+  echo ""
+  echo "------------------------------------------------------------"
+  echo "[vox] Step $current/$total: $*"
+  echo "------------------------------------------------------------"
+}

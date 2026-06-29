@@ -20,12 +20,22 @@ fail() {
   exit 1
 }
 
+pkg_step() {
+  echo ""
+  echo "------------------------------------------------------------"
+  echo "[vox-pkg] Step $1/$2: $3"
+  echo "------------------------------------------------------------"
+}
+
+pkg_step 1 6 "Checking Apple Silicon requirement"
 [[ "$(uname -m)" == "arm64" ]] || fail "Vox requires Apple Silicon (M1 or later)."
 
+pkg_step 2 6 "Checking logged-in macOS user"
 CONSOLE_USER="$(stat -f %Su /dev/console)"
 [[ -n "$CONSOLE_USER" && "$CONSOLE_USER" != "root" && "$CONSOLE_USER" != "loginwindow" ]] \
   || fail "No logged-in macOS user found. Log in to the desktop, then run the installer again."
 
+pkg_step 3 6 "Checking curl"
 command -v curl >/dev/null 2>&1 || fail "curl is required but was not found."
 
 check_url() {
@@ -36,16 +46,19 @@ check_url() {
     || fail "Internet connectivity check failed for $label ($url). Check your network/VPN/firewall and try again."
 }
 
+pkg_step 4 6 "Checking internet access"
 check_url "GitHub" "https://github.com/"
 check_url "Python Package Index" "https://pypi.org/"
 check_url "Hugging Face" "https://huggingface.co/"
 
+pkg_step 5 6 "Checking Homebrew"
 if ! command -v brew >/dev/null 2>&1; then
   fail "Homebrew is required for the one-click installer. Install Homebrew from https://brew.sh, then run this package again."
 else
   echo "[vox-pkg] Homebrew found: $(brew --version | head -1)"
 fi
 
+pkg_step 6 6 "Checking Python 3.11"
 if ! command -v python3.11 >/dev/null 2>&1; then
   echo "[vox-pkg] Python 3.11 not found locally. setup.sh will install it with Homebrew."
 else

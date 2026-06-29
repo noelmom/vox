@@ -55,9 +55,11 @@ if ! $PKG_MODE; then
 fi
 
 # ── Ensure directories ────────────────────────────────────────────────────────
+install_step 1 5 "Preparing server directories"
 mkdir -p "$AGENTS_DIR" "$LOG_DIR" "$APP_SUPPORT"/{api,ui-dist,scripts,voices,outputs,data,input/processed}
 
 # ── Sync server code and UI ───────────────────────────────────────────────────
+install_step 2 5 "Syncing server code and web UI"
 echo "[vox] Syncing server code to Application Support..."
 rsync -a --delete "$ROOT/api/"      "$APP_SUPPORT/api/"
 rsync -a --delete "$ROOT/ui-dist/"  "$APP_SUPPORT/ui-dist/"
@@ -65,6 +67,7 @@ rsync -a --delete "$ROOT/ui-dist/"  "$APP_SUPPORT/ui-dist/"
 [[ -f "$ROOT/build_info.json" ]] && ditto --norsrc "$ROOT/build_info.json" "$APP_SUPPORT/build_info.json"
 
 # ── Write production run.sh ───────────────────────────────────────────────────
+install_step 3 5 "Writing server control scripts"
 cat > "$APP_SUPPORT/scripts/run.sh" <<'RUNSCRIPT'
 #!/bin/bash
 set -e
@@ -127,10 +130,12 @@ RUNSCRIPT
 chmod +x "$APP_SUPPORT/scripts/update.sh"
 
 if $PKG_MODE; then
+  install_step 4 5 "Using packaged VoxServer.app"
   echo "[vox] Using packaged VoxServer.app at $APP_DIR/VoxServer.app..."
   [[ -d "$APP_DIR/VoxServer.app" ]] || { echo "[vox] x VoxServer.app not found at $APP_DIR/VoxServer.app"; exit 1; }
 else
   # ── Install VoxServer.app from DMG ─────────────────────────────────────────
+  install_step 4 5 "Installing VoxServer.app"
   echo "[vox] Installing VoxServer.app from Vox.dmg..."
   MOUNT_POINT="$(mktemp -d "${TMPDIR:-/tmp}/vox-dmg-server.XXXXXX")"
   cleanup_dmg_mount() {
@@ -178,6 +183,7 @@ fi
 }
 
 # ── Write LaunchAgent plist ───────────────────────────────────────────────────
+install_step 5 5 "Installing server LaunchAgent"
 cat > "$PLIST_DST" <<EOF
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">

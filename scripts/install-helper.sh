@@ -53,13 +53,16 @@ if ! $PKG_MODE; then
   [[ -f "$DMG" ]] || { echo "[vox-helper] x Vox.dmg not found — run bash scripts/build-apps.sh first."; exit 1; }
 fi
 
+install_step 1 3 "Preparing helper directories"
 mkdir -p "$AGENTS_DIR" "$LOG_DIR"
 
 if $PKG_MODE; then
+  install_step 2 3 "Using packaged VoxHelper.app"
   echo "[vox-helper] Using packaged VoxHelper.app at $APP_DIR/VoxHelper.app..."
   [[ -d "$APP_DIR/VoxHelper.app" ]] || { echo "[vox-helper] x VoxHelper.app not found at $APP_DIR/VoxHelper.app"; exit 1; }
 else
   # ── Install VoxHelper.app from DMG ─────────────────────────────────────────
+  install_step 2 3 "Installing VoxHelper.app"
   echo "[vox-helper] Installing VoxHelper.app from Vox.dmg..."
   MOUNT_POINT="$(mktemp -d "${TMPDIR:-/tmp}/vox-dmg-helper.XXXXXX")"
   cleanup_dmg_mount() {
@@ -109,6 +112,7 @@ fi
 }
 
 # ── Write LaunchAgent plist ───────────────────────────────────────────────────
+install_step 3 3 "Installing helper LaunchAgent"
 cat > "$PLIST_DST" <<EOF
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">

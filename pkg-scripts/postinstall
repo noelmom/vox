@@ -16,18 +16,28 @@ echo "Started: $(date)"
 echo "macOS: $(sw_vers -productVersion 2>/dev/null || echo unknown)"
 echo "Arch: $(uname -m 2>/dev/null || echo unknown)"
 
+pkg_step() {
+  echo ""
+  echo "------------------------------------------------------------"
+  echo "[vox-pkg] Step $1/$2: $3"
+  echo "------------------------------------------------------------"
+}
+
+pkg_step 1 5 "Resolving console user"
 CONSOLE_USER="$(stat -f %Su /dev/console)"
 if [[ -z "$CONSOLE_USER" || "$CONSOLE_USER" == "root" || "$CONSOLE_USER" == "loginwindow" ]]; then
   echo "[vox-pkg] No logged-in console user found."
   exit 1
 fi
 
+pkg_step 2 5 "Resolving user home directory"
 USER_HOME="$(dscl . -read "/Users/$CONSOLE_USER" NFSHomeDirectory 2>/dev/null | awk '{print $2}')"
 if [[ -z "$USER_HOME" || ! -d "$USER_HOME" ]]; then
   echo "[vox-pkg] Could not resolve home directory for $CONSOLE_USER."
   exit 1
 fi
 
+pkg_step 3 5 "Checking packaged bootstrap"
 if [[ ! -f "$BOOTSTRAP/vox.sh" ]]; then
   echo "[vox-pkg] Bootstrap not found at $BOOTSTRAP."
   exit 1
@@ -37,9 +47,11 @@ echo "[vox-pkg] Installing for user: $CONSOLE_USER"
 echo "[vox-pkg] User home: $USER_HOME"
 echo "[vox-pkg] Bootstrap: $BOOTSTRAP"
 
+pkg_step 4 5 "Preparing file ownership"
 chown -R "$CONSOLE_USER":staff "$BOOTSTRAP"
 chown -R "$CONSOLE_USER":staff "/Applications/Vox" 2>/dev/null || true
 
+pkg_step 5 5 "Running Vox bootstrap installer"
 /usr/bin/sudo -u "$CONSOLE_USER" \
   /usr/bin/env \
   HOME="$USER_HOME" \

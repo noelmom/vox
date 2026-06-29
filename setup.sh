@@ -60,6 +60,7 @@ if [[ -d "$ROOT/.git" ]] || [[ -f "$ROOT/.git" ]]; then
 fi
 
 # ── Homebrew ──────────────────────────────────────────────────────────────────
+install_step 1 8 "Checking Homebrew"
 info "Checking Homebrew..."
 if ! command -v brew &>/dev/null; then
     info "Installing Homebrew..."
@@ -69,6 +70,7 @@ fi
 success "Homebrew $(brew --version | head -1)"
 
 # ── ffmpeg ────────────────────────────────────────────────────────────────────
+install_step 2 8 "Checking ffmpeg"
 info "Checking ffmpeg..."
 if ! brew list ffmpeg &>/dev/null; then
     info "Installing ffmpeg via Homebrew..."
@@ -77,6 +79,7 @@ fi
 success "ffmpeg $(ffmpeg -version 2>&1 | head -1 | awk '{print $3}')"
 
 # ── Python 3.11 ───────────────────────────────────────────────────────────────
+install_step 3 8 "Checking Python 3.11"
 info "Checking Python..."
 PYTHON=""
 
@@ -94,6 +97,7 @@ PYTHON_VERSION=$("$PYTHON" --version 2>&1)
 success "$PYTHON_VERSION at $PYTHON"
 
 # ── Application Support directory structure ───────────────────────────────────
+install_step 4 8 "Creating Application Support directories"
 info "Creating permanent application support directories..."
 mkdir -p "$APP_SUPPORT/venv"
 mkdir -p "$APP_SUPPORT/api"
@@ -107,6 +111,7 @@ mkdir -p "$HOME/Library/Logs/Vox"
 success "Application Support: $APP_SUPPORT"
 
 # ── Virtual environment ───────────────────────────────────────────────────────
+install_step 5 8 "Preparing Python virtual environment"
 VENV="$APP_SUPPORT/venv"
 
 if [[ ! -f "$VENV/bin/python" ]]; then
@@ -121,16 +126,19 @@ VENV_PIP="$VENV/bin/pip"
 success "Virtual environment ready"
 
 # ── pip ───────────────────────────────────────────────────────────────────────
+install_step 6 8 "Upgrading pip"
 info "Upgrading pip..."
 "$VENV_PIP" install --upgrade pip --quiet
 success "pip $("$VENV_PIP" --version | awk '{print $2}')"
 
 # ── Python dependencies ───────────────────────────────────────────────────────
+install_step 7 8 "Installing Vox Python dependencies"
 info "Installing Python dependencies (this may take a few minutes on first run)..."
 "$VENV_PIP" install -r "$ROOT/requirements.txt"
 success "All Python dependencies installed"
 
 # ── Copy server code to permanent location ────────────────────────────────────
+install_step 8 8 "Installing Vox runtime files"
 info "Installing server code to Application Support..."
 mkdir -p "$APP_SUPPORT/ui-dist"
 rsync -a --delete "$ROOT/api/"      "$APP_SUPPORT/api/"
