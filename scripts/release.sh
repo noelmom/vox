@@ -22,6 +22,7 @@ fail()    { echo -e "${RED}[release] ✗${RESET} $*"; exit 1; }
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 VERSION="${1:-}"
+RELEASE_REPO="${RELEASE_REPO:-noelmom/vox}"
 [[ -n "$VERSION" ]] || fail "Version required, e.g. bash scripts/release.sh 0.5.4-beta"
 [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[A-Za-z0-9.-]+)?$ ]] || fail "Invalid version: $VERSION"
 
@@ -75,7 +76,9 @@ info "Building signed/notarized pkg"
 bash scripts/build-pkg.sh
 
 PKG="assets/Vox-$VERSION.pkg"
+DMG="assets/Vox.dmg"
 [[ -f "$PKG" ]] || fail "Package missing: $PKG"
+[[ -f "$DMG" ]] || fail "DMG missing: $DMG"
 HASH="$(shasum -a 256 "$PKG" | awk '{print $1}')"
 SHORT_HASH="${HASH:0:4}…${HASH: -4}"
 SIZE_BYTES="$(stat -f '%z' "$PKG")"
@@ -115,7 +118,8 @@ git tag -a "$TAG" -m "Vox ${VERSION} Beta"
 git push origin "$TAG"
 
 info "Creating GitHub prerelease"
-gh release create "$TAG" "$PKG" \
+gh release create "$TAG" "$PKG" "$DMG" \
+  --repo "$RELEASE_REPO" \
   --title "Vox ${VERSION} Beta" \
   --prerelease \
   --notes "## Vox ${VERSION} Beta
@@ -124,6 +128,10 @@ gh release create "$TAG" "$PKG" \
 - File: Vox-${VERSION}.pkg
 - SHA256: ${HASH}
 - Size: ${SIZE_MB}
+- Signed, notarized, stapled, and accepted by Gatekeeper.
+
+### DMG
+- File: Vox.dmg
 - Signed, notarized, stapled, and accepted by Gatekeeper."
 
 success "Released $TAG"
