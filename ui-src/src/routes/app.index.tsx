@@ -66,7 +66,7 @@ export const Route = createFileRoute("/app/")({
   component: GeneratePage,
 });
 
-type VoiceCategory = "Narration" | "Character" | "Conversational" | "Custom";
+type VoiceCategory = "Default" | "Demo" | "Narration" | "Character" | "Conversational" | "Custom";
 type Voice = {
   id: string;
   name: string;
@@ -88,7 +88,7 @@ const GENERIC_VOICE: Voice = {
   id: "",
   name: "Generic",
   displayName: "Generic",
-  category: "Custom",
+  category: "Default",
   tags: ["Default"],
   accent: "slate",
   isFavorite: false,
@@ -98,6 +98,8 @@ const GENERIC_VOICE: Voice = {
 function toDisplayVoice(v: ApiVoice, idx: number): Voice {
   const accent = ACCENT_CYCLE[idx % ACCENT_CYCLE.length];
   const cat: VoiceCategory =
+    v.tags.includes("Demo") ? "Demo" :
+    v.tags.includes("Default") ? "Default" :
     v.tags.includes("Narration") ? "Narration" :
     v.tags.includes("Character") ? "Character" :
     v.tags.includes("Conversational") ? "Conversational" : "Custom";
@@ -122,7 +124,7 @@ const ACCENT_BG: Record<Voice["accent"], string> = {
   slate: "oklch(0.16 0.02 240)",
 };
 
-const VOICE_FILTERS: ("All" | VoiceCategory)[] = ["All", "Narration", "Conversational", "Character", "Custom"];
+const VOICE_FILTERS: ("All" | VoiceCategory)[] = ["All", "Default", "Demo", "Narration", "Conversational", "Character", "Custom"];
 
 const ADVANCED_DEFAULTS = {
   exaggeration: 0.5,

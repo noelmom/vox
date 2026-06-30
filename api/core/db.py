@@ -13,7 +13,7 @@ _SEED_VOICES = [
         "name": "noelmo-demo",
         "filename": "noelmo-demo.wav",
         "description": "Default test voice — used to verify the stack is working end-to-end.",
-        "tags": ["Noelmo Demo", "Male"],
+        "tags": ["Demo", "Male"],
     },
 ]
 
@@ -120,6 +120,7 @@ async def _migrate(db: aiosqlite.Connection):
 
     await _run_once(db, "normalize_user_presets_lowercase", _normalize_user_presets_lowercase)
     await _run_once(db, "tag_noelmo_demo_seed_voice", _tag_noelmo_demo_seed_voice)
+    await _run_once(db, "rename_noelmo_demo_tag", _rename_noelmo_demo_tag)
     await db.commit()
 
 
@@ -175,12 +176,23 @@ async def _normalize_user_presets_lowercase(db: aiosqlite.Connection):
 
 
 async def _tag_noelmo_demo_seed_voice(db: aiosqlite.Connection):
-    tags = _serialize_tags(["Noelmo Demo", "Male"])
+    tags = _serialize_tags(["Demo", "Male"])
     await db.execute(
         """UPDATE voices
            SET tags = ?
            WHERE name = 'noelmo-demo'
              AND (tags = '' OR tags IS NULL)""",
+        (tags,),
+    )
+
+
+async def _rename_noelmo_demo_tag(db: aiosqlite.Connection):
+    tags = _serialize_tags(["Demo", "Male"])
+    await db.execute(
+        """UPDATE voices
+           SET tags = ?
+           WHERE name = 'noelmo-demo'
+             AND tags IN ('Noelmo Demo,Male', 'Noelmo Demo, Male')""",
         (tags,),
     )
 
