@@ -5,17 +5,22 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
-## [1.0.0-rc4] — 2026-06-29
-
-### Changed
-- Release notes TBD.
-
-## [1.0.0-rc3] — 2026-06-29
-
-### Changed
-- Release notes TBD.
-
 ## Unreleased
+
+### Changed
+- Repository rename planned after v1.0 RC validation: `MeloLabDev/codename-vox` will become `noelmom/vox`.
+
+## [1.0.0-rc5] — 2026-06-29
+
+### Changed
+- **Menu bar identity polish** — replaced the helper status icon with a native-feeling monochrome VOX wordmark: white while running and dimmed gray while stopped.
+- **Release workflow hardening** — package signing now unlocks the login keychain before `productsign`, preventing silent hangs during `.pkg` builds.
+- **Public page metadata** — release automation now updates the visible package version pill along with filename, release URL, size, and SHA256.
+
+### Fixed
+- **Server-setting clarity** — Settings now distinguishes Default per-chunk max from Chunk headroom, validates both, and documents the hard max versus soft packing target.
+
+## [1.0.0-rc4] — 2026-06-29
 
 ### Added
 - **Public/local page split** — added `public-site/index.html` for GitHub Pages marketing/download SEO and `public-site/agents/SKILL.md` for AI-agent REST API integration.
@@ -24,7 +29,19 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 - **Release metadata target** — `scripts/release.sh` now updates package filename, URL, size, and SHA256 in `public-site/index.html`.
-- **Menu bar status icon** — Vox Helper now uses a compact VOX wordmark where the O carries the running/stopped state.
+- **Menu bar status icon** — Vox Helper now uses a compact monochrome VOX wordmark with white running and dimmed gray stopped states.
+- **Public hero refresh** — updated the public landing page hero screenshot to the current Vox Studio UI.
+- **Settings polish** — exposed Output TTL, Voice clip limit, Default per-chunk max, and Chunk headroom as validated restart-required server settings.
+
+### Fixed
+- **API validation hardening** — tightened validation for TTS, voice profiles, jobs, logs, presets, backups, and server settings.
+- **Create script editor** — script drafts persist, spellcheck is explicit, and auto-capitalization respects user edits without moving the cursor.
+- **Package signing workflow** — `scripts/build-pkg.sh` now unlocks the login keychain before `productsign` to prevent silent signing hangs.
+
+## [1.0.0-rc3] — 2026-06-29
+
+### Changed
+- **Installer experience** — refreshed signed/notarized DMG and PKG builds, improved installer status messaging, and tightened one-click bootstrap behavior.
 
 ---
 
