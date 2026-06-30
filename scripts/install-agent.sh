@@ -208,6 +208,10 @@ cat > "$PLIST_DST" <<EOF
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0"><dict>
   <key>Label</key><string>$LABEL</string>
+  <key>AssociatedBundleIdentifiers</key>
+  <array>
+    <string>com.noelmom.vox-server</string>
+  </array>
   <key>ProgramArguments</key>
   <array>
     <string>$APP_DIR/VoxServer.app/Contents/MacOS/vox-server</string>

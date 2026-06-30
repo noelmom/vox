@@ -6,6 +6,11 @@
   <key>Label</key>
   <string>com.noelmom.vox-helper</string>
 
+  <key>AssociatedBundleIdentifiers</key>
+  <array>
+    <string>com.noelmom.vox-helper</string>
+  </array>
+
   <!-- TEMPORARY: runs python3 directly from the permanent venv until VoxHelper.app
        is code-signed with a Developer ID certificate. Once signed, revert to the
        .app bundle approach — see BACKLOG.md "Revert helper to signed VoxHelper.app". -->

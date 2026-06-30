@@ -6,6 +6,11 @@
   <key>Label</key>
   <string>com.noelmom.vox</string>
 
+  <key>AssociatedBundleIdentifiers</key>
+  <array>
+    <string>com.noelmom.vox-server</string>
+  </array>
+
   <key>ProgramArguments</key>
   <array>
     <string>/bin/bash</string>

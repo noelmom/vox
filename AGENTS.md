@@ -60,6 +60,8 @@ LaunchAgents:
 ~/Library/LaunchAgents/com.noelmom.vox-helper.plist
 ```
 
+Both LaunchAgents should include `AssociatedBundleIdentifiers` pointing at their signed app bundles (`com.noelmom.vox-server` and `com.noelmom.vox-helper`). macOS uses this hint in System Settings → General → Login Items & Extensions → Background Activity; without it, Vox can appear under the signer name with a generic icon.
+
 Logs:
 
 ```text
