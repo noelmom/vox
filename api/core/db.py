@@ -3,6 +3,7 @@ import uuid
 import aiosqlite
 
 from api.core.config import settings
+from api.models.voice import _serialize_tags
 
 # Default voice profiles bundled with the project.
 # Each entry is registered on first startup if not already in the DB.
@@ -12,6 +13,7 @@ _SEED_VOICES = [
         "name": "noelmo-demo",
         "filename": "noelmo-demo.wav",
         "description": "Default test voice — used to verify the stack is working end-to-end.",
+        "tags": ["Noelmo Demo", "Male"],
     },
 ]
 
@@ -117,6 +119,7 @@ async def _migrate(db: aiosqlite.Connection):
             pass  # column already exists
 
     await _run_once(db, "normalize_user_presets_lowercase", _normalize_user_presets_lowercase)
+    await _run_once(db, "tag_noelmo_demo_seed_voice", _tag_noelmo_demo_seed_voice)
     await db.commit()
 
 
@@ -171,6 +174,17 @@ async def _normalize_user_presets_lowercase(db: aiosqlite.Connection):
         )
 
 
+async def _tag_noelmo_demo_seed_voice(db: aiosqlite.Connection):
+    tags = _serialize_tags(["Noelmo Demo", "Male"])
+    await db.execute(
+        """UPDATE voices
+           SET tags = ?
+           WHERE name = 'noelmo-demo'
+             AND (tags = '' OR tags IS NULL)""",
+        (tags,),
+    )
+
+
 async def _fail_stale_jobs(db: aiosqlite.Connection):
     await db.execute(
         """UPDATE jobs
@@ -193,9 +207,16 @@ async def _seed(db: aiosqlite.Connection):
                 continue
 
         await db.execute(
-            """INSERT INTO voices (id, name, filename, original_filename, description)
-               VALUES (?, ?, ?, ?, ?)""",
-            (str(uuid.uuid4()), voice["name"], voice["filename"], voice["filename"], voice["description"]),
+            """INSERT INTO voices (id, name, filename, original_filename, description, tags)
+               VALUES (?, ?, ?, ?, ?, ?)""",
+            (
+                str(uuid.uuid4()),
+                voice["name"],
+                voice["filename"],
+                voice["filename"],
+                voice["description"],
+                _serialize_tags(voice.get("tags", [])),
+            ),
         )
 
     await db.commit()

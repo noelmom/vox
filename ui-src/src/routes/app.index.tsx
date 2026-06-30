@@ -89,7 +89,7 @@ const GENERIC_VOICE: Voice = {
   name: "Generic",
   displayName: "Generic",
   category: "Custom",
-  tags: ["Default", "Balanced"],
+  tags: ["Default"],
   accent: "slate",
   isFavorite: false,
   iconData: null,
