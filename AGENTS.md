@@ -148,7 +148,13 @@ The release script:
 9. Rebuilds `ui-dist`.
 10. Commits final release metadata.
 11. Pushes branch and tag.
-12. Creates a GitHub prerelease and uploads the `.pkg`.
+12. Creates the GitHub prerelease on `noelmom/vox` and uploads both the PKG and DMG.
+
+`scripts/release.sh` intentionally sets `RELEASE_REPO="${RELEASE_REPO:-noelmom/vox}"` and passes `--repo "$RELEASE_REPO"` to `gh release create`. Keep that explicit. After the project moved from `MeloLabDev/codename-vox` to `noelmom/vox`, relying on GitHub CLI repo inference caused intermittent `401 Unauthorized` failures during release creation even though `gh auth status` was valid. If testing a fork, override it explicitly:
+
+```bash
+RELEASE_REPO=owner/repo bash scripts/release.sh 1.0.0-rc9
+```
 
 Required environment:
 

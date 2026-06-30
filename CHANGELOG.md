@@ -18,6 +18,7 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## Unreleased
 
 ### Changed
+- Release automation now passes an explicit `--repo noelmom/vox` target to GitHub CLI and uploads both the signed PKG and DMG, avoiding repo-inference failures after the project rename.
 - Project identity cleanup: public repository/download references now target `noelmom/vox`, and LaunchAgent/bundle/package identifiers now use the `com.noelmom.vox*` namespace.
 
 ## [1.0.0-rc6] — 2026-06-29

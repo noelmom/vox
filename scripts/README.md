@@ -63,4 +63,18 @@ The server prints its address and API docs URL on startup. Logs stream directly 
 | `update.sh` | Pull latest changes + sync deps + re-register agents only when installed build differs. Supports `--force`, `--no-restart`, `--agent-only`, and `--helper-only`. |
 | `release.sh` | Unified release helper: stamps build info, builds/signs/notarizes DMG and PKG, updates landing metadata, tags, pushes, and uploads the GitHub release asset. |
 
+### Release repository target
+
+`release.sh` creates GitHub prereleases against `noelmom/vox` by default:
+
+```bash
+bash scripts/release.sh 1.0.0-rc9
+```
+
+The target is explicit because GitHub CLI repo inference can be unreliable after repo renames or redirects. To test releases against a fork, override it:
+
+```bash
+RELEASE_REPO=owner/repo bash scripts/release.sh 1.0.0-rc9
+```
+
 For repository-wide operating procedures, release caveats, signing notes, and agent expectations, see [`../AGENTS.md`](../AGENTS.md).
