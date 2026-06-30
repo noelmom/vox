@@ -160,6 +160,8 @@ RELEASE_REPO=owner/repo bash scripts/release.sh 1.0.0-rc9
 
 GitHub Releases should publish `Vox-<version>.pkg` only. `assets/Vox.dmg` is still built, signed, notarized, stapled, committed, and used by `vox.sh install` / manual local install flows, but do not upload it to public releases because it only contains the two app bundles and can confuse testers who need the one-click installer.
 
+The script re-runs `gh auth status` immediately before creating the GitHub prerelease. This catches cases where the signing/notarization flow sat at a keychain prompt long enough for the final release upload to hit a stale/invalid GitHub CLI auth path.
+
 Required environment:
 
 ```bash

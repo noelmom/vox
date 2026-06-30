@@ -79,4 +79,6 @@ RELEASE_REPO=owner/repo bash scripts/release.sh 1.0.0-rc9
 
 GitHub Releases intentionally publish only `Vox-<version>.pkg`. `assets/Vox.dmg` is built and committed for the manual/script install path, but it is not uploaded as a release asset because it only contains the two app bundles and can confuse testers.
 
+The script checks `gh auth status` again right before creating the GitHub prerelease. If the signing/notarization flow waited on a keychain prompt for a while and GitHub upload fails, run `gh auth login -h github.com` and retry the release upload or rerun the release with a new version.
+
 For repository-wide operating procedures, release caveats, signing notes, and agent expectations, see [`../AGENTS.md`](../AGENTS.md).

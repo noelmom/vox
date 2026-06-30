@@ -115,6 +115,9 @@ git push origin "$(git branch --show-current)"
 git tag -a "$TAG" -m "Vox ${VERSION} Beta"
 git push origin "$TAG"
 
+info "Verifying GitHub CLI auth"
+gh auth status >/dev/null 2>&1 || fail "GitHub CLI auth is not valid. Run: gh auth login -h github.com"
+
 info "Creating GitHub prerelease"
 gh release create "$TAG" "$PKG" \
   --repo "$RELEASE_REPO" \
