@@ -2,6 +2,7 @@
 # Build and sign a macOS installer package for Vox app bundles.
 #
 # Requires:
+#   KEYCHAIN_PASSWORD  — login keychain password (for productsign access)
 #   APP_SIGN_PASSWORD — Apple app-specific password for notarytool
 #   Developer ID Installer certificate installed in Keychain
 #
@@ -33,16 +34,21 @@ UNSIGNED_PKG="$BUILD_TMP/Vox-unsigned.pkg"
 OUTPUT_PKG="$ROOT/assets/Vox-$VERSION.pkg"
 DMG="$ROOT/assets/Vox.dmg"
 MOUNT_POINT=""
+KEYCHAIN_UNLOCKED=false
 
 cleanup() {
   if [[ -n "$MOUNT_POINT" ]]; then
     hdiutil detach "$MOUNT_POINT" -quiet 2>/dev/null || true
+  fi
+  if $KEYCHAIN_UNLOCKED; then
+    security lock-keychain ~/Library/Keychains/login.keychain-db 2>/dev/null || true
   fi
   rm -rf "$BUILD_TMP"
 }
 trap cleanup EXIT
 
 [[ "$(uname)" == "Darwin" ]] || fail "Package builds require macOS."
+[[ -n "$KEYCHAIN_PASSWORD" ]] || fail "KEYCHAIN_PASSWORD is not set."
 [[ -n "$APP_SIGN_PASSWORD" ]] || fail "APP_SIGN_PASSWORD is not set."
 [[ -f "$DMG" ]] || fail "assets/Vox.dmg not found — run bash scripts/build-apps.sh first."
 [[ -f "$ROOT/build_info.json" ]] || "$ROOT/scripts/write-build-info.sh" "$ROOT/build_info.json" >/dev/null
@@ -99,10 +105,16 @@ pkgbuild \
 
 info "Signing package…"
 rm -f "$OUTPUT_PKG" "$ROOT/assets/Vox.pkg"
+info "Unlocking keychain…"
+security unlock-keychain -p "$KEYCHAIN_PASSWORD" ~/Library/Keychains/login.keychain-db
+KEYCHAIN_UNLOCKED=true
 productsign \
   --sign "$INSTALLER_IDENTITY" \
   "$UNSIGNED_PKG" \
   "$OUTPUT_PKG"
+security lock-keychain ~/Library/Keychains/login.keychain-db
+KEYCHAIN_UNLOCKED=false
+success "Package signed"
 
 info "Verifying package signature…"
 pkgutil --check-signature "$OUTPUT_PKG"
