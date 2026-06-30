@@ -3,11 +3,10 @@ import json
 from pathlib import Path
 from typing import Any
 
-from fastapi import APIRouter, HTTPException, Query, Request
+from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import FileResponse, StreamingResponse
 
 from api.core.db import get_db
-from api.core.validation import validate_uuid
 from api.models.job import JobOut
 
 router = APIRouter(prefix="/jobs", tags=["jobs"])
@@ -41,7 +40,7 @@ async def _get_job_row(request_id: str) -> dict | None:
     description="Returns recent TTS jobs in descending creation order. Supports cursor-style pagination via `limit` and `offset`. Each job includes timing metrics (`generation_s`, `audio_duration_s`, `rtf`) once completed.",
     response_description="Array of job objects",
 )
-async def list_jobs(request: Request, limit: int = Query(50, ge=1, le=500), offset: int = Query(0, ge=0)):
+async def list_jobs(request: Request, limit: int = 50, offset: int = 0):
     db = await get_db()
     async with db.execute(
         f"{_JOB_SELECT} ORDER BY j.created_at DESC LIMIT ? OFFSET ?",
@@ -59,7 +58,6 @@ async def list_jobs(request: Request, limit: int = Query(50, ge=1, le=500), offs
     responses={404: {"description": "Job not found"}},
 )
 async def stream_job_events(request_id: str, request: Request):
-    validate_uuid(request_id)
     initial = await _get_job_row(request_id)
     if not initial:
         raise HTTPException(status_code=404, detail="Job not found")
@@ -107,7 +105,6 @@ Typical generation time on Apple Silicon is 1–5× real-time depending on text 
     responses={404: {"description": "Job not found"}},
 )
 async def get_job(request_id: str, request: Request):
-    validate_uuid(request_id)
     job = await _get_job_row(request_id)
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
@@ -123,7 +120,6 @@ async def get_job(request_id: str, request: Request):
     responses={404: {"description": "Job not found"}},
 )
 async def delete_job(request_id: str, request: Request):
-    validate_uuid(request_id)
     db = await get_db()
     async with db.execute("SELECT output_path FROM jobs WHERE request_id = ?", (request_id,)) as cur:
         row = await cur.fetchone()
@@ -149,7 +145,6 @@ async def delete_job(request_id: str, request: Request):
     },
 )
 async def get_job_audio(request_id: str, request: Request):
-    validate_uuid(request_id)
     db = await get_db()
     async with db.execute(
         "SELECT status, output_path, output_format, error FROM jobs WHERE request_id = ?",

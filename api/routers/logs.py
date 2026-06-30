@@ -1,10 +1,7 @@
-from datetime import datetime
-
 from fastapi import APIRouter, Query
 from fastapi import HTTPException
 
 from api.core.db import get_db
-from api.core.validation import validate_uuid
 router = APIRouter(prefix="/logs", tags=["system"])
 
 _LOG_FILES = {
@@ -14,16 +11,6 @@ _LOG_FILES = {
     "helper-error": "vox-helper-error.log",
     "install": "install.log",
 }
-
-_VALID_STATUSES = {"queued", "processing", "completed", "failed", "cancelled"}
-def _validate_date(value: str | None, label: str) -> str | None:
-    if value is None:
-        return None
-    try:
-        datetime.fromisoformat(value)
-    except ValueError as exc:
-        raise HTTPException(status_code=422, detail=f"{label} must be an ISO date or datetime.") from exc
-    return value
 
 
 @router.get(
@@ -47,36 +34,24 @@ async def list_logs(
     params: list[object] = []
 
     if request_id:
-        validate_uuid(request_id)
         clauses.append("j.request_id = ?")
         params.append(request_id)
     if status:
-        status = status.lower()
-        if status not in _VALID_STATUSES:
-            raise HTTPException(status_code=422, detail=f"status must be one of {sorted(_VALID_STATUSES)}")
         clauses.append("j.status = ?")
         params.append(status)
     if preset:
-        if len(preset) > 64:
-            raise HTTPException(status_code=422, detail="preset filter is too long.")
         clauses.append("j.preset = ?")
         params.append(preset.lower())
     if voice:
-        if len(voice) > 64:
-            raise HTTPException(status_code=422, detail="voice filter is too long.")
         clauses.append("v.name = ?")
         params.append(voice)
     if user_agent:
-        if len(user_agent) > 200:
-            raise HTTPException(status_code=422, detail="user_agent filter is too long.")
         clauses.append("j.user_agent LIKE ?")
         params.append(f"%{user_agent}%")
     if date_from:
-        date_from = _validate_date(date_from, "date_from")
         clauses.append("j.created_at >= ?")
         params.append(date_from)
     if date_to:
-        date_to = _validate_date(date_to, "date_to")
         clauses.append("j.created_at <= ?")
         params.append(date_to)
 

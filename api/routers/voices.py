@@ -10,16 +10,6 @@ from api.core.audio import audio_duration_seconds, INGESTABLE_EXTENSIONS, conver
 from api.core.config import settings
 from api.core.db import get_db
 from api.core.logger import get_logger
-from api.core.validation import (
-    MAX_DESCRIPTION_CHARS,
-    MAX_DISPLAY_NAME_CHARS,
-    normalize_voice_name,
-    validate_generation_params,
-    validate_icon_data,
-    validate_optional_text,
-    validate_tags,
-    validate_upload_size,
-)
 from api.models.voice import VoiceOut, VoiceParams, _parse_tags, _serialize_tags
 
 router = APIRouter(prefix="/voices", tags=["voices"])
@@ -27,7 +17,7 @@ log = get_logger(__name__)
 
 
 def _safe_name(raw: str) -> str:
-    return normalize_voice_name(raw)
+    return raw.strip().lower().replace(" ", "-")
 
 
 def _enforce_duration_limit(wav_path: Path):
@@ -107,7 +97,6 @@ async def list_voices(request: Request):
     responses={404: {"description": "Voice profile not found"}},
 )
 async def get_voice(name: str, request: Request):
-    name = normalize_voice_name(name)
     db = await get_db()
     async with db.execute("SELECT * FROM voices WHERE name = ? AND status='active'", (name,)) as cur:
         row = await cur.fetchone()
@@ -163,16 +152,6 @@ async def create_voice(
         )
 
     safe = _safe_name(name)
-    description = validate_optional_text(description, "description", MAX_DESCRIPTION_CHARS)
-    parsed_tags = validate_tags(_parse_tags(tags))
-    validate_generation_params({
-        "exaggeration": exaggeration,
-        "cfg_weight": cfg_weight,
-        "temperature": temperature,
-        "repetition_penalty": repetition_penalty,
-        "top_p": top_p,
-        "min_p": min_p,
-    })
     wav_dest = settings.voice_dir / f"{safe}.wav"
     deleted_match = settings.voice_dir / "deleted" / f"{safe}.wav"
     deleted_match.unlink(missing_ok=True)
@@ -180,7 +159,7 @@ async def create_voice(
     tmp_paths: list[Path] = []
     tmp_wav: Path | None = None
 
-    raw_bytes = validate_upload_size(await file.read(), "Voice")
+    raw_bytes = await file.read()
 
     if suffix == ".wav":
         tmp_wav = settings.voice_dir / f"tmp_{uuid.uuid4()}.wav"
@@ -220,7 +199,7 @@ async def create_voice(
         min_p=min_p,
     )
     db = await get_db()
-    return await _register_voice(db, safe, wav_dest, original_filename, description, params, rid, tags=parsed_tags)
+    return await _register_voice(db, safe, wav_dest, original_filename, description, params, rid, tags=_parse_tags(tags))
 
 
 @router.get(
@@ -234,7 +213,6 @@ async def create_voice(
     },
 )
 async def get_voice_audio(name: str, request: Request):
-    name = normalize_voice_name(name)
     db = await get_db()
     async with db.execute("SELECT filename FROM voices WHERE name = ? AND status='active'", (name,)) as cur:
         row = await cur.fetchone()
@@ -278,21 +256,6 @@ async def update_voice_params(
     icon_data: str | None = Form(None),     # "" = clear to null; None = don't change
 ):
     rid = request.state.request_id
-    name = normalize_voice_name(name)
-    description = validate_optional_text(description, "description", MAX_DESCRIPTION_CHARS)
-    parsed_tags = validate_tags(_parse_tags(tags)) if tags is not None else None
-    display_name = validate_optional_text(display_name, "display_name", MAX_DISPLAY_NAME_CHARS)
-    icon_data = validate_icon_data(icon_data)
-    if is_favorite is not None and is_favorite not in {0, 1}:
-        raise HTTPException(status_code=422, detail="is_favorite must be 0 or 1.")
-    validate_generation_params({
-        "exaggeration": exaggeration,
-        "cfg_weight": cfg_weight,
-        "temperature": temperature,
-        "repetition_penalty": repetition_penalty,
-        "top_p": top_p,
-        "min_p": min_p,
-    })
     db = await get_db()
     async with db.execute("SELECT * FROM voices WHERE name = ? AND status='active'", (name,)) as cur:
         row = await cur.fetchone()
@@ -300,7 +263,7 @@ async def update_voice_params(
         raise HTTPException(status_code=404, detail=f"Voice '{name}' not found")
 
     row = dict(row)
-    tags_str = _serialize_tags(parsed_tags) if parsed_tags is not None else None
+    tags_str = _serialize_tags(_parse_tags(tags)) if tags is not None else None
 
     # Resolve sentinel: None = keep existing; "" = clear to NULL; value = update
     new_display_name = row["display_name"] if display_name is None else (None if display_name == "" else display_name)
@@ -343,7 +306,6 @@ async def update_voice_params(
 )
 async def delete_voice(name: str, request: Request):
     rid = request.state.request_id
-    name = normalize_voice_name(name)
     db = await get_db()
     async with db.execute("SELECT * FROM voices WHERE name = ?", (name,)) as cur:
         row = await cur.fetchone()

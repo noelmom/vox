@@ -18,13 +18,6 @@ from api.core.db import get_db
 from api.core.engine import get_device, get_lock, get_model, get_model_status, is_model_ready
 from api.core.logger import get_logger
 from api.core.presets import PRESETS
-from api.core.validation import (
-    normalize_voice_name,
-    validate_generation_params,
-    validate_text,
-    validate_upload_size,
-    validate_uuid,
-)
 
 router = APIRouter(prefix="/tts", tags=["tts"])
 log = get_logger(__name__)
@@ -374,14 +367,6 @@ async def generate_tts(
 
     preset_name = preset.lower()
     output_format_name = output_format.lower()
-    text = validate_text(text)
-    if len(preset_name) > 64:
-        raise HTTPException(status_code=422, detail="preset must be 64 characters or less.")
-    if voice_name:
-        voice_name = normalize_voice_name(voice_name)
-
-    if output_format_name not in {"mp3", "wav"}:
-        raise HTTPException(status_code=422, detail="output_format must be either 'mp3' or 'wav'.")
 
     if mp3_bitrate is not None and mp3_bitrate not in VALID_MP3_BITRATES:
         raise HTTPException(status_code=422, detail=f"mp3_bitrate must be one of {sorted(VALID_MP3_BITRATES)}")
@@ -435,7 +420,6 @@ async def generate_tts(
         "top_p": top_p,
         "min_p": min_p,
     }
-    validate_generation_params(request_overrides)
     params.update({k: v for k, v in request_overrides.items() if v is not None})
 
     # Handle inline voice file upload — write to disk before returning
@@ -453,7 +437,7 @@ async def generate_tts(
                     status_code=400,
                     detail=f"Unsupported voice format '{suffix}'. Accepted: {sorted(INGESTABLE_EXTENSIONS)}",
                 )
-            raw = validate_upload_size(await voice.read(), "Voice")
+            raw = await voice.read()
             if suffix == ".wav":
                 tmp_path = settings.output_dir / f"tmp_voice_{uuid.uuid4()}.wav"
                 tmp_path.write_bytes(raw)
@@ -498,7 +482,6 @@ async def generate_tts(
     },
 )
 async def cancel_generation(request_id: str, request: Request):
-    validate_uuid(request_id)
     db = await get_db()
     async with db.execute("SELECT status FROM jobs WHERE request_id = ?", (request_id,)) as cur:
         row = await cur.fetchone()
