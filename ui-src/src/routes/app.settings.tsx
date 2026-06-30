@@ -97,6 +97,7 @@ const TTL_LABELS: Record<number, string> = {
 const SERVER_LIMITS = {
   outputTtlHours: { min: 0, max: 8760 },
   maxVoiceClipDurationS: { min: 5, max: 600 },
+  defaultMaxChars: { min: 100, max: 3000 },
   chunkHeadroomChars: { min: 0, max: 1000 },
 };
 
@@ -146,6 +147,7 @@ function SettingsPage() {
   const [serverDrafts, setServerDrafts] = useState({
     outputTtlHours: "",
     maxVoiceClipDurationS: "",
+    defaultMaxChars: "",
     chunkHeadroomChars: "",
   });
   const [serverDraftErrors, setServerDraftErrors] = useState<Record<string, string>>({});
@@ -240,6 +242,7 @@ function SettingsPage() {
     setServerDrafts({
       outputTtlHours: String(server.configured_output_ttl_hours ?? server.output_ttl_hours),
       maxVoiceClipDurationS: String(server.configured_max_voice_clip_duration_s ?? server.max_voice_clip_duration_s),
+      defaultMaxChars: String(server.configured_default_max_chars ?? server.default_max_chars),
       chunkHeadroomChars: String(server.configured_chunk_headroom_chars ?? server.chunk_headroom_chars),
     });
     setServerDraftErrors({});
@@ -248,13 +251,15 @@ function SettingsPage() {
     server?.output_ttl_hours,
     server?.configured_max_voice_clip_duration_s,
     server?.max_voice_clip_duration_s,
+    server?.configured_default_max_chars,
+    server?.default_max_chars,
     server?.configured_chunk_headroom_chars,
     server?.chunk_headroom_chars,
   ]);
 
   const saveServerNumber = (
     draftKey: keyof typeof serverDrafts,
-    patchKey: "output_ttl_hours" | "max_voice_clip_duration_s" | "chunk_headroom_chars",
+    patchKey: "output_ttl_hours" | "max_voice_clip_duration_s" | "default_max_chars" | "chunk_headroom_chars",
     limits: { min: number; max: number },
   ) => {
     const raw = serverDrafts[draftKey].trim();
@@ -279,6 +284,7 @@ function SettingsPage() {
     server?.host_restart_required ||
     server?.output_ttl_restart_required ||
     server?.max_voice_clip_duration_restart_required ||
+    server?.default_max_chars_restart_required ||
     server?.chunk_headroom_restart_required,
   );
 
@@ -396,7 +402,25 @@ function SettingsPage() {
                 onSave={() => saveServerNumber("maxVoiceClipDurationS", "max_voice_clip_duration_s", SERVER_LIMITS.maxVoiceClipDurationS)}
               />
             </InfoRow>
-            <InfoRow label="Chunk headroom" hint="Extra breathing room Vox reserves below the hard max chunk size so sentence endings are less likely to be cut off.">
+            <InfoRow label="Default per-chunk max" hint="Default value for the API max_chars field. This is the hard maximum characters Vox will place in one generation chunk unless a request overrides it.">
+              <EditableServerNumber
+                value={serverDrafts.defaultMaxChars}
+                unit="chars"
+                min={SERVER_LIMITS.defaultMaxChars.min}
+                max={SERVER_LIMITS.defaultMaxChars.max}
+                activeValue={`${server.default_max_chars} chars active`}
+                restartRequired={server.default_max_chars_restart_required}
+                expert
+                error={serverDraftErrors.defaultMaxChars}
+                saving={serverSettingsMutation.isPending}
+                onChange={(value) => {
+                  setServerDraftErrors((prev) => ({ ...prev, defaultMaxChars: "" }));
+                  setServerDrafts((prev) => ({ ...prev, defaultMaxChars: value }));
+                }}
+                onSave={() => saveServerNumber("defaultMaxChars", "default_max_chars", SERVER_LIMITS.defaultMaxChars)}
+              />
+            </InfoRow>
+            <InfoRow label="Chunk headroom" hint="Buffer subtracted from the per-chunk max when Vox packs sentences. Example: 450 max - 40 headroom = about 410 chars as the soft packing target.">
               <EditableServerNumber
                 value={serverDrafts.chunkHeadroomChars}
                 unit="chars"

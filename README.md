@@ -474,10 +474,10 @@ All settings are controlled via environment variables with a `VOX_` prefix, or b
 | `VOX_OUTPUT_TTL_HOURS` | `24` | Hours to keep generated output files. `0` = keep forever. |
 | `VOX_WATCHER_INTERVAL_S` | `10` | How often (seconds) the input folder is polled |
 | `VOX_CLEANUP_INTERVAL_S` | `3600` | How often (seconds) the cleanup task runs |
-| `VOX_DEFAULT_MAX_CHARS` | `450` | Default text chunk size |
-| `VOX_MIN_MAX_CHARS` | `100` | Minimum allowed chunk size |
-| `VOX_MAX_MAX_CHARS` | `3000` | Maximum allowed chunk size |
-| `VOX_CHUNK_HEADROOM_CHARS` | `40` | Breathing room reserved below the hard chunk limit so sentence endings are less likely to be cut off. Invalid or empty values fall back to 40. |
+| `VOX_DEFAULT_MAX_CHARS` | `450` | Default hard maximum characters per generation chunk when an API request does not pass `max_chars`. Editable in Settings as **Default per-chunk max**. |
+| `VOX_MIN_MAX_CHARS` | `100` | Minimum allowed per-request `max_chars` value |
+| `VOX_MAX_MAX_CHARS` | `3000` | Maximum allowed per-request `max_chars` value |
+| `VOX_CHUNK_HEADROOM_CHARS` | `40` | Buffer subtracted from the per-chunk max when Vox packs sentences. Example: `450 - 40 = ~410` character soft packing target. Invalid or empty values fall back to 40. |
 | `VOX_MAX_VOICE_CLIP_DURATION_S` | `120` | Maximum allowed uploaded/recorded voice clip length in seconds. Invalid or empty values fall back to 120. |
 | `HF_TOKEN` | *(none)* | HuggingFace access token. Only needed the first time the model is downloaded — without it, downloads are anonymous and subject to HuggingFace rate limits. Has no effect on generation speed once the model is cached locally. Uses the standard HF convention (no `VOX_` prefix). Generate a read-only token at [huggingface.co/settings/tokens](https://huggingface.co/settings/tokens). **Never commit this value to git.** |
 
@@ -489,6 +489,7 @@ All settings are controlled via environment variables with a `VOX_` prefix, or b
 VOX_HOST=127.0.0.1
 VOX_PORT=8000
 VOX_OUTPUT_TTL_HOURS=48
+VOX_DEFAULT_MAX_CHARS=450
 VOX_CHUNK_HEADROOM_CHARS=40
 VOX_MAX_VOICE_CLIP_DURATION_S=120
 VOX_DEVICE=mps

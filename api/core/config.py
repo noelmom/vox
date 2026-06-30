@@ -59,6 +59,22 @@ class Settings(BaseSettings):
             return default
         return parsed if parsed > 0 else default
 
+    @field_validator("default_max_chars", mode="before")
+    @classmethod
+    def _parse_default_max_chars(cls, value):
+        default = 450
+        if value is None:
+            return default
+        if isinstance(value, str):
+            value = value.strip()
+            if not value:
+                return default
+        try:
+            parsed = int(value)
+        except (TypeError, ValueError):
+            return default
+        return parsed if 100 <= parsed <= 3000 else default
+
     @field_validator("chunk_headroom_chars", mode="before")
     @classmethod
     def _parse_chunk_headroom_chars(cls, value):

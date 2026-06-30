@@ -32,6 +32,7 @@ class SettingsPatch(BaseModel):
     host: str | None = None
     output_ttl_hours: int | None = Field(None, ge=0, le=8760)
     max_voice_clip_duration_s: int | None = Field(None, ge=5, le=600)
+    default_max_chars: int | None = Field(None, ge=100, le=3000)
     chunk_headroom_chars: int | None = Field(None, ge=0, le=1000)
 
 
@@ -453,6 +454,7 @@ async def get_settings():
     configured_host = _read_env_value("VOX_HOST", settings.host) or settings.host
     configured_output_ttl_hours = _read_env_int("VOX_OUTPUT_TTL_HOURS", settings.output_ttl_hours)
     configured_max_voice_clip_duration_s = _read_env_int("VOX_MAX_VOICE_CLIP_DURATION_S", settings.max_voice_clip_duration_s)
+    configured_default_max_chars = _read_env_int("VOX_DEFAULT_MAX_CHARS", settings.default_max_chars)
     configured_chunk_headroom_chars = _read_env_int("VOX_CHUNK_HEADROOM_CHARS", settings.chunk_headroom_chars)
     mac_ver, _, _ = platform.mac_ver()
     try:
@@ -484,6 +486,8 @@ async def get_settings():
         "model_state": get_model_status()["state"],
         "model_ready": get_model_status()["ready"],
         "default_max_chars": settings.default_max_chars,
+        "configured_default_max_chars": configured_default_max_chars,
+        "default_max_chars_restart_required": configured_default_max_chars != settings.default_max_chars,
         "max_voice_clip_duration_s": settings.max_voice_clip_duration_s,
         "configured_max_voice_clip_duration_s": configured_max_voice_clip_duration_s,
         "max_voice_clip_duration_restart_required": configured_max_voice_clip_duration_s != settings.max_voice_clip_duration_s,
@@ -524,6 +528,15 @@ async def patch_settings(patch: SettingsPatch):
         _write_env_value("VOX_MAX_VOICE_CLIP_DURATION_S", str(patch.max_voice_clip_duration_s))
         changed["max_voice_clip_duration_s"] = str(patch.max_voice_clip_duration_s)
 
+    if patch.default_max_chars is not None:
+        if patch.default_max_chars < settings.min_max_chars or patch.default_max_chars > settings.max_max_chars:
+            raise HTTPException(
+                status_code=422,
+                detail=f"default_max_chars must be between {settings.min_max_chars} and {settings.max_max_chars}",
+            )
+        _write_env_value("VOX_DEFAULT_MAX_CHARS", str(patch.default_max_chars))
+        changed["default_max_chars"] = str(patch.default_max_chars)
+
     if patch.chunk_headroom_chars is not None:
         if patch.chunk_headroom_chars < 0 or patch.chunk_headroom_chars > 1000:
             raise HTTPException(status_code=422, detail="chunk_headroom_chars must be between 0 and 1000")
@@ -533,6 +546,7 @@ async def patch_settings(patch: SettingsPatch):
     configured_host = _read_env_value("VOX_HOST", settings.host) or settings.host
     configured_output_ttl_hours = _read_env_int("VOX_OUTPUT_TTL_HOURS", settings.output_ttl_hours)
     configured_max_voice_clip_duration_s = _read_env_int("VOX_MAX_VOICE_CLIP_DURATION_S", settings.max_voice_clip_duration_s)
+    configured_default_max_chars = _read_env_int("VOX_DEFAULT_MAX_CHARS", settings.default_max_chars)
     configured_chunk_headroom_chars = _read_env_int("VOX_CHUNK_HEADROOM_CHARS", settings.chunk_headroom_chars)
     return {
         "changed": changed,
@@ -545,6 +559,9 @@ async def patch_settings(patch: SettingsPatch):
         "max_voice_clip_duration_s": settings.max_voice_clip_duration_s,
         "configured_max_voice_clip_duration_s": configured_max_voice_clip_duration_s,
         "max_voice_clip_duration_restart_required": configured_max_voice_clip_duration_s != settings.max_voice_clip_duration_s,
+        "default_max_chars": settings.default_max_chars,
+        "configured_default_max_chars": configured_default_max_chars,
+        "default_max_chars_restart_required": configured_default_max_chars != settings.default_max_chars,
         "chunk_headroom_chars": settings.chunk_headroom_chars,
         "configured_chunk_headroom_chars": configured_chunk_headroom_chars,
         "chunk_headroom_restart_required": configured_chunk_headroom_chars != settings.chunk_headroom_chars,

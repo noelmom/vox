@@ -192,6 +192,8 @@ export type ServerSettings = {
   model_state: string;
   model_ready: boolean;
   default_max_chars: number;
+  configured_default_max_chars: number;
+  default_max_chars_restart_required: boolean;
   macos_version: string;
   chip: string;
   vox_version: string;
@@ -250,6 +252,7 @@ export type ServerSettingsPatch = {
   host?: "127.0.0.1" | "0.0.0.0";
   output_ttl_hours?: number;
   max_voice_clip_duration_s?: number;
+  default_max_chars?: number;
   chunk_headroom_chars?: number;
 };
 
@@ -264,6 +267,9 @@ export async function patchServerSettings(patch: ServerSettingsPatch): Promise<{
   max_voice_clip_duration_s: number;
   configured_max_voice_clip_duration_s: number;
   max_voice_clip_duration_restart_required: boolean;
+  default_max_chars: number;
+  configured_default_max_chars: number;
+  default_max_chars_restart_required: boolean;
   chunk_headroom_chars: number;
   configured_chunk_headroom_chars: number;
   chunk_headroom_restart_required: boolean;

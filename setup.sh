@@ -173,14 +173,15 @@ VOX_PORT=8000
 # Output file cleanup — how many hours to keep generated audio (0 = keep forever)
 # VOX_OUTPUT_TTL_HOURS=24
 
-# Chunking headroom — reserve this many characters below the hard max so
+# Chunking headroom — reserve this many characters below the per-chunk max so
 # sentence endings are less likely to be cut off at a chunk boundary.
 # VOX_CHUNK_HEADROOM_CHARS=40
 
 # Voice clip length limit for uploads/recordings, in seconds (invalid or empty -> 120)
 # VOX_MAX_VOICE_CLIP_DURATION_S=120
 
-# Text chunking limits
+# Text chunking limits. VOX_DEFAULT_MAX_CHARS is the default hard max per chunk
+# when an API request does not pass max_chars.
 # VOX_DEFAULT_MAX_CHARS=450
 # VOX_MIN_MAX_CHARS=100
 # VOX_MAX_MAX_CHARS=3000
