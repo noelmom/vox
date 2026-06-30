@@ -146,8 +146,8 @@ rsync -a --delete "$ROOT/ui-dist/"  "$APP_SUPPORT/ui-dist/"
 success "Server code installed"
 
 # ── Copy default voice profile ────────────────────────────────────────────────
-if [[ -f "$ROOT/voices/noelmo-normal.wav" ]] && [[ ! -f "$APP_SUPPORT/voices/noelmo-normal.wav" ]]; then
-    cp "$ROOT/voices/noelmo-normal.wav" "$APP_SUPPORT/voices/noelmo-normal.wav"
+if [[ -f "$ROOT/voices/noelmo-demo.wav" ]] && [[ ! -f "$APP_SUPPORT/voices/noelmo-demo.wav" ]]; then
+    cp "$ROOT/voices/noelmo-demo.wav" "$APP_SUPPORT/voices/noelmo-demo.wav"
     success "Default voice profile copied"
 fi
 

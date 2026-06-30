@@ -53,7 +53,7 @@ type SettingsResponse = {
 
 const API_GENERATE_SAMPLE = `curl -X POST http://localhost:8000/api/v1/tts \\
   -F "text=Hello from Vox Studio." \\
-  -F "voice_name=noelmo-normal" \\
+  -F "voice_name=noelmo-demo" \\
   -F "preset=default"`;
 
 const API_STATUS_SAMPLE = `curl http://localhost:8000/api/v1/jobs/{request_id}`;
@@ -209,7 +209,7 @@ function Welcome() {
                     <span className="text-[oklch(0.55_0.18_350)]">"text=Hello from Vox Studio."</span> {"\\"}
                     {"\n  "}
                     <span className="text-[oklch(0.45_0.14_150)]">-F</span>{" "}
-                    <span className="text-[oklch(0.55_0.18_350)]">"voice_name=noelmo-normal"</span> {"\\"}
+                    <span className="text-[oklch(0.55_0.18_350)]">"voice_name=noelmo-demo"</span> {"\\"}
                     {"\n  "}
                     <span className="text-[oklch(0.45_0.14_150)]">-F</span>{" "}
                     <span className="text-[oklch(0.55_0.18_350)]">"preset=default"</span>

@@ -81,7 +81,7 @@ rsync -a --delete --exclude='__pycache__/' --exclude='*.pyc' "$ROOT/api/" "$PAYL
 rsync -a --delete "$ROOT/ui-dist/" "$PAYLOAD_ROOT/Library/Application Support/Vox/Bootstrap/ui-dist/"
 rsync -a --delete --exclude='build-apps.sh' --exclude='build-pkg.sh' --exclude='notarize.sh' "$ROOT/scripts/" "$PAYLOAD_ROOT/Library/Application Support/Vox/Bootstrap/scripts/"
 mkdir -p "$PAYLOAD_ROOT/Library/Application Support/Vox/Bootstrap/voices"
-ditto --norsrc "$ROOT/voices/noelmo-normal.wav" "$PAYLOAD_ROOT/Library/Application Support/Vox/Bootstrap/voices/noelmo-normal.wav"
+ditto --norsrc "$ROOT/voices/noelmo-demo.wav" "$PAYLOAD_ROOT/Library/Application Support/Vox/Bootstrap/voices/noelmo-demo.wav"
 ditto --norsrc "$ROOT/pkg-scripts/preinstall" "$PKG_SCRIPTS/preinstall"
 ditto --norsrc "$ROOT/pkg-scripts/postinstall" "$PKG_SCRIPTS/postinstall"
 chmod +x "$PKG_SCRIPTS/preinstall"

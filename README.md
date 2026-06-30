@@ -325,7 +325,7 @@ Listen to `GET /api/v1/jobs/{request_id}/events` for server-sent job updates, or
 curl -X POST http://localhost:8000/api/v1/tts \
   -F "text=Hello, this is Vox speaking." \
   -F "preset=default" \
-  -F "voice_name=noelmo-normal"
+  -F "voice_name=noelmo-demo"
 # → { "request_id": "abc123-..." }
 
 # Poll until completed, then download

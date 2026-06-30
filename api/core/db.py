@@ -9,8 +9,8 @@ from api.core.config import settings
 # The WAV file must exist at voices/<filename>.
 _SEED_VOICES = [
     {
-        "name": "noelmo-normal",
-        "filename": "noelmo-normal.wav",
+        "name": "noelmo-demo",
+        "filename": "noelmo-demo.wav",
         "description": "Default test voice — used to verify the stack is working end-to-end.",
     },
 ]

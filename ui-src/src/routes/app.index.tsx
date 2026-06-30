@@ -239,7 +239,7 @@ const SCRIPT_HISTORY_LIMIT = 10;
 const LAST_REQUEST_KEY = "vox:last-generation-request";
 
 const SAMPLE_SCRIPT =
-  "Welcome to Vox Studio — a private, on-device voice lab.\n\nEverything you type here is synthesized locally on your Mac. No cloud uploads, no accounts, no telemetry. Just paste a script, pick a voice, and hit Generate.\n\nTry it: change the voice on the right, drag the Expressiveness slider, and listen to how the same words come alive.";
+  "Welcome to Vox Studio — a private, on-device voice lab.\n\nEverything you type here is synthesized locally on your Mac. No cloud uploads, no accounts, no telemetry. Just paste a script, pick a voice, and hit Generate.\n\nTry it: change the voice on the right under Advanced Settings, drag the Exaggeration slider, and listen to how the same words come alive.";
 
 function readScriptDraft(): string {
   try {
