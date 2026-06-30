@@ -4,7 +4,7 @@
 <dict>
 
   <key>Label</key>
-  <string>com.melolabdev.vox-helper</string>
+  <string>com.noelmom.vox-helper</string>
 
   <!-- TEMPORARY: runs python3 directly from the permanent venv until VoxHelper.app
        is code-signed with a Developer ID certificate. Once signed, revert to the
@@ -26,7 +26,7 @@
   <!--
     RunAtLoad = true — the menu bar helper starts automatically on login.
     This is intentional: the helper is the UI layer, not the server.
-    The server (com.melolabdev.vox) remains manual-start.
+    The server (com.noelmom.vox) remains manual-start.
   -->
   <key>RunAtLoad</key>
   <true/>

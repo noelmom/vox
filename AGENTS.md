@@ -1,12 +1,12 @@
 # AGENTS.md
 
-Guidance for AI agents and maintainers working on Codename Vox.
+Guidance for AI agents and maintainers working on Vox.
 
 This repository ships a local Apple Silicon text-to-speech app with a FastAPI backend, React UI, native Swift helper, LaunchAgents, signed DMG builds, and signed/notarized PKG releases. Treat changes as product work, not only code edits.
 
 ## Scope
 
-- Work only in `codename-vox` for this project.
+- Work only in the Vox repository for this project. The local checkout may still be named `codename-vox` until the GitHub repo rename lands.
 - Respect the v1.0 scope freeze: before v1.0, only bug fixes, product polish, documentation accuracy, release hardening, and true blockers should be added. New feature ideas belong in `BACKLOG.md` as post-v1 items unless the user explicitly reclassifies them.
 - Preserve user/runtime data. Never delete `voices/`, `outputs/`, `data/`, `input/`, `.env`, or anything under `~/Library/Application Support/Vox/` unless the user explicitly asks for a purge.
 - The source tree is not the runtime install. Installed runtime files live in `~/Library/Application Support/Vox/`; app bundles live in `/Applications/Vox/`.
@@ -56,8 +56,8 @@ Native app bundles:
 LaunchAgents:
 
 ```text
-~/Library/LaunchAgents/com.melolabdev.vox.plist
-~/Library/LaunchAgents/com.melolabdev.vox-helper.plist
+~/Library/LaunchAgents/com.noelmom.vox.plist
+~/Library/LaunchAgents/com.noelmom.vox-helper.plist
 ```
 
 Logs:
@@ -123,7 +123,7 @@ swiftc -target arm64-apple-macos13.0 \
 Manual server run for debugging:
 
 ```bash
-launchctl stop gui/$(id -u)/com.melolabdev.vox
+launchctl stop gui/$(id -u)/com.noelmom.vox
 bash scripts/run.sh
 ```
 

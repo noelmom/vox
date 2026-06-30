@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to Codename Vox are tracked here.
+All notable changes to Vox are tracked here.
 Format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
@@ -8,7 +8,7 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## Unreleased
 
 ### Changed
-- Repository rename planned after v1.0 RC validation: `MeloLabDev/codename-vox` will become `noelmom/vox`.
+- Project identity cleanup: public repository/download references now target `noelmom/vox`, and LaunchAgent/bundle/package identifiers now use the `com.noelmom.vox*` namespace.
 
 ## [1.0.0-rc6] — 2026-06-29
 
@@ -209,7 +209,7 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 - **macOS menu bar helper** — `menubar/vox_helper.py` (rumps-based). Shows ●/○ server status, LAN IP or localhost depending on `VOX_HOST` config, CPU %, RAM used/total, Start/Stop/Restart server via launchctl, Open in Browser, View Logs. Auto-starts on login via its own LaunchAgent. No Dock icon — menu bar only.
-- **LaunchAgent for helper** — `launchagent/com.melolabdev.vox-helper.plist`. `RunAtLoad=true` so the icon always appears on login.
+- **LaunchAgent for helper** — `launchagent/com.noelmom.vox-helper.plist`. `RunAtLoad=true` so the icon always appears on login.
 - **install-helper.sh / uninstall-helper.sh** — one-command install and removal of the helper agent.
 - **Smart address display** — helper shows `192.168.x.x:PORT · network accessible` when `VOX_HOST=0.0.0.0`, or `localhost:PORT · local only` when restricted to `127.0.0.1`.
 

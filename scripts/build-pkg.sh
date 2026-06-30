@@ -98,7 +98,7 @@ info "Building unsigned package…"
 pkgbuild \
   --root "$PAYLOAD_ROOT" \
   --scripts "$PKG_SCRIPTS" \
-  --identifier "com.melolabdev.vox.pkg" \
+  --identifier "com.noelmom.vox.pkg" \
   --version "$VERSION" \
   --install-location "/" \
   "$UNSIGNED_PKG"

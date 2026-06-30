@@ -11,9 +11,11 @@ APP_SUPPORT="$HOME/Library/Application Support/Vox"
 APP_DIR="/Applications/Vox"
 VENV="$APP_SUPPORT/venv"
 AGENTS_DIR="$HOME/Library/LaunchAgents"
-PLIST_DST="$AGENTS_DIR/com.melolabdev.vox.plist"
+PLIST_DST="$AGENTS_DIR/com.noelmom.vox.plist"
 LOG_DIR="$HOME/Library/Logs/Vox"
-LABEL="com.melolabdev.vox"
+LABEL="com.noelmom.vox"
+LEGACY_LABEL="com.melolabdev.vox"
+LEGACY_PLIST="$AGENTS_DIR/$LEGACY_LABEL.plist"
 DMG="$ROOT/assets/Vox.dmg"
 MOUNT_POINT=""
 PKG_MODE=false
@@ -62,6 +64,13 @@ fi
 # ── Ensure directories ────────────────────────────────────────────────────────
 install_step 1 5 "Preparing server directories"
 mkdir -p "$AGENTS_DIR" "$LOG_DIR" "$APP_SUPPORT"/{api,ui-dist,scripts,voices,outputs,data,input/processed}
+UID_VAL=$(id -u)
+if [[ -f "$LEGACY_PLIST" ]]; then
+  echo "[vox] Removing legacy LaunchAgent: $LEGACY_LABEL"
+  launchctl stop "gui/$UID_VAL/$LEGACY_LABEL" 2>/dev/null || true
+  launchctl unload "$LEGACY_PLIST" 2>/dev/null || true
+  rm -f "$LEGACY_PLIST"
+fi
 
 # ── Sync server code and UI ───────────────────────────────────────────────────
 install_step 2 5 "Syncing server code and web UI"
@@ -171,7 +180,6 @@ else
     else
       echo "[vox] Installing VoxServer.app..."
     fi
-    UID_VAL=$(id -u)
     launchctl stop "gui/$UID_VAL/$LABEL" 2>/dev/null || true
     sleep 1
     launchctl unload "$PLIST_DST" 2>/dev/null || true
@@ -221,7 +229,6 @@ EOF
 echo "[vox] Plist written to: $PLIST_DST"
 
 # ── Reload LaunchAgent ────────────────────────────────────────────────────────
-UID_VAL=$(id -u)
 if $NO_RELOAD; then
   echo "[vox] --no-reload set; LaunchAgent plist updated but not reloaded."
 else

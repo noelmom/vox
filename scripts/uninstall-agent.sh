@@ -3,8 +3,10 @@
 # Kills the running server if active, then removes the agent and VoxServer.app.
 set -eo pipefail
 
-LABEL="com.melolabdev.vox"
+LABEL="com.noelmom.vox"
 PLIST_DST="$HOME/Library/LaunchAgents/$LABEL.plist"
+LEGACY_LABEL="com.melolabdev.vox"
+LEGACY_PLIST="$HOME/Library/LaunchAgents/$LEGACY_LABEL.plist"
 APP_SUPPORT="$HOME/Library/Application Support/Vox"
 APP_DIR="/Applications/Vox"
 
@@ -21,7 +23,7 @@ run_admin() {
     fi
 }
 
-if [[ ! -f "$PLIST_DST" ]]; then
+if [[ ! -f "$PLIST_DST" && ! -f "$LEGACY_PLIST" ]]; then
     echo "[vox] Server LaunchAgent not installed — nothing to do."
     exit 0
 fi
@@ -31,9 +33,12 @@ echo "[vox] Uninstalling server LaunchAgent…"
 # Stop the running process (suppresses KeepAlive restart), then unload
 UID_VAL=$(id -u)
 launchctl stop "gui/$UID_VAL/$LABEL" 2>/dev/null || true
+launchctl stop "gui/$UID_VAL/$LEGACY_LABEL" 2>/dev/null || true
 sleep 1
 launchctl unload "$PLIST_DST" 2>/dev/null || true
+launchctl unload "$LEGACY_PLIST" 2>/dev/null || true
 rm -f "$PLIST_DST"
+rm -f "$LEGACY_PLIST"
 
 # Remove VoxServer.app from /Applications/Vox
 if [[ -d "$APP_DIR/VoxServer.app" ]]; then

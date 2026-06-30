@@ -1,6 +1,6 @@
-# Codename: Vox
+# Vox
 
-[![CI](https://github.com/MeloLabDev/codename-vox/actions/workflows/ci.yml/badge.svg?branch=development)](https://github.com/MeloLabDev/codename-vox/actions/workflows/ci.yml)
+[![CI](https://github.com/noelmom/vox/actions/workflows/ci.yml/badge.svg?branch=development)](https://github.com/noelmom/vox/actions/workflows/ci.yml)
 ![macOS](https://img.shields.io/badge/macOS-13%2B-000000?logo=apple&logoColor=white)
 ![Apple Silicon](https://img.shields.io/badge/Apple%20Silicon-M1%2B-0A84FF?logo=apple&logoColor=white)
 ![Python](https://img.shields.io/badge/Python-3.11-3776AB?logo=python&logoColor=white)
@@ -59,7 +59,7 @@ It exposes a clean REST API and a web UI for generating high-quality audio from 
 ## Architecture
 
 ```
-codename-vox/
+vox/
 ├── api/
 │   ├── main.py                  # FastAPI app, lifespan, SPA routing, settings endpoint
 │   ├── middleware/
@@ -118,8 +118,8 @@ codename-vox/
 │   ├── StatusBarController.swift # NSStatusItem, menu, all actions
 │   └── ServerMonitor.swift      # Health check, .env reader, CPU/RAM stats, launchctl
 ├── launchagent/
-│   ├── com.melolabdev.vox.plist         # Server LaunchAgent template (manual start)
-│   └── com.melolabdev.vox-helper.plist  # Helper LaunchAgent template (auto on login)
+│   ├── com.noelmom.vox.plist         # Server LaunchAgent template (manual start)
+│   └── com.noelmom.vox-helper.plist  # Helper LaunchAgent template (auto on login)
 ├── scripts/
 │   ├── run.sh                   # Manual foreground start (troubleshooting / dev)
 │   ├── build-apps.sh            # Build, sign, and package VoxHelper + VoxServer DMG
@@ -160,8 +160,8 @@ codename-vox/
 ### 1. Clone
 
 ```bash
-git clone git@github.com:MeloLabDev/codename-vox.git
-cd codename-vox
+git clone git@github.com:noelmom/vox.git
+cd vox
 ```
 
 ### 2. Install
@@ -204,9 +204,9 @@ Vox starts the server automatically on login by default. You can disable that fr
 **Via terminal:**
 
 ```bash
-launchctl kickstart gui/$(id -u)/com.melolabdev.vox          # start
-launchctl stop gui/$(id -u)/com.melolabdev.vox               # stop
-launchctl kickstart -k gui/$(id -u)/com.melolabdev.vox       # restart
+launchctl kickstart gui/$(id -u)/com.noelmom.vox          # start
+launchctl stop gui/$(id -u)/com.noelmom.vox               # stop
+launchctl kickstart -k gui/$(id -u)/com.noelmom.vox       # restart
 tail -f ~/Library/Logs/Vox/vox.log                           # live logs
 ```
 
@@ -244,7 +244,7 @@ bash scripts/run.sh
 Use this when the LaunchAgent isn't installed, you're debugging a startup crash and want live terminal output, or `launchctl` isn't responding and you need to rule out the agent itself. Stop the LaunchAgent first to avoid a port conflict:
 
 ```bash
-launchctl stop gui/$(id -u)/com.melolabdev.vox
+launchctl stop gui/$(id -u)/com.noelmom.vox
 bash scripts/run.sh
 ```
 

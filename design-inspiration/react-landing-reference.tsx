@@ -676,10 +676,10 @@ function GetStarted() {
   const [copied, setCopied] = useState(false);
   const [hashCopied, setHashCopied] = useState(false);
   const [tab, setTab] = useState<"oneclick" | "manual">("oneclick");
-  const command = `git clone git@github.com:MeloLabDev/codename-vox\ncd codename-vox\nbash vox.sh install`;
+  const command = `git clone git@github.com:noelmom/vox\ncd vox\nbash vox.sh install`;
   const pkgName = "Vox-1.0.0-rc3.pkg";
   const pkgSize = "8.8 MB";
-  const pkgUrl = "https://github.com/MeloLabDev/codename-vox/releases/download/v1.0.0-rc3/Vox-1.0.0-rc3.pkg";
+  const pkgUrl = "https://github.com/noelmom/vox/releases/download/v1.0.0-rc3/Vox-1.0.0-rc3.pkg";
   const sha256 = "d120bcfbae366810c8c7d763fddab72d792f4ac72c19a6192eabe11667c65c79";
 
   const handleCopy = async () => {
@@ -835,8 +835,8 @@ function GetStarted() {
             {tab === "manual" ? (
               <div className="px-5 py-5 font-mono text-[14px] leading-7 text-black/85 sm:px-7">
                 {[
-                  "git clone git@github.com:MeloLabDev/codename-vox",
-                  "cd codename-vox",
+                  "git clone git@github.com:noelmom/vox",
+                  "cd vox",
                   "bash vox.sh install",
                 ].map((line) => (
                   <div key={line} className="flex items-start gap-3">

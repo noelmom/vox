@@ -334,7 +334,7 @@ class ServerMonitor {
     func stopServer() {
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             guard let self else { return }
-            self.launchctl("stop", "gui/\(getuid())/com.melolabdev.vox")
+            self.launchctl("stop", "gui/\(getuid())/com.noelmom.vox")
             self.waitForServerStop(seconds: 3)
 
             guard self.checkServer() || self.hasUvicornProcess() else {

@@ -22,8 +22,8 @@ setup_install_log "setup.sh"
 APP_SUPPORT="$HOME/Library/Application Support/Vox"
 
 # ── Already installed check ───────────────────────────────────────────────────
-AGENT_PLIST="$HOME/Library/LaunchAgents/com.melolabdev.vox.plist"
-HELPER_PLIST="$HOME/Library/LaunchAgents/com.melolabdev.vox-helper.plist"
+AGENT_PLIST="$HOME/Library/LaunchAgents/com.noelmom.vox.plist"
+HELPER_PLIST="$HOME/Library/LaunchAgents/com.noelmom.vox-helper.plist"
 
 if [[ "${VOX_PKG_MODE:-0}" != "1" ]] && { [[ -f "$AGENT_PLIST" ]] || [[ -f "$HELPER_PLIST" ]]; }; then
     echo ""
@@ -217,7 +217,7 @@ echo "  3. Install the menu bar helper:"
 echo "     bash scripts/install-helper.sh"
 echo ""
 echo "  4. Start the server from the menu bar icon, or:"
-echo "     launchctl kickstart gui/$(id -u)/com.melolabdev.vox"
+echo "     launchctl kickstart gui/$(id -u)/com.noelmom.vox"
 echo ""
 echo "  Manual start (no LaunchAgent):"
 echo "     bash scripts/run.sh"

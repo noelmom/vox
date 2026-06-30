@@ -146,9 +146,11 @@ else
     info "Stopping agents…"
     UID_VAL=$(id -u)
     if ! $HELPER_ONLY; then
+        launchctl stop "gui/$UID_VAL/com.noelmom.vox" 2>/dev/null || true
         launchctl stop "gui/$UID_VAL/com.melolabdev.vox" 2>/dev/null || true
     fi
     if ! $AGENT_ONLY; then
+        launchctl stop "gui/$UID_VAL/com.noelmom.vox-helper" 2>/dev/null || true
         launchctl stop "gui/$UID_VAL/com.melolabdev.vox-helper" 2>/dev/null || true
     fi
     for i in {1..10}; do

@@ -94,7 +94,7 @@ cat <<'EOF'
     bash vox.sh update                       # pull current branch
     bash vox.sh update --devbranch           # switch to development and pull
     bash vox.sh update --branch main         # switch back to main and pull
-    bash vox.sh update --zip ~/Downloads/codename-vox-main
+    bash vox.sh update --zip ~/Downloads/vox-main
     bash vox.sh uninstall
     bash vox.sh uninstall --devbranch        # uninstall using development scripts
     bash vox.sh uninstall --purge            # remove everything including data
@@ -181,8 +181,8 @@ do_install() {
     echo ""
 
     # Already installed check
-    AGENT_PLIST="$HOME/Library/LaunchAgents/com.melolabdev.vox.plist"
-    HELPER_PLIST="$HOME/Library/LaunchAgents/com.melolabdev.vox-helper.plist"
+    AGENT_PLIST="$HOME/Library/LaunchAgents/com.noelmom.vox.plist"
+    HELPER_PLIST="$HOME/Library/LaunchAgents/com.noelmom.vox-helper.plist"
     if ! $OPT_PKG_MODE && { [[ -f "$AGENT_PLIST" ]] || [[ -f "$HELPER_PLIST" ]]; }; then
         warn "Vox appears to be already installed."
         confirm "Run update instead?" && { CMD="update"; do_update; return; }
@@ -245,8 +245,8 @@ do_install() {
 
 _verify_install() {
     local app_dir="/Applications/Vox"
-    local agent_plist="$HOME/Library/LaunchAgents/com.melolabdev.vox.plist"
-    local helper_plist="$HOME/Library/LaunchAgents/com.melolabdev.vox-helper.plist"
+    local agent_plist="$HOME/Library/LaunchAgents/com.noelmom.vox.plist"
+    local helper_plist="$HOME/Library/LaunchAgents/com.noelmom.vox-helper.plist"
 
     if ! $OPT_HELPER_ONLY; then
         [[ -x "$app_dir/VoxServer.app/Contents/MacOS/vox-server" ]] \

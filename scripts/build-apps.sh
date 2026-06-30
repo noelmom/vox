@@ -88,7 +88,7 @@ cat > "$HELPER_APP/Contents/Info.plist" <<EOF
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0"><dict>
-  <key>CFBundleIdentifier</key><string>com.melolabdev.vox-helper</string>
+  <key>CFBundleIdentifier</key><string>com.noelmom.vox-helper</string>
   <key>CFBundleName</key><string>Vox Helper</string>
   <key>CFBundleDisplayName</key><string>Vox Helper</string>
   <key>CFBundleExecutable</key><string>VoxHelper</string>
@@ -122,7 +122,7 @@ cat > "$SERVER_APP/Contents/Info.plist" <<EOF
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0"><dict>
-  <key>CFBundleIdentifier</key><string>com.melolabdev.vox-server</string>
+  <key>CFBundleIdentifier</key><string>com.noelmom.vox-server</string>
   <key>CFBundleName</key><string>Vox</string>
   <key>CFBundleDisplayName</key><string>Vox</string>
   <key>CFBundleExecutable</key><string>vox-server</string>

@@ -149,7 +149,7 @@ class StatusBarController: NSObject {
     }
 
     @objc private func startServer() {
-        monitor.launchctl("kickstart", "gui/\(getuid())/com.melolabdev.vox")
+        monitor.launchctl("kickstart", "gui/\(getuid())/com.noelmom.vox")
     }
 
     @objc private func stopServer() {
@@ -160,7 +160,7 @@ class StatusBarController: NSObject {
         restartUntil = Date().addingTimeInterval(15)
         statusItem.title = "Restarting…"
         applyMenuBarIcon(running: true)
-        monitor.launchctl("kickstart", "-k", "gui/\(getuid())/com.melolabdev.vox")
+        monitor.launchctl("kickstart", "-k", "gui/\(getuid())/com.noelmom.vox")
     }
 
     @objc private func checkForUpdates() {
@@ -192,12 +192,12 @@ class StatusBarController: NSObject {
     }
 
     @objc private func toggleHelperLogin() {
-        toggleRunAtLoad(plistPath: NSHomeDirectory() + "/Library/LaunchAgents/com.melolabdev.vox-helper.plist")
+        toggleRunAtLoad(plistPath: NSHomeDirectory() + "/Library/LaunchAgents/com.noelmom.vox-helper.plist")
         refreshLoginStates()
     }
 
     @objc private func toggleServerLogin() {
-        toggleRunAtLoad(plistPath: NSHomeDirectory() + "/Library/LaunchAgents/com.melolabdev.vox.plist")
+        toggleRunAtLoad(plistPath: NSHomeDirectory() + "/Library/LaunchAgents/com.noelmom.vox.plist")
         refreshLoginStates()
     }
 
@@ -273,8 +273,8 @@ class StatusBarController: NSObject {
     }
 
     private func refreshLoginStates() {
-        helperLoginItem.state = runAtLoad(plistPath: NSHomeDirectory() + "/Library/LaunchAgents/com.melolabdev.vox-helper.plist") ? .on : .off
-        serverLoginItem.state = runAtLoad(plistPath: NSHomeDirectory() + "/Library/LaunchAgents/com.melolabdev.vox.plist") ? .on : .off
+        helperLoginItem.state = runAtLoad(plistPath: NSHomeDirectory() + "/Library/LaunchAgents/com.noelmom.vox-helper.plist") ? .on : .off
+        serverLoginItem.state = runAtLoad(plistPath: NSHomeDirectory() + "/Library/LaunchAgents/com.noelmom.vox.plist") ? .on : .off
     }
 
     private func runAtLoad(plistPath: String) -> Bool {

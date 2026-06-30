@@ -11,9 +11,11 @@ APP_SUPPORT="$HOME/Library/Application Support/Vox"
 APP_DIR="/Applications/Vox"
 VENV="$APP_SUPPORT/venv"
 AGENTS_DIR="$HOME/Library/LaunchAgents"
-PLIST_DST="$AGENTS_DIR/com.melolabdev.vox-helper.plist"
+PLIST_DST="$AGENTS_DIR/com.noelmom.vox-helper.plist"
 LOG_DIR="$HOME/Library/Logs/Vox"
-LABEL="com.melolabdev.vox-helper"
+LABEL="com.noelmom.vox-helper"
+LEGACY_LABEL="com.melolabdev.vox-helper"
+LEGACY_PLIST="$AGENTS_DIR/$LEGACY_LABEL.plist"
 DMG="$ROOT/assets/Vox.dmg"
 MOUNT_POINT=""
 PKG_MODE=false
@@ -60,6 +62,13 @@ fi
 
 install_step 1 3 "Preparing helper directories"
 mkdir -p "$AGENTS_DIR" "$LOG_DIR"
+UID_VAL=$(id -u)
+if [[ -f "$LEGACY_PLIST" ]]; then
+  echo "[vox-helper] Removing legacy LaunchAgent: $LEGACY_LABEL"
+  launchctl stop "gui/$UID_VAL/$LEGACY_LABEL" 2>/dev/null || true
+  launchctl unload "$LEGACY_PLIST" 2>/dev/null || true
+  rm -f "$LEGACY_PLIST"
+fi
 
 if $PKG_MODE; then
   install_step 2 3 "Using packaged VoxHelper.app"
@@ -100,7 +109,6 @@ else
     fi
     # Stop the running helper before replacing the app bundle. Replacing a live
     # signed .app can leave the installed bundle in an invalid signature state.
-    UID_VAL=$(id -u)
     launchctl stop "gui/$UID_VAL/$LABEL" 2>/dev/null || true
     sleep 1
     launchctl unload "$PLIST_DST" 2>/dev/null || true
@@ -146,7 +154,6 @@ EOF
 echo "[vox-helper] Plist written to: $PLIST_DST"
 
 # ── Reload LaunchAgent ────────────────────────────────────────────────────────
-UID_VAL=$(id -u)
 if $NO_RELOAD; then
   echo "[vox-helper] --no-reload set; LaunchAgent plist updated but not reloaded."
 else

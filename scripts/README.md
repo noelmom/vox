@@ -17,9 +17,9 @@ bash vox.sh uninstall     # remove agents, keep user data by default
 Then control the server with `launchctl`:
 
 ```bash
-launchctl kickstart gui/$(id -u)/com.melolabdev.vox          # start
-launchctl stop gui/$(id -u)/com.melolabdev.vox               # stop
-launchctl kickstart -k gui/$(id -u)/com.melolabdev.vox       # restart
+launchctl kickstart gui/$(id -u)/com.noelmom.vox          # start
+launchctl stop gui/$(id -u)/com.noelmom.vox               # stop
+launchctl kickstart -k gui/$(id -u)/com.noelmom.vox       # restart
 tail -f ~/Library/Logs/Vox/vox.log                           # live logs
 tail -f ~/Library/Logs/Vox/vox-error.log                     # error logs
 ```
@@ -43,7 +43,7 @@ The server prints its address and API docs URL on startup. Logs stream directly 
 
 > **Note:** If the LaunchAgent is also loaded and running, stop it first to avoid a port conflict:
 > ```bash
-> launchctl stop gui/$(id -u)/com.melolabdev.vox
+> launchctl stop gui/$(id -u)/com.noelmom.vox
 > bash scripts/run.sh
 > ```
 

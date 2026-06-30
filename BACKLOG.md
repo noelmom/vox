@@ -380,8 +380,8 @@ Until v1.0 ships, avoid adding new product features. Pre-v1 work should be limit
 
 ## Packaging & Distribution
 
-- [x] **LaunchAgent — server** — `launchagent/com.melolabdev.vox.plist`. Manual start, crash-restart, logs to `~/Library/Logs/Vox/`.
-- [x] **LaunchAgent — menu bar helper** — `launchagent/com.melolabdev.vox-helper.plist`. Auto-starts on login.
+- [x] **LaunchAgent — server** — `launchagent/com.noelmom.vox.plist`. Manual start, crash-restart, logs to `~/Library/Logs/Vox/`.
+- [x] **LaunchAgent — menu bar helper** — `launchagent/com.noelmom.vox-helper.plist`. Auto-starts on login.
 - [x] **macOS menu bar helper (native Swift)** — monochrome VOX status icon, CPU/RAM, server control, copy address, open browser, view logs.
 
 - [x] **Fix `env` label** — server plist now uses `/bin/bash` directly; Login Items shows `bash` instead of `env`.
@@ -417,8 +417,8 @@ Until v1.0 ships, avoid adding new product features. Pre-v1 work should be limit
   - **Read state:** `NSDictionary(contentsOfFile: plistPath)` → read `RunAtLoad` bool → set checkmark on menu open (or on `apply()` each poll cycle)
   - **Toggle:** flip `RunAtLoad` in the dict, write back with `NSDictionary.write(to:atomically:)`, then `monitor.launchctl("unload", plistPath)` + `monitor.launchctl("load", plistPath)` to apply
   - Plist paths:
-    - Helper: `~/Library/LaunchAgents/com.melolabdev.vox-helper.plist`
-    - Server: `~/Library/LaunchAgents/com.melolabdev.vox.plist`
+    - Helper: `~/Library/LaunchAgents/com.noelmom.vox-helper.plist`
+    - Server: `~/Library/LaunchAgents/com.noelmom.vox.plist`
   - No changes needed to `ServerMonitor.swift`
 
 - [ ] **Mac App Store distribution — not needed at this time** — would require sandboxing: replace `launchctl` calls with `SMAppService` + XPC, replace LaunchAgent plists with `SMAppService.register()`. Helper is already native Swift, but the signed/notarized direct distribution path is the current plan.
@@ -753,7 +753,7 @@ Product decision: after v1.0.
 - [ ] **curl/wget one-liner installer**
   - Allow installing Vox with a single command, no git clone required:
     ```bash
-    curl -fsSL https://raw.githubusercontent.com/MeloLabDev/codename-vox/main/vox.sh | bash -s install
+    curl -fsSL https://raw.githubusercontent.com/noelmom/vox/main/vox.sh | bash -s install
     ```
   - `vox.sh` already handles the full install flow — this just removes the clone step for end users.
   - Requirements before enabling: code signing & notarization done, repo public or install token approach decided, `vox.sh` downloads the full source itself (zip from latest release) rather than relying on the local project folder being present.
