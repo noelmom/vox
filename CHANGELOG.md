@@ -10,6 +10,11 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Changed
 - Repository rename planned after v1.0 RC validation: `MeloLabDev/codename-vox` will become `noelmom/vox`.
 
+## [1.0.0-rc6] — 2026-06-29
+
+### Fixed
+- **TTS API compatibility** — relaxed the broad RC5 API input validation pass after it proved too strict for generation behavior on test hardware. Server Settings still keep bounded validation for `.env` values that can affect startup.
+
 ## [1.0.0-rc5] — 2026-06-29
 
 ### Changed
