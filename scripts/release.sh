@@ -76,9 +76,7 @@ info "Building signed/notarized pkg"
 bash scripts/build-pkg.sh
 
 PKG="assets/Vox-$VERSION.pkg"
-DMG="assets/Vox.dmg"
 [[ -f "$PKG" ]] || fail "Package missing: $PKG"
-[[ -f "$DMG" ]] || fail "DMG missing: $DMG"
 HASH="$(shasum -a 256 "$PKG" | awk '{print $1}')"
 SHORT_HASH="${HASH:0:4}…${HASH: -4}"
 SIZE_BYTES="$(stat -f '%z' "$PKG")"
@@ -118,7 +116,7 @@ git tag -a "$TAG" -m "Vox ${VERSION} Beta"
 git push origin "$TAG"
 
 info "Creating GitHub prerelease"
-gh release create "$TAG" "$PKG" "$DMG" \
+gh release create "$TAG" "$PKG" \
   --repo "$RELEASE_REPO" \
   --title "Vox ${VERSION} Beta" \
   --prerelease \
@@ -128,10 +126,6 @@ gh release create "$TAG" "$PKG" "$DMG" \
 - File: Vox-${VERSION}.pkg
 - SHA256: ${HASH}
 - Size: ${SIZE_MB}
-- Signed, notarized, stapled, and accepted by Gatekeeper.
-
-### DMG
-- File: Vox.dmg
 - Signed, notarized, stapled, and accepted by Gatekeeper."
 
 success "Released $TAG"

@@ -61,7 +61,7 @@ The server prints its address and API docs URL on startup. Logs stream directly 
 | `uninstall-helper.sh` | Stop and remove the helper LaunchAgent. Icon disappears from menu bar. |
 | `run.sh` | Start the server manually in the foreground. Bypasses launchd entirely. |
 | `update.sh` | Pull latest changes + sync deps + re-register agents only when installed build differs. Supports `--force`, `--no-restart`, `--agent-only`, and `--helper-only`. |
-| `release.sh` | Unified release helper: stamps build info, builds/signs/notarizes DMG and PKG, updates landing metadata, tags, pushes, and uploads the GitHub release asset. |
+| `release.sh` | Unified release helper: stamps build info, builds/signs/notarizes DMG and PKG, updates landing metadata, tags, pushes, and uploads the PKG GitHub release asset. |
 
 ### Release repository target
 
@@ -76,5 +76,7 @@ The target is explicit because GitHub CLI repo inference can be unreliable after
 ```bash
 RELEASE_REPO=owner/repo bash scripts/release.sh 1.0.0-rc9
 ```
+
+GitHub Releases intentionally publish only `Vox-<version>.pkg`. `assets/Vox.dmg` is built and committed for the manual/script install path, but it is not uploaded as a release asset because it only contains the two app bundles and can confuse testers.
 
 For repository-wide operating procedures, release caveats, signing notes, and agent expectations, see [`../AGENTS.md`](../AGENTS.md).
