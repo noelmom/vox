@@ -596,4 +596,4 @@ This project is currently in active private development. Public contribution gui
 
 ## License
 
-TBD — to be determined before public release.
+Vox is released under the [MIT License](LICENSE).
