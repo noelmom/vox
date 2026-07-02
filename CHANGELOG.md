@@ -5,6 +5,11 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [1.0.0-rc11] — 2026-07-01
+
+### Changed
+- Release notes TBD.
+
 ## [1.0.0-rc10] — 2026-06-29
 
 ### Changed
