@@ -281,12 +281,12 @@ function Welcome() {
         </div>
       </section>
 
-      <footer className="sticky bottom-0 z-20 border-t border-border/80 bg-white/90 backdrop-blur-xl">
-        <div className="mx-auto flex min-h-[58px] max-w-[1600px] flex-wrap items-center justify-between gap-3 px-7 text-sm font-bold text-muted-foreground xl:px-10">
-          <div className="flex flex-wrap items-center gap-6">
+      <footer className="border-t border-border/80 bg-white/90 backdrop-blur-xl md:sticky md:bottom-0 md:z-20">
+        <div className="mx-auto flex max-w-[1600px] flex-col gap-3 px-4 py-3 text-xs font-bold text-muted-foreground sm:px-7 sm:text-sm md:min-h-[58px] md:flex-row md:flex-wrap md:items-center md:justify-between md:py-0 xl:px-10">
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2 md:gap-6">
             <span className="inline-flex items-center gap-2">
               <span className={`h-3 w-3 rounded-full ${serverOk ? "bg-[oklch(0.56_0.18_150)]" : "bg-[oklch(0.68_0.16_35)]"}`} />
-              Server: <code className="font-mono text-foreground">{serverUrl}</code>
+              Server: <code className="break-all font-mono text-foreground">{serverUrl}</code>
             </span>
             <CopyButton value={serverUrl} label="Copy" compact />
             <span className="inline-flex items-center gap-2">
@@ -300,13 +300,13 @@ function Welcome() {
               <Volume2 className="h-4 w-4" /> Voices: 6
             </span>
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex flex-wrap items-center gap-3 md:gap-4">
             <span className="font-mono tabular-nums">
               {settings.data ? `${settings.data.macos_version} (${settings.data.chip})` : "macOS"}
             </span>
             <Link
               to="/app/settings"
-              className="inline-flex h-9 items-center gap-2 rounded-lg border border-border bg-white px-3 text-sm font-black text-foreground transition-colors hover:bg-muted"
+              className="hidden h-9 items-center gap-2 rounded-lg border border-border bg-white px-3 text-sm font-black text-foreground transition-colors hover:bg-muted sm:inline-flex"
             >
               <MonitorCog className="h-4 w-4" /> System Info
             </Link>

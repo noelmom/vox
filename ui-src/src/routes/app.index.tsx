@@ -475,6 +475,15 @@ function GeneratePage() {
     [tones, toneKeyMap],
   );
   const selectedVoice = displayVoices.find((v) => v.id === voiceId) ?? GENERIC_VOICE;
+  const effectiveVoiceId = selectedVoice.id === GENERIC_VOICE.id ? "" : selectedVoice.id;
+
+  useEffect(() => {
+    if (!voicesData || !voiceId) return;
+    if (!displayVoices.some((v) => v.id === voiceId)) {
+      setVoiceId("");
+    }
+  }, [displayVoices, setVoiceId, voiceId, voicesData]);
+
   const currentPresetParams = () => ({
     temperature: advanced.temperature,
     exaggeration: advanced.exaggeration,
@@ -677,7 +686,7 @@ function GeneratePage() {
       const { request_id } = await submitTTS({
         text: script,
         preset: isCustom ? "default" : tone.toLowerCase(),
-        voice_name: voiceId || undefined,
+        voice_name: effectiveVoiceId || undefined,
         output_format: format,
         mp3_bitrate: format === "mp3" ? parseInt(mp3Quality, 10) : undefined,
         wav_bit_depth: format === "wav" ? wavQuality : undefined,
