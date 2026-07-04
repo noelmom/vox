@@ -11,15 +11,15 @@ Install with the unified entry point:
 ```bash
 bash vox.sh install       # guided install
 bash vox.sh update        # update existing install
-bash vox.sh uninstall     # remove agents
+bash vox.sh uninstall     # remove agents, keep user data by default
 ```
 
 Then control the server with `launchctl`:
 
 ```bash
-launchctl kickstart gui/$(id -u)/com.melolabdev.vox          # start
-launchctl stop gui/$(id -u)/com.melolabdev.vox               # stop
-launchctl kickstart -k gui/$(id -u)/com.melolabdev.vox       # restart
+launchctl kickstart gui/$(id -u)/com.noelmom.vox          # start
+launchctl stop gui/$(id -u)/com.noelmom.vox               # stop
+launchctl kickstart -k gui/$(id -u)/com.noelmom.vox       # restart
 tail -f ~/Library/Logs/Vox/vox.log                           # live logs
 tail -f ~/Library/Logs/Vox/vox-error.log                     # error logs
 ```
@@ -43,7 +43,7 @@ The server prints its address and API docs URL on startup. Logs stream directly 
 
 > **Note:** If the LaunchAgent is also loaded and running, stop it first to avoid a port conflict:
 > ```bash
-> launchctl stop gui/$(id -u)/com.melolabdev.vox
+> launchctl stop gui/$(id -u)/com.noelmom.vox
 > bash scripts/run.sh
 > ```
 
@@ -54,9 +54,31 @@ The server prints its address and API docs URL on startup. Logs stream directly 
 | Script | Purpose |
 |--------|---------|
 | `../vox.sh` | **Unified entry point.** `install`, `update`, `uninstall` with flags (`--yes`, `--token`, `--purge`, `--zip`). Use this for all normal workflows. |
+| `uninstall.sh` | Shared uninstall implementation used by `vox.sh uninstall` and the helper menu. Removes LaunchAgents and apps; preserves user data unless `--purge` is passed. |
 | `install-agent.sh` | Register the **server** LaunchAgent with macOS launchd. Syncs `api/` and `ui/` to Application Support. |
 | `uninstall-agent.sh` | Stop and remove the server LaunchAgent. |
-| `install-helper.sh` | Install the **menu bar helper** LaunchAgent. Copies VoxHelper.app from the DMG and registers the LaunchAgent. |
+| `install-helper.sh` | Install the **menu bar helper** LaunchAgent. Stops the running helper, copies VoxHelper.app from the DMG with `ditto`, and registers the LaunchAgent. |
 | `uninstall-helper.sh` | Stop and remove the helper LaunchAgent. Icon disappears from menu bar. |
 | `run.sh` | Start the server manually in the foreground. Bypasses launchd entirely. |
-| `update.sh` | Pull latest changes + sync deps + re-register both agents. Called by `vox.sh update` — can also be run directly. |
+| `update.sh` | Pull latest changes + sync deps + re-register agents only when installed build differs. Supports `--force`, `--no-restart`, `--agent-only`, and `--helper-only`. |
+| `release.sh` | Unified release helper: stamps build info, builds/signs/notarizes DMG and PKG, updates landing metadata, tags, pushes, and uploads the PKG GitHub release asset. |
+
+### Release repository target
+
+`release.sh` creates GitHub releases against `noelmom/vox` by default. Versions with a suffix such as `-rc11` are marked as prereleases; plain versions such as `1.0.0` are public releases:
+
+```bash
+bash scripts/release.sh 1.0.0-rc9
+```
+
+The target is explicit because GitHub CLI repo inference can be unreliable after repo renames or redirects. To test releases against a fork, override it:
+
+```bash
+RELEASE_REPO=owner/repo bash scripts/release.sh 1.0.0-rc9
+```
+
+GitHub Releases intentionally publish only `Vox-<version>.pkg`. `assets/Vox.dmg` is built and committed for the manual/script install path, but it is not uploaded as a release asset because it only contains the two app bundles and can confuse testers.
+
+The script checks `gh auth status` again right before creating the GitHub release. If the signing/notarization flow waited on a keychain prompt for a while and GitHub upload fails, run `gh auth login -h github.com` and retry the release upload or rerun the release with a new version.
+
+For repository-wide operating procedures, release caveats, signing notes, and agent expectations, see [`../AGENTS.md`](../AGENTS.md).

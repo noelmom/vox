@@ -2,6 +2,7 @@
 # Vox — one-shot setup script for macOS Apple Silicon
 # Run once after cloning: bash setup.sh
 set -e
+export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:$PATH"
 
 BOLD="\033[1m"
 GREEN="\033[0;32m"
@@ -15,13 +16,16 @@ warn()    { echo -e "${YELLOW}[vox] ⚠ $*${RESET}"; }
 fail()    { echo -e "${RED}[vox] ✗ $*${RESET}"; exit 1; }
 
 ROOT="$(cd "$(dirname "$0")" && pwd)"
+source "$ROOT/scripts/install-log.sh"
+setup_install_log "setup.sh"
+
 APP_SUPPORT="$HOME/Library/Application Support/Vox"
 
 # ── Already installed check ───────────────────────────────────────────────────
-AGENT_PLIST="$HOME/Library/LaunchAgents/com.melolabdev.vox.plist"
-HELPER_PLIST="$HOME/Library/LaunchAgents/com.melolabdev.vox-helper.plist"
+AGENT_PLIST="$HOME/Library/LaunchAgents/com.noelmom.vox.plist"
+HELPER_PLIST="$HOME/Library/LaunchAgents/com.noelmom.vox-helper.plist"
 
-if [[ -f "$AGENT_PLIST" ]] || [[ -f "$HELPER_PLIST" ]]; then
+if [[ "${VOX_PKG_MODE:-0}" != "1" ]] && { [[ -f "$AGENT_PLIST" ]] || [[ -f "$HELPER_PLIST" ]]; }; then
     echo ""
     echo -e "${YELLOW}${BOLD}Vox is already installed on this machine.${RESET}"
     echo ""
@@ -48,7 +52,15 @@ if [[ "$ARCH" != "arm64" ]]; then
     warn "CPU-only mode will be used. MPS acceleration unavailable."
 fi
 
+# Git is only needed when this source tree is a git checkout.
+if [[ -d "$ROOT/.git" ]] || [[ -f "$ROOT/.git" ]]; then
+    if ! command -v git &>/dev/null || ! xcode-select -p &>/dev/null; then
+        warn "Git/Xcode Command Line Tools are not available. Zip/manual installs can still continue, but git-based updates will need: xcode-select --install"
+    fi
+fi
+
 # ── Homebrew ──────────────────────────────────────────────────────────────────
+install_step 1 8 "Checking Homebrew"
 info "Checking Homebrew..."
 if ! command -v brew &>/dev/null; then
     info "Installing Homebrew..."
@@ -58,6 +70,7 @@ fi
 success "Homebrew $(brew --version | head -1)"
 
 # ── ffmpeg ────────────────────────────────────────────────────────────────────
+install_step 2 8 "Checking ffmpeg"
 info "Checking ffmpeg..."
 if ! brew list ffmpeg &>/dev/null; then
     info "Installing ffmpeg via Homebrew..."
@@ -66,6 +79,7 @@ fi
 success "ffmpeg $(ffmpeg -version 2>&1 | head -1 | awk '{print $3}')"
 
 # ── Python 3.11 ───────────────────────────────────────────────────────────────
+install_step 3 8 "Checking Python 3.11"
 info "Checking Python..."
 PYTHON=""
 
@@ -83,6 +97,7 @@ PYTHON_VERSION=$("$PYTHON" --version 2>&1)
 success "$PYTHON_VERSION at $PYTHON"
 
 # ── Application Support directory structure ───────────────────────────────────
+install_step 4 8 "Creating Application Support directories"
 info "Creating permanent application support directories..."
 mkdir -p "$APP_SUPPORT/venv"
 mkdir -p "$APP_SUPPORT/api"
@@ -96,6 +111,7 @@ mkdir -p "$HOME/Library/Logs/Vox"
 success "Application Support: $APP_SUPPORT"
 
 # ── Virtual environment ───────────────────────────────────────────────────────
+install_step 5 8 "Preparing Python virtual environment"
 VENV="$APP_SUPPORT/venv"
 
 if [[ ! -f "$VENV/bin/python" ]]; then
@@ -110,24 +126,28 @@ VENV_PIP="$VENV/bin/pip"
 success "Virtual environment ready"
 
 # ── pip ───────────────────────────────────────────────────────────────────────
+install_step 6 8 "Upgrading pip"
 info "Upgrading pip..."
 "$VENV_PIP" install --upgrade pip --quiet
 success "pip $("$VENV_PIP" --version | awk '{print $2}')"
 
 # ── Python dependencies ───────────────────────────────────────────────────────
+install_step 7 8 "Installing Vox Python dependencies"
 info "Installing Python dependencies (this may take a few minutes on first run)..."
 "$VENV_PIP" install -r "$ROOT/requirements.txt"
 success "All Python dependencies installed"
 
 # ── Copy server code to permanent location ────────────────────────────────────
+install_step 8 8 "Installing Vox runtime files"
 info "Installing server code to Application Support..."
-rsync -a --delete "$ROOT/api/"           "$APP_SUPPORT/api/"
-rsync -a --delete "$ROOT/ui/"            "$APP_SUPPORT/ui/"
+mkdir -p "$APP_SUPPORT/ui-dist"
+rsync -a --delete "$ROOT/api/"      "$APP_SUPPORT/api/"
+rsync -a --delete "$ROOT/ui-dist/"  "$APP_SUPPORT/ui-dist/"
 success "Server code installed"
 
 # ── Copy default voice profile ────────────────────────────────────────────────
-if [[ -f "$ROOT/voices/noelmo-normal.wav" ]] && [[ ! -f "$APP_SUPPORT/voices/noelmo-normal.wav" ]]; then
-    cp "$ROOT/voices/noelmo-normal.wav" "$APP_SUPPORT/voices/noelmo-normal.wav"
+if [[ -f "$ROOT/voices/noelmo-demo.wav" ]] && [[ ! -f "$APP_SUPPORT/voices/noelmo-demo.wav" ]]; then
+    cp "$ROOT/voices/noelmo-demo.wav" "$APP_SUPPORT/voices/noelmo-demo.wav"
     success "Default voice profile copied"
 fi
 
@@ -140,8 +160,9 @@ if [[ ! -f "$ENV_FILE" ]]; then
 # All variables use the VOX_ prefix unless noted.
 
 # Network
-# VOX_HOST=0.0.0.0    # default — reachable from any device on the network
-# VOX_PORT=8000
+# Local only by default. Use 0.0.0.0 to allow LAN access.
+VOX_HOST=127.0.0.1
+VOX_PORT=8000
 
 # Inference device: auto | mps | cpu
 # VOX_DEVICE=auto
@@ -152,7 +173,15 @@ if [[ ! -f "$ENV_FILE" ]]; then
 # Output file cleanup — how many hours to keep generated audio (0 = keep forever)
 # VOX_OUTPUT_TTL_HOURS=24
 
-# Text chunking limits
+# Chunking headroom — reserve this many characters below the per-chunk max so
+# sentence endings are less likely to be cut off at a chunk boundary.
+# VOX_CHUNK_HEADROOM_CHARS=40
+
+# Voice clip length limit for uploads/recordings, in seconds (invalid or empty -> 120)
+# VOX_MAX_VOICE_CLIP_DURATION_S=120
+
+# Text chunking limits. VOX_DEFAULT_MAX_CHARS is the default hard max per chunk
+# when an API request does not pass max_chars.
 # VOX_DEFAULT_MAX_CHARS=450
 # VOX_MIN_MAX_CHARS=100
 # VOX_MAX_MAX_CHARS=3000
@@ -188,7 +217,7 @@ echo "  3. Install the menu bar helper:"
 echo "     bash scripts/install-helper.sh"
 echo ""
 echo "  4. Start the server from the menu bar icon, or:"
-echo "     launchctl kickstart gui/$(id -u)/com.melolabdev.vox"
+echo "     launchctl kickstart gui/$(id -u)/com.noelmom.vox"
 echo ""
 echo "  Manual start (no LaunchAgent):"
 echo "     bash scripts/run.sh"

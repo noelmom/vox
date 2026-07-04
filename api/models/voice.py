@@ -34,6 +34,9 @@ class VoiceOut(BaseModel):
     top_p: float | None
     min_p: float | None
     created_at: str
+    is_favorite: bool = False
+    display_name: str | None = None
+    icon_data: str | None = None
 
     @field_validator("tags", mode="before")
     @classmethod
@@ -41,6 +44,11 @@ class VoiceOut(BaseModel):
         if isinstance(v, str):
             return _parse_tags(v)
         return v or []
+
+    @field_validator("is_favorite", mode="before")
+    @classmethod
+    def coerce_bool(cls, v):
+        return bool(v)
 
 
 class VoiceCreate(BaseModel):

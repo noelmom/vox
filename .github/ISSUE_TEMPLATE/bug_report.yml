@@ -1,0 +1,81 @@
+name: Bug report
+description: Report something that is broken or behaving incorrectly.
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping improve Vox. Please include enough detail for the issue to be reproduced.
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: What happened?
+      placeholder: Vox failed to...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      description: What did you expect to happen?
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      description: List the exact steps that trigger the bug.
+      placeholder: |
+        1. Open Vox Studio
+        2. Go to ...
+        3. Click ...
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Vox version
+      description: Find this in the Vox Studio footer, Settings, or the menu bar helper.
+      placeholder: "1.0.0"
+    validations:
+      required: true
+  - type: input
+    id: mac
+    attributes:
+      label: Mac and macOS version
+      placeholder: "Apple M1, macOS 14.5"
+    validations:
+      required: true
+  - type: dropdown
+    id: install_method
+    attributes:
+      label: Install method
+      options:
+        - Signed .pkg from GitHub Releases
+        - Manual git clone + vox.sh install
+        - Development checkout
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs or request ID
+      description: Include a request ID, relevant `/logs` details, or lines from `~/Library/Logs/Vox/vox.log`.
+      render: text
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: Screenshots or recording
+      description: Add screenshots or screen recordings if the issue is visual.
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checklist
+      options:
+        - label: I searched existing issues before opening this bug.
+          required: true
+        - label: I can reproduce this on the latest available release or current development branch.
+          required: true

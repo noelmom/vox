@@ -2,6 +2,7 @@ __pycache__/
 *.pyc
 *.pyo
 .DS_Store
+.claude/
 
 # Symlinks created by setup.sh pointing into ~/Library/Application Support/Vox/
 .venv
@@ -12,7 +13,14 @@ outputs/
 input/
 data/
 voices/*
-!voices/noelmo-normal.wav
+!voices/noelmo-demo.wav
+
+# Release artifacts — upload to GitHub Releases, do not commit
+assets/*.pkg
 
 # UI sketches — local design references only
 sketches/
+
+# React SPA source dependencies (build output ui-dist/ IS committed — needed for vox.sh update)
+ui-src/node_modules/
+ui-src/bun.lock

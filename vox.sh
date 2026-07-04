@@ -15,6 +15,8 @@
 #   --helper-only        target helper only
 #   --purge              on uninstall, also delete user data + venv
 #   --zip /path/dir      update from extracted zip folder (not git pull)
+#   --pkg-mode           internal: package postinstall mode
+#   --force              force update/reinstall even when installed version matches
 set -euo pipefail
 
 # ── Colours ───────────────────────────────────────────────────────────────────
@@ -30,6 +32,13 @@ success() { echo -e "${GREEN}[vox] ✓${RESET} $*"; }
 warn()    { echo -e "${YELLOW}[vox] ⚠${RESET} $*"; }
 fail()    { echo -e "${RED}[vox] ✗${RESET} $*"; exit 1; }
 ask()     { echo -e "${CYAN}[vox]${RESET} $*"; }
+require_git() {
+    if command -v git &>/dev/null && xcode-select -p &>/dev/null; then
+        return 0
+    fi
+
+    fail "Git/Xcode Command Line Tools are required for this action. Run: xcode-select --install"
+}
 
 # ── Paths ─────────────────────────────────────────────────────────────────────
 ROOT="$(cd "$(dirname "$0")" && pwd)"
@@ -45,6 +54,8 @@ OPT_HELPER_ONLY=false
 OPT_PURGE=false
 OPT_ZIP=""
 OPT_BRANCH=""
+OPT_PKG_MODE=false
+OPT_FORCE=false
 
 # ── Help ──────────────────────────────────────────────────────────────────────
 show_help() {
@@ -69,6 +80,8 @@ cat <<'EOF'
     --zip /path       (update) Use extracted zip folder instead of git pull
     --devbranch       Switch to the development branch before running command
     --branch NAME     Switch to a specific branch before running command
+    --pkg-mode        Internal: used by the signed macOS package postinstall
+    --force           Force update/reinstall even when installed version matches
     --help            Show this help
 
   Examples:
@@ -81,7 +94,7 @@ cat <<'EOF'
     bash vox.sh update                       # pull current branch
     bash vox.sh update --devbranch           # switch to development and pull
     bash vox.sh update --branch main         # switch back to main and pull
-    bash vox.sh update --zip ~/Downloads/codename-vox-main
+    bash vox.sh update --zip ~/Downloads/vox-main
     bash vox.sh uninstall
     bash vox.sh uninstall --devbranch        # uninstall using development scripts
     bash vox.sh uninstall --purge            # remove everything including data
@@ -95,13 +108,15 @@ while [[ $# -gt 0 ]]; do
     case "$1" in
         install|update|uninstall) CMD="$1" ;;
         --yes|-y)          OPT_YES=true ;;
-        --token)           shift; OPT_TOKEN="${1:-}" ;;
+        --token)           shift; [[ -n "${1:-}" ]] || fail "--token requires a value"; OPT_TOKEN="${1:-}" ;;
         --agent-only)      OPT_AGENT_ONLY=true ;;
         --helper-only)     OPT_HELPER_ONLY=true ;;
         --purge)           OPT_PURGE=true ;;
-        --zip)             shift; OPT_ZIP="${1:-}" ;;
-        --branch)          shift; OPT_BRANCH="${1:-}" ;;
+        --zip)             shift; [[ -n "${1:-}" ]] || fail "--zip requires a path"; OPT_ZIP="${1:-}" ;;
+        --branch)          shift; [[ -n "${1:-}" ]] || fail "--branch requires a name"; OPT_BRANCH="${1:-}" ;;
         --devbranch)       OPT_BRANCH="development" ;;
+        --pkg-mode)        OPT_PKG_MODE=true; OPT_YES=true ;;
+        --force)           OPT_FORCE=true ;;
         --help|-h)         show_help; exit 0 ;;
         *) warn "Unknown argument: $1 (run with --help to see usage)"; exit 1 ;;
     esac
@@ -123,6 +138,7 @@ confirm() {
 
 # ── Branch switch (applies to all commands) ───────────────────────────────────
 if [[ -n "$OPT_BRANCH" ]]; then
+    require_git
     if git -C "$ROOT" rev-parse --git-dir &>/dev/null; then
         info "Switching to branch: $OPT_BRANCH..."
         git -C "$ROOT" fetch origin
@@ -165,16 +181,20 @@ do_install() {
     echo ""
 
     # Already installed check
-    AGENT_PLIST="$HOME/Library/LaunchAgents/com.melolabdev.vox.plist"
-    HELPER_PLIST="$HOME/Library/LaunchAgents/com.melolabdev.vox-helper.plist"
-    if [[ -f "$AGENT_PLIST" ]] || [[ -f "$HELPER_PLIST" ]]; then
+    AGENT_PLIST="$HOME/Library/LaunchAgents/com.noelmom.vox.plist"
+    HELPER_PLIST="$HOME/Library/LaunchAgents/com.noelmom.vox-helper.plist"
+    if ! $OPT_PKG_MODE && { [[ -f "$AGENT_PLIST" ]] || [[ -f "$HELPER_PLIST" ]]; }; then
         warn "Vox appears to be already installed."
         confirm "Run update instead?" && { CMD="update"; do_update; return; }
         confirm "Reinstall anyway (will overwrite)?" || exit 0
     fi
 
     # Run setup.sh (creates venv, syncs code, creates .env)
-    bash "$ROOT/setup.sh"
+    if $OPT_PKG_MODE; then
+        VOX_PKG_MODE=1 bash "$ROOT/setup.sh"
+    else
+        bash "$ROOT/setup.sh"
+    fi
 
     # HF token
     if [[ -n "$OPT_TOKEN" ]]; then
@@ -190,18 +210,57 @@ do_install() {
 
     # Install agents
     if ! $OPT_HELPER_ONLY; then
-        bash "$ROOT/scripts/install-agent.sh"
+        if $OPT_PKG_MODE; then
+            bash "$ROOT/scripts/install-agent.sh" --pkg-mode
+        elif $OPT_FORCE; then
+            bash "$ROOT/scripts/install-agent.sh" --force-app
+        else
+            bash "$ROOT/scripts/install-agent.sh"
+        fi
     fi
     if ! $OPT_AGENT_ONLY; then
-        bash "$ROOT/scripts/install-helper.sh"
+        if $OPT_PKG_MODE; then
+            bash "$ROOT/scripts/install-helper.sh" --pkg-mode
+        elif $OPT_FORCE; then
+            bash "$ROOT/scripts/install-helper.sh" --force-app
+        else
+            bash "$ROOT/scripts/install-helper.sh"
+        fi
     fi
+
+    _write_installed_version
+    _verify_install
 
     echo ""
     echo -e "${GREEN}${BOLD}  ✓ Vox installed.${RESET}"
     echo ""
+    echo "  First run may continue downloading/loading the Chatterbox model in the background."
+    echo "  If the app is not ready immediately, wait a few minutes and check:"
+    echo "    Vox menu bar icon → View Logs"
+    echo ""
     echo "  Start the server from the Vox icon in your menu bar."
     echo "  Open the app at: http://localhost:8000/app"
     echo ""
+}
+
+_verify_install() {
+    local app_dir="/Applications/Vox"
+    local agent_plist="$HOME/Library/LaunchAgents/com.noelmom.vox.plist"
+    local helper_plist="$HOME/Library/LaunchAgents/com.noelmom.vox-helper.plist"
+
+    if ! $OPT_HELPER_ONLY; then
+        [[ -x "$app_dir/VoxServer.app/Contents/MacOS/vox-server" ]] \
+            || fail "VoxServer.app was not installed correctly at $app_dir/VoxServer.app"
+        [[ -f "$agent_plist" ]] \
+            || fail "Server LaunchAgent was not installed at $agent_plist"
+    fi
+
+    if ! $OPT_AGENT_ONLY; then
+        [[ -x "$app_dir/VoxHelper.app/Contents/MacOS/VoxHelper" ]] \
+            || fail "VoxHelper.app was not installed correctly at $app_dir/VoxHelper.app"
+        [[ -f "$helper_plist" ]] \
+            || fail "Helper LaunchAgent was not installed at $helper_plist"
+    fi
 }
 
 _write_token() {
@@ -217,6 +276,35 @@ _write_token() {
     success "HF token saved to .env"
 }
 
+_source_id() {
+    if [[ -d "$ROOT/.git" ]] || [[ -f "$ROOT/.git" ]]; then
+        git -C "$ROOT" rev-parse --short HEAD 2>/dev/null && return 0
+    fi
+    if [[ -f "$ROOT/build_info.json" && -f "$VENV/bin/python3" ]]; then
+        "$VENV/bin/python3" -c 'import json,sys; print(json.load(open(sys.argv[1])).get("commit","unknown"))' "$ROOT/build_info.json" 2>/dev/null && return 0
+    fi
+    echo "unknown"
+}
+
+_write_installed_version() {
+    local source_commit="$(_source_id)"
+    local version="unknown"
+    [[ -f "$ROOT/VERSION" ]] && version="$(tr -d '[:space:]' < "$ROOT/VERSION")"
+    [[ -f "$VENV/bin/python3" ]] || return 0
+    "$VENV/bin/python3" - "$APP_SUPPORT/installed_version.json" "$version" "$source_commit" <<'PY'
+import json, sys
+from datetime import datetime, timezone
+path, version, commit = sys.argv[1:4]
+with open(path, "w", encoding="utf-8") as f:
+    json.dump({
+        "version": version,
+        "source_commit": commit,
+        "installed_at": datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z"),
+    }, f, indent=2)
+    f.write("\n")
+PY
+}
+
 # ── UPDATE ────────────────────────────────────────────────────────────────────
 do_update() {
     echo ""
@@ -227,8 +315,13 @@ do_update() {
         fail "Vox is not installed. Run: bash vox.sh install"
     fi
 
-    if [[ -n "$OPT_ZIP" ]]; then
-        bash "$ROOT/scripts/update.sh" "$OPT_ZIP"
+    update_args=()
+    [[ -n "$OPT_ZIP" ]] && update_args+=("$OPT_ZIP")
+    $OPT_FORCE && update_args+=("--force")
+    $OPT_AGENT_ONLY && update_args+=("--agent-only")
+    $OPT_HELPER_ONLY && update_args+=("--helper-only")
+    if [[ ${#update_args[@]} -gt 0 ]]; then
+        bash "$ROOT/scripts/update.sh" "${update_args[@]}"
     else
         bash "$ROOT/scripts/update.sh"
     fi
@@ -245,28 +338,17 @@ do_uninstall() {
 
     confirm "Continue?" || { info "Cancelled."; exit 0; }
 
-    if ! $OPT_HELPER_ONLY; then
-        bash "$ROOT/scripts/uninstall-agent.sh"
+    uninstall_args=(--yes)
+    if $OPT_AGENT_ONLY; then
+        uninstall_args+=(--agent)
+    elif $OPT_HELPER_ONLY; then
+        uninstall_args+=(--helper)
+    else
+        uninstall_args+=(--all)
     fi
-    if ! $OPT_AGENT_ONLY; then
-        bash "$ROOT/scripts/uninstall-helper.sh"
-    fi
+    $OPT_PURGE && uninstall_args+=(--data)
 
-    if $OPT_PURGE; then
-        info "Purging user data…"
-        rm -rf "$APP_SUPPORT/voices" \
-               "$APP_SUPPORT/outputs" \
-               "$APP_SUPPORT/data" \
-               "$APP_SUPPORT/input" \
-               "$APP_SUPPORT/venv" \
-               "$APP_SUPPORT/api" \
-               "$APP_SUPPORT/ui" \
-"$APP_SUPPORT/scripts" \
-               "$APP_SUPPORT/.env" \
-               "$HOME/Library/Logs/Vox"
-        rmdir "$APP_SUPPORT" 2>/dev/null || true
-        success "All Vox data removed"
-    fi
+    bash "$ROOT/scripts/uninstall.sh" "${uninstall_args[@]}"
 
     echo ""
     echo -e "${GREEN}${BOLD}  ✓ Vox uninstalled.${RESET}"

@@ -17,7 +17,7 @@ import psutil
 import rumps
 from AppKit import NSApplication, NSApplicationActivationPolicyAccessory
 
-SERVER_LABEL  = "com.melolabdev.vox"
+SERVER_LABEL  = "com.noelmom.vox"
 POLL_INTERVAL = 5   # seconds between status + stats refresh
 HEALTH_PATH   = "/health"
 

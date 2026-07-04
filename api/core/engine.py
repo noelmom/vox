@@ -1,5 +1,6 @@
 import asyncio
 import os
+from datetime import datetime, timezone
 
 import torch
 from chatterbox.tts import ChatterboxTTS
@@ -11,6 +12,14 @@ log = get_logger(__name__)
 
 _model: ChatterboxTTS | None = None
 _lock = asyncio.Lock()
+_state = "not_loaded"
+_detail = "Model has not started loading."
+_started_at: str | None = None
+_ready_at: str | None = None
+
+
+def _now() -> str:
+    return datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
 
 
 def _resolve_device() -> str:
@@ -35,11 +44,15 @@ def _configure_hf_token():
 
 
 def load_model():
-    global _model
+    global _model, _state, _detail, _started_at, _ready_at
     device = _resolve_device()
 
     _configure_hf_token()
 
+    _state = "loading"
+    _detail = f"Loading Chatterbox model on {device}."
+    _started_at = _now()
+    _ready_at = None
     log.info("Loading Chatterbox model on device: %s", device)
 
     # Ensure weights load onto the right device regardless of how they were saved
@@ -49,17 +62,46 @@ def load_model():
         kwargs.setdefault("map_location", torch.device(device))
         return torch_load_original(*args, **kwargs)
 
-    torch.load = _patched_load
-    _model = ChatterboxTTS.from_pretrained(device=device)
-    torch.load = torch_load_original
+    try:
+        torch.load = _patched_load
+        _model = ChatterboxTTS.from_pretrained(device=device)
+    except Exception as exc:
+        _state = "error"
+        _detail = str(exc)
+        raise
+    finally:
+        torch.load = torch_load_original
 
+    _state = "ready"
+    _detail = f"Chatterbox model loaded on {device}."
+    _ready_at = _now()
     log.info("Chatterbox model loaded successfully")
+
+
+async def load_model_async():
+    loop = asyncio.get_running_loop()
+    await loop.run_in_executor(None, load_model)
 
 
 def get_model() -> ChatterboxTTS:
     if _model is None:
         raise RuntimeError("Model not loaded. Call load_model() at startup.")
     return _model
+
+
+def is_model_ready() -> bool:
+    return _model is not None and _state == "ready"
+
+
+def get_model_status() -> dict[str, str | bool | None]:
+    return {
+        "state": _state,
+        "ready": is_model_ready(),
+        "detail": _detail,
+        "device": _resolve_device(),
+        "started_at": _started_at,
+        "ready_at": _ready_at,
+    }
 
 
 def get_device() -> str:

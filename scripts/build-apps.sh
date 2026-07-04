@@ -23,6 +23,8 @@ warn()    { echo -e "${YELLOW}[build] ⚠${RESET} $*"; }
 fail()    { echo -e "${RED}[build] ✗${RESET} $*"; exit 1; }
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+VERSION="$(tr -d '[:space:]' < "$ROOT/VERSION")"
+BUILD_INFO="$ROOT/build_info.json"
 APP_SUPPORT="$HOME/Library/Application Support/Vox"
 VENV="$APP_SUPPORT/venv"
 SIGN_IDENTITY="Developer ID Application: Noelmo Melo (S65X5KY399)"
@@ -36,10 +38,18 @@ OUTPUT_DMG="$ROOT/assets/Vox.dmg"
 [[ "$(uname -m)" == "arm64" ]] || fail "Vox requires Apple Silicon (M1 or later). Intel Macs are not supported."
 [[ -n "$KEYCHAIN_PASSWORD" ]]  || fail "KEYCHAIN_PASSWORD is not set."
 [[ -n "$APP_SIGN_PASSWORD" ]]  || fail "APP_SIGN_PASSWORD is not set."
-[[ -f "$ROOT/assets/Vox.icns" ]] || fail "assets/Vox.icns not found."
+[[ -f "$ROOT/assets/VoxHelper.icns" ]] || fail "assets/VoxHelper.icns not found."
+[[ -f "$ROOT/assets/VoxServer.icns" ]] || fail "assets/VoxServer.icns not found."
+[[ -f "$ROOT/assets/MenuBarRunning.png" ]] || fail "assets/MenuBarRunning.png not found."
+[[ -f "$ROOT/assets/MenuBarStopped.png" ]] || fail "assets/MenuBarStopped.png not found."
 [[ -f "$VENV/bin/python3" ]]   || fail "Venv not found at $VENV — run bash vox.sh install first."
 command -v xcrun &>/dev/null   || fail "xcrun not found — install Xcode."
 xcrun --find notarytool &>/dev/null || fail "notarytool not found — requires Xcode 13+."
+
+"$ROOT/scripts/write-build-info.sh" "$BUILD_INFO" >/dev/null
+BUILD_COMMIT="$("$VENV/bin/python3" -c 'import json,sys; print(json.load(open(sys.argv[1]))["commit"])' "$BUILD_INFO")"
+BUILD_DATE="$("$VENV/bin/python3" -c 'import json,sys; print(json.load(open(sys.argv[1]))["built_at"])' "$BUILD_INFO")"
+BUILD_NUMBER="$(date -u +"%Y%m%d%H%M")"
 
 mkdir -p "$BUILD_TMP" "$DMG_STAGING"
 
@@ -56,13 +66,17 @@ info "Building VoxHelper.app…"
 HELPER_APP="$BUILD_TMP/VoxHelper.app"
 mkdir -p "$HELPER_APP/Contents/MacOS" "$HELPER_APP/Contents/Resources"
 
-cp "$ROOT/assets/Vox.icns" "$HELPER_APP/Contents/Resources/Vox.icns"
+cp "$ROOT/assets/VoxHelper.icns" "$HELPER_APP/Contents/Resources/VoxHelper.icns"
+cp "$ROOT/assets/MenuBarRunning.png" "$HELPER_APP/Contents/Resources/MenuBarRunning.png"
+cp "$ROOT/assets/MenuBarStopped.png" "$HELPER_APP/Contents/Resources/MenuBarStopped.png"
+cp "$BUILD_INFO" "$HELPER_APP/Contents/Resources/build_info.json"
 
 info "Compiling Swift VoxHelper…"
 swiftc \
     -target arm64-apple-macos13.0 \
     -framework AppKit \
     -framework Foundation \
+    -framework IOKit \
     "$ROOT/voxhelper/main.swift" \
     "$ROOT/voxhelper/AppDelegate.swift" \
     "$ROOT/voxhelper/StatusBarController.swift" \
@@ -74,13 +88,15 @@ cat > "$HELPER_APP/Contents/Info.plist" <<EOF
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0"><dict>
-  <key>CFBundleIdentifier</key><string>com.melolabdev.vox-helper</string>
+  <key>CFBundleIdentifier</key><string>com.noelmom.vox-helper</string>
   <key>CFBundleName</key><string>Vox Helper</string>
   <key>CFBundleDisplayName</key><string>Vox Helper</string>
   <key>CFBundleExecutable</key><string>VoxHelper</string>
-  <key>CFBundleIconFile</key><string>Vox</string>
-  <key>CFBundleVersion</key><string>1</string>
-  <key>CFBundleShortVersionString</key><string>0.4.0</string>
+  <key>CFBundleIconFile</key><string>VoxHelper</string>
+  <key>CFBundleVersion</key><string>$BUILD_NUMBER</string>
+  <key>CFBundleShortVersionString</key><string>$VERSION</string>
+  <key>VoxBuildCommit</key><string>$BUILD_COMMIT</string>
+  <key>VoxBuiltAt</key><string>$BUILD_DATE</string>
   <key>LSUIElement</key><true/>
   <key>LSMinimumSystemVersion</key><string>13.0</string>
 </dict></plist>
@@ -92,7 +108,8 @@ info "Building VoxServer.app…"
 SERVER_APP="$BUILD_TMP/VoxServer.app"
 mkdir -p "$SERVER_APP/Contents/MacOS" "$SERVER_APP/Contents/Resources"
 
-cp "$ROOT/assets/Vox.icns" "$SERVER_APP/Contents/Resources/Vox.icns"
+cp "$ROOT/assets/VoxServer.icns" "$SERVER_APP/Contents/Resources/VoxServer.icns"
+cp "$BUILD_INFO" "$SERVER_APP/Contents/Resources/build_info.json"
 
 info "Compiling Swift VoxServer…"
 swiftc \
@@ -105,13 +122,15 @@ cat > "$SERVER_APP/Contents/Info.plist" <<EOF
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0"><dict>
-  <key>CFBundleIdentifier</key><string>com.melolabdev.vox-server</string>
+  <key>CFBundleIdentifier</key><string>com.noelmom.vox-server</string>
   <key>CFBundleName</key><string>Vox</string>
   <key>CFBundleDisplayName</key><string>Vox</string>
   <key>CFBundleExecutable</key><string>vox-server</string>
-  <key>CFBundleIconFile</key><string>Vox</string>
-  <key>CFBundleVersion</key><string>1</string>
-  <key>CFBundleShortVersionString</key><string>0.4.0</string>
+  <key>CFBundleIconFile</key><string>VoxServer</string>
+  <key>CFBundleVersion</key><string>$BUILD_NUMBER</string>
+  <key>CFBundleShortVersionString</key><string>$VERSION</string>
+  <key>VoxBuildCommit</key><string>$BUILD_COMMIT</string>
+  <key>VoxBuiltAt</key><string>$BUILD_DATE</string>
   <key>LSUIElement</key><true/>
   <key>LSMinimumSystemVersion</key><string>12.0</string>
 </dict></plist>
@@ -137,8 +156,8 @@ success "Signatures verified"
 
 # ── Stage DMG contents ────────────────────────────────────────────────────────
 info "Staging DMG contents…"
-cp -r "$HELPER_APP" "$DMG_STAGING/VoxHelper.app"
-cp -r "$SERVER_APP" "$DMG_STAGING/VoxServer.app"
+ditto "$HELPER_APP" "$DMG_STAGING/VoxHelper.app"
+ditto "$SERVER_APP" "$DMG_STAGING/VoxServer.app"
 
 # ── Create and sign DMG ───────────────────────────────────────────────────────
 info "Creating Vox.dmg…"

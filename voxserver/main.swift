@@ -12,9 +12,51 @@ func readEnv() -> [String: String] {
         guard !trimmed.isEmpty, !trimmed.hasPrefix("#") else { continue }
         let parts = trimmed.split(separator: "=", maxSplits: 1)
         guard parts.count == 2 else { continue }
-        env[String(parts[0])] = String(parts[1])
+        let key = String(parts[0]).trimmingCharacters(in: .whitespaces)
+        let value = String(parts[1])
+            .split(separator: "#", maxSplits: 1, omittingEmptySubsequences: false)[0]
+            .trimmingCharacters(in: .whitespaces)
+            .trimmingCharacters(in: CharacterSet(charactersIn: "\"'"))
+        env[key] = value
     }
     return env
+}
+
+func normalizedHost(_ raw: String?) -> String {
+    let host = (raw ?? "127.0.0.1").trimmingCharacters(in: .whitespacesAndNewlines)
+    return host.isEmpty ? "127.0.0.1" : host
+}
+
+func normalizedPort(_ raw: String?) -> Int {
+    guard let raw else { return 8000 }
+    let portText = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard let port = Int(portText), port > 0, port <= 65535 else { return 8000 }
+    return port
+}
+
+func normalizedDevice(_ raw: String?) -> String {
+    let device = (raw ?? "auto").trimmingCharacters(in: .whitespacesAndNewlines)
+    return device.isEmpty ? "auto" : device
+}
+
+func acquireStartupLock() {
+    let path = NSHomeDirectory() + "/Library/Application Support/Vox/vox-server.lock"
+    let fd = open(path, O_CREAT | O_RDWR, S_IRUSR | S_IWUSR)
+    guard fd != -1 else {
+        fputs("[vox-server] Could not open startup lock: \(String(cString: strerror(errno)))\n", stderr)
+        exit(1)
+    }
+
+    if flock(fd, LOCK_EX | LOCK_NB) != 0 {
+        fputs("[vox-server] Server startup already in progress — exiting.\n", stderr)
+        exit(0)
+    }
+
+    ftruncate(fd, 0)
+    let pidText = "\(getpid())\n"
+    pidText.withCString { ptr in
+        _ = write(fd, ptr, strlen(ptr))
+    }
 }
 
 // ── Port check ───────────────────────────────────────────────────────────────
@@ -38,10 +80,11 @@ func portInUse(_ port: Int) -> Bool {
 
 // ── Main ─────────────────────────────────────────────────────────────────────
 
+acquireStartupLock()
 let env = readEnv()
-let host   = env["VOX_HOST"]   ?? "0.0.0.0"
-let port   = Int(env["VOX_PORT"] ?? "8000") ?? 8000
-let device = env["VOX_DEVICE"] ?? "auto"
+let host = normalizedHost(env["VOX_HOST"])
+let port = normalizedPort(env["VOX_PORT"])
+let device = normalizedDevice(env["VOX_DEVICE"])
 
 if portInUse(port) {
     fputs("[vox-server] Server already running on port \(port) — exiting.\n", stderr)
@@ -53,6 +96,11 @@ let uvicorn    = appSupport + "/venv/bin/uvicorn"
 
 // Build environment for the exec'd process
 var execEnv = ProcessInfo.processInfo.environment
+// Merge all .env variables (includes HF_TOKEN, etc.)
+for (key, value) in env {
+    execEnv[key] = value
+}
+// Override with explicit VOX_* settings
 execEnv["VOX_HOST"]   = host
 execEnv["VOX_DEVICE"] = device
 execEnv["VOX_PORT"]   = String(port)
