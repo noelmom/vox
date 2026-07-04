@@ -5,10 +5,27 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [1.0.0] — 2026-07-04
+
+### Added
+- **Private on-device voice generation for Mac** — local Chatterbox TTS generation with voice profiles, MP3/WAV output, waveform players, and a polished Vox Studio UI.
+- **Signed macOS package installer** — installs Vox Server and Vox Helper under `/Applications/Vox/`, prepares the local runtime, registers LaunchAgents, installs demo data, and opens the local Welcome page after the server is reachable.
+- **Native menu bar helper** — server status, start/stop/restart controls, local app/docs/logs links, uninstall support, and lightweight system status.
+- **Local REST API** — developer-friendly API docs and examples for AI agents, scripts, and local automation.
+- **Public release workflow** — CI, issue/PR templates, branch protection guidance, release package metadata, and post-v1 issue tracking.
+
+### Changed
+- **Homebrew requirement clarified** — v1 requires Homebrew before running the `.pkg`; the installer checks for it and exits with instructions if missing.
+- **Project identity cleanup** — public repository/download references target `noelmom/vox`, and LaunchAgent/bundle/package identifiers use the `com.noelmom.vox*` namespace.
+- **Release downloads** — GitHub Releases publish the signed/notarized/stapled `.pkg`; the internal/manual-install DMG is not uploaded as a public release asset.
+
+### Fixed
+- **v1 release hardening** — resolved RC issues around installer permissions, package signing, helper controls, local-only behavior, voice profile defaults, logs, mobile welcome layout, and MPS stability regressions.
+
 ## [1.0.0-rc11] — 2026-07-01
 
 ### Changed
-- Release notes TBD.
+- Final release-candidate stabilization before the v1.0.0 cut.
 
 ## [1.0.0-rc10] — 2026-06-29
 
