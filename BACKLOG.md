@@ -2,6 +2,8 @@
 
 Ideas and improvements to revisit. Not bugs — these are enhancements queued for later.
 
+Public tracking note: moving forward, post-v1 work should be opened as GitHub Issues with the `enhancement` label. This file remains a planning archive and source list for issue creation.
+
 ## v1.0 Scope Freeze
 
 Until v1.0 ships, avoid adding new product features. Pre-v1 work should be limited to bug fixes, polish, documentation accuracy, release hardening, and true blockers. Feature ideas below are post-v1 unless explicitly reclassified as blockers.

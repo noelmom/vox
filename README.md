@@ -1,6 +1,6 @@
 # Vox
 
-[![CI](https://github.com/noelmom/vox/actions/workflows/ci.yml/badge.svg?branch=development)](https://github.com/noelmom/vox/actions/workflows/ci.yml)
+[![CI](https://github.com/noelmom/vox/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/noelmom/vox/actions/workflows/ci.yml)
 ![macOS](https://img.shields.io/badge/macOS-13%2B-000000?logo=apple&logoColor=white)
 ![Apple Silicon](https://img.shields.io/badge/Apple%20Silicon-M1%2B-0A84FF?logo=apple&logoColor=white)
 ![Python](https://img.shields.io/badge/Python-3.11-3776AB?logo=python&logoColor=white)
@@ -154,38 +154,55 @@ vox/
 
 - macOS 13 Ventura or later
 - Apple Silicon (M1 or later) — Intel Macs are not supported
-- Xcode Command Line Tools / git (`xcode-select --install`) for clone-based installs and updates
-- Internet connection for first-time setup (Homebrew, Python, model weights)
+- [Homebrew](https://brew.sh/) is required. The installer can install it if missing, but installing Homebrew first gives the smoothest setup experience.
+- Internet connection for first-time setup (Homebrew packages, Python dependencies, and model weights)
+- Xcode Command Line Tools / git (`xcode-select --install`) are required only for manual clone-based installs and updates
 
-### 1. Clone
+### Method 1 — Recommended: signed `.pkg` installer
 
-```bash
-git clone git@github.com:noelmom/vox.git
-cd vox
-```
+Download the latest `Vox-<version>.pkg` from [GitHub Releases](https://github.com/noelmom/vox/releases).
 
-### 2. Install
+Open the package and follow the installer. The `.pkg` installs the Vox helper/server apps, prepares the local runtime, registers the LaunchAgents, and opens the local Welcome page after the server is reachable.
 
-```bash
-bash vox.sh install
-```
-
-The installer walks you through everything interactively:
+The installer handles:
 
 | Step | What it does |
 |------|-------------|
-| Homebrew | Installs if not present |
-| ffmpeg | `brew install ffmpeg` — handles all audio conversion |
-| Python 3.11 | `brew install python@3.11` — preferred for torch/Chatterbox stability |
+| Homebrew | Checks for Homebrew and installs it if missing |
+| ffmpeg | Installs with `brew install ffmpeg` for audio conversion |
+| Python 3.11 | Installs with `brew install python@3.11` for torch/Chatterbox stability |
 | Virtual environment | Creates venv in `~/Library/Application Support/Vox/` |
 | pip dependencies | Installs everything from `requirements.txt` |
-| Runtime directories | Creates `voices/`, `outputs/`, `input/`, `data/` |
+| Runtime directories | Creates `voices/`, `outputs/`, `input/`, and `data/` |
+| Demo voice | Installs the included `noelmo-demo` voice profile |
 | `.env` scaffold | Writes a commented config file with all available options |
-| HF token prompt | Optional — speeds up model downloads |
 | LaunchAgents | Registers the server agent and menu bar helper |
-| First-run welcome | The signed `.pkg` opens the local Welcome page after bootstrap completes |
+| First-run welcome | Opens the local Welcome page when setup is ready |
 
-**Non-interactive install** (CI or scripted):
+The **VOX icon** appears in your menu bar within a few seconds. Use it to start, stop, and restart the server, open the web UI, monitor CPU/RAM/GPU, and confirm the installed Studio/helper build versions.
+
+### Method 2 — Manual install from git
+
+Use this if you want a development checkout, want to test unreleased changes, or prefer terminal-based setup.
+
+Install Homebrew first if needed:
+
+```bash
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+```
+
+Clone and install:
+
+```bash
+git clone https://github.com/noelmom/vox.git
+cd vox
+bash vox.sh install
+```
+
+The manual installer walks through the same runtime setup as the `.pkg`.
+
+**Non-interactive manual install** (CI or scripted):
+
 ```bash
 bash vox.sh install --yes                        # skip all prompts
 bash vox.sh install --yes --token hf_xxx         # also set HF token
@@ -193,9 +210,7 @@ bash vox.sh install --yes --token hf_xxx         # also set HF token
 
 > `.env` is git-ignored and never committed. Keep your token out of any other files.
 
-The **VOX icon** appears in your menu bar within a few seconds. Use it to start, stop, and restart the server, open the web UI, monitor CPU/RAM/GPU, and confirm the installed Studio/helper build versions.
-
-### 3. Start the server
+### Start the server
 
 Vox starts the server automatically on login by default. You can disable that from the Vox Helper menu if you prefer to start it manually.
 
@@ -207,16 +222,21 @@ Vox starts the server automatically on login by default. You can disable that fr
 launchctl kickstart gui/$(id -u)/com.noelmom.vox          # start
 launchctl stop gui/$(id -u)/com.noelmom.vox               # stop
 launchctl kickstart -k gui/$(id -u)/com.noelmom.vox       # restart
-tail -f ~/Library/Logs/Vox/vox.log                           # live logs
+tail -f ~/Library/Logs/Vox/vox.log                        # live logs
 ```
 
 The menu bar helper shows `localhost:8000 · local only` when `VOX_HOST=127.0.0.1` (default), or `192.168.x.x:8000 · network accessible` when `VOX_HOST=0.0.0.0` — so you always know at a glance who can reach the server.
 
-### 4. Updating
+### Updating
+
+Release users should download and run the newest `.pkg` from [GitHub Releases](https://github.com/noelmom/vox/releases).
+
+Manual git installs can update from the checkout:
 
 ```bash
 bash vox.sh update
 ```
+
 Pulls the latest from your current branch, syncs pip dependencies, and re-registers both LaunchAgents in one step.
 
 **If you downloaded a zip instead of cloning:**
@@ -225,7 +245,7 @@ bash vox.sh update --zip /path/to/extracted-vox-folder
 ```
 Your `.env`, `voices/`, `data/`, and `outputs/` are always preserved — only app files are replaced.
 
-### 5. Uninstalling
+### Uninstalling
 
 ```bash
 bash vox.sh uninstall               # remove agents, keep data
@@ -235,7 +255,7 @@ bash vox.sh uninstall --yes --purge # no confirmation prompts
 
 ---
 
-**Option B — manual start (troubleshooting / development):**
+### Manual foreground start
 
 ```bash
 bash scripts/run.sh
@@ -541,7 +561,7 @@ sqlite3 ~/Library/Application\ Support/Vox/data/vox.db
 
 ## Roadmap
 
-Vox is now in a v1.0 scope freeze: only bug fixes, product polish, and true blockers should be added before v1.0. New features below are post-v1 unless they become release blockers.
+Vox is now in a v1.0 scope freeze: only bug fixes, product polish, and true blockers should be added before v1.0. Post-v1 work is tracked through GitHub Issues with the `enhancement` label.
 
 - [x] Chatterbox engine wrapper with MPS/CPU auto-detect
 - [x] FastAPI backend with async generation lock
@@ -590,7 +610,15 @@ Vox is now in a v1.0 scope freeze: only bug fixes, product polish, and true bloc
 
 ## Contributing
 
-This project is currently in active private development. Public contribution guidelines will be added before the public release.
+Please read [CONTRIBUTING.md](CONTRIBUTING.md) before opening a pull request.
+
+Public workflow:
+
+- Bugs and feature requests start as GitHub Issues.
+- Enhancements use the `enhancement` label.
+- Pull requests should link to an issue.
+- CI must pass before merge.
+- `main` is the stable release branch and is maintainer-merged only.
 
 ---
 

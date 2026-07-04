@@ -1,0 +1,63 @@
+name: Feature request
+description: Suggest an enhancement or post-v1 idea.
+title: "[Enhancement]: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Feature work should start as an issue before a pull request. This keeps discussion, scope, and tradeoffs visible.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem or opportunity
+      description: What user problem does this solve?
+      placeholder: Users currently have to...
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: Describe the behavior or UI/API you want.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: What simpler or different approaches should be considered?
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Create / generation
+        - Library / voice profiles
+        - Recordings / history
+        - Settings / runtime
+        - API / integrations
+        - Installer / release
+        - Documentation
+        - Other
+    validations:
+      required: true
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority
+      options:
+        - Nice to have
+        - Important post-v1 enhancement
+        - Potential blocker
+    validations:
+      required: true
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checklist
+      options:
+        - label: I searched existing issues before opening this request.
+          required: true
+        - label: I understand feature PRs should link to an accepted issue before implementation.
+          required: true
