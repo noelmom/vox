@@ -154,7 +154,7 @@ vox/
 
 - macOS 13 Ventura or later
 - Apple Silicon (M1 or later) — Intel Macs are not supported
-- [Homebrew](https://brew.sh/) is required. The installer can install it if missing, but installing Homebrew first gives the smoothest setup experience.
+- [Homebrew](https://brew.sh/) is required before running the installer. The v1 `.pkg` checks for Homebrew and fails with setup instructions if it is missing.
 - Internet connection for first-time setup (Homebrew packages, Python dependencies, and model weights)
 - Xcode Command Line Tools / git (`xcode-select --install`) are required only for manual clone-based installs and updates
 
@@ -164,11 +164,13 @@ Download the latest `Vox-<version>.pkg` from [GitHub Releases](https://github.co
 
 Open the package and follow the installer. The `.pkg` installs the Vox helper/server apps, prepares the local runtime, registers the LaunchAgents, and opens the local Welcome page after the server is reachable.
 
+Important: install Homebrew before running the `.pkg`. Vox v1 intentionally does not install Homebrew from inside the macOS Installer flow; that bootstrap path is tracked for post-v1 polish.
+
 The installer handles:
 
 | Step | What it does |
 |------|-------------|
-| Homebrew | Checks for Homebrew and installs it if missing |
+| Homebrew | Checks that Homebrew is already installed |
 | ffmpeg | Installs with `brew install ffmpeg` for audio conversion |
 | Python 3.11 | Installs with `brew install python@3.11` for torch/Chatterbox stability |
 | Virtual environment | Creates venv in `~/Library/Application Support/Vox/` |
