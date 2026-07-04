@@ -19,6 +19,12 @@ Until v1.0 ships, avoid adding new product features. Pre-v1 work should be limit
 
 ## Post-v1 Feature Ideas
 
+- [ ] **Optional Homebrew bootstrap inside installer** — [#16](https://github.com/noelmom/vox/issues/16)
+  - Current v1 behavior: the signed `.pkg` requires Homebrew to already be installed and fails with setup instructions when `brew` is missing.
+  - Decision: do not install Homebrew from inside the macOS Installer flow for v1.0 because the logged-in user/bootstrap behavior needs more testing.
+  - Future direction: add a reliable guided bootstrap path, likely via the helper or a first-run setup flow that can run as the logged-in user and show clear progress/errors.
+  - Product decision: after v1.0.
+
 - [ ] **Manual pause insertion in Create**
   - Add a real `Insert Pause` flow for the script editor.
   - Suggested approach: insert a lightweight token at the cursor such as `[pause:0.5s]`, parse it before chunking, and translate it into explicit silence between generated text spans.
@@ -75,7 +81,7 @@ Until v1.0 ships, avoid adding new product features. Pre-v1 work should be limit
   - Future: add `pre-commit` hooks for Ruff, typecheck/build smoke checks, shell syntax, and a secret scanner such as `detect-secrets`.
 
   **CI pipeline**
-  - GitHub Actions runs on pushes and pull requests targeting `main` and `development`.
+  - GitHub Actions runs on pushes and pull requests targeting `main`.
   - Jobs: backend Ruff + pytest, frontend typecheck + build, shell syntax.
 
 ---
@@ -781,7 +787,7 @@ Product decision: after v1.0.
   - `build_info.json` — stamped version, source commit, and UTC build time
   - `scripts/build-apps.sh` — reads `VERSION` and bundles `build_info.json` into VoxHelper.app and VoxServer.app
   - `CHANGELOG.md` — version header for the new release section
-  - Git tag on `main` / `development`
+  - Git tag on `main`
   - Landing page package filename, size, URL, and SHA256 checksum still require post-package update
 
   `bash scripts/release.sh <version>` updates `VERSION`, stamps build info, builds UI, commits release prep, builds/signs/notarizes DMG and PKG, computes package size/SHA256, updates landing package metadata, commits, tags, pushes, and uploads the package to GitHub Releases.

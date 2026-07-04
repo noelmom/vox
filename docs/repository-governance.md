@@ -5,8 +5,7 @@ This repository is public, but `main` is the stable product branch.
 ## Branches
 
 - `main` — stable release branch. Only the maintainer merges here.
-- `development` — active integration branch.
-- Feature branches — branch from `development` unless the maintainer says otherwise.
+- Feature branches — branch from `main` unless the maintainer says otherwise.
 
 ## Required Public Workflow
 
@@ -22,8 +21,6 @@ This repository is public, but `main` is the stable product branch.
 The `main` branch protection should require:
 
 - Pull request before merging
-- At least one approving review
-- Dismiss stale approvals when new commits are pushed
 - Conversation resolution before merge
 - Up-to-date branch before merge
 - Status checks:
@@ -32,6 +29,9 @@ The `main` branch protection should require:
   - `Shell scripts`
 - No force pushes
 - No deletions
+- Admin enforcement enabled
+
+The approval count is currently set to `0` so the solo maintainer is not locked out of release work. Raise it when additional maintainers are added.
 
 ## Maintainer Notes
 

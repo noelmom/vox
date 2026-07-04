@@ -77,5 +77,5 @@ body:
       options:
         - label: I searched existing issues before opening this bug.
           required: true
-        - label: I can reproduce this on the latest available release or current development branch.
+        - label: I can reproduce this on the latest available release or current main branch.
           required: true
