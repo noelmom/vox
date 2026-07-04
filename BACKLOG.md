@@ -33,6 +33,14 @@ Until v1.0 ships, avoid adding new product features. Pre-v1 work should be limit
   - Let users create a voice profile from an audio URL, then trim it in the existing upload/trim flow.
   - Product decision: after v1.0.
 
+- [ ] **Post-generation trim for generated clips**
+  - Let users trim the beginning or end of an already generated clip without re-running TTS.
+  - Product decision: after v1.0. Do not add before v1 unless it becomes a true blocker.
+  - Recommended behavior: non-destructive by default. Saving a trim should create a new generated clip/job linked to the original request rather than overwriting the source audio.
+  - Suggested backend: add `POST /api/v1/jobs/{request_id}/trim` with `start_s` and `end_s`, then use local `ffmpeg` against the existing output file.
+  - Suggested UI: add `Trim` actions to Recent and Recordings clip menus, reuse the existing trim waveform/player controls where possible, and save as `Save trimmed copy`.
+  - Metadata: preserve script, voice, preset, format, and source request id; add a visible `TRIMMED` badge so users can distinguish copies from original generations.
+
 - [ ] **Non-verbal speech cue support**
   - Explore whether profile-bound cue audio splicing or text normalization can support laughs, breaths, sighs, and other non-verbal moments.
   - Product decision: after v1.0.

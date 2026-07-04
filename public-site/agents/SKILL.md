@@ -46,7 +46,7 @@ Submit text to the local TTS endpoint:
 ```bash
 curl -s -X POST http://localhost:8000/api/v1/tts \
   -F "text=Hello from a local AI agent." \
-  -F "voice_name=noelmo-normal" \
+  -F "voice_name=noelmo-demo" \
   -F "preset=default"
 ```
 

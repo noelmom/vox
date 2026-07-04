@@ -33,6 +33,15 @@ cd "$ROOT"
 command -v gh >/dev/null 2>&1 || fail "GitHub CLI (gh) is required."
 
 TAG="v$VERSION"
+IS_PRERELEASE=false
+RELEASE_LABEL="Vox ${VERSION}"
+RELEASE_FLAGS=()
+if [[ "$VERSION" == *-* ]]; then
+  IS_PRERELEASE=true
+  RELEASE_LABEL="Vox ${VERSION} Beta"
+  RELEASE_FLAGS+=(--prerelease)
+fi
+
 if git rev-parse "$TAG" >/dev/null 2>&1; then
   fail "Tag already exists: $TAG"
 fi
@@ -112,18 +121,22 @@ git commit -m "docs: update $VERSION package metadata"
 
 info "Pushing branch and tag"
 git push origin "$(git branch --show-current)"
-git tag -a "$TAG" -m "Vox ${VERSION} Beta"
+git tag -a "$TAG" -m "$RELEASE_LABEL"
 git push origin "$TAG"
 
 info "Verifying GitHub CLI auth"
 gh auth status >/dev/null 2>&1 || fail "GitHub CLI auth is not valid. Run: gh auth login -h github.com"
 
-info "Creating GitHub prerelease"
+if $IS_PRERELEASE; then
+  info "Creating GitHub prerelease"
+else
+  info "Creating GitHub release"
+fi
 gh release create "$TAG" "$PKG" \
   --repo "$RELEASE_REPO" \
-  --title "Vox ${VERSION} Beta" \
-  --prerelease \
-  --notes "## Vox ${VERSION} Beta
+  --title "$RELEASE_LABEL" \
+  "${RELEASE_FLAGS[@]}" \
+  --notes "## ${RELEASE_LABEL}
 
 ### Installer
 - File: Vox-${VERSION}.pkg

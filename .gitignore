@@ -13,7 +13,7 @@ outputs/
 input/
 data/
 voices/*
-!voices/noelmo-normal.wav
+!voices/noelmo-demo.wav
 
 # Release artifacts — upload to GitHub Releases, do not commit
 assets/*.pkg

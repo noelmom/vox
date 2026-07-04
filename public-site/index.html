@@ -766,7 +766,7 @@
               <span class="requirement"><span class="icon" aria-hidden="true">▣</span> Local only</span>
             </div>
 
-            <div class="download-card" aria-label="Vox 1.0.0 RC3 package details">
+            <div class="download-card" aria-label="Vox package details">
               <img class="installer-icon" src="assets/vox-installer-icon.png" alt="" />
               <div>
                 <strong><a href="https://github.com/noelmom/vox/releases/download/v1.0.0-rc11/Vox-1.0.0-rc11.pkg">Vox-1.0.0-rc11.pkg</a></strong>
@@ -864,7 +864,7 @@
               <span>curl example</span>
               <button class="copy-code" type="button" data-copy='curl -X POST http://localhost:8000/api/v1/tts \
   -F "text=Hello from Vox Studio." \
-  -F "voice_name=noelmo-normal" \
+  -F "voice_name=noelmo-demo" \
   -F "preset=default"
 
 curl http://localhost:8000/api/v1/jobs/{request_id}
@@ -874,7 +874,7 @@ curl -L http://localhost:8000/api/v1/jobs/{request_id}/audio \
             </div>
             <pre><code><span class="tok-cmd">curl</span> <span class="tok-flag">-X POST</span> <span class="tok-url">http://localhost:8000/api/v1/tts</span> \
   <span class="tok-flag">-F</span> <span class="tok-key">"text</span>=<span class="tok-val">Hello from Vox Studio."</span> \
-  <span class="tok-flag">-F</span> <span class="tok-key">"voice_name</span>=<span class="tok-val">noelmo-normal"</span> \
+  <span class="tok-flag">-F</span> <span class="tok-key">"voice_name</span>=<span class="tok-val">noelmo-demo"</span> \
   <span class="tok-flag">-F</span> <span class="tok-key">"preset</span>=<span class="tok-val">default"</span>
 
 <span class="tok-cmd">curl</span> <span class="tok-url">http://localhost:8000/api/v1/jobs/<span class="tok-var">{request_id}</span></span>

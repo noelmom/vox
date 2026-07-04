@@ -65,7 +65,7 @@ The server prints its address and API docs URL on startup. Logs stream directly 
 
 ### Release repository target
 
-`release.sh` creates GitHub prereleases against `noelmom/vox` by default:
+`release.sh` creates GitHub releases against `noelmom/vox` by default. Versions with a suffix such as `-rc11` are marked as prereleases; plain versions such as `1.0.0` are public releases:
 
 ```bash
 bash scripts/release.sh 1.0.0-rc9
@@ -79,6 +79,6 @@ RELEASE_REPO=owner/repo bash scripts/release.sh 1.0.0-rc9
 
 GitHub Releases intentionally publish only `Vox-<version>.pkg`. `assets/Vox.dmg` is built and committed for the manual/script install path, but it is not uploaded as a release asset because it only contains the two app bundles and can confuse testers.
 
-The script checks `gh auth status` again right before creating the GitHub prerelease. If the signing/notarization flow waited on a keychain prompt for a while and GitHub upload fails, run `gh auth login -h github.com` and retry the release upload or rerun the release with a new version.
+The script checks `gh auth status` again right before creating the GitHub release. If the signing/notarization flow waited on a keychain prompt for a while and GitHub upload fails, run `gh auth login -h github.com` and retry the release upload or rerun the release with a new version.
 
 For repository-wide operating procedures, release caveats, signing notes, and agent expectations, see [`../AGENTS.md`](../AGENTS.md).
