@@ -8,8 +8,6 @@ export const PREFERENCE_KEYS = [
   "vox:voiceId",
   "vox:tone",
   "vox:theme",
-  "vox:widget.requests",
-  "vox:widget.minutes",
   "vox:update-channel",
   "vox:auto-update-checks",
   "vox:autoplay-completed",

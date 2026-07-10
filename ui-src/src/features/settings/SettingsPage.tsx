@@ -17,7 +17,6 @@ import {
   RotateCcw,
   X,
   Info,
-  LayoutGrid,
   Download,
   Upload,
   Monitor,
@@ -60,8 +59,6 @@ function loadPrefs() {
     voiceId: lsGet("vox:voiceId", ""),
     tone: lsGet("vox:tone", "Default"),
     theme: "light" as const,
-    widgetRequests: lsGet("vox:widget.requests", true),
-    widgetMinutes: lsGet("vox:widget.minutes", true),
     autoplayCompleted: lsGet("vox:autoplay-completed", false),
   };
 }
@@ -74,8 +71,6 @@ function savePrefs(p: ReturnType<typeof loadPrefs>) {
   writeCachedPreference("vox:voiceId", p.voiceId);
   writeCachedPreference("vox:tone", p.tone);
   writeCachedPreference("vox:theme", "light");
-  writeCachedPreference("vox:widget.requests", p.widgetRequests);
-  writeCachedPreference("vox:widget.minutes", p.widgetMinutes);
   writeCachedPreference("vox:autoplay-completed", p.autoplayCompleted);
   window.dispatchEvent(new CustomEvent("vox:prefschanged"));
 }
@@ -273,8 +268,6 @@ export function SettingsPage() {
       "vox:voiceId": prefs.voiceId,
       "vox:tone": prefs.tone,
       "vox:theme": "light",
-      "vox:widget.requests": prefs.widgetRequests,
-      "vox:widget.minutes": prefs.widgetMinutes,
       "vox:autoplay-completed": prefs.autoplayCompleted,
     }).catch(() => {});
     setSavedSnapshot(JSON.stringify(prefs));
@@ -284,7 +277,7 @@ export function SettingsPage() {
   };
 
   const handleReset = () => {
-    const defaults = { format: "mp3" as const, mp3Quality: "128", wavQuality: "16", advanced: ADVANCED_DEFAULTS, voiceId: "", tone: "Default", theme: "light" as const, widgetRequests: true, widgetMinutes: true, autoplayCompleted: false };
+    const defaults = { format: "mp3" as const, mp3Quality: "128", wavQuality: "16", advanced: ADVANCED_DEFAULTS, voiceId: "", tone: "Default", theme: "light" as const, autoplayCompleted: false };
     setPrefs(defaults);
   };
 
@@ -786,21 +779,6 @@ export function SettingsPage() {
             </button>
           </div>
         </div>
-      </Section>
-
-      {/* DASHBOARD WIDGETS */}
-      <Section
-        id="widgets"
-        title="Dashboard Widgets"
-        Icon={LayoutGrid}
-        subtitle="Choose which stats panels appear in the sidebar. Changes take effect after saving."
-      >
-        <Row label="Requests widget" hint="Shows total requests (lifetime) and today's count with a 7-day sparkline.">
-          <Toggle checked={prefs.widgetRequests} onChange={(v) => set("widgetRequests", v)} />
-        </Row>
-        <Row label="Audio Generated widget" hint="Shows total minutes generated (all time) and today's minutes with a 7-day sparkline.">
-          <Toggle checked={prefs.widgetMinutes} onChange={(v) => set("widgetMinutes", v)} />
-        </Row>
       </Section>
 
       {/* PRIVACY */}

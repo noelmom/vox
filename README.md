@@ -608,7 +608,6 @@ Vox is now in a v1.0 scope freeze: only bug fixes, product polish, and true bloc
 - [x] Voice profile audio preview player with seek and volume
 - [x] Custom tone panel — per-request TTS parameter sliders, named presets saved to DB
 - [x] Custom tone update/save-as flow for saved user presets
-- [x] Sidebar widgets — lifetime and daily request/audio-minutes stats with sparklines
 - [x] Generation status — queued/running state, elapsed timer, SSE updates, polling fallback, global status bar, and cancel controls
 - [x] Backup & restore — export/import SQLite history and voice assets from Settings
 - [x] Theme preference plumbing — light mode enforced for v1; dark/system plumbing deferred for post-v1 polish

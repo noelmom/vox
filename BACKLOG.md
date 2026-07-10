@@ -589,7 +589,7 @@ Until v1.0 ships, avoid adding new product features. Pre-v1 work should be limit
 
 - [x] **Decide where to surface settings editing — web UI or menu bar helper**
 
-  Implemented in the web app Settings tab for runtime/network access, generation defaults, appearance, widgets, storage paths, and backup/restore. The native helper remains focused on server lifecycle, login toggles, update/uninstall flows, logs, resource stats, and support links.
+  Implemented in the web app Settings tab for runtime/network access, generation defaults, appearance, storage paths, and backup/restore. The native helper remains focused on server lifecycle, login toggles, update/uninstall flows, logs, resource stats, and support links.
 
 ---
 
@@ -651,7 +651,6 @@ Product decision: after v1.0.
   - `mp3Quality` — selected MP3 bitrate
   - `wavQuality` — selected WAV bit depth
   - `advanced` — all 6 slider values
-  - `widget.requests` and `widget.minutes` — sidebar widget visibility
 
   Voice favorites are already persisted on voice records via `voices.is_favorite`, so they are intentionally not duplicated in `user_preferences`.
 
@@ -846,9 +845,8 @@ Product decision: after v1.0.
   - Recovery: startup reconciles publishing markers, interrupts unfinished jobs, and removes job-scoped private partial data.
 - [x] **Kill switch for in-flight jobs** — add an explicit way to stop work that is already running.
   Implemented with `POST /api/v1/tts/{request_id}/cancel`, coordinator-owned cancellation, Create/global controls, and kill/reap-before-terminal ordering. Restarted nonterminal jobs become `interrupted`; the recovery smoke script verifies cancellation followed by a successful render.
-- [x] **Sidebar stats panel** — implemented in `ui-src/src/routes/app.tsx`.
-  - The left sidebar now includes Requests, Audio Generated, and Library & Storage widgets using `/api/v1/stats`.
-  - Widgets are user-toggleable from Settings and persist via localStorage.
+- [ ] **Post-v1: sidebar stats panel** — defer the Requests, Audio Generated, and Library & Storage widgets until there is a complete sidebar experience to surface them in.
+  - There is intentionally no Settings toggle while the widgets are unavailable.
 
   Future optional work: add queue depth if a dedicated queue architecture is reintroduced after v1.
 
