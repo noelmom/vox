@@ -31,7 +31,7 @@ It exposes a clean REST API and a web UI for generating high-quality audio from 
 - **Configurable cleanup** — generated output files are pruned on a TTL schedule
 - **Zero cloud dependency** — fully self-hosted
 - **Web UI** — single-page app for generating audio, managing voices, viewing history, and configuring settings
-- **Persistent creative workspace** — canonical Create, Voices, History, and sectioned Settings routes with one global paused-on-reload audio dock
+- **Persistent creative workspace** — canonical Create, Voices, History, and sectioned Settings routes with one global paused-on-reload audio dock; completed-render autoplay is off by default and can be enabled in Settings (restored recordings always remain paused)
 - **In-browser voice recording** — capture microphone audio directly in the browser with live waveform visualisation
 - **Audio player with synchronized waveform** — generated audio plays inline with a waveform display that fills as playback progresses and stays synchronized when seeking
 - **Voice profile editing** — update description, tags, and TTS defaults without re-uploading audio

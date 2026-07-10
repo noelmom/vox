@@ -62,6 +62,7 @@ function loadPrefs() {
     theme: "light" as const,
     widgetRequests: lsGet("vox:widget.requests", true),
     widgetMinutes: lsGet("vox:widget.minutes", true),
+    autoplayCompleted: lsGet("vox:autoplay-completed", false),
   };
 }
 
@@ -75,6 +76,7 @@ function savePrefs(p: ReturnType<typeof loadPrefs>) {
   writeCachedPreference("vox:theme", "light");
   writeCachedPreference("vox:widget.requests", p.widgetRequests);
   writeCachedPreference("vox:widget.minutes", p.widgetMinutes);
+  writeCachedPreference("vox:autoplay-completed", p.autoplayCompleted);
   window.dispatchEvent(new CustomEvent("vox:prefschanged"));
 }
 
@@ -273,6 +275,7 @@ export function SettingsPage() {
       "vox:theme": "light",
       "vox:widget.requests": prefs.widgetRequests,
       "vox:widget.minutes": prefs.widgetMinutes,
+      "vox:autoplay-completed": prefs.autoplayCompleted,
     }).catch(() => {});
     setSavedSnapshot(JSON.stringify(prefs));
     setDismissed(false);
@@ -281,7 +284,7 @@ export function SettingsPage() {
   };
 
   const handleReset = () => {
-    const defaults = { format: "mp3" as const, mp3Quality: "128", wavQuality: "16", advanced: ADVANCED_DEFAULTS, voiceId: "", tone: "Default", theme: "light" as const, widgetRequests: true, widgetMinutes: true };
+    const defaults = { format: "mp3" as const, mp3Quality: "128", wavQuality: "16", advanced: ADVANCED_DEFAULTS, voiceId: "", tone: "Default", theme: "light" as const, widgetRequests: true, widgetMinutes: true, autoplayCompleted: false };
     setPrefs(defaults);
   };
 
@@ -655,6 +658,9 @@ export function SettingsPage() {
             onChange={(v) => set("tone", v)}
             options={toneOptions}
           />
+        </Row>
+        <Row label="Autoplay completed recordings" hint="Automatically starts a new completed render. Off by default; restored recordings always stay paused after a refresh.">
+          <Toggle ariaLabel="Autoplay completed recordings" checked={prefs.autoplayCompleted} onChange={(value) => set("autoplayCompleted", value)} />
         </Row>
 
         {prefs.tone === "Custom" && (
@@ -1406,10 +1412,12 @@ function SliderRow({
 }
 
 function Toggle({
+  ariaLabel,
   checked,
   onChange,
   disabled,
 }: {
+  ariaLabel?: string;
   checked: boolean;
   onChange: (v: boolean) => void;
   disabled?: boolean;
@@ -1418,6 +1426,7 @@ function Toggle({
     <div className="flex justify-end">
       <button
         role="switch"
+        aria-label={ariaLabel}
         aria-checked={checked}
         disabled={disabled}
         onClick={() => !disabled && onChange(!checked)}

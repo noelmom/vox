@@ -298,6 +298,8 @@ function GeneratePage() {
   const [advancedOpen, setAdvancedOpen] = useLocalStorage("vox:advancedOpen", false);
   const [advanced, setAdvanced] = useLocalStorage("vox:advanced", ADVANCED_DEFAULTS);
   const [voiceId, setVoiceId] = useLocalStorage("vox:voiceId", "");
+  const [autoplayCompleted, setAutoplayCompleted] = useLocalStorage("vox:autoplay-completed", false);
+  const [preferencesHydrated, setPreferencesHydrated] = useState(false);
   const [optimisticFavorites, setOptimisticFavorites] = useState<Record<string, boolean>>({});
   const [pickerOpen, setPickerOpen] = useState(false);
   const [outputSort, setOutputSort] = useState<"desc" | "asc">("desc");
@@ -336,17 +338,22 @@ function GeneratePage() {
         if (typeof prefs["vox:mp3Quality"] === "string") setMp3Quality(prefs["vox:mp3Quality"]);
         if (typeof prefs["vox:wavQuality"] === "string") setWavQuality(prefs["vox:wavQuality"]);
         if (typeof prefs["vox:voiceId"] === "string") setVoiceId(prefs["vox:voiceId"]);
+        if (typeof prefs["vox:autoplay-completed"] === "boolean") setAutoplayCompleted(prefs["vox:autoplay-completed"]);
         if (prefs["vox:advanced"] && typeof prefs["vox:advanced"] === "object") {
           setAdvanced({ ...ADVANCED_DEFAULTS, ...(prefs["vox:advanced"] as Partial<typeof ADVANCED_DEFAULTS>) });
         }
       })
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => {
+        if (!cancelled) setPreferencesHydrated(true);
+      });
     return () => {
       cancelled = true;
     };
-  }, [setAdvanced, setFormat, setMp3Quality, setTone, setVoiceId, setWavQuality]);
+  }, [setAdvanced, setAutoplayCompleted, setFormat, setMp3Quality, setTone, setVoiceId, setWavQuality]);
 
   useEffect(() => {
+    if (!preferencesHydrated) return;
     const timeout = window.setTimeout(() => {
       savePreferences({
         "vox:tone": tone,
@@ -355,10 +362,11 @@ function GeneratePage() {
         "vox:wavQuality": wavQuality,
         "vox:advanced": advanced,
         "vox:voiceId": voiceId,
+        "vox:autoplay-completed": autoplayCompleted,
       }).catch(() => {});
     }, 600);
     return () => window.clearTimeout(timeout);
-  }, [advanced, format, mp3Quality, tone, voiceId, wavQuality]);
+  }, [advanced, autoplayCompleted, format, mp3Quality, preferencesHydrated, tone, voiceId, wavQuality]);
 
   useEffect(() => {
     const timeout = window.setTimeout(() => {
@@ -607,9 +615,7 @@ function GeneratePage() {
 
       if (job.status === "completed") {
         setGenState({ phase: "done", result: { job } });
-        // Promote a completed render into the single persistent player so it
-        // remains available when the user navigates away from Create.
-        requestPlayback(job);
+        if (autoplayCompleted) requestPlayback(job);
         setGenerationState({ phase: "done", requestId });
         localStorage.setItem(LAST_REQUEST_KEY, requestId);
         queryClient.invalidateQueries({ queryKey: ["jobs"] });
@@ -660,7 +666,7 @@ function GeneratePage() {
       source.close();
       window.clearInterval(id);
     };
-  }, [genState.phase === "polling" ? genState.requestId : null, queryClient]);
+  }, [autoplayCompleted, genState.phase === "polling" ? genState.requestId : null, queryClient]);
 
   const handleGenerate = async () => {
     if (!script.trim() || isGenerating || !generationReady) return;
