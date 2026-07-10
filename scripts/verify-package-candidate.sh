@@ -12,7 +12,9 @@ require_path() {
   grep -Fxq "$1" <<<"$payload" || fail "missing payload path: $1"
 }
 reject_path() {
-  grep -Fq "$1" <<<"$payload" && fail "protected runtime data must not be packaged: $1"
+  if grep -Fq "$1" <<<"$payload"; then
+    fail "protected runtime data must not be packaged: $1"
+  fi
 }
 
 require_path "Applications/Vox/VoxHelper.app/Contents/Info.plist"
