@@ -50,7 +50,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { type ApiVoice, type Job, listVoices, listPresets, listJobs, submitTTS, getJob, getJobAudio, savePreset, deletePreset, deleteJob, cancelJob, patchVoice, parseServerDate } from "@/lib/api";
+import { type ApiVoice, type Job, getRuntimeStatus, listVoices, listPresets, listJobs, submitTTS, getJob, getJobAudio, savePreset, deletePreset, deleteJob, cancelJob, patchVoice, parseServerDate } from "@/lib/api";
 import { setGenerationState, type DurableGenerationState } from "@/lib/generation";
 import { notifyJobDeleted, notifyJobDeleteFailed, notifyJobDeleting, requestPlayback } from "@/features/playback/PlaybackProvider";
 import { hydrateCachedPreferences, savePreferences, writeCachedPreference } from "@/lib/preferences";
@@ -321,6 +321,7 @@ function GeneratePage() {
   const [editingPreset, setEditingPreset] = useState(false);
   const [editPresetError, setEditPresetError] = useState("");
   const queryClient = useQueryClient();
+  const { data: runtime } = useQuery({ queryKey: ["runtime-status"], queryFn: getRuntimeStatus, refetchInterval: 5_000, retry: 1 });
 
   const { data: voicesData } = useQuery({ queryKey: ["voices"], queryFn: listVoices });
   const { data: presetsData } = useQuery({ queryKey: ["presets"], queryFn: listPresets });
@@ -504,6 +505,7 @@ function GeneratePage() {
   };
 
   const isGenerating = genState.phase === "submitting" || genState.phase === "polling";
+  const generationReady = runtime?.model.ready === true;
 
   // Elapsed timer during generation
   useEffect(() => {
@@ -665,7 +667,7 @@ function GeneratePage() {
   }, [genState.phase === "polling" ? genState.requestId : null, queryClient]);
 
   const handleGenerate = async () => {
-    if (!script.trim() || isGenerating) return;
+    if (!script.trim() || isGenerating || !generationReady) return;
     abortRef.current = false;
     activeRequestRef.current = null;
     setStopping(false);
@@ -1020,7 +1022,7 @@ function GeneratePage() {
 
           <button
             onClick={handleGenerate}
-            disabled={isGenerating || !script.trim()}
+            disabled={isGenerating || !script.trim() || !generationReady}
             className="group mt-5 flex w-full items-center justify-center gap-3 rounded-xl px-6 py-4 text-[15px] font-bold text-white transition-all hover:-translate-y-0.5 hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-70 disabled:hover:translate-y-0 disabled:hover:brightness-100"
             style={{ background: BRAND_GRADIENT, boxShadow: "var(--shadow-btn)" }}
           >
@@ -1035,7 +1037,7 @@ function GeneratePage() {
             ) : (
               <>
                 <AudioLines className="h-5 w-5" />
-                Generate Voice
+                {generationReady ? "Generate Voice" : "Model loading…"}
                 <Sparkles className="h-4 w-4 opacity-80" />
               </>
             )}

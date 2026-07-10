@@ -29,7 +29,7 @@ import {
 } from "lucide-react";
 import { type Job, type ApiVoice, listJobs, listVoices, getJobAudio, deleteJob, parseServerDate } from "@/lib/api";
 import { BRAND, BRAND_GRADIENT, BRAND_SECONDARY, BRAND_WARM } from "@/lib/theme";
-import { notifyJobDeleted, notifyJobDeleteFailed, notifyJobDeleting, requestPlayback } from "@/features/playback/PlaybackProvider";
+import { notifyJobDeleted, notifyJobDeleteFailed, notifyJobDeleting, requestPlayback, usePlayback } from "@/features/playback/PlaybackProvider";
 
 export const Route = createFileRoute("/app/history")({
   head: () => ({ meta: [{ title: "History — Vox Studio" }] }),
@@ -147,7 +147,6 @@ function HistoryPage() {
   const [filterFormat, setFilterFormat] = useState("All Formats");
   const [filterDate, setFilterDate] = useState("All Dates");
   const [visibleCount, setVisibleCount] = useState(25);
-  const [activePlayerId, setActivePlayerId] = useState<string | null>(null);
 
   const completedJobs = useMemo(
     () => jobs.filter((j) => j.status === "completed" || j.status === "failed"),
@@ -347,8 +346,6 @@ function HistoryPage() {
                 key={job.request_id}
                 job={job}
                 voiceMissing={!!job.voice_name && !voiceNames.has(job.voice_name)}
-                activePlayerId={activePlayerId}
-                onActivate={setActivePlayerId}
                 onRegenerate={() => handleRegenerate(job)}
                 onDelete={() => handleDelete(job.request_id)}
               />
@@ -438,34 +435,23 @@ function FilterChip({
 function ClipCard({
   job,
   voiceMissing,
-  activePlayerId,
-  onActivate,
   onRegenerate,
   onDelete,
 }: {
   job: Job;
   voiceMissing: boolean;
-  activePlayerId: string | null;
-  onActivate: (id: string | null) => void;
   onRegenerate: () => void;
   onDelete: () => void;
 }) {
-  const audioRef = useRef<HTMLAudioElement>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const onActivateRef = useRef(onActivate);
-  onActivateRef.current = onActivate;
+  const playback = usePlayback();
+  const globalActive = playback.current?.request_id === job.request_id;
 
   const failed = job.status === "failed";
-  const initialFetchStatus = failed || job.file_available === false ? "expired" : "idle";
+  const initialFetchStatus = failed || job.file_available === false ? "expired" : "ready";
 
   const [fetchStatus, setFetchStatus] = useState<"idle" | "loading" | "ready" | "expired">(initialFetchStatus);
-  const [blobUrl, setBlobUrl] = useState<string | undefined>();
-  const [playing, setPlaying] = useState(false);
-  const [progress, setProgress] = useState(0);
-  const [audioDuration, setAudioDuration] = useState(0);
-  const [waveformBars, setWaveformBars] = useState<number[] | null>(null);
-  const [volume, setVolume] = useState(0.8);
-  const [speed, setSpeed] = useState(1);
+  const progress = globalActive ? playback.position : 0;
   const [hover, setHover] = useState<number | null>(null);
   const [expanded, setExpanded] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -474,48 +460,8 @@ function ClipCard({
   const [deleting, setDeleting] = useState(false);
 
   const jobPeaks = useMemo(() => clipSpeechPeaks(300, job.request_id), [job.request_id]);
-  const peaks = waveformBars ?? jobPeaks;
-  const displayDuration = audioDuration || (job.audio_duration_s ?? 0);
-
-  // Pause when another player becomes active
-  useEffect(() => {
-    if (activePlayerId !== job.request_id && playing) setPlaying(false);
-  }, [activePlayerId, job.request_id, playing]);
-
-  useEffect(() => {
-    const a = audioRef.current;
-    if (!a || !blobUrl) return;
-    const onTime = () => setProgress(a.currentTime);
-    const onDur = () => { if (isFinite(a.duration)) setAudioDuration(a.duration); };
-    const onEnded = () => { setPlaying(false); setProgress(0); onActivateRef.current(null); };
-    a.addEventListener("timeupdate", onTime);
-    a.addEventListener("durationchange", onDur);
-    a.addEventListener("loadedmetadata", onDur);
-    a.addEventListener("ended", onEnded);
-    return () => {
-      a.removeEventListener("timeupdate", onTime);
-      a.removeEventListener("durationchange", onDur);
-      a.removeEventListener("loadedmetadata", onDur);
-      a.removeEventListener("ended", onEnded);
-    };
-  }, [blobUrl]);
-
-  useEffect(() => {
-    const a = audioRef.current;
-    if (a) a.volume = volume;
-  }, [volume]);
-
-  useEffect(() => {
-    const a = audioRef.current;
-    if (a) a.playbackRate = speed;
-  }, [speed]);
-
-  useEffect(() => {
-    const a = audioRef.current;
-    if (!a) return;
-    if (playing) a.play().catch(() => setPlaying(false));
-    else a.pause();
-  }, [playing]);
+  const peaks = jobPeaks;
+  const displayDuration = job.audio_duration_s ?? 0;
 
   // Canvas draw loop
   useEffect(() => {
@@ -602,62 +548,35 @@ function ClipCard({
     ...(job.rtf != null ? [`RTF ${job.rtf.toFixed(2)}x`] : []),
   ];
 
-  const fetchAudio = async (): Promise<string | null> => {
-    if (blobUrl) return blobUrl;
-    setFetchStatus("loading");
-    try {
-      const blob = await getJobAudio(job.request_id);
-      blob.arrayBuffer().then((ab) => {
-        const tmpCtx = new AudioContext();
-        tmpCtx.decodeAudioData(ab, (buf) => {
-          const ch = buf.getChannelData(0);
-          const buckets = 300;
-          const size = Math.max(1, Math.floor(ch.length / buckets));
-          const raw: number[] = [];
-          for (let i = 0; i < buckets; i++) {
-            let sum = 0;
-            for (let j = 0; j < size; j++) sum += ch[i * size + j] ** 2;
-            raw.push(Math.sqrt(sum / size));
-          }
-          const mx = Math.max(...raw, 0.001);
-          setWaveformBars(raw.map((p) => p / mx));
-          tmpCtx.close();
-        });
-      });
-      const url = URL.createObjectURL(blob);
-      setBlobUrl(url);
-      setFetchStatus("ready");
-      return url;
-    } catch {
-      setFetchStatus("expired");
-      return null;
-    }
-  };
-
   const handlePlayClick = async () => {
     if (fetchStatus === "expired" || failed) return;
+    if (globalActive && playback.playing) { playback.pause(); return; }
     requestPlayback(job);
   };
 
   const handleCanvasClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    if (fetchStatus !== "ready") { void handlePlayClick(); return; }
     const r = e.currentTarget.getBoundingClientRect();
     const pct = Math.min(1, Math.max(0, (e.clientX - r.left) / r.width));
-    const a = audioRef.current;
-    if (a && displayDuration > 0) {
-      a.currentTime = pct * displayDuration;
-      setProgress(pct * displayDuration);
+    if (globalActive && displayDuration > 0) {
+      playback.seek(pct * displayDuration);
+    } else {
+      requestPlayback(job);
     }
   };
 
   const handleDownload = async () => {
-    const url = await fetchAudio();
-    if (!url) return;
-    const ext = job.output_format === "wav" ? "wav" : "mp3";
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `${voiceLabel}-${job.request_id.slice(0, 8)}.${ext}`;
-    a.click();
+    try {
+      const blob = await getJobAudio(job.request_id);
+      const url = URL.createObjectURL(blob);
+      const ext = job.output_format === "wav" ? "wav" : "mp3";
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${voiceLabel}-${job.request_id.slice(0, 8)}.${ext}`;
+      a.click();
+      window.setTimeout(() => URL.revokeObjectURL(url), 0);
+    } catch {
+      setFetchStatus("expired");
+    }
   };
 
   const handleCopyScript = async () => {
@@ -785,17 +704,17 @@ function ClipCard({
             <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-3 px-4 pb-3 pt-4 sm:gap-4">
               <button
                 onClick={handlePlayClick}
-                aria-label={playing ? "Pause" : "Play"}
+                aria-label={globalActive && playback.playing ? "Pause" : "Play"}
                 disabled={fetchStatus === "loading"}
                 className="group/btn relative flex h-12 w-12 shrink-0 items-center justify-center rounded-full text-white transition-transform hover:scale-105 active:scale-95 disabled:cursor-wait disabled:opacity-80"
                 style={{ background: BRAND_GRADIENT, boxShadow: "var(--shadow-btn)" }}
               >
-                {playing && (
+                {globalActive && playback.playing && (
                   <span className="absolute inset-0 -m-1 animate-ping rounded-full border-2 border-[var(--brand)]/30" />
                 )}
                 {fetchStatus === "loading" ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
-                ) : playing ? (
+                ) : globalActive && playback.playing ? (
                   <Pause className="h-4 w-4" fill="currentColor" />
                 ) : (
                   <Play className="ml-0.5 h-4 w-4" fill="currentColor" />
@@ -855,10 +774,10 @@ function ClipCard({
 
             {/* Transport bar */}
             <div className="flex flex-wrap items-center gap-3 px-4 py-3">
-              <ClipVolumeControl value={volume} onChange={setVolume} />
-              <ClipSpeedControl value={speed} onChange={setSpeed} />
+              <ClipVolumeControl value={playback.volume} onChange={playback.setVolume} />
+              <ClipSpeedControl value={playback.rate} onChange={playback.setRate} />
               <span className="ml-auto font-mono text-[11px] tabular-nums text-foreground/60">
-                {fmtTime(progress)}{" "}
+                {fmtTime(globalActive ? playback.position : progress)}{" "}
                 <span className="text-foreground/35">/ {fmtTime(displayDuration)}</span>
               </span>
               <div className="flex items-center gap-1">

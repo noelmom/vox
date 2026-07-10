@@ -4,7 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { AlertTriangle, Clock3, PencilLine, Settings, UserRound, X } from "lucide-react";
 import voxLogo from "@/assets/vox-logo-app.png";
 import voxIcon from "@/assets/vox-icon-2.png";
-import { cancelJob, getAlerts, getJob, healthCheck, type Job, type SystemAlert } from "@/lib/api";
+import { cancelJob, getAlerts, getJob, getRuntimeStatus, healthCheck, type Job, type SystemAlert } from "@/lib/api";
 import { getGenerationState, setGenerationState, subscribeGenerationState, type DurableGenerationState, type GenerationStatus } from "@/lib/generation";
 import { PlaybackProvider } from "@/features/playback/PlaybackProvider";
 
@@ -27,6 +27,7 @@ function AppLayout() {
 function AppWorkspace() {
   const pathname = useRouterState({ select: (state) => state.location.pathname });
   const { data: health, isLoading, isError } = useQuery({ queryKey: ["health"], queryFn: healthCheck, refetchInterval: 15_000, retry: 1 });
+  const { data: runtime } = useQuery({ queryKey: ["runtime-status"], queryFn: getRuntimeStatus, refetchInterval: 5_000, retry: 1 });
   const { data: alerts = [] } = useQuery<SystemAlert[]>({ queryKey: ["alerts"], queryFn: getAlerts, refetchInterval: 5 * 60_000, retry: 1 });
   const [authExpired, setAuthExpired] = useState<string | null>(null);
   useEffect(() => {
@@ -35,7 +36,7 @@ function AppWorkspace() {
     return () => window.removeEventListener("vox:auth-expired", handler);
   }, []);
   const routeLabel = NAV.find(({ to }) => to === "/app" ? pathname === "/app" : pathname.startsWith(to))?.label ?? "Vox Studio";
-  const modelReady = health?.model_ready !== false && health?.model_state !== "error" && health?.model_state !== "recovering";
+  const modelReady = runtime?.model.ready === true;
 
   if (authExpired) return <PairingGate reason={authExpired} />;
 
@@ -66,7 +67,7 @@ function AppWorkspace() {
           <span className="text-xs font-medium text-foreground/45">On-device voice studio</span>
         </header>
         {isError && <GlobalBanner message="Vox server is unavailable. Your draft and paused playback metadata are safe." action="Retry" onAction={() => window.location.reload()} />}
-        {!isError && !isLoading && !modelReady && <GlobalBanner message={`The voice model is ${modelStatusLabel(health?.model_state).toLowerCase()}. Existing playback remains available; generation will resume when it is ready.`} action="Retry" onAction={() => window.location.reload()} />}
+        {!isError && !isLoading && runtime && !modelReady && <GlobalBanner message={`The voice model is ${modelStatusLabel(runtime.model.state).toLowerCase()}. Existing playback remains available; generation will resume when it is ready.`} action="Retry" onAction={() => window.location.reload()} />}
         <GenerationStatusBar />
         <AlertBanners alerts={alerts} />
         <main id="workspace-main" tabIndex={-1} className="mx-auto min-h-[calc(100vh-4rem)] w-full max-w-[1500px] px-4 pb-40 pt-7 outline-none sm:px-6 md:px-8 md:pb-32">

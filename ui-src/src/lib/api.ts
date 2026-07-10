@@ -78,6 +78,13 @@ export async function healthCheck() {
   return apiFetch("/health").then((r) => r.json());
 }
 
+export async function getRuntimeStatus() {
+  return apiFetch("/api/v1/status").then((r) => r.json()) as Promise<{
+    status: string;
+    model: { state: string; ready: boolean; detail?: string | null; device?: string | null };
+  }>;
+}
+
 export async function getLogFile(name: LogFileName, lines = 200): Promise<LogFileTail> {
   const q = new URLSearchParams({ lines: String(lines) });
   return apiFetch(`/api/v1/logs/files/${encodeURIComponent(name)}?${q}`).then((r) => r.json());

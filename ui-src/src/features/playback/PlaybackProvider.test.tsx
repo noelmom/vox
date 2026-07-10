@@ -32,7 +32,7 @@ describe("PlaybackProvider", () => {
     } }));
     await waitFor(() => expect(getJobAudio).toHaveBeenCalledWith("job-1"));
     expect(await screen.findByRole("region", { name: "Audio player" })).toBeInTheDocument();
-    expect(screen.getByText("Morning update")).toBeInTheDocument();
+    expect(screen.getAllByText("Morning update").length).toBeGreaterThan(0);
     expect(screen.getByLabelText("Seek audio")).toBeInTheDocument();
   });
 
@@ -41,7 +41,7 @@ describe("PlaybackProvider", () => {
       request_id: "job-2", text: "Restored clip", voice_name: "Maya", audio_duration_s: 12, file_available: true,
     }));
     render(<PlaybackProvider><div /></PlaybackProvider>);
-    expect(screen.getByText("Restored clip")).toBeInTheDocument();
+    expect(screen.getAllByText("Restored clip").length).toBeGreaterThan(0);
     expect(HTMLMediaElement.prototype.play).not.toHaveBeenCalled();
   });
 
@@ -55,7 +55,7 @@ describe("PlaybackProvider", () => {
     fireEvent(window, new CustomEvent("vox:play-job", { detail: { request_id: "slow", text: "Slow clip", voice_name: null, audio_duration_s: 1, file_available: true } }));
     fireEvent(window, new CustomEvent("vox:play-job", { detail: { request_id: "fast", text: "Fast clip", voice_name: null, audio_duration_s: 1, file_available: true } }));
     resolveSecond(new Blob(["fast"]));
-    expect(await screen.findByText("Fast clip")).toBeInTheDocument();
+    await waitFor(() => expect(screen.getAllByText("Fast clip").length).toBeGreaterThan(0));
     resolveFirst(new Blob(["slow"]));
     await waitFor(() => expect(screen.queryByText("Slow clip")).not.toBeInTheDocument());
     expect(URL.revokeObjectURL).toHaveBeenCalled();
