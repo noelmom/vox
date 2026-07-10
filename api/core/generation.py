@@ -2,16 +2,12 @@ import asyncio
 import multiprocessing
 import shutil
 import time
-import uuid
 from dataclasses import dataclass
 from pathlib import Path
 from queue import Empty
 from typing import Callable, Protocol
 
 import numpy as np
-import soundfile as sf
-
-from api.core.audio import WAV_SUBTYPES, export_mp3
 from api.core.config import settings
 from api.core.db import get_db
 from api.core.data_safety import managed_path, stored_managed_path
@@ -110,6 +106,7 @@ class GenerationCoordinator:
         self.shutdown_timeout_s = shutdown_timeout_s
         self.queue: asyncio.Queue[GenerationRequest] = asyncio.Queue()
         self.worker: WorkerHandle | None = None
+        self._encoder_process = None
         self._runner: asyncio.Task | None = None
         self._active: _ActiveJob | None = None
         self._requests: dict[str, GenerationRequest] = {}
@@ -144,6 +141,7 @@ class GenerationCoordinator:
             await self._cas(self._active.request.request_id, NONTERMINAL_STATES, "cancelling", state_detail="Stopping for Vox shutdown…")
             self._active.cancelled.set()
             await self._stop_worker()
+            await self._stop_encoder()
         shutdown_deadline = time.monotonic() + self.shutdown_timeout_s
         timed_out_request_id: str | None = None
         if self._runner and self._active:
@@ -181,11 +179,17 @@ class GenerationCoordinator:
                 if changed:
                     self._active.cancelled.set()
                     return "cancelling"
-            elif await self._cas(request_id, {"queued"}, "cancelled", error_code="cancelled_by_user", error="Generation cancelled by user.", terminal=True):
-                request = self._requests.pop(request_id, None)
-                if request:
-                    await self._cleanup_request(request)
-                return "cancelled"
+            else:
+                request = self._requests.get(request_id)
+                try:
+                    if request:
+                        await self._cleanup_request(request)
+                except OSError:
+                    await self._cas(request_id, {"queued"}, "recovering", error_code="cleanup_failed", error="Private generation files could not be removed; restart Vox to retry cleanup.")
+                    return "recovering"
+                if await self._cas(request_id, {"queued"}, "cancelled", error_code="cancelled_by_user", error="Generation cancelled by user.", terminal=True):
+                    self._requests.pop(request_id, None)
+                    return "cancelled"
             return await self._job_status(request_id) or "interrupted"
 
     async def reconcile_after_restart(self) -> None:
@@ -237,7 +241,7 @@ class GenerationCoordinator:
                     continue
                 child = managed_path(self.partial_root, child.name)
                 if child.is_dir():
-                    shutil.rmtree(child, ignore_errors=True)
+                    shutil.rmtree(child)
                 else:
                     child.unlink(missing_ok=True)
 
@@ -387,42 +391,50 @@ class GenerationCoordinator:
     async def _publish(self, request: GenerationRequest, event: WorkerEvent) -> None:
         if not event.sample_rate or not event.segment_paths:
             raise RuntimeError("Model worker returned no audio.")
-        marker_path, final_path, sample_count, encode_s, total_s = await asyncio.wait_for(
-            asyncio.to_thread(self._encode, request, event), timeout=self.publication_timeout_s
+        process, results = self._launch_encoder(request, event)
+        self._encoder_process = process
+        process.start()
+        deadline = time.monotonic() + self.publication_timeout_s
+        result = None
+        while result is None and process.is_alive():
+            if (self._active and self._active.cancelled.is_set()) or self._shutting_down:
+                await self._stop_encoder()
+                return
+            if time.monotonic() >= deadline:
+                await self._stop_encoder()
+                raise TimeoutError("Audio encoding timed out.")
+            try:
+                result = await asyncio.to_thread(results.get, True, 0.2)
+            except Empty:
+                pass
+        process.join(0)
+        self._encoder_process = None
+        if result is None:
+            try:
+                result = results.get_nowait()
+            except Empty as exc:
+                raise RuntimeError("Audio encoder exited without a result.") from exc
+        if not result["ok"]:
+            raise RuntimeError(result["error"])
+        marker_path = stored_managed_path(self.output_dir, result["marker"])
+        final_path = stored_managed_path(self.output_dir, result["final"])
+        await self._commit_publication(
+            request, event, marker_path, final_path,
+            result["samples"], result["encode_s"], result["total_s"],
         )
-        await self._commit_publication(request, event, marker_path, final_path, sample_count, encode_s, total_s)
         await self._cleanup_request(request)
 
-    def _encode(self, request: GenerationRequest, event: WorkerEvent) -> tuple[Path, Path, int, float, float]:
-        partial_dir = self._request_partial(request)
-        segment_paths = []
-        for value in event.segment_paths:
-            path = managed_path(partial_dir, Path(value).name)
-            if path != Path(value).resolve() or not path.name.startswith("segment-"):
-                raise RuntimeError("Model worker returned an invalid segment path.")
-            segment_paths.append(path)
-        arrays = [np.load(path, allow_pickle=False) for path in segment_paths]
-        final_audio = _stitch_chunks(
-            [(audio, request.chunks[index].pause_after_s) for index, audio in enumerate(arrays)],
-            event.sample_rate,
+    def _launch_encoder(self, request: GenerationRequest, event: WorkerEvent):
+        from api.core.generation_encoder import encoder_main
+
+        context = multiprocessing.get_context("spawn")
+        results = context.Queue()
+        process = context.Process(
+            target=encoder_main,
+            args=(request, event, str(self.output_dir), results),
+            name=f"vox-encoder-{request.request_id[:8]}",
         )
-        output_id = str(uuid.uuid4())
-        encode_started = time.monotonic()
-        if request.output_format == "mp3":
-            staging_wav = partial_dir / "encoded.wav"
-            staging = partial_dir / f"{output_id}.mp3"
-            sf.write(staging_wav, final_audio, event.sample_rate, subtype="PCM_16")
-            export_mp3(staging_wav, staging, bitrate=request.mp3_bitrate)
-        else:
-            staging = partial_dir / f"{output_id}.wav"
-            subtype = WAV_SUBTYPES.get(request.wav_bit_depth or "16", "PCM_16")
-            sf.write(staging, final_audio, event.sample_rate, subtype=subtype)
-        final_path = managed_path(self.output_dir, staging.name)
-        marker_path = managed_path(self.output_dir, f".publishing-{request.request_id}--{staging.name}")
-        staging.replace(marker_path)
-        encode_s = time.monotonic() - encode_started
-        total_s = time.time() - request.submitted_at if request.submitted_at else (event.generation_s or 0) + encode_s
-        return marker_path, final_path, len(final_audio), encode_s, total_s
+        return process, results
 
     async def _commit_publication(
         self, request: GenerationRequest, event: WorkerEvent, marker_path: Path, final_path: Path,
@@ -460,13 +472,34 @@ class GenerationCoordinator:
             raise
 
     async def _cleanup_request(self, request: GenerationRequest) -> None:
-        shutil.rmtree(self._request_partial(request), ignore_errors=True)
+        partial = self._request_partial(request)
+        if partial.exists():
+            shutil.rmtree(partial)
+        if partial.exists():
+            raise OSError(f"Could not remove generation partial directory: {partial}")
 
     def _request_partial(self, request: GenerationRequest) -> Path:
         path = managed_path(self.partial_root, request.request_id)
         if path != Path(request.partial_dir).resolve():
             raise RuntimeError("Generation request has an invalid partial directory.")
         return path
+
+    async def _stop_encoder(self) -> bool:
+        process = self._encoder_process
+        if process is None:
+            return True
+        if process.is_alive():
+            process.terminate()
+            await asyncio.to_thread(process.join, self.terminate_grace_s)
+        if process.is_alive():
+            process.kill()
+            await asyncio.to_thread(process.join, self.terminate_grace_s)
+        if process.is_alive():
+            self._state = "error"
+            self._detail = "Audio encoder could not be stopped; restart Vox."
+            return False
+        self._encoder_process = None
+        return True
 
     async def _stop_worker(self) -> bool:
         worker = self.worker

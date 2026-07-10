@@ -73,6 +73,7 @@ vox/
 │   │   ├── engine.py            # Lightweight model-worker status facade
 │   │   ├── generation.py        # FIFO coordinator, lifecycle, encoding, atomic publication
 │   │   ├── generation_worker.py # Spawned Chatterbox/MPS model owner
+│   │   ├── generation_encoder.py # Killable final WAV/MP3 encoding process
 │   │   ├── generation_protocol.py # Versioned coordinator/worker IPC messages
 │   │   ├── presets.py           # Built-in TTS preset definitions
 │   │   ├── chunker.py           # Long-text sentence splitting logic
