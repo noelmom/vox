@@ -1406,7 +1406,7 @@ function ProfileCard({
 
   // Canvas draw loop
   useEffect(() => {
-    let raf = 0;
+    if (activeVoiceId !== voice.name && audioStatus !== "ready") return;
     const draw = () => {
       const canvas = canvasRef.current;
       const ctx = canvas?.getContext("2d");
@@ -1453,11 +1453,10 @@ function ProfileCard({
           ctx.beginPath(); ctx.arc(playedX, h / 2, 2.5, 0, Math.PI * 2); ctx.fill();
         }
       }
-      raf = requestAnimationFrame(draw);
     };
-    raf = requestAnimationFrame(draw);
-    return () => cancelAnimationFrame(raf);
-  }, [peaks, progress, duration, hover, audioStatus]);
+    draw();
+    return undefined;
+  }, [activeVoiceId, audioStatus, duration, hover, peaks, progress, voice.name]);
 
   const handlePlay = async () => {
     if (audioStatus === "loading") return;
