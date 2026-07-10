@@ -194,7 +194,14 @@ export function PlaybackProvider({ children }: { children: React.ReactNode }) {
             <div className="min-w-0 flex-1 sm:hidden"><div className="truncate text-sm font-semibold">{titleFor(current.text)}</div><div className="truncate text-xs text-foreground/55">{current.voice_name ?? "Default voice"}{error ? " · Audio unavailable" : ""}</div></div>
             <button type="button" aria-label="Back 10 seconds" onClick={() => { if (audioRef.current) audioRef.current.currentTime = Math.max(0, audioRef.current.currentTime - 10); }} className="hidden h-10 w-10 items-center justify-center rounded-lg hover:bg-muted sm:flex"><RotateCcw className="h-4 w-4" /></button>
             <div className="min-w-0 flex-1">
-              <div aria-hidden="true" className="mb-1 hidden h-5 items-center gap-[2px] sm:flex">{Array.from({ length: 56 }, (_, index) => <span key={index} className="w-1 rounded-full bg-[var(--brand)]/70" style={{ height: `${Math.max(20, ((index * 17) % 70) + 18)}%` }} />)}</div>
+              <QuickPlayerWaveform
+                requestId={current.request_id}
+                progress={position}
+                duration={duration || current.audio_duration_s || 0}
+                onSeek={(seconds) => {
+                  if (audioRef.current) audioRef.current.currentTime = seconds;
+                }}
+              />
               <label className="sr-only" htmlFor="global-player-seek">Seek audio</label>
               <input id="global-player-seek" type="range" min={0} max={duration || current.audio_duration_s || 0} step="0.1" value={Math.min(position, duration || 0)} onChange={(event) => { if (audioRef.current) audioRef.current.currentTime = Number(event.target.value); }} className="w-full accent-[var(--brand)]" />
               <div className="flex justify-between text-[11px] tabular-nums text-foreground/50"><span>{formatTime(position)}</span><span>{formatTime(duration || current.audio_duration_s || 0)}</span></div>
@@ -258,6 +265,85 @@ export function notifyJobDeleteFailed(requestId: string) {
 
 function titleFor(text: string) {
   return text.trim().split(/[.!?\n]/)[0]?.slice(0, 64) || "Untitled recording";
+}
+
+function QuickPlayerWaveform({
+  requestId,
+  progress,
+  duration,
+  onSeek,
+}: {
+  requestId: string;
+  progress: number;
+  duration: number;
+  onSeek: (seconds: number) => void;
+}) {
+  const peaks = useMemo(() => speechPeaks(72, requestId), [requestId]);
+  const progressRatio = duration > 0 ? Math.min(1, Math.max(0, progress / duration)) : 0;
+
+  return (
+    <div
+      data-testid="quick-player-waveform"
+      className="relative mb-1 hidden h-7 overflow-hidden rounded-md border border-border bg-[oklch(0.99_0.005_280)] sm:block"
+    >
+      <div
+        className="pointer-events-none absolute inset-0 opacity-60"
+        style={{ background: "radial-gradient(120% 100% at 0% 50%, oklch(0.95 0.04 260 / 0.5), transparent 60%), radial-gradient(120% 100% at 100% 50%, oklch(0.95 0.04 25 / 0.45), transparent 60%)" }}
+      />
+      <svg
+        aria-hidden="true"
+        viewBox="0 0 240 30"
+        preserveAspectRatio="none"
+        className="relative block h-full w-full cursor-pointer"
+        onClick={(event) => {
+          if (!duration) return;
+          const bounds = event.currentTarget.getBoundingClientRect();
+          onSeek(Math.min(1, Math.max(0, (event.clientX - bounds.left) / bounds.width)) * duration);
+        }}
+      >
+        <defs>
+          <linearGradient id="quick-player-wave-gradient" x1="0" x2="1">
+            <stop offset="0" stopColor="var(--brand)" />
+            <stop offset="0.55" stopColor="var(--brand-secondary)" />
+            <stop offset="1" stopColor="var(--brand-warm)" />
+          </linearGradient>
+        </defs>
+        {peaks.map((peak, index) => {
+          const barWidth = 2;
+          const gap = 1.35;
+          const x = index * (barWidth + gap);
+          const height = Math.max(3, peak * 25);
+          return (
+            <rect
+              key={index}
+              x={x}
+              y={(30 - height) / 2}
+              width={barWidth}
+              height={height}
+              rx="1"
+              fill={(index + 1) / peaks.length <= progressRatio ? "url(#quick-player-wave-gradient)" : "oklch(0.55 0.04 240 / 0.3)"}
+            />
+          );
+        })}
+        {duration > 0 && <line x1={progressRatio * 240} y1="3" x2={progressRatio * 240} y2="27" stroke="var(--brand-warm)" strokeWidth="1.4" />}
+      </svg>
+    </div>
+  );
+}
+
+function speechPeaks(count: number, seed: string): number[] {
+  let hash = 2166136261;
+  for (const char of seed) {
+    hash ^= char.charCodeAt(0);
+    hash = Math.imul(hash, 16777619);
+  }
+  const random = () => {
+    hash ^= hash << 13;
+    hash ^= hash >>> 17;
+    hash ^= hash << 5;
+    return ((hash >>> 0) % 10_000) / 10_000;
+  };
+  return Array.from({ length: count }, () => 0.2 + random() * 0.8);
 }
 
 function formatTime(value: number) {

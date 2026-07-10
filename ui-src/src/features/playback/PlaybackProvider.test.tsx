@@ -33,6 +33,7 @@ describe("PlaybackProvider", () => {
     await waitFor(() => expect(getJobAudio).toHaveBeenCalledWith("job-1"));
     expect(await screen.findByRole("region", { name: "Audio player" })).toBeInTheDocument();
     expect(screen.getAllByText("Morning update").length).toBeGreaterThan(0);
+    expect(screen.getByTestId("quick-player-waveform")).toBeInTheDocument();
     expect(screen.getByLabelText("Seek audio")).toBeInTheDocument();
   });
 
