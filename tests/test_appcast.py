@@ -61,3 +61,17 @@ def test_verify_signature_delegates_to_sparkle_for_the_staged_package(tmp_path: 
         sys.executable, str(TOOL), "verify", "--appcast", str(output), "--package", str(package),
         "--verify-signature", "--sign-tool", str(verifier), "--account", "test-account",
     ], check=True)
+
+
+def test_verify_signature_rejects_a_failed_sparkle_check(tmp_path: Path) -> None:
+    output = render(tmp_path)
+    package = tmp_path / "Vox-1.2.3.pkg"
+    verifier = tmp_path / "rejecting-sign_update"
+    verifier.write_text("#!/bin/sh\necho signature mismatch >&2\nexit 1\n", encoding="utf-8")
+    verifier.chmod(0o755)
+    failed = subprocess.run([
+        sys.executable, str(TOOL), "verify", "--appcast", str(output), "--package", str(package),
+        "--verify-signature", "--sign-tool", str(verifier),
+    ], capture_output=True, text=True)
+    assert failed.returncode != 0
+    assert "Sparkle signature verification failed" in failed.stderr
