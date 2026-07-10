@@ -13,6 +13,10 @@ from typing import Any
 from api.core.generation_protocol import PROTOCOL_VERSION, WorkerEvent, safe_partial_path
 
 
+class _TruncatedAudio(RuntimeError):
+    pass
+
+
 def _trim_edge_silence(audio, sample_rate: int):
     if audio.size == 0:
         return audio
@@ -75,24 +79,21 @@ def worker_main(command_queue: Queue, event_queue: Queue, device_setting: str, h
             partial_dir.mkdir(parents=True, exist_ok=True)
             paths: list[str] = []
             for index, chunk in enumerate(message["chunks"]):
+                event_queue.put(WorkerEvent(kind="chunk_started", request_id=request_id, detail=str(index)).to_message())
                 minimum = _minimum_duration(chunk["text"])
-                for attempt in range(3):
-                    wav = model.generate(
-                        text=chunk["text"],
-                        audio_prompt_path=message.get("audio_prompt_path"),
-                        **message["params"],
-                    )
-                    audio = wav.squeeze().cpu().numpy().astype(np.float32, copy=False)
-                    audio = _trim_edge_silence(audio, int(model.sr))
-                    if minimum == 0 or len(audio) / model.sr >= minimum:
-                        break
-                else:
-                    raise RuntimeError(
-                        f"Generation stopped early on chunk {index + 1} after 3 attempts."
-                    )
+                wav = model.generate(
+                    text=chunk["text"],
+                    audio_prompt_path=message.get("audio_prompt_path"),
+                    **message["params"],
+                )
+                audio = wav.squeeze().cpu().numpy().astype(np.float32, copy=False)
+                audio = _trim_edge_silence(audio, int(model.sr))
+                if minimum and len(audio) / model.sr < minimum:
+                    raise _TruncatedAudio(f"Generation stopped early on chunk {index + 1}.")
                 path = safe_partial_path(str(partial_dir), f"segment-{index:04d}.npy")
                 np.save(path, audio, allow_pickle=False)
                 paths.append(str(path))
+                event_queue.put(WorkerEvent(kind="chunk_finished", request_id=request_id, detail=str(index + 1)).to_message())
             event_queue.put(
                 WorkerEvent(
                     kind="finished",
@@ -108,7 +109,7 @@ def worker_main(command_queue: Queue, event_queue: Queue, device_setting: str, h
                 WorkerEvent(
                     kind="failed",
                     request_id=request_id,
-                    error_code="generation_failed",
+                    error_code="generation_truncated" if isinstance(exc, _TruncatedAudio) else "generation_failed",
                     detail=str(exc),
                     device=device,
                 ).to_message()

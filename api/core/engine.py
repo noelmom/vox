@@ -3,7 +3,7 @@
 from api.core.config import settings
 
 
-def get_model_status() -> dict[str, str | bool | None]:
+def get_model_status() -> dict[str, str | bool | int | float | None]:
     from api.core.generation import get_generation_coordinator
 
     try:
@@ -16,6 +16,7 @@ def get_model_status() -> dict[str, str | bool | None]:
             "device": settings.device,
             "started_at": None,
             "ready_at": None,
+            "worker_pid": None,
         }
 
 

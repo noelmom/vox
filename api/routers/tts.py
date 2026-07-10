@@ -120,6 +120,7 @@ async def generate_tts(
     wav_bit_depth: str | None = Form(None),
 ):
     rid = request.state.request_id
+    partial_dir = managed_path(settings.output_dir, f".partial/{rid}")
     user_agent = request.headers.get("User-Agent")
     db = await get_db()
 
@@ -213,15 +214,17 @@ async def generate_tts(
                     detail=f"Unsupported voice format '{suffix}'. Accepted: {sorted(INGESTABLE_EXTENSIONS)}",
                 )
             if suffix == ".wav":
-                tmp_path = managed_path(settings.output_dir, f"tmp_voice_{uuid.uuid4()}.wav")
+                partial_dir.mkdir(parents=True, exist_ok=True)
+                tmp_path = managed_path(partial_dir, f"tmp_voice_{uuid.uuid4()}.wav")
                 await stream_upload(voice, tmp_path, max_bytes=settings.max_voice_upload_mb * 1024 * 1024)
                 tmp_paths.append(tmp_path)
                 trim_wav_edges(tmp_path)
                 _enforce_duration_limit(tmp_path)
                 audio_prompt_path = tmp_path
             else:
-                tmp_src = managed_path(settings.output_dir, f"tmp_voice_{uuid.uuid4()}{suffix}")
-                tmp_wav = managed_path(settings.output_dir, f"{tmp_src.stem}.wav")
+                partial_dir.mkdir(parents=True, exist_ok=True)
+                tmp_src = managed_path(partial_dir, f"tmp_voice_{uuid.uuid4()}{suffix}")
+                tmp_wav = managed_path(partial_dir, f"{tmp_src.stem}.wav")
                 await stream_upload(voice, tmp_src, max_bytes=settings.max_voice_upload_mb * 1024 * 1024)
                 tmp_paths.extend([tmp_src, tmp_wav])
                 convert_to_wav(tmp_src, tmp_wav)
@@ -242,7 +245,6 @@ async def generate_tts(
             raise
 
     chunks = split_text(text, chunk_max_chars, settings.chunk_headroom_chars)
-    partial_dir = settings.output_dir / ".partial" / rid
     generation_request = GenerationRequest(
         request_id=rid,
         chunks=tuple(GenerationChunk(chunk.text, chunk.pause_after_s) for chunk in chunks),

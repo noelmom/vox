@@ -826,7 +826,7 @@ Product decision: after v1.0.
 
   **Pass 2 completed:** added shared frontend preference helpers, added DB-backed preference endpoints, kept API error compatibility while adding structured `error` and `request_id` fields, tightened the main manual run/update shell scripts, and re-audited the remaining shell entry points for quoting/destructive operations.
 
-  **Deferred by decision:** optional post-v1 worker-queue architecture.
+  **Generation isolation completed:** Chatterbox now runs in one supervised spawned process. The API coordinator owns FIFO scheduling, durable state transitions, cancellation/reaping, recovery, encoding, and publication reconciliation.
 
 ---
 
@@ -838,14 +838,14 @@ Product decision: after v1.0.
 
 - [ ] **Post-v1: streaming audio response** — chunked transfer encoding for playback-before-complete if the model/output pipeline can support it cleanly.
 - [ ] **Post-v1: review SDK support** — revisit Python and JavaScript SDKs after the local REST API surface stabilizes. Keep the landing page focused on the curl example for v1.
-- [ ] **Post-v1: proper worker queue architecture** — replace single `asyncio.Lock` with an explicit worker queue only if real-world testing shows the current serialized lock is not enough.
+- [x] **[DONE] Supervised worker queue architecture** — replace the in-process model lock with an explicit FIFO coordinator and isolated model-owner process.
   - Backend: queue incoming requests when a generation is already in progress instead of letting overlapping jobs stack up; return a job ID immediately with `202 Accepted` and expose `GET /jobs/{id}/status` for polling or SSE.
-  - Current state: requests are accepted immediately, serialized by a single local model lock, and the UI shows simple queued/running states plus elapsed time in both the global top bar and Create result panel.
+  - Current state: requests are accepted immediately, serialized through one supervised subprocess, and the UI renders durable queued/processing/cancelling/encoding/recovering states without simulated progress.
   - Future UI: consider a compact queue-status widget that shows `Queued`, `Running`, and `Next up` states across multiple pending jobs.
   - Pair with the sidebar stats item below so queue depth can live alongside session metrics.
-  - Recovery: if the app restarts while a job is in flight, reconcile the persisted job state on startup so the UI does not show duplicate or orphaned runs.
+  - Recovery: startup reconciles publishing markers, interrupts unfinished jobs, and removes job-scoped private partial data.
 - [x] **Kill switch for in-flight jobs** — add an explicit way to stop work that is already running.
-  Implemented with `POST /api/v1/tts/{request_id}/cancel`, active-task tracking, cancelled job status, Create-page cancel control, and global cancel control. Stale queued/processing jobs from agent restarts are marked failed on startup so the UI does not show orphaned runs.
+  Implemented with `POST /api/v1/tts/{request_id}/cancel`, coordinator-owned cancellation, Create/global controls, and kill/reap-before-terminal ordering. Restarted nonterminal jobs become `interrupted`; the recovery smoke script verifies cancellation followed by a successful render.
 - [x] **Sidebar stats panel** — implemented in `ui-src/src/routes/app.tsx`.
   - The left sidebar now includes Requests, Audio Generated, and Library & Storage widgets using `/api/v1/stats`.
   - Widgets are user-toggleable from Settings and persist via localStorage.

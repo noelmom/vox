@@ -39,6 +39,7 @@ def main() -> int:
     if not status["model"]["ready"]:
         print("Vox model is not ready; start the installed app and retry.", file=sys.stderr)
         return 2
+    original_pid = status["model"].get("worker_pid")
     long_job = request("/api/v1/tts", fields={"text": "Recovery test. " * 300, "output_format": "wav"})
     wait_for(long_job["request_id"], {"processing"})
     cancel = request(f"/api/v1/tts/{long_job['request_id']}/cancel", fields={})
@@ -46,8 +47,14 @@ def main() -> int:
         raise RuntimeError(f"Unexpected cancel response: {cancel}")
     wait_for(long_job["request_id"], {"cancelled"})
     wait_for_model = time.monotonic() + 300
-    while time.monotonic() < wait_for_model and not request("/api/v1/status")["model"]["ready"]:
+    recovered = None
+    while time.monotonic() < wait_for_model:
+        recovered = request("/api/v1/status")["model"]
+        if recovered["ready"] and recovered.get("worker_pid") != original_pid:
+            break
         time.sleep(1)
+    if not recovered or not recovered["ready"] or recovered.get("worker_pid") == original_pid:
+        raise RuntimeError("A distinct replacement worker did not become ready.")
     retry = request("/api/v1/tts", fields={"text": "Vox recovered successfully.", "output_format": "wav"})
     result = wait_for(retry["request_id"], {"completed", "failed"}, timeout=300)
     if result["status"] != "completed":

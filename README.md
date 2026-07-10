@@ -36,7 +36,7 @@ It exposes a clean REST API and a web UI for generating high-quality audio from 
 - **Voice profile editing** — update description, tags, and TTS defaults without re-uploading audio
 - **Tag system** — tag voices (`uploaded`, `auto-import`, or custom) with filter pills on the Voices screen
 - **Custom tone** — "✦ Custom" pill opens a parameter panel with sliders for all 6 TTS params; persists via `localStorage`
-- **Generation status** — global and Create-page indicators for queued/running jobs, with elapsed time, SSE updates, polling fallback, and cancel controls
+- **Crash-safe generation** — one supervised model subprocess, FIFO jobs, truthful cancellation/recovery states, SSE updates, and atomic audio publication
 - **Backup & restore** — export/import SQLite history and voice assets from Settings
 - **Theme preference** — v1 uses light mode only; dark-mode plumbing is deferred for post-v1 polish
 - **Real upload progress** — live byte-count progress bar during voice file uploads
@@ -70,7 +70,10 @@ vox/
 │   │   ├── config.py            # All settings via VOX_ env vars or .env file
 │   │   ├── db.py                # aiosqlite connection, schema migrations
 │   │   ├── security.py          # Pairing codes and hashed credential store
-│   │   ├── engine.py            # Chatterbox model loader, MPS/CPU auto-detect
+│   │   ├── engine.py            # Lightweight model-worker status facade
+│   │   ├── generation.py        # FIFO coordinator, lifecycle, encoding, atomic publication
+│   │   ├── generation_worker.py # Spawned Chatterbox/MPS model owner
+│   │   ├── generation_protocol.py # Versioned coordinator/worker IPC messages
 │   │   ├── presets.py           # Built-in TTS preset definitions
 │   │   ├── chunker.py           # Long-text sentence splitting logic
 │   │   ├── audio.py             # ffmpeg helpers: WAV conversion + MP3 export
@@ -308,7 +311,7 @@ curl http://localhost:8000/health
 
 ### TTS — Generate Audio
 
-Generation is **asynchronous**. `POST /api/v1/tts` returns `202 Accepted` immediately with a `request_id`. Poll `GET /api/v1/jobs/{request_id}` until `status` is `completed`, `failed`, or `cancelled`, then download completed audio from `GET /api/v1/jobs/{request_id}/audio`.
+Generation is **asynchronous**. `POST /api/v1/tts` returns `202 Accepted` immediately with a `request_id`. Poll `GET /api/v1/jobs/{request_id}` until `status` is `completed`, `failed`, `cancelled`, or `interrupted`, then download completed audio from `GET /api/v1/jobs/{request_id}/audio`.
 
 ```
 POST /api/v1/tts
@@ -340,7 +343,9 @@ Content-Type: multipart/form-data
 { "request_id": "abc123-..." }
 ```
 
-Listen to `GET /api/v1/jobs/{request_id}/events` for server-sent job updates, or poll `GET /api/v1/jobs/{request_id}` as a fallback. Once `status` is `completed`, fetch `GET /api/v1/jobs/{request_id}/audio` to download the file. Jobs are serialized through a single local model lock; if another generation is active, new jobs remain `queued` until the engine is free.
+Listen to `GET /api/v1/jobs/{request_id}/events` for server-sent job updates, or poll `GET /api/v1/jobs/{request_id}` as a fallback. Durable states are `queued`, `processing`, `cancelling`, `encoding`, `recovering`, `completed`, `failed`, `cancelled`, and `interrupted`. A coordinator serializes jobs through one spawned model owner; cancellation is terminal only after that worker exits, and a replacement never starts while the old worker is alive.
+
+For an installed Apple Silicon build, run `scripts/smoke-generation-recovery.py` while Vox is open. It cancels an active render, waits for worker recovery, and verifies a second render completes. Set `VOX_SMOKE_BASE_URL` or `VOX_SMOKE_TOKEN` when testing a non-default or paired endpoint.
 
 **Response headers (on the 202):**
 

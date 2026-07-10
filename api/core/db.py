@@ -29,7 +29,6 @@ async def connect():
     _db = await aiosqlite.connect(settings.db_path)
     _db.row_factory = aiosqlite.Row
     await _migrate(_db)
-    await _fail_stale_jobs(_db)
     await _seed(_db)
 
 
@@ -199,19 +198,6 @@ async def _rename_noelmo_demo_tag(db: aiosqlite.Connection):
              AND tags IN ('Noelmo Demo,Male', 'Noelmo Demo, Male')""",
         (tags,),
     )
-
-
-async def _fail_stale_jobs(db: aiosqlite.Connection):
-    await db.execute(
-        """UPDATE jobs
-           SET status='interrupted',
-               error_code='server_restarted',
-               state_detail='Generation was interrupted by a Vox restart.',
-               error='Generation was interrupted because the Vox agent restarted.',
-               completed_at=datetime('now')
-           WHERE status IN ('queued', 'processing', 'cancelling', 'encoding', 'recovering')"""
-    )
-    await db.commit()
 
 
 async def _seed(db: aiosqlite.Connection):
