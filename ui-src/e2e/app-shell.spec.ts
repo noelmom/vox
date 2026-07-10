@@ -81,6 +81,24 @@ test("compact desktop keeps landmark navigation and content visible", async ({ p
   await expect(page.getByRole("main")).toBeVisible();
 });
 
+test("tablet layout keeps the workspace and primary navigation reachable", async ({ page }) => {
+  await page.setViewportSize({ width: 768, height: 1024 });
+  await installFakeApi(page);
+  await page.goto("/app");
+  await expect(page.locator("aside").getByRole("navigation", { name: "Primary" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Create", exact: true })).toBeVisible();
+});
+
+test("wide desktop exposes the full labeled workspace navigation", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await installFakeApi(page);
+  await page.goto("/app");
+  const navigation = page.locator("aside").getByRole("navigation", { name: "Primary" });
+  await expect(navigation.getByText("Create")).toBeVisible();
+  await expect(navigation.getByText("Settings")).toBeVisible();
+  await expect(page.getByRole("main")).toBeVisible();
+});
+
 test("authentication expiry replaces private shell with pairing gate", async ({ page }) => {
   await installFakeApi(page);
   await page.route("**/api/v1/alerts", (route) => route.fulfill({ status: 401, json: { detail: "Session expired" } }));
