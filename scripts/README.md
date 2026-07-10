@@ -88,9 +88,20 @@ Before an installer smoke test, inspect the final staged package without install
 bash scripts/verify-package-candidate.sh /staging/Vox-1.2.3.pkg
 ```
 
-After a separately approved package and appcast upload, verify the exact hosted
-bytes before changing any live update reference. This probe only downloads and
-checks the candidate; it never uploads, tags, or publishes.
+After the separately approved package upload—but before publishing the
+appcast—verify the exact hosted bytes. This probe only downloads and checks the
+candidate; it never uploads, tags, or publishes.
+
+```bash
+bash scripts/verify-published-candidate.sh \
+  .release-candidates/1.2.3-2026071001
+```
+
+The probe takes the exact package URL, version, build, channel, and SHA-256
+from the candidate's provenance record and archives a uniquely named successful
+probe alongside that record. Once the package probe passes, publish the
+appcast as the final update-host mutation, then repeat the command with the
+appcast URL to validate the complete live pair:
 
 ```bash
 bash scripts/verify-published-candidate.sh \
@@ -98,9 +109,7 @@ bash scripts/verify-published-candidate.sh \
   https://updates.example.com/vox/appcast.xml
 ```
 
-The probe takes the exact package URL, version, build, channel, and SHA-256
-from the candidate's provenance record and archives a timestamped successful
-probe alongside that record. Candidate evidence cannot be overwritten.
+Candidate evidence cannot be overwritten.
 
 ### Release repository target
 

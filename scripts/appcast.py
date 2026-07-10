@@ -62,6 +62,50 @@ def verify_signature(package: Path, signature: str, tool: Path, account: str) ->
         fail(f"Sparkle signature verification failed: {result.stderr.strip() or result.stdout.strip()}")
 
 
+def existing_items(appcast: Path | None, build: str) -> list[ET.Element]:
+    if appcast is None:
+        return []
+    try:
+        root = ET.parse(appcast).getroot()
+    except (OSError, ET.ParseError) as error:
+        fail(f"invalid --existing-appcast: {error}")
+    items = root.findall("./channel/item")
+    if not items:
+        fail("--existing-appcast needs at least one channel item")
+    highest_build = 0
+    for item in items:
+        existing_build = item.findtext(f"{{{SPARKLE}}}version")
+        if not existing_build or not existing_build.isdecimal() or int(existing_build) <= 0:
+            fail("--existing-appcast contains an invalid sparkle build number")
+        highest_build = max(highest_build, int(existing_build))
+    if int(build) <= highest_build:
+        fail("--build must be greater than every build in --existing-appcast")
+    return items
+
+
+def make_item(args: argparse.Namespace, signature: str, length: int, notes: str) -> ET.Element:
+    item = ET.Element("item")
+    ET.SubElement(item, "title").text = f"Vox {args.version}"
+    ET.SubElement(item, f"{{{SPARKLE}}}version").text = args.build
+    ET.SubElement(item, f"{{{SPARKLE}}}shortVersionString").text = args.version
+    try:
+        published_at = dt.datetime.fromisoformat(args.published_at.replace("Z", "+00:00"))
+    except ValueError:
+        fail("--published-at must be an ISO-8601 timestamp")
+    ET.SubElement(item, "pubDate").text = published_at.astimezone(dt.timezone.utc).strftime("%a, %d %b %Y %H:%M:%S +0000")
+    description = ET.SubElement(item, "description", {f"{{{SPARKLE}}}format": "markdown"})
+    description.text = notes
+    if args.channel == "beta":
+        ET.SubElement(item, f"{{{SPARKLE}}}channel").text = "beta"
+    ET.SubElement(item, "enclosure", {
+        "url": args.url,
+        "length": str(length),
+        "type": "application/octet-stream",
+        f"{{{SPARKLE}}}edSignature": signature,
+    })
+    return item
+
+
 def render(args: argparse.Namespace) -> None:
     package = args.package.resolve()
     if not package.is_file() or package.suffix != ".pkg":
@@ -89,28 +133,12 @@ def render(args: argparse.Namespace) -> None:
     if length != package.stat().st_size:
         fail("Sparkle-reported package length does not match the staged package")
 
+    prior_items = existing_items(args.existing_appcast, args.build)
     rss = ET.Element("rss", {"version": "2.0"})
     channel = ET.SubElement(rss, "channel")
     ET.SubElement(channel, "title").text = "Vox updates"
-    item = ET.SubElement(channel, "item")
-    ET.SubElement(item, "title").text = f"Vox {args.version}"
-    ET.SubElement(item, f"{{{SPARKLE}}}version").text = args.build
-    ET.SubElement(item, f"{{{SPARKLE}}}shortVersionString").text = args.version
-    try:
-        published_at = dt.datetime.fromisoformat(args.published_at.replace("Z", "+00:00"))
-    except ValueError:
-        fail("--published-at must be an ISO-8601 timestamp")
-    ET.SubElement(item, "pubDate").text = published_at.astimezone(dt.timezone.utc).strftime("%a, %d %b %Y %H:%M:%S +0000")
-    description = ET.SubElement(item, "description", {f"{{{SPARKLE}}}format": "markdown"})
-    description.text = notes
-    if args.channel == "beta":
-        ET.SubElement(item, f"{{{SPARKLE}}}channel").text = "beta"
-    ET.SubElement(item, "enclosure", {
-        "url": args.url,
-        "length": str(length),
-        "type": "application/octet-stream",
-        f"{{{SPARKLE}}}edSignature": signature,
-    })
+    channel.append(make_item(args, signature, length, notes))
+    channel.extend(prior_items)
     ET.indent(rss, space="  ")
     args.output.parent.mkdir(parents=True, exist_ok=True)
     ET.ElementTree(rss).write(args.output, encoding="utf-8", xml_declaration=True)
@@ -119,6 +147,7 @@ def render(args: argparse.Namespace) -> None:
         package,
         args.channel,
         args.previous_build,
+        expected_build=args.build,
         verify_sparkle_signature=not args.fixture,
         sign_tool=args.sign_tool,
         account=args.account,
@@ -133,6 +162,8 @@ def verify_file(
     *,
     expected_build: str | None = None,
     expected_package_url: str | None = None,
+    expected_signature: str | None = None,
+    expected_length: int | None = None,
     verify_sparkle_signature: bool = False,
     sign_tool: Path | None = None,
     account: str | None = None,
@@ -141,9 +172,15 @@ def verify_file(
         root = ET.parse(appcast).getroot()
     except ET.ParseError as error:
         fail(f"invalid XML: {error}")
-    item = root.find("./channel/item")
-    if item is None:
+    items = root.findall("./channel/item")
+    if not items:
         fail("appcast needs one channel item")
+    item = next(
+        (candidate for candidate in items if candidate.findtext(f"{{{SPARKLE}}}version") == expected_build),
+        None,
+    ) if expected_build is not None else items[0]
+    if item is None:
+        fail("expected sparkle build was not found in appcast")
     version = item.findtext(f"{{{SPARKLE}}}version")
     short_version = item.findtext(f"{{{SPARKLE}}}shortVersionString")
     channel = item.findtext(f"{{{SPARKLE}}}channel") or "stable"
@@ -169,12 +206,16 @@ def verify_file(
     signature = enclosure.get(f"{{{SPARKLE}}}edSignature", "")
     if not signature:
         fail("missing Sparkle EdDSA signature")
+    if expected_signature is not None and signature != expected_signature:
+        fail("unexpected Sparkle EdDSA signature")
     try:
         length = int(enclosure.get("length", "0"))
     except ValueError:
         fail("invalid enclosure length")
     if length <= 0:
         fail("invalid enclosure length")
+    if expected_length is not None and length != expected_length:
+        fail("unexpected enclosure length")
     if package is not None:
         if not package.is_file() or package.suffix != ".pkg":
             fail("--package must be an existing .pkg file")
@@ -201,6 +242,7 @@ def main() -> None:
     render_parser.add_argument("--url", required=True)
     render_parser.add_argument("--notes", type=Path, required=True)
     render_parser.add_argument("--output", type=Path, required=True)
+    render_parser.add_argument("--existing-appcast", type=Path, help="merge the new item ahead of this single existing feed")
     render_parser.add_argument("--signature", help="fixture-only signature; production calls sign_update")
     render_parser.add_argument("--fixture", action="store_true", help="allow deterministic test fixtures without Keychain signing")
     render_parser.add_argument("--sign-tool", type=Path, default=Path(".build/artifacts/sparkle/Sparkle/bin/sign_update"))
@@ -211,6 +253,8 @@ def main() -> None:
     verify_parser.add_argument("--channel", choices=("stable", "beta"))
     verify_parser.add_argument("--build", help="require this exact sparkle build number")
     verify_parser.add_argument("--package-url", help="require this exact enclosure URL")
+    verify_parser.add_argument("--expected-signature", help="require this exact enclosure EdDSA signature")
+    verify_parser.add_argument("--expected-length", type=int, help="require this exact enclosure length")
     verify_parser.add_argument("--previous-build", type=int)
     verify_parser.add_argument("--verify-signature", action="store_true", help="validate the enclosure signature with Sparkle")
     verify_parser.add_argument("--sign-tool", type=Path, default=Path(".build/artifacts/sparkle/Sparkle/bin/sign_update"))
@@ -226,6 +270,8 @@ def main() -> None:
             args.previous_build,
             expected_build=args.build,
             expected_package_url=args.package_url,
+            expected_signature=args.expected_signature,
+            expected_length=args.expected_length,
             verify_sparkle_signature=args.verify_signature,
             sign_tool=args.sign_tool,
             account=args.account,
