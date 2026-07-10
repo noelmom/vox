@@ -64,6 +64,32 @@ test("Create route renders against a deterministic API", async ({ page }) => {
   await expect(page.getByText("Ready", { exact: true })).toBeVisible();
 });
 
+test("refresh restores a completed generation without attempting playback", async ({ page }) => {
+  let audioRequests = 0;
+  await installFakeApi(page);
+  await page.addInitScript(() => localStorage.setItem("vox:last-generation-request", "restored-job"));
+  await page.route("**/api/v1/jobs/restored-job", (route) => route.fulfill({ json: {
+    request_id: "restored-job", status: "completed", text: "Restored generation.", preset: "default", output_format: "mp3",
+    output_path: "/tmp/restored.mp3", chunks: 1, audio_duration_s: 8, generation_s: 1, encode_s: 0.1, total_s: 1.1,
+    rtf: 0.1, error: null, error_code: null, state_detail: "Audio is ready.", progress_current: 1, progress_total: 1,
+    voice_name: "Noel Demo", device: "mps", created_at: "2026-07-10 12:00:00", completed_at: "2026-07-10 12:00:01", file_available: true,
+  } }));
+  await page.route("**/api/v1/jobs/restored-job/audio", (route) => {
+    audioRequests += 1;
+    return route.fulfill({ status: 200, contentType: "audio/wav", body: Buffer.from("RIFF0000WAVE") });
+  });
+
+  await page.goto("/app");
+
+  await expect(page.getByText("Restored generation").first()).toBeVisible();
+  await page.waitForTimeout(350);
+  expect(audioRequests).toBe(0);
+  await expect(page.getByText("Playback could not start. Press Play to try again.")).not.toBeVisible();
+
+  await page.getByRole("button", { name: "Play" }).first().click();
+  await expect.poll(() => audioRequests).toBe(1);
+});
+
 test("mobile navigation remains available", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await installFakeApi(page);

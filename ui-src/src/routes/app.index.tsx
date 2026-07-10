@@ -549,7 +549,6 @@ function GeneratePage() {
 
         if (job.status === "completed") {
           setGenState({ phase: "done", result: { job } });
-          requestPlayback(job);
           setGenerationState({ phase: "done", requestId: savedRequestId });
           return;
         }

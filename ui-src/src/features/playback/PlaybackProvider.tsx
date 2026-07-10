@@ -43,6 +43,10 @@ export function PlaybackProvider({ children }: { children: React.ReactNode }) {
   const [volume, setVolume] = useState(() => Number(localStorage.getItem("vox:player-volume") ?? 1));
   const [rate, setRate] = useState(() => Number(localStorage.getItem("vox:player-rate") ?? 1));
   const [mobileExpanded, setMobileExpanded] = useState(false);
+  const currentRef = useRef<PlaybackItem | null>(current);
+  const playingRef = useRef(playing);
+  currentRef.current = current;
+  playingRef.current = playing;
 
   const revokeUrl = useCallback(() => {
     if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current);
@@ -121,23 +125,23 @@ export function PlaybackProvider({ children }: { children: React.ReactNode }) {
     };
     window.addEventListener("vox:play-job", handler);
     const deleted = (event: Event) => {
-      if ((event as CustomEvent<{ requestId: string }>).detail?.requestId === current?.request_id) clear();
+      if ((event as CustomEvent<{ requestId: string }>).detail?.requestId === currentRef.current?.request_id) clear();
     };
     const deleting = (event: Event) => {
-      if ((event as CustomEvent<{ requestId: string }>).detail?.requestId === current?.request_id) {
-        resumeAfterDeleteRef.current = playing;
+      if ((event as CustomEvent<{ requestId: string }>).detail?.requestId === currentRef.current?.request_id) {
+        resumeAfterDeleteRef.current = playingRef.current;
         audioRef.current?.pause();
       }
     };
     const deleteFailed = (event: Event) => {
-      if ((event as CustomEvent<{ requestId: string }>).detail?.requestId === current?.request_id && resumeAfterDeleteRef.current) void audioRef.current?.play();
+      if ((event as CustomEvent<{ requestId: string }>).detail?.requestId === currentRef.current?.request_id && resumeAfterDeleteRef.current) void audioRef.current?.play();
       resumeAfterDeleteRef.current = false;
     };
     window.addEventListener("vox:job-deleted", deleted);
     window.addEventListener("vox:job-deleting", deleting);
     window.addEventListener("vox:job-delete-failed", deleteFailed);
     return () => { window.removeEventListener("vox:play-job", handler); window.removeEventListener("vox:job-deleted", deleted); window.removeEventListener("vox:job-deleting", deleting); window.removeEventListener("vox:job-delete-failed", deleteFailed); };
-  }, [clear, current?.request_id, play, playing]);
+  }, [clear, play]);
   useEffect(() => () => revokeUrl(), [revokeUrl]);
 
   const updateVolume = useCallback((value: number) => {
