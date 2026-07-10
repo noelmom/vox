@@ -824,11 +824,11 @@ export function SettingsPage() {
         </Row>
         <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border px-5 py-4">
           <div className="text-[12.5px] text-muted-foreground">Installed version <strong className="text-foreground">{server?.vox_version ?? "—"}</strong></div>
-          <button type="button" onClick={() => window.dispatchEvent(new Event("vox:check-for-updates"))} className="inline-flex h-10 items-center gap-2 rounded-lg border border-border bg-white px-3 text-[12.5px] font-bold hover:bg-muted">
-            <Download className="h-3.5 w-3.5" /> Check for updates
-          </button>
+          <p className="inline-flex h-10 items-center gap-2 rounded-lg border border-border bg-muted/50 px-3 text-[12.5px] font-bold text-foreground/75">
+            <Download className="h-3.5 w-3.5" /> Vox Helper → Check for Updates…
+          </p>
         </div>
-        <p className="px-5 pb-4 text-[11.5px] text-muted-foreground">If the native updater is unavailable, use Diagnostics to access the documented repair/source update flow.</p>
+        <p className="px-5 pb-4 text-[11.5px] text-muted-foreground">Open the Vox Helper menu bar icon to start a native Sparkle check. If it is unavailable, use Diagnostics for the documented repair/source update flow.</p>
       </Section>
 
       <Section id="about" title="About" Icon={Info} subtitle="Build identity and support information for this device.">
