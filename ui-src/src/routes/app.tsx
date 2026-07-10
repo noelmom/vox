@@ -26,9 +26,18 @@ function AppLayout() {
 
 function AppWorkspace() {
   const pathname = useRouterState({ select: (state) => state.location.pathname });
-  const { isLoading, isError } = useQuery({ queryKey: ["health"], queryFn: healthCheck, refetchInterval: 15_000, retry: 1 });
+  const { data: health, isLoading, isError } = useQuery({ queryKey: ["health"], queryFn: healthCheck, refetchInterval: 15_000, retry: 1 });
   const { data: alerts = [] } = useQuery<SystemAlert[]>({ queryKey: ["alerts"], queryFn: getAlerts, refetchInterval: 5 * 60_000, retry: 1 });
+  const [authExpired, setAuthExpired] = useState<string | null>(null);
+  useEffect(() => {
+    const handler = (event: Event) => setAuthExpired((event as CustomEvent<{ reason?: string }>).detail?.reason ?? "Pairing is required.");
+    window.addEventListener("vox:auth-expired", handler);
+    return () => window.removeEventListener("vox:auth-expired", handler);
+  }, []);
   const routeLabel = NAV.find(({ to }) => to === "/app" ? pathname === "/app" : pathname.startsWith(to))?.label ?? "Vox Studio";
+  const modelReady = health?.model_ready !== false && health?.model_state !== "error" && health?.model_state !== "recovering";
+
+  if (authExpired) return <PairingGate reason={authExpired} />;
 
   return (
     <div className="min-h-screen bg-[oklch(0.985_0.006_255)] text-foreground">
@@ -42,8 +51,8 @@ function AppWorkspace() {
         <PrimaryNavigation pathname={pathname} />
         <div className="mt-auto px-1 pb-2">
           <div className={`flex items-center justify-center gap-2 rounded-xl border px-2 py-2.5 text-xs font-semibold xl:justify-start xl:px-3 ${isError ? "border-red-200 bg-red-50 text-red-700" : "border-border bg-white text-foreground/70"}`}>
-            <span className={`h-2.5 w-2.5 rounded-full ${isLoading ? "bg-amber-400" : isError ? "bg-red-500" : "bg-emerald-500"}`} />
-            <span className="hidden xl:inline">{isLoading ? "Connecting" : isError ? "Unavailable" : "Ready"}</span>
+            <span className={`h-2.5 w-2.5 rounded-full ${isLoading || !modelReady ? "bg-amber-400" : isError ? "bg-red-500" : "bg-emerald-500"}`} />
+            <span className="hidden xl:inline">{isLoading ? "Connecting" : isError ? "Unavailable" : !modelReady ? modelStatusLabel(health?.model_state) : "Ready"}</span>
           </div>
         </div>
       </aside>
@@ -57,6 +66,7 @@ function AppWorkspace() {
           <span className="text-xs font-medium text-foreground/45">On-device voice studio</span>
         </header>
         {isError && <GlobalBanner message="Vox server is unavailable. Your draft and paused playback metadata are safe." action="Retry" onAction={() => window.location.reload()} />}
+        {!isError && !isLoading && !modelReady && <GlobalBanner message={`The voice model is ${modelStatusLabel(health?.model_state).toLowerCase()}. Existing playback remains available; generation will resume when it is ready.`} action="Retry" onAction={() => window.location.reload()} />}
         <GenerationStatusBar />
         <AlertBanners alerts={alerts} />
         <main id="workspace-main" tabIndex={-1} className="mx-auto min-h-[calc(100vh-4rem)] w-full max-w-[1500px] px-4 pb-40 pt-7 outline-none sm:px-6 md:px-8 md:pb-32">
@@ -72,6 +82,16 @@ function AppWorkspace() {
       </nav>
     </div>
   );
+}
+
+function PairingGate({ reason }: { reason: string }) {
+  return <main className="flex min-h-screen items-center justify-center bg-[oklch(0.985_0.006_255)] px-5"><section className="w-full max-w-md rounded-2xl border border-border bg-white p-7 text-center shadow-xl"><img src={voxLogo} alt="Vox Studio" className="mx-auto h-12 w-auto" /><h1 className="mt-6 text-2xl font-bold">Pair this device</h1><p className="mt-2 text-sm leading-6 text-foreground/60">{reason} Open Vox Helper on the host Mac to create a new one-time pairing code.</p><a href="/pair" className="mt-6 inline-flex min-h-11 items-center justify-center rounded-xl bg-[var(--brand)] px-5 text-sm font-semibold text-white">Open pairing</a></section></main>;
+}
+
+function modelStatusLabel(state?: string) {
+  if (state === "recovering") return "Recovering";
+  if (state === "error") return "Model error";
+  return "Loading model";
 }
 
 function PrimaryNavigation({ pathname }: { pathname: string }) {

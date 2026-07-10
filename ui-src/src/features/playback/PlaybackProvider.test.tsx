@@ -44,4 +44,27 @@ describe("PlaybackProvider", () => {
     expect(screen.getByText("Restored clip")).toBeInTheDocument();
     expect(HTMLMediaElement.prototype.play).not.toHaveBeenCalled();
   });
+
+  it("keeps the latest selection when audio requests resolve out of order", async () => {
+    let resolveFirst!: (blob: Blob) => void;
+    let resolveSecond!: (blob: Blob) => void;
+    vi.mocked(getJobAudio)
+      .mockReturnValueOnce(new Promise((resolve) => { resolveFirst = resolve; }))
+      .mockReturnValueOnce(new Promise((resolve) => { resolveSecond = resolve; }));
+    render(<PlaybackProvider><div /></PlaybackProvider>);
+    fireEvent(window, new CustomEvent("vox:play-job", { detail: { request_id: "slow", text: "Slow clip", voice_name: null, audio_duration_s: 1, file_available: true } }));
+    fireEvent(window, new CustomEvent("vox:play-job", { detail: { request_id: "fast", text: "Fast clip", voice_name: null, audio_duration_s: 1, file_available: true } }));
+    resolveSecond(new Blob(["fast"]));
+    expect(await screen.findByText("Fast clip")).toBeInTheDocument();
+    resolveFirst(new Blob(["slow"]));
+    await waitFor(() => expect(screen.queryByText("Slow clip")).not.toBeInTheDocument());
+    expect(URL.revokeObjectURL).toHaveBeenCalled();
+  });
+
+  it("lazily fetches a restored item when Play is pressed", async () => {
+    localStorage.setItem("vox:last-playback-item", JSON.stringify({ request_id: "restored", text: "Restored audio", voice_name: null, audio_duration_s: 8, file_available: true }));
+    render(<PlaybackProvider><div /></PlaybackProvider>);
+    fireEvent.click(screen.getByRole("button", { name: "Play" }));
+    await waitFor(() => expect(getJobAudio).toHaveBeenCalledWith("restored"));
+  });
 });

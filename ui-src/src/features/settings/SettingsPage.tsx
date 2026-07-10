@@ -29,6 +29,7 @@ import {
   createApiToken,
   exportBackup,
   getServerSettings,
+  getLogFile,
   listPresets,
   listRemoteCredentials,
   listVoices,
@@ -346,7 +347,8 @@ export function SettingsPage() {
           </p>
         </div>
         <Link
-          to="/logs"
+          to="/app/settings/$tab"
+          params={{ tab: "diagnostics" }}
           className="vox-control inline-flex h-10 items-center gap-2 px-3 text-[12.5px] font-bold"
         >
           <FileText className="h-4 w-4" />
@@ -893,6 +895,34 @@ export function SettingsPage() {
           }}
         />
       )}
+    </div>
+  );
+}
+
+export function DiagnosticsSettings() {
+  const { data: server } = useQuery({ queryKey: ["settings"], queryFn: getServerSettings });
+  const logs = useQuery({ queryKey: ["logs", "server"], queryFn: () => getLogFile("server", 120) });
+  return (
+    <div className="mx-auto max-w-5xl">
+      <div className="mb-7 flex items-start justify-between gap-4">
+        <div><p className="text-xs font-bold uppercase tracking-[0.18em] text-[var(--brand)]">Settings</p><h1 className="mt-1 text-3xl font-black tracking-tight">Diagnostics</h1><p className="mt-2 text-sm text-foreground/55">Runtime identity, managed paths, and recent server activity.</p></div>
+        <Link to="/app/settings" className="rounded-lg border border-border bg-white px-3 py-2 text-sm font-semibold">All settings</Link>
+      </div>
+      <section className="rounded-2xl border border-border bg-white p-5">
+        <h2 className="font-bold">Runtime</h2>
+        <div className="mt-4 divide-y divide-border text-sm">
+          <InfoRow label="Version">{server?.vox_version ?? "—"}</InfoRow>
+          <InfoRow label="Build">{server?.build_commit ?? "—"}</InfoRow>
+          <InfoRow label="Device">{server?.device_resolved ?? "—"}</InfoRow>
+          <InfoRow label="Model">{server?.model_name ?? "—"}</InfoRow>
+          <InfoRow label="Output path">{server?.output_dir ?? "—"}</InfoRow>
+          <InfoRow label="Voice path">{server?.voice_dir ?? "—"}</InfoRow>
+        </div>
+      </section>
+      <section className="mt-5 overflow-hidden rounded-2xl border border-border bg-white">
+        <div className="flex items-center justify-between border-b border-border px-5 py-4"><div><h2 className="font-bold">Recent server log</h2><p className="text-xs text-foreground/50">Last 120 bounded lines</p></div><button type="button" onClick={() => void logs.refetch()} className="min-h-10 rounded-lg border border-border px-3 text-xs font-semibold">Refresh</button></div>
+        <pre className="max-h-[440px] overflow-auto bg-slate-950 p-5 text-xs leading-5 text-slate-200">{logs.isLoading ? "Loading diagnostics…" : logs.isError ? "Logs are unavailable." : logs.data?.lines?.join("\n") || "No server log entries yet."}</pre>
+      </section>
     </div>
   );
 }

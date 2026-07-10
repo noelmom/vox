@@ -18,6 +18,7 @@ import { Route as AppSettingsRouteImport } from './routes/app.settings'
 import { Route as AppRecordingsRouteImport } from './routes/app.recordings'
 import { Route as AppLibraryRouteImport } from './routes/app.library'
 import { Route as AppHistoryRouteImport } from './routes/app.history'
+import { Route as AppSettingsIndexRouteImport } from './routes/app.settings.index'
 import { Route as AppSettingsTabRouteImport } from './routes/app.settings.$tab'
 
 const LogsRoute = LogsRouteImport.update({
@@ -65,6 +66,11 @@ const AppHistoryRoute = AppHistoryRouteImport.update({
   path: '/history',
   getParentRoute: () => AppRoute,
 } as any)
+const AppSettingsIndexRoute = AppSettingsIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AppSettingsRoute,
+} as any)
 const AppSettingsTabRoute = AppSettingsTabRouteImport.update({
   id: '/$tab',
   path: '/$tab',
@@ -82,6 +88,7 @@ export interface FileRoutesByFullPath {
   '/app/voices': typeof AppVoicesRoute
   '/app/': typeof AppIndexRoute
   '/app/settings/$tab': typeof AppSettingsTabRoute
+  '/app/settings/': typeof AppSettingsIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -89,10 +96,10 @@ export interface FileRoutesByTo {
   '/app/history': typeof AppHistoryRoute
   '/app/library': typeof AppLibraryRoute
   '/app/recordings': typeof AppRecordingsRoute
-  '/app/settings': typeof AppSettingsRouteWithChildren
   '/app/voices': typeof AppVoicesRoute
   '/app': typeof AppIndexRoute
   '/app/settings/$tab': typeof AppSettingsTabRoute
+  '/app/settings': typeof AppSettingsIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -106,6 +113,7 @@ export interface FileRoutesById {
   '/app/voices': typeof AppVoicesRoute
   '/app/': typeof AppIndexRoute
   '/app/settings/$tab': typeof AppSettingsTabRoute
+  '/app/settings/': typeof AppSettingsIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -120,6 +128,7 @@ export interface FileRouteTypes {
     | '/app/voices'
     | '/app/'
     | '/app/settings/$tab'
+    | '/app/settings/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -127,10 +136,10 @@ export interface FileRouteTypes {
     | '/app/history'
     | '/app/library'
     | '/app/recordings'
-    | '/app/settings'
     | '/app/voices'
     | '/app'
     | '/app/settings/$tab'
+    | '/app/settings'
   id:
     | '__root__'
     | '/'
@@ -143,6 +152,7 @@ export interface FileRouteTypes {
     | '/app/voices'
     | '/app/'
     | '/app/settings/$tab'
+    | '/app/settings/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -216,6 +226,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppHistoryRouteImport
       parentRoute: typeof AppRoute
     }
+    '/app/settings/': {
+      id: '/app/settings/'
+      path: '/'
+      fullPath: '/app/settings/'
+      preLoaderRoute: typeof AppSettingsIndexRouteImport
+      parentRoute: typeof AppSettingsRoute
+    }
     '/app/settings/$tab': {
       id: '/app/settings/$tab'
       path: '/$tab'
@@ -228,10 +245,12 @@ declare module '@tanstack/react-router' {
 
 interface AppSettingsRouteChildren {
   AppSettingsTabRoute: typeof AppSettingsTabRoute
+  AppSettingsIndexRoute: typeof AppSettingsIndexRoute
 }
 
 const AppSettingsRouteChildren: AppSettingsRouteChildren = {
   AppSettingsTabRoute: AppSettingsTabRoute,
+  AppSettingsIndexRoute: AppSettingsIndexRoute,
 }
 
 const AppSettingsRouteWithChildren = AppSettingsRoute._addFileChildren(

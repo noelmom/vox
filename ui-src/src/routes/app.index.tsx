@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -52,6 +52,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { type ApiVoice, type Job, listVoices, listPresets, listJobs, submitTTS, getJob, getJobAudio, savePreset, deletePreset, deleteJob, cancelJob, patchVoice, parseServerDate } from "@/lib/api";
 import { setGenerationState, type DurableGenerationState } from "@/lib/generation";
+import { notifyJobDeleted, notifyJobDeleteFailed, notifyJobDeleting, requestPlayback } from "@/features/playback/PlaybackProvider";
 import { hydrateCachedPreferences, savePreferences, writeCachedPreference } from "@/lib/preferences";
 import { tagStyle } from "@/lib/utils";
 import { BRAND, BRAND_GRADIENT, BRAND_SECONDARY, BRAND_WARM } from "@/lib/theme";
@@ -741,7 +742,14 @@ function GeneratePage() {
 
   const handleDeleteCurrentResult = async () => {
     if (!genResult) return;
-    await deleteJob(genResult.job.request_id).catch(() => {});
+    notifyJobDeleting(genResult.job.request_id);
+    try {
+      await deleteJob(genResult.job.request_id);
+    } catch {
+      notifyJobDeleteFailed(genResult.job.request_id);
+      return;
+    }
+    notifyJobDeleted(genResult.job.request_id);
     if (genResult.url.startsWith("blob:")) URL.revokeObjectURL(genResult.url);
     setGenState({ phase: "idle" });
     setGenerationState({ phase: "idle" });
@@ -1140,7 +1148,14 @@ function GeneratePage() {
                     isLatest={idx === 0 && outputSort === "desc"}
                     onRegenerate={() => setScript(job.text)}
                     onDelete={async () => {
-                      await deleteJob(job.request_id).catch(() => {});
+                      notifyJobDeleting(job.request_id);
+                      try {
+                        await deleteJob(job.request_id);
+                      } catch {
+                        notifyJobDeleteFailed(job.request_id);
+                        return;
+                      }
+                      notifyJobDeleted(job.request_id);
                       queryClient.invalidateQueries({ queryKey: ["jobs"] });
                     }}
                   />
@@ -1160,9 +1175,9 @@ function GeneratePage() {
 
           <div className="mt-5 flex items-center justify-between border-t border-border pt-4 text-[12px] text-foreground/65">
             <span>{filteredJobs.length} recording{filteredJobs.length !== 1 ? "s" : ""}</span>
-            <a className="inline-flex items-center gap-1 font-semibold text-[oklch(0.55_0.22_260)] hover:underline" href="/app/history">
+            <Link className="inline-flex items-center gap-1 font-semibold text-[oklch(0.55_0.22_260)] hover:underline" to="/app/history">
               View all history <ChevronRight className="h-3.5 w-3.5" />
-            </a>
+            </Link>
           </div>
         </section>
         </div>
@@ -1794,8 +1809,8 @@ function VoicePicker({
         )}
       </div>
 
-      <a
-        href="/app/voices"
+      <Link
+        to="/app/voices"
         className="flex items-center justify-between border-t border-border bg-[var(--background)] px-4 py-3 text-[12px] font-semibold text-[oklch(0.55_0.22_260)] transition-colors hover:bg-[var(--brand-soft)]"
       >
         <span className="inline-flex items-center gap-1.5">
@@ -1803,7 +1818,7 @@ function VoicePicker({
           Record or import a new voice
         </span>
         <ChevronRight className="h-3.5 w-3.5" />
-      </a>
+      </Link>
     </div>
   );
 }
@@ -2388,27 +2403,8 @@ function JobRow({
   }, [peaks, progress, audioDuration, hover, fetchStatus]);
 
   const handlePlayClick = async () => {
-    if (fetchStatus === "loading") return;
-    if (fetchStatus === "idle") {
-      onActivate(job.request_id);
-      setFetchStatus("loading");
-      try {
-        const blob = await getJobAudio(job.request_id);
-        const url = URL.createObjectURL(blob);
-        setBlobUrl(url);
-        setFetchStatus("ready");
-        setTimeout(() => setPlaying(true), 50);
-      } catch {
-        setFetchStatus("expired");
-        onActivate(null);
-      }
-      return;
-    }
-    if (fetchStatus === "ready") {
-      const next = !playing;
-      setPlaying(next);
-      onActivate(next ? job.request_id : null);
-    }
+    if (fetchStatus === "expired") return;
+    requestPlayback(job);
   };
 
   const handleCopyScript = async () => {
@@ -2458,8 +2454,6 @@ function JobRow({
           : "border-border"
       }`}
     >
-      {blobUrl && <audio ref={audioRef} src={blobUrl} preload="auto" />}
-
       {/* ── Header ── */}
       <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-3 px-4 pb-3 pt-4 sm:gap-4">
         <button

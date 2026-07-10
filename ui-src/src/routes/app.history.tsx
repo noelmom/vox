@@ -29,6 +29,7 @@ import {
 } from "lucide-react";
 import { type Job, type ApiVoice, listJobs, listVoices, getJobAudio, deleteJob, parseServerDate } from "@/lib/api";
 import { BRAND, BRAND_GRADIENT, BRAND_SECONDARY, BRAND_WARM } from "@/lib/theme";
+import { notifyJobDeleted, notifyJobDeleteFailed, notifyJobDeleting, requestPlayback } from "@/features/playback/PlaybackProvider";
 
 export const Route = createFileRoute("/app/history")({
   head: () => ({ meta: [{ title: "History — Vox Studio" }] }),
@@ -240,7 +241,14 @@ function HistoryPage() {
   };
 
   const handleDelete = async (requestId: string) => {
-    await deleteJob(requestId);
+    notifyJobDeleting(requestId);
+    try {
+      await deleteJob(requestId);
+    } catch (error) {
+      notifyJobDeleteFailed(requestId);
+      throw error;
+    }
+    notifyJobDeleted(requestId);
     queryClient.setQueryData<Job[]>(["jobs"], (old) =>
       old ? old.filter((j) => j.request_id !== requestId) : [],
     );
@@ -511,7 +519,6 @@ function ClipCard({
 
   // Canvas draw loop
   useEffect(() => {
-    let raf = 0;
     const draw = () => {
       const canvas = canvasRef.current;
       const ctx = canvas?.getContext("2d");
@@ -579,10 +586,9 @@ function ClipCard({
           ctx.fill();
         }
       }
-      raf = requestAnimationFrame(draw);
     };
-    raf = requestAnimationFrame(draw);
-    return () => cancelAnimationFrame(raf);
+    draw();
+    return undefined;
   }, [peaks, progress, displayDuration, hover, fetchStatus]);
 
   const noAudio = fetchStatus === "expired";
@@ -629,16 +635,8 @@ function ClipCard({
   };
 
   const handlePlayClick = async () => {
-    if (fetchStatus === "loading" || fetchStatus === "expired" || failed) return;
-    if (fetchStatus === "idle") {
-      onActivate(job.request_id);
-      await fetchAudio();
-      setTimeout(() => setPlaying(true), 50);
-      return;
-    }
-    const next = !playing;
-    setPlaying(next);
-    onActivate(next ? job.request_id : null);
+    if (fetchStatus === "expired" || failed) return;
+    requestPlayback(job);
   };
 
   const handleCanvasClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
@@ -707,8 +705,6 @@ function ClipCard({
               : "bg-gradient-to-b from-[var(--brand)] to-[var(--brand-secondary)]")
         }
       />
-
-      {blobUrl && <audio ref={audioRef} src={blobUrl} preload="auto" />}
 
       <div className="flex flex-col gap-4 p-4 pl-5 sm:p-5 sm:pl-6">
         {/* Top row: status badges + actions */}

@@ -61,6 +61,9 @@ export function parseServerDate(value: string): Date {
 async function apiFetch(path: string, init?: RequestInit): Promise<Response> {
   const r = await fetch(path, init);
   if (!r.ok) {
+    if (r.status === 401 && typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("vox:auth-expired", { detail: { reason: "Your paired session expired." } }));
+    }
     const err = await r.json().catch(() => ({ detail: r.statusText }));
     const data = err as { detail?: unknown; error?: { message?: string }; request_id?: string };
     const detail = typeof data.detail === "string" ? data.detail : undefined;

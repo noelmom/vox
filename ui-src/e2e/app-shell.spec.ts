@@ -73,6 +73,22 @@ test("mobile navigation remains available", async ({ page }) => {
   await expect(page.getByRole("navigation", { name: "Primary" }).getByText("History")).toBeVisible();
 });
 
+test("compact desktop keeps landmark navigation and content visible", async ({ page }) => {
+  await page.setViewportSize({ width: 1024, height: 768 });
+  await installFakeApi(page);
+  await page.goto("/app");
+  await expect(page.locator("aside").getByRole("navigation", { name: "Primary" })).toBeVisible();
+  await expect(page.getByRole("main")).toBeVisible();
+});
+
+test("authentication expiry replaces private shell with pairing gate", async ({ page }) => {
+  await installFakeApi(page);
+  await page.route("**/api/v1/alerts", (route) => route.fulfill({ status: 401, json: { detail: "Session expired" } }));
+  await page.goto("/app");
+  await expect(page.getByRole("heading", { name: "Pair this device" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Open pairing" })).toHaveAttribute("href", "/pair");
+});
+
 test("compatibility routes redirect to canonical workspaces", async ({ page }) => {
   await installFakeApi(page);
   await page.goto("/app/library");
@@ -81,6 +97,8 @@ test("compatibility routes redirect to canonical workspaces", async ({ page }) =
   await expect(page).toHaveURL(/\/app\/history$/);
   await page.goto("/logs");
   await expect(page).toHaveURL(/\/app\/settings\/diagnostics$/);
+  await expect(page.getByRole("heading", { name: "Diagnostics", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Diagnostics" })).toBeVisible();
 });
 
 test("global player metadata survives route navigation", async ({ page }) => {
@@ -103,6 +121,40 @@ test("global player metadata survives route navigation", async ({ page }) => {
   await page.locator("aside").getByRole("link", { name: "History" }).click();
   await expect(page).toHaveURL(/\/app\/history$/);
   await expect(page.getByRole("region", { name: "Audio player" })).toContainText("Persistent player test");
+});
+
+test("History play control opens the global dock", async ({ page }) => {
+  await installFakeApi(page);
+  await page.route("**/api/v1/jobs?*", (route) => route.fulfill({ json: [{
+    request_id: "history-job",
+    status: "completed",
+    text: "History playback contract.",
+    preset: "calm",
+    output_format: "wav",
+    output_path: "/tmp/history-job.wav",
+    chunks: 1,
+    audio_duration_s: 8,
+    generation_s: 1,
+    encode_s: 0.1,
+    total_s: 1.1,
+    rtf: 0.1,
+    error: null,
+    error_code: null,
+    state_detail: "Audio is ready.",
+    progress_current: 1,
+    progress_total: 1,
+    voice_name: "Noel Demo",
+    device: "mps",
+    created_at: "2026-07-10 12:00:00",
+    completed_at: "2026-07-10 12:00:01",
+    file_available: true,
+  }] }));
+  await page.route("**/api/v1/jobs/history-job/audio", (route) => route.fulfill({ status: 200, contentType: "audio/wav", body: Buffer.from("RIFF0000WAVE") }));
+  await page.goto("/app/history");
+  const play = page.getByRole("button", { name: "Play" });
+  await expect(play).toHaveCount(1);
+  await play.click();
+  await expect(page.getByRole("region", { name: "Audio player" })).toContainText("History playback contract");
 });
 
 test("Settings confirms a destructive backup restore before uploading", async ({ page }) => {

@@ -1,7 +1,3 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { SettingsPage } from "@/features/settings/SettingsPage";
+import { createFileRoute, Outlet } from "@tanstack/react-router";
 
-export const Route = createFileRoute("/app/settings")({
-  head: () => ({ meta: [{ title: "Settings — Vox Studio" }] }),
-  component: SettingsPage,
-});
+export const Route = createFileRoute("/app/settings")({ component: Outlet });
