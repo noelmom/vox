@@ -38,6 +38,7 @@ import {
   revokeRemoteCredential,
 } from "@/lib/api";
 import { hydrateCachedPreferences, readCachedPreference, savePreferences, writeCachedPreference } from "@/lib/preferences";
+import { formatDuration } from "@/lib/audio-trim";
 import { BRAND, BRAND_GRADIENT, BRAND_SECONDARY, BRAND_WARM } from "@/lib/theme";
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
@@ -537,7 +538,7 @@ export function SettingsPage() {
                 unit="sec"
                 min={SERVER_LIMITS.maxVoiceClipDurationS.min}
                 max={SERVER_LIMITS.maxVoiceClipDurationS.max}
-                activeValue={`${server.max_voice_clip_duration_s}s active`}
+                activeValue={`${formatDuration(server.max_voice_clip_duration_s)} active`}
                 restartRequired={server.max_voice_clip_duration_restart_required}
                 error={serverDraftErrors.maxVoiceClipDurationS}
                 saving={serverSettingsMutation.isPending}

@@ -147,25 +147,7 @@ Until v1.0 ships, avoid adding new product features. Pre-v1 work should be limit
 
   **Longer term:** FAQ entry and/or handle it inside the `.pkg` installer flow.
 
-- [x] **[BLOCKER — v1.0.0] Finish real audio waveform visualisation across every audio-bearing surface**
-
-  Verified in `ui-src/src/routes/app.index.tsx`, `ui-src/src/routes/app.library.tsx`, `ui-src/src/routes/app.recordings.tsx`, `ui-src/src/components/TrimWaveform.tsx`, and `ui-src/src/lib/audio-trim.ts`. Audio-bearing players decode fetched/recorded/uploaded audio into real amplitude buckets, live recording uses `AnalyserNode`, and trim controls render decoded peaks. Deterministic bars remain only as loading/prefetch skeletons before audio is available, disabled generic preview decoration, and landing-page decoration.
-
-  **Affected components (all in `ui-src/src/routes/`):**
-  - `app.library.tsx` — `Waveform` (animated flag, used in RecordPane and UploadPane preview) and `MiniWave` (decorative bar in ProfileCard footer)
-  - `app.index.tsx` — waveform / playback visualiser in the Result/output area
-
-  **Recommended approach — Web Audio API + canvas/SVG:**
-  1. For **static previews** (uploaded file, generated clip at rest): decode the audio buffer once with `AudioContext.decodeAudioData`, downsample the PCM into ~120 amplitude buckets, render as an SVG bar chart. This gives a true "fingerprint" of the audio.
-  2. For **live recording** (RecordPane): use `AnalyserNode` fed from the `MediaStream`, `requestAnimationFrame` polling `getByteFrequencyData`, render to a `<canvas>` for smooth real-time animation.
-  3. For **playback scrubbing** (ProfileCard, Result): overlay a progress indicator that advances with `timeupdate` on the `<audio>` element so the static fingerprint doubles as a seek bar.
-
-  **Constraints:**
-  - Keep decode/render off the main thread where possible — use `OfflineAudioContext` for the static decode step.
-  - Waveform colour should follow the existing oklch palette (accent `oklch(0.55 0.22 260)` at ~55% opacity for bars, brighter for the played-through portion).
-  - `MiniWave` in ProfileCard footer can stay decorative but should at least use the real amplitude data from the voice sample if it has already been fetched; fall back to the current fake bars only while the audio hasn't loaded yet.
-
-  **Why a blocker:** fake waves actively undermine trust in the output quality. Users expect to see their voice reflected in the waveform before committing to "Use" a profile or downloading a clip.
+- [x] **Canonical generated-recording player** — Create and History expose recording actions and hand playback to the persistent Now Playing dock. Full playback controls, seeking, speed, volume, and the generated-recording waveform exist in exactly one place. Compact waveform controls remain for voice audition, recording, and trimming.
 
 - [x] **[LOW] Migrate existing user preset names to lowercase in DB**
   - Implemented via one-time `meta` migration `normalize_user_presets_lowercase` in `api/core/db.py`.

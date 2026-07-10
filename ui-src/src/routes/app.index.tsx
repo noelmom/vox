@@ -29,7 +29,6 @@ import {
   Pencil,
   ArrowUpDown,
   CheckCircle2,
-  Gauge,
   History,
 } from "lucide-react";
 import {
@@ -1945,6 +1944,10 @@ function fmtTime(s: number) {
   return `${m}:${r.toString().padStart(2, "0")}`;
 }
 
+function formatElapsedTime(seconds: number) {
+  return seconds < 60 ? `${seconds.toFixed(1)}s` : fmtTime(seconds);
+}
+
 function formatEstimateDuration(seconds: number) {
   if (seconds < 60) return `${seconds} sec`;
   const minutes = Math.floor(seconds / 60);
@@ -2219,13 +2222,8 @@ function JobRow({
   const fetchStatus = unavailable ? "expired" : playback.pendingRequestId === job.request_id ? "loading" : "ready";
   const playing = active && playback.playing;
   const progress = active ? playback.position : 0;
-  const duration = active ? playback.duration : 0;
-  const volume = playback.volume;
-  const speed = playback.rate;
   const [menuOpen, setMenuOpen] = useState(false);
-  const [hover, setHover]     = useState<number | null>(null);
   const menuRef  = useRef<HTMLDivElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -2235,72 +2233,10 @@ function JobRow({
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, [menuOpen]);
-  const muted = volume === 0;
   const [copied, setCopied] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
-  // Derived values needed by both the draw loop and JSX — declared before the draw loop
-  const audioDuration = duration || (job.audio_duration_s ?? 0);
-  const jobPeaks = useMemo(() => jobSpeechPeaks(300, job.request_id), [job.request_id]);
-  const peaks = jobPeaks;
-  useEffect(() => {
-    const progressRatio = audioDuration > 0 ? progress / audioDuration : 0;
-    const draw = () => {
-      const canvas = canvasRef.current;
-      const ctx = canvas?.getContext("2d");
-      if (canvas && ctx) {
-        const dpr = window.devicePixelRatio || 1;
-        const w = canvas.clientWidth;
-        const h = canvas.clientHeight;
-        if (canvas.width !== w * dpr || canvas.height !== h * dpr) {
-          canvas.width = w * dpr; canvas.height = h * dpr;
-        }
-        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-        ctx.clearRect(0, 0, w, h);
-
-        ctx.strokeStyle = "oklch(0.92 0.01 260)";
-        ctx.lineWidth = 1;
-        ctx.beginPath(); ctx.moveTo(0, h / 2); ctx.lineTo(w, h / 2); ctx.stroke();
-
-        const barW = 2, gap = 2, slot = barW + gap;
-        const count = Math.floor(w / slot);
-        const playedX = progressRatio * w;
-        const hoverX = hover != null ? hover * w : null;
-        const grad = ctx.createLinearGradient(0, 0, w, 0);
-        grad.addColorStop(0, BRAND);
-        grad.addColorStop(0.55, BRAND_SECONDARY);
-        grad.addColorStop(1, BRAND_WARM);
-
-        const dim = fetchStatus !== "ready";
-        for (let i = 0; i < count; i++) {
-          const p = peaks[Math.floor((i / count) * peaks.length)] ?? 0;
-          const bh = Math.max(2, p * (h * 0.9));
-          const x = i * slot;
-          const isPlayed = x < playedX;
-          const inHover = hoverX != null && x >= playedX && x < hoverX;
-          ctx.globalAlpha = dim ? 0.22 : 1;
-          if (isPlayed && !dim)      ctx.fillStyle = grad;
-          else if (inHover && !dim)  ctx.fillStyle = BRAND;
-          else                       ctx.fillStyle = "oklch(0.55 0.04 260 / 0.32)";
-          jobRoundedRect(ctx, x, (h - bh) / 2, barW, bh, 1);
-          ctx.fill();
-          ctx.globalAlpha = 1;
-        }
-
-        if (!dim) {
-          ctx.strokeStyle = BRAND_WARM;
-          ctx.lineWidth = 2;
-          ctx.beginPath(); ctx.moveTo(playedX, 4); ctx.lineTo(playedX, h - 4); ctx.stroke();
-          ctx.fillStyle = BRAND_WARM;
-          ctx.beginPath(); ctx.arc(playedX, h / 2, 3.5, 0, Math.PI * 2); ctx.fill();
-        }
-      }
-    };
-    draw();
-    const onResize = () => draw();
-    window.addEventListener("resize", onResize);
-    return () => window.removeEventListener("resize", onResize);
-  }, [peaks, progress, audioDuration, hover, fetchStatus]);
+  const audioDuration = job.audio_duration_s ?? 0;
 
   const handlePlayClick = () => {
     if (fetchStatus === "expired") return;
@@ -2330,7 +2266,6 @@ function JobRow({
     }
   };
 
-  const progressPct = audioDuration > 0 ? (progress / audioDuration) * 100 : 0;
   const titlePreview = job.text.slice(0, 60) + (job.text.length > 60 ? "…" : "");
   const voiceLabel = job.voice_name ?? "Generic";
   const presetLabel = job.preset.charAt(0).toUpperCase() + job.preset.slice(1);
@@ -2406,8 +2341,8 @@ function JobRow({
           {(job.generation_s != null || job.device != null) && (
             <div className="mt-1 flex flex-wrap gap-x-2.5 gap-y-0.5 text-[11px] text-foreground/35">
               <span>{job.text.split(/\s+/).filter(Boolean).length.toLocaleString()} words</span>
-              {job.generation_s != null && <span>gen {job.generation_s.toFixed(1)}s</span>}
-              {job.total_s != null && <span>total {job.total_s.toFixed(1)}s</span>}
+              {job.generation_s != null && <span>gen {formatElapsedTime(job.generation_s)}</span>}
+              {job.total_s != null && <span>total {formatElapsedTime(job.total_s)}</span>}
               {job.device != null && <span className="uppercase">{job.device}</span>}
             </div>
           )}
@@ -2445,42 +2380,10 @@ function JobRow({
         </div>
       </div>
 
-      {/* ── Waveform canvas ── */}
-      <div className="relative mx-4 overflow-hidden rounded-lg border border-border bg-[oklch(0.99_0.005_280)]">
-        <div className="pointer-events-none absolute inset-0 opacity-60"
-          style={{ background: "radial-gradient(120% 100% at 0% 50%, oklch(0.95 0.04 260 / 0.5), transparent 60%), radial-gradient(120% 100% at 100% 50%, oklch(0.95 0.04 25 / 0.45), transparent 60%)" }} />
-        <canvas
-          ref={canvasRef}
-          onMouseMove={(e) => { const r = e.currentTarget.getBoundingClientRect(); setHover(Math.min(1, Math.max(0, (e.clientX - r.left) / r.width))); }}
-          onMouseLeave={() => setHover(null)}
-          onClick={(e) => {
-            if (!active) { handlePlayClick(); return; }
-            const r = e.currentTarget.getBoundingClientRect();
-            const ratio = Math.min(1, Math.max(0, (e.clientX - r.left) / r.width));
-            const t = ratio * audioDuration;
-            playback.seek(t);
-          }}
-          className={"relative block h-[88px] w-full " + (fetchStatus === "ready" ? "cursor-pointer" : fetchStatus !== "expired" ? "cursor-pointer" : "")}
-        />
-        {hover != null && fetchStatus === "ready" && (
-          <div className="pointer-events-none absolute -top-1 z-10 -translate-x-1/2 -translate-y-full rounded-md bg-foreground px-1.5 py-0.5 font-mono text-[10px] tabular-nums text-background shadow"
-            style={{ left: `${hover * 100}%` }}>
-            {fmtTime(hover * audioDuration)}
-          </div>
-        )}
-      </div>
-
-      {/* ── Transport bar ── */}
       {fetchStatus !== "expired" && (
-        <div className="flex flex-col gap-2 px-4 pb-3 pt-3 sm:flex-row sm:items-center sm:gap-3 sm:py-3">
-          <div className="flex items-center gap-3">
-            <JobVolumeControl value={volume} muted={muted} onChange={playback.setVolume} onToggleMute={playback.toggleMute} />
-            <SpeedControl value={speed} onChange={playback.setRate} />
-          </div>
-          <div className="flex items-center gap-1 sm:ml-auto">
-            <span className="mr-auto font-mono text-[11px] tabular-nums text-foreground/60 sm:mr-0">
-              {fmtTime(progress)} <span className="text-foreground/35">/ {fmtTime(audioDuration)}</span>
-            </span>
+        <div className="flex flex-wrap items-center gap-2 border-t border-border px-4 py-3">
+          <span className="mr-auto text-[11.5px] text-foreground/50">{active ? (playing ? "Playing in Now Playing" : "Ready in Now Playing") : "Play opens Now Playing"}</span>
+          <div className="flex items-center gap-1">
             <a href={`/api/v1/jobs/${encodeURIComponent(job.request_id)}/audio`} download={`vox-${job.request_id.slice(0, 8)}.${job.output_format}`}
               className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-white px-2.5 py-1.5 text-[12px] font-semibold text-foreground/75 hover:bg-muted">
               <Download className="h-3.5 w-3.5" /> Download
@@ -2536,16 +2439,6 @@ function JobRow({
 
 // ─── JobRow helpers ───────────────────────────────────────────────────────────
 
-function jobRoundedRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {
-  ctx.beginPath();
-  ctx.moveTo(x + r, y);
-  ctx.arcTo(x + w, y, x + w, y + h, r);
-  ctx.arcTo(x + w, y + h, x, y + h, r);
-  ctx.arcTo(x, y + h, x, y, r);
-  ctx.arcTo(x, y, x + w, y, r);
-  ctx.closePath();
-}
-
 function jobSpeechPeaks(n: number, seed: string): number[] {
   let h = 2166136261;
   for (let i = 0; i < seed.length; i++) { h ^= seed.charCodeAt(i); h = Math.imul(h, 16777619); }
@@ -2561,23 +2454,6 @@ function jobSpeechPeaks(n: number, seed: string): number[] {
     }
   }
   return out;
-}
-
-function JobVolumeControl({ value, muted, onChange, onToggleMute }: { value: number; muted: boolean; onChange: (v: number) => void; onToggleMute: () => void }) {
-  return (
-    <div className="flex items-center gap-2 rounded-full border border-border bg-white px-2 py-1">
-      <button onClick={onToggleMute} className="text-foreground/60 hover:text-foreground" aria-label={muted ? "Unmute" : "Mute"}>
-        {muted ? <VolumeX className="h-3.5 w-3.5" /> : <Volume2 className="h-3.5 w-3.5" />}
-      </button>
-      <div className="relative h-1 w-20 rounded-full bg-muted">
-        <div className="absolute left-0 top-0 h-full rounded-full" style={{ width: `${(muted ? 0 : value) * 100}%`, background: "linear-gradient(90deg, var(--brand), var(--brand-warm))" }} />
-        <input type="range" min={0} max={1} step={0.01} value={muted ? 0 : value} onChange={(e) => onChange(Number(e.target.value))}
-          className="absolute inset-0 h-full w-full cursor-pointer appearance-none bg-transparent opacity-0" aria-label="Volume" />
-        <span className="pointer-events-none absolute top-1/2 h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full border border-white bg-[oklch(0.6_0.2_265)] shadow"
-          style={{ left: `${(muted ? 0 : value) * 100}%` }} />
-      </div>
-    </div>
-  );
 }
 
 function VoicePreviewPlayer({ voiceId }: { voiceId: string }) {
@@ -2782,63 +2658,6 @@ function VoicePreviewPlayer({ voiceId }: { voiceId: string }) {
           </div>
         </div>
       </div>
-    </div>
-  );
-}
-
-function SpeedControl({ value, onChange }: { value: number; onChange: (v: number) => void }) {
-  const [open, setOpen] = useState(false);
-  const wrapRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    const onDown = (e: MouseEvent) => {
-      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) setOpen(false);
-    };
-    document.addEventListener("mousedown", onDown);
-    return () => document.removeEventListener("mousedown", onDown);
-  }, [open]);
-
-  const label = `${value}x`;
-
-  return (
-    <div ref={wrapRef} className="relative">
-      <button
-        onClick={() => setOpen((v) => !v)}
-        aria-label={`Playback speed ${label}`}
-        className={
-          "inline-flex h-6 min-w-[2.5rem] items-center justify-center rounded-md border px-1.5 text-[11px] font-bold tabular-nums transition-colors " +
-          (value === 1
-            ? "border-border bg-white text-foreground/70 hover:bg-muted"
-            : "border-[oklch(0.85_0.08_260)] bg-[oklch(0.96_0.04_260)] text-[oklch(0.45_0.22_260)] hover:bg-[oklch(0.93_0.05_260)]")
-        }
-      >
-        {label}
-      </button>
-      {open && (
-        <div
-          className="absolute bottom-full right-0 z-50 mb-2 flex w-16 flex-col overflow-hidden rounded-lg border border-border bg-white py-1 shadow-lg"
-          style={{ boxShadow: "0 6px 24px oklch(0.16 0.02 260 / 0.12)" }}
-        >
-          {SPEEDS.map((s) => (
-            <button
-              key={s}
-              onClick={() => {
-                onChange(s);
-                setOpen(false);
-              }}
-              className={
-                "px-2 py-1 text-center text-[11.5px] font-semibold tabular-nums transition-colors " +
-                (s === value
-                  ? "bg-[oklch(0.96_0.04_260)] text-[oklch(0.45_0.22_260)]"
-                  : "text-foreground/75 hover:bg-muted")
-              }
-            >
-              {s}x
-            </button>
-          ))}
-        </div>
-      )}
     </div>
   );
 }

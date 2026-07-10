@@ -265,7 +265,7 @@ test("History play control opens the global dock", async ({ page }) => {
     output_format: "wav",
     output_path: "/tmp/history-job.wav",
     chunks: 1,
-    audio_duration_s: 8,
+    audio_duration_s: 125,
     generation_s: 1,
     encode_s: 0.1,
     total_s: 1.1,
@@ -283,6 +283,9 @@ test("History play control opens the global dock", async ({ page }) => {
   }] }));
   await page.route("**/api/v1/jobs/history-job/audio", (route) => route.fulfill({ status: 200, contentType: "audio/wav", body: Buffer.from("RIFF0000WAVE") }));
   await page.goto("/app/history");
+  await expect(page.getByText("Play opens Now Playing")).toBeVisible();
+  await expect(page.locator("main canvas")).toHaveCount(0);
+  await expect(page.getByText("2:05", { exact: true }).last()).toBeVisible();
   const play = page.getByRole("button", { name: "Play" });
   await expect(play).toHaveCount(1);
   await play.click();

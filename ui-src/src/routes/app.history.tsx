@@ -23,12 +23,9 @@ import {
   Loader2,
   X,
   Disc3,
-  Gauge,
-  Volume2,
-  VolumeX,
 } from "lucide-react";
 import { type Job, type ApiVoice, listJobs, listVoices, getJobAudio, deleteJob, parseServerDate } from "@/lib/api";
-import { BRAND, BRAND_GRADIENT, BRAND_SECONDARY, BRAND_WARM } from "@/lib/theme";
+import { BRAND_GRADIENT } from "@/lib/theme";
 import { notifyJobDeleted, notifyJobDeleteFailed, notifyJobDeleting, requestPlayback, usePlayback } from "@/features/playback/PlaybackProvider";
 
 export const Route = createFileRoute("/app/history")({
@@ -59,11 +56,6 @@ function fmtDuration(s: number | null | undefined): string {
   return `${m}:${sec.toString().padStart(2, "0")}`;
 }
 
-function fmtTime(s: number): string {
-  const t = Math.max(0, Math.floor(s));
-  return `${Math.floor(t / 60)}:${String(t % 60).padStart(2, "0")}`;
-}
-
 function fmtJobDate(isoStr: string): string {
   const d = parseServerDate(isoStr);
   const time = d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
@@ -78,50 +70,6 @@ function capitalize(s: string) {
 }
 
 const BUCKET_ORDER: DateBucket[] = ["Today", "Yesterday", "This Week", "Earlier"];
-
-function clipRoundedRect(
-  ctx: CanvasRenderingContext2D,
-  x: number,
-  y: number,
-  w: number,
-  h: number,
-  r: number,
-) {
-  ctx.beginPath();
-  ctx.moveTo(x + r, y);
-  ctx.arcTo(x + w, y, x + w, y + h, r);
-  ctx.arcTo(x + w, y + h, x, y + h, r);
-  ctx.arcTo(x, y + h, x, y, r);
-  ctx.arcTo(x, y, x + w, y, r);
-  ctx.closePath();
-}
-
-function clipSpeechPeaks(n: number, seed: string): number[] {
-  let h = 2166136261;
-  for (let i = 0; i < seed.length; i++) {
-    h ^= seed.charCodeAt(i);
-    h = Math.imul(h, 16777619);
-  }
-  const rand = () => {
-    h ^= h << 13;
-    h ^= h >>> 17;
-    h ^= h << 5;
-    return ((h >>> 0) % 10000) / 10000;
-  };
-  const out: number[] = [];
-  let i = 0;
-  while (i < n) {
-    const silence = rand() < 0.18;
-    const len = silence ? 3 + Math.floor(rand() * 8) : 10 + Math.floor(rand() * 30);
-    const peak = silence ? 0.05 : 0.4 + rand() * 0.6;
-    for (let j = 0; j < len && i < n; j++, i++) {
-      const env = Math.sin(Math.PI * (j / len));
-      const jitter = 0.7 + rand() * 0.6;
-      out.push(Math.max(0.03, peak * env * jitter));
-    }
-  }
-  return out;
-}
 
 // ─── page ───────────────────────────────────────────────────────────────────
 
@@ -443,7 +391,6 @@ function ClipCard({
   onRegenerate: () => void;
   onDelete: () => void;
 }) {
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const playback = usePlayback();
   const globalActive = playback.current?.request_id === job.request_id;
 
@@ -456,91 +403,13 @@ function ClipCard({
     : globalActive && playback.current?.file_available === false
       ? "expired"
       : storedFetchStatus;
-  const progress = globalActive ? playback.position : 0;
-  const [hover, setHover] = useState<number | null>(null);
   const [expanded, setExpanded] = useState(false);
   const [copied, setCopied] = useState(false);
   const [copiedId, setCopiedId] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
-  const jobPeaks = useMemo(() => clipSpeechPeaks(300, job.request_id), [job.request_id]);
-  const peaks = jobPeaks;
   const displayDuration = job.audio_duration_s ?? 0;
-
-  // Canvas draw loop
-  useEffect(() => {
-    const draw = () => {
-      const canvas = canvasRef.current;
-      const ctx = canvas?.getContext("2d");
-      if (canvas && ctx) {
-        const dpr = window.devicePixelRatio || 1;
-        const w = canvas.clientWidth;
-        const h = canvas.clientHeight;
-        if (canvas.width !== w * dpr || canvas.height !== h * dpr) {
-          canvas.width = w * dpr;
-          canvas.height = h * dpr;
-        }
-        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-        ctx.clearRect(0, 0, w, h);
-
-        ctx.strokeStyle = "oklch(0.92 0.01 240)";
-        ctx.lineWidth = 1;
-        ctx.beginPath();
-        ctx.moveTo(0, h / 2);
-        ctx.lineTo(w, h / 2);
-        ctx.stroke();
-
-        const barW = 2;
-        const gap = 2;
-        const slot = barW + gap;
-        const count = Math.floor(w / slot);
-        const progressPct = displayDuration > 0 ? progress / displayDuration : 0;
-        const playedX = progressPct * w;
-        const hoverX = hover != null ? hover * w : null;
-
-        const grad = ctx.createLinearGradient(0, 0, w, 0);
-        grad.addColorStop(0, BRAND);
-        grad.addColorStop(0.55, BRAND_SECONDARY);
-        grad.addColorStop(1, BRAND_WARM);
-
-        for (let i = 0; i < count; i++) {
-          const p = peaks[Math.floor((i / count) * peaks.length)] ?? 0;
-          const bh = Math.max(2, p * (h * 0.9));
-          const x = i * slot;
-          const y = (h - bh) / 2;
-          const isPlayed = fetchStatus === "ready" && x < playedX;
-          const inHoverPreview = fetchStatus === "ready" && hoverX != null && x >= playedX && x < hoverX;
-          if (isPlayed) {
-            ctx.fillStyle = grad;
-          } else if (inHoverPreview) {
-            ctx.fillStyle = BRAND;
-          } else {
-            ctx.globalAlpha = fetchStatus === "loading" ? 0.22 : 1;
-            ctx.fillStyle = "oklch(0.55 0.04 240 / 0.32)";
-            ctx.globalAlpha = 1;
-          }
-          clipRoundedRect(ctx, x, y, barW, bh, 1);
-          ctx.fill();
-        }
-
-        if (fetchStatus === "ready" && displayDuration > 0) {
-          ctx.strokeStyle = BRAND_WARM;
-          ctx.lineWidth = 2;
-          ctx.beginPath();
-          ctx.moveTo(playedX, 4);
-          ctx.lineTo(playedX, h - 4);
-          ctx.stroke();
-          ctx.fillStyle = BRAND_WARM;
-          ctx.beginPath();
-          ctx.arc(playedX, h / 2, 3.5, 0, Math.PI * 2);
-          ctx.fill();
-        }
-      }
-    };
-    draw();
-    return undefined;
-  }, [peaks, progress, displayDuration, hover, fetchStatus]);
 
   const noAudio = fetchStatus === "expired";
   const longScript = job.text.length > 120;
@@ -558,16 +427,6 @@ function ClipCard({
     if (globalActive && playback.playing) { playback.pause(); return; }
     if (globalActive) { void playback.resume(); return; }
     requestPlayback(job);
-  };
-
-  const handleCanvasClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    const r = e.currentTarget.getBoundingClientRect();
-    const pct = Math.min(1, Math.max(0, (e.clientX - r.left) / r.width));
-    if (globalActive && displayDuration > 0) {
-      playback.seek(pct * displayDuration);
-    } else {
-      requestPlayback(job);
-    }
   };
 
   const handleDownload = async () => {
@@ -749,59 +608,16 @@ function ClipCard({
               </div>
             </div>
 
-            {/* Waveform canvas */}
-            <div className="relative mx-4 overflow-hidden rounded-lg border border-border bg-[var(--background)]">
-              <div
-                className="pointer-events-none absolute inset-0 opacity-60"
-                style={{
-                  background:
-                    "radial-gradient(120% 100% at 0% 50%, oklch(0.95 0.04 260 / 0.5), transparent 60%), radial-gradient(120% 100% at 100% 50%, oklch(0.95 0.04 25 / 0.45), transparent 60%)",
-                }}
-              />
-              <canvas
-                ref={canvasRef}
-                onMouseMove={(e) => {
-                  const r = e.currentTarget.getBoundingClientRect();
-                  setHover(Math.min(1, Math.max(0, (e.clientX - r.left) / r.width)));
-                }}
-                onMouseLeave={() => setHover(null)}
-                onClick={handleCanvasClick}
-                className="relative block h-[88px] w-full cursor-pointer"
-              />
-              {hover != null && (
-                <div
-                  className="pointer-events-none absolute -top-1 z-10 -translate-x-1/2 -translate-y-full rounded-md bg-foreground px-1.5 py-0.5 font-mono text-[10px] tabular-nums text-background shadow"
-                  style={{ left: `${hover * 100}%` }}
-                >
-                  {fmtTime(hover * displayDuration)}
-                </div>
-              )}
-            </div>
-
-            {/* Transport bar */}
-            <div className="flex flex-wrap items-center gap-3 px-4 py-3">
-              <ClipVolumeControl value={playback.volume} onChange={playback.setVolume} />
-              <ClipSpeedControl value={playback.rate} onChange={playback.setRate} />
-              <span className="ml-auto font-mono text-[11px] tabular-nums text-foreground/60">
-                {fmtTime(globalActive ? playback.position : progress)}{" "}
-                <span className="text-foreground/35">/ {fmtTime(displayDuration)}</span>
+            <div className="flex flex-wrap items-center gap-2 border-t border-border px-4 py-3">
+              <span className="mr-auto text-[11.5px] text-foreground/50">
+                {globalActive ? (playback.playing ? "Playing in Now Playing" : "Ready in Now Playing") : "Play opens Now Playing"}
               </span>
-              <div className="flex items-center gap-1">
-                <button
-                  onClick={handleDownload}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-white px-2.5 py-1.5 text-[12px] font-semibold text-foreground/75 hover:bg-muted"
-                >
-                  <Download className="h-3.5 w-3.5" />
-                  Download
-                </button>
-                <button
-                  onClick={onRegenerate}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-white px-2.5 py-1.5 text-[12px] font-semibold text-foreground/75 hover:bg-muted"
-                >
-                  <RefreshCw className="h-3.5 w-3.5" />
-                  Regenerate
-                </button>
-              </div>
+              <button onClick={handleDownload} className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-white px-2.5 py-1.5 text-[12px] font-semibold text-foreground/75 hover:bg-muted">
+                <Download className="h-3.5 w-3.5" /> Download
+              </button>
+              <button onClick={onRegenerate} className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-white px-2.5 py-1.5 text-[12px] font-semibold text-foreground/75 hover:bg-muted">
+                <RefreshCw className="h-3.5 w-3.5" /> Regenerate
+              </button>
             </div>
           </div>
         )}
@@ -957,77 +773,5 @@ function RegenerateButton({
       <Sparkles className="h-3.5 w-3.5" />
       Regenerate
     </button>
-  );
-}
-
-function ClipVolumeControl({ value, onChange }: { value: number; onChange: (v: number) => void }) {
-  const muted = value === 0;
-  return (
-    <div className="flex items-center gap-2 rounded-full border border-border bg-white px-2 py-1">
-      <button
-        onClick={() => onChange(muted ? 0.8 : 0)}
-        className="text-foreground/60 hover:text-foreground"
-        aria-label={muted ? "Unmute" : "Mute"}
-      >
-        {muted ? <VolumeX className="h-3.5 w-3.5" /> : <Volume2 className="h-3.5 w-3.5" />}
-      </button>
-      <div className="relative h-1 w-20 rounded-full bg-muted">
-        <div
-          className="absolute left-0 top-0 h-full rounded-full"
-          style={{
-            width: `${value * 100}%`,
-            background: `linear-gradient(90deg, ${BRAND}, ${BRAND_WARM})`,
-          }}
-        />
-        <input
-          type="range"
-          min={0}
-          max={1}
-          step={0.01}
-          value={value}
-          onChange={(e) => onChange(Number(e.target.value))}
-          className="absolute inset-0 h-full w-full cursor-pointer appearance-none bg-transparent opacity-0"
-          aria-label="Volume"
-        />
-        <span
-          className="pointer-events-none absolute top-1/2 h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full border border-white bg-[var(--brand)] shadow"
-          style={{ left: `${value * 100}%` }}
-        />
-      </div>
-    </div>
-  );
-}
-
-function ClipSpeedControl({ value, onChange }: { value: number; onChange: (v: number) => void }) {
-  const speeds = [0.5, 0.75, 1, 1.25, 1.5, 2];
-  const [open, setOpen] = useState(false);
-  return (
-    <div className="relative">
-      <button
-        onClick={() => setOpen((v) => !v)}
-        className="inline-flex items-center gap-1.5 rounded-full border border-border bg-white px-2.5 py-1 text-[12px] font-semibold text-foreground/70 hover:bg-muted"
-      >
-        <Gauge className="h-3.5 w-3.5" />
-        {value}x
-      </button>
-      {open && (
-        <div className="absolute bottom-full left-0 z-20 mb-1.5 flex gap-1 rounded-lg border border-border bg-white p-1 shadow-lg">
-          {speeds.map((s) => (
-            <button
-              key={s}
-              onClick={() => { onChange(s); setOpen(false); }}
-              className={
-                "rounded-md px-2 py-1 text-[11.5px] font-semibold " +
-                (s === value
-                  ? "bg-[var(--brand)] text-white"
-                  : "text-foreground/70 hover:bg-muted")
-              }
-            >
-              {s}x
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
   );
 }

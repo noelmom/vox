@@ -187,6 +187,7 @@ export function PlaybackProvider({ children }: { children: React.ReactNode }) {
               {playing ? <Pause className="h-5 w-5" /> : <Play className="ml-0.5 h-5 w-5" />}
             </button>
             <div className="hidden min-w-0 w-48 sm:block">
+              <div className="text-[10px] font-bold uppercase tracking-[0.12em] text-[var(--brand)]">Now Playing</div>
               <div className="truncate text-sm font-semibold">{titleFor(current.text)}</div>
               <div className="truncate text-xs text-foreground/55">{current.voice_name ?? "Default voice"}</div>
               {error && <div className="truncate text-[11px] text-red-600">{error}</div>}

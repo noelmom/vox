@@ -33,7 +33,7 @@ It exposes a clean REST API and a web UI for generating high-quality audio from 
 - **Web UI** — single-page app for generating audio, managing voices, viewing history, and configuring settings
 - **Persistent creative workspace** — canonical Create, Voices, History, and sectioned Settings routes with one global paused-on-reload audio dock; completed-render autoplay is off by default and can be enabled in Settings (restored recordings always remain paused)
 - **In-browser voice recording** — capture microphone audio directly in the browser with live waveform visualisation
-- **Audio player with synchronized waveform** — generated audio plays inline with a waveform display that fills as playback progresses and stays synchronized when seeking
+- **One persistent Now Playing dock** — Create and History hand recordings to the same seekable player, while voice samples keep compact inline audition controls
 - **Voice profile editing** — update description, tags, and TTS defaults without re-uploading audio
 - **Tag system** — tag voices (`uploaded`, `auto-import`, or custom) with filter pills on the Voices screen
 - **Custom tone** — "✦ Custom" pill opens a parameter panel with sliders for all 6 TTS params; persists via `localStorage`
@@ -52,9 +52,9 @@ It exposes a clean REST API and a web UI for generating high-quality audio from 
 | --- | --- |
 | ![Vox Studio Create tab with script editor and Voice Studio controls](docs/screenshots/create.jpg) | ![Vox Studio Library tab with microphone status and voice profile cards](docs/screenshots/library.jpg) |
 
-| Recordings | Settings |
-| --- | --- |
-| ![Vox Studio Recordings tab with waveform playback and regeneration controls](docs/screenshots/recordings.jpg) | ![Vox Studio Settings tab with runtime, stability mode, and network access controls](docs/screenshots/settings.jpg) |
+| Settings |
+| --- |
+| ![Vox Studio Settings tab with runtime, stability mode, and network access controls](docs/screenshots/settings.jpg) |
 
 ---
 
@@ -618,7 +618,7 @@ Vox is now in a v1.0 scope freeze: only bug fixes, product polish, and true bloc
 - [x] LaunchAgent for server (manual start, crash-restart, structured logs)
 - [x] LaunchAgent for helper (auto-starts on login)
 - [x] Swift menu bar rewrite — native AppKit, eliminates Python/PyObjC issues on macOS Sequoia
-- [x] Real waveform coverage across audio-bearing surfaces (decoded peaks for fetched/recorded/uploaded audio; placeholders only for loading/decorative states)
+- [x] One persistent Now Playing dock for generated recordings; compact waveform controls remain only for voice audition, recording, and trimming
 - [x] Microphone error classification — distinct UI for no-device / access-denied / insecure context
 - [ ] Post-v1: manual pause insertion in the Create script editor
 - [ ] Post-v1: pronunciation dictionary / word replacement controls
