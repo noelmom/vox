@@ -133,7 +133,7 @@ vox/
 │   ├── run.sh                   # Manual foreground start (troubleshooting / dev)
 │   ├── build-apps.sh            # Build, sign, and package VoxHelper + VoxServer DMG
 │   ├── build-pkg.sh             # Build, sign, notarize, and staple the one-click installer package
-│   ├── release.sh               # Candidate build; guarded tag/push/upload only with explicit publish flag
+│   ├── release.sh               # Verified-candidate finalizer; guarded tag/push/upload only with explicit publish flag
 │   ├── write-build-info.sh      # Stamp VERSION + git commit + UTC build time
 │   ├── install-agent.sh         # Register server LaunchAgent with macOS launchd
 │   ├── uninstall-agent.sh       # Unload and remove the server LaunchAgent
@@ -577,7 +577,7 @@ sqlite3 ~/Library/Application\ Support/Vox/data/vox.db
 | Web UI | React 19 + TypeScript, Vite 6, Tailwind CSS v4, TanStack Router + Query |
 | Menu bar helper | Native Swift (AppKit `NSStatusItem`) — arm64 macOS only |
 | Process management | macOS launchd via LaunchAgent plists |
-| Packaging | Signed/notarized macOS `.dmg` and `.pkg` via `scripts/build-apps.sh`, `scripts/build-pkg.sh`, and `scripts/release.sh` |
+| Packaging | Signed/notarized macOS `.dmg` and `.pkg` via `scripts/build-apps.sh` and `scripts/build-pkg.sh`; `scripts/release.sh` finalizes a verified candidate |
 | CI | GitHub Actions: Ruff, codespell, pytest, TypeScript typecheck, Vite build, shell syntax |
 
 ---

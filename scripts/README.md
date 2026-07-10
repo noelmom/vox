@@ -61,7 +61,7 @@ The server prints its address and API docs URL on startup. Logs stream directly 
 | `uninstall-helper.sh` | Stop and remove the helper LaunchAgent. Icon disappears from menu bar. |
 | `run.sh` | Start the server manually in the foreground. Bypasses launchd entirely. |
 | `update.sh` | Pull latest changes + sync deps + re-register agents only when installed build differs. Supports `--force`, `--no-restart`, `--agent-only`, and `--helper-only`. |
-| `release.sh` | Release helper: prepares/signs/notarizes a candidate. It can only tag, push, or upload when explicitly invoked with `--publish` and `VOX_RELEASE_PUBLISH=1`. |
+| `release.sh` | Release finalizer: after a candidate package and appcast have passed hosted verification, it can tag, push, and create the GitHub release only with explicit approval. It never builds, signs, uploads, or changes an appcast. |
 | `appcast.py` | Renders and verifies local Sparkle stable/beta package appcast candidates. It cannot publish; it signs only a staged local package through the Keychain-backed Sparkle tool. |
 | `verify-package-candidate.sh` | Read-only package smoke check: verifies signature, Gatekeeper, stapling, required payload paths, and absence of protected runtime data. It never installs the package. |
 | `verify-published-candidate.sh` | Read-only HTTPS probe: binds a hosted appcast/package to immutable local candidate provenance, then verifies SHA-256, Sparkle signature, package signature, Gatekeeper, and stapling. |
@@ -121,15 +121,18 @@ bash scripts/prepare-release-candidate.sh 1.0.0-rc9 2026071001 2026070001 \
   /staging/1.0.0-rc9.md beta 2026-07-10T14:00:00Z
 ```
 
-That prepares local evidence only. To build/publish after explicit approval, use the guarded command shown below.
+That prepares local evidence only. Build/sign/notarize the package first, upload it to its immutable URL, run the package-only hosted probe, publish the appcast, and run the full hosted probe before finalization.
 
 The target is explicit because GitHub CLI repo inference can be unreliable after repo renames or redirects. To test releases against a fork, override it:
 
 ```bash
-RELEASE_REPO=owner/repo VOX_RELEASE_PUBLISH=1 bash scripts/release.sh 1.0.0-rc9 --publish
+RELEASE_REPO=owner/repo VOX_RELEASE_PUBLISH=1 \
+VOX_RELEASE_EVIDENCE=.release-candidates/1.0.0-rc9-2026071001 \
+VOX_RELEASE_APPCAST_URL=https://updates.example.com/vox/appcast.xml \
+bash scripts/release.sh 1.0.0-rc9 --publish
 ```
 
-GitHub Releases intentionally publish only `Vox-<version>.pkg`. `assets/Vox.dmg` is built and committed for the manual/script install path, but it is not uploaded as a release asset because it only contains the two app bundles and can confuse testers.
+GitHub Releases intentionally publish only `Vox-<version>.pkg`. `assets/Vox.dmg` is built for the manual/script install path, but it is not uploaded as a release asset because it only contains the two app bundles and can confuse testers.
 
 The script checks `gh auth status` again right before creating the GitHub release. If the signing/notarization flow waited on a keychain prompt for a while and GitHub upload fails, run `gh auth login -h github.com` and retry the release upload or rerun the release with a new version.
 

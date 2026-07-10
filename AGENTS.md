@@ -152,37 +152,37 @@ bash scripts/prepare-release-candidate.sh 0.5.4 2026071001 2026070001 \
   /staging/0.5.4.md stable 2026-07-10T14:00:00Z
 ```
 
-The guarded release script (used only after approval) currently:
+The guarded release script finalizes only an already built and verified candidate:
 
-1. Updates `VERSION`.
-2. Stamps `build_info.json`.
-3. Builds `ui-dist`.
-4. Commits release prep.
-5. Builds/signs/notarizes/staples `assets/Vox.dmg`.
-6. Builds/signs/notarizes/staples `assets/Vox-<version>.pkg`.
-7. Computes package size and SHA256.
-8. Updates public landing package metadata in `public-site/index.html`.
-9. Rebuilds `ui-dist`.
-10. Commits final release metadata.
-11. Stops before push/tag/publication unless a maintainer explicitly supplies both `--publish` and `VOX_RELEASE_PUBLISH=1`.
+1. Requires immutable candidate provenance for the current source commit.
+2. Re-probes the hosted package and live appcast against that provenance.
+3. Only then pushes the source branch, tags it, and creates the GitHub release when a maintainer explicitly supplies both `--publish` and `VOX_RELEASE_PUBLISH=1`.
+
+Build/sign/notarize/staple the DMG and package separately, prepare candidate evidence, upload and probe the package, then publish/probe the appcast before calling this finalizer. This ordering prevents a tag or release from being created before the live update path is valid.
 
 Publishing requires separate explicit authorization and uses:
 
 ```bash
-VOX_RELEASE_PUBLISH=1 bash scripts/release.sh 1.0.0-rc9 --publish
+VOX_RELEASE_PUBLISH=1 \
+VOX_RELEASE_EVIDENCE=.release-candidates/1.0.0-rc9-2026071001 \
+VOX_RELEASE_APPCAST_URL=https://updates.example.com/vox/appcast.xml \
+bash scripts/release.sh 1.0.0-rc9 --publish
 ```
 
 `scripts/release.sh` intentionally sets `RELEASE_REPO="${RELEASE_REPO:-noelmom/vox}"` and passes `--repo "$RELEASE_REPO"` to `gh release create`. Keep that explicit. After the project moved from `MeloLabDev/codename-vox` to `noelmom/vox`, relying on GitHub CLI repo inference caused intermittent `401 Unauthorized` failures during release creation even though `gh auth status` was valid. If testing a fork, override it explicitly:
 
 ```bash
-RELEASE_REPO=owner/repo VOX_RELEASE_PUBLISH=1 bash scripts/release.sh 1.0.0-rc9 --publish
+RELEASE_REPO=owner/repo VOX_RELEASE_PUBLISH=1 \
+VOX_RELEASE_EVIDENCE=.release-candidates/1.0.0-rc9-2026071001 \
+VOX_RELEASE_APPCAST_URL=https://updates.example.com/vox/appcast.xml \
+bash scripts/release.sh 1.0.0-rc9 --publish
 ```
 
 GitHub Releases should publish `Vox-<version>.pkg` only. `assets/Vox.dmg` is still built, signed, notarized, stapled, committed, and used by `vox.sh install` / manual local install flows, but do not upload it to public releases because it only contains the two app bundles and can confuse testers who need the one-click installer.
 
 The script re-runs `gh auth status` immediately before creating the GitHub release. This catches cases where the signing/notarization flow sat at a keychain prompt long enough for the final release upload to hit a stale/invalid GitHub CLI auth path.
 
-Required environment:
+Build/sign/notarize scripts require:
 
 ```bash
 KEYCHAIN_PASSWORD=...
