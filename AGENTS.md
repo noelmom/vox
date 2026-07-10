@@ -198,7 +198,7 @@ Required tools/certs:
 
 Important:
 
-- `scripts/build-apps.sh` calls `scripts/notarize.sh`, which commits and pushes `assets/Vox.dmg`.
+- `scripts/build-apps.sh` calls `scripts/notarize.sh`, which verifies the DMG locally but never commits, pushes, tags, uploads, or changes an appcast.
 - `.pkg` files are ignored and should be uploaded to GitHub Releases, not committed.
 - After building a `.pkg`, landing page checksum/size must match that exact file.
 
