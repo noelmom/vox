@@ -10,6 +10,8 @@ export const PREFERENCE_KEYS = [
   "vox:theme",
   "vox:widget.requests",
   "vox:widget.minutes",
+  "vox:update-channel",
+  "vox:auto-update-checks",
 ] as const;
 
 export type PreferenceKey = (typeof PREFERENCE_KEYS)[number];

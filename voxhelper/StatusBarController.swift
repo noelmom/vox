@@ -4,6 +4,7 @@ class StatusBarController: NSObject {
     private let item: NSStatusItem
     private let monitor: ServerMonitor
     private let updater: VoxUpdater
+    private var lastUpdaterPreferenceRefresh = Date.distantPast
     private var restartUntil: Date?
 
     private let statusItem  = NSMenuItem(title: "Stopped…",              action: nil, keyEquivalent: "")
@@ -92,6 +93,10 @@ class StatusBarController: NSObject {
 
     // ── State ──────────────────────────────────────────────────────────────
     private func apply(_ state: ServerState) {
+        if Date().timeIntervalSince(lastUpdaterPreferenceRefresh) > 30 {
+            lastUpdaterPreferenceRefresh = Date()
+            updater.refreshPreferences(from: URL(string: monitor.loopbackURL() + "/api/v1/preferences")!)
+        }
         let restarting = isRestarting(state: state)
         applyMenuBarIcon(running: state.running || restarting)
         statusItem.title    = restarting ? "Restarting…" : (state.running ? "Running…" : "Stopped…")

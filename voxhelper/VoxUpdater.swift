@@ -23,6 +23,19 @@ final class VoxUpdater: NSObject, SPUUpdaterDelegate {
         updaterController.checkForUpdates(nil)
     }
 
+    func refreshPreferences(from endpoint: URL) {
+        URLSession.shared.dataTask(with: endpoint) { [weak self] data, _, _ in
+            guard let self, let data,
+                  let values = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return }
+            let channel = values["vox:update-channel"] as? String
+            let automatic = values["vox:auto-update-checks"] as? Bool
+            DispatchQueue.main.async {
+                if let channel { UserDefaults.standard.set(channel, forKey: "vox.update-channel") }
+                if let automatic { self.updaterController.updater.automaticallyChecksForUpdates = automatic }
+            }
+        }.resume()
+    }
+
     func allowedChannels(for updater: SPUUpdater) -> Set<String> {
         UserDefaults.standard.string(forKey: "vox.update-channel") == "beta" ? ["beta"] : []
     }
@@ -44,5 +57,7 @@ final class VoxUpdater: NSObject {
         alert.addButton(withTitle: "OK")
         alert.runModal()
     }
+
+    func refreshPreferences(from endpoint: URL) {}
 }
 #endif

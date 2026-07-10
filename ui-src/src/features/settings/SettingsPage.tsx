@@ -811,7 +811,7 @@ export function SettingsPage() {
             onChange={(event) => {
               const next = event.target.value as "stable" | "beta";
               setUpdateChannel(next);
-              writeCachedPreference("vox:update-channel", next);
+              void savePreferences({ "vox:update-channel": next });
             }}
             className="h-10 rounded-lg border border-border bg-white px-3 text-[13px] font-semibold"
           >
@@ -820,7 +820,7 @@ export function SettingsPage() {
           </select>
         </Row>
         <Row label="Check automatically" hint="Vox Helper checks the selected Sparkle appcast; installation always requires your approval.">
-          <Toggle checked={automaticUpdates} onChange={(value) => { setAutomaticUpdates(value); writeCachedPreference("vox:auto-update-checks", value); }} />
+          <Toggle checked={automaticUpdates} onChange={(value) => { setAutomaticUpdates(value); void savePreferences({ "vox:auto-update-checks": value }); }} />
         </Row>
         <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border px-5 py-4">
           <div className="text-[12.5px] text-muted-foreground">Installed version <strong className="text-foreground">{server?.vox_version ?? "—"}</strong></div>
