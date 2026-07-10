@@ -87,7 +87,12 @@ ditto --norsrc "$ROOT/pkg-scripts/postinstall" "$PKG_SCRIPTS/postinstall"
 chmod +x "$PKG_SCRIPTS/preinstall"
 chmod +x "$PKG_SCRIPTS/postinstall"
 dot_clean -m "$PAYLOAD_ROOT"
+find "$PAYLOAD_ROOT" "$PKG_SCRIPTS" -name '._*' -type f -delete
 xattr -cr "$PAYLOAD_ROOT" "$PKG_SCRIPTS" 2>/dev/null || true
+# macOS can preserve provenance metadata as AppleDouble records in a flat PKG
+# even after a generic xattr clear. Remove it from the temporary payload so it
+# cannot become an unintended installed artifact.
+xattr -dr com.apple.provenance "$PAYLOAD_ROOT" "$PKG_SCRIPTS" 2>/dev/null || true
 
 info "Verifying staged app signatures…"
 codesign --verify --deep --strict "$PAYLOAD_ROOT/Applications/Vox/VoxHelper.app"

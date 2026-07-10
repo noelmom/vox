@@ -9,6 +9,7 @@ command -v pkgutil >/dev/null 2>&1 || fail "pkgutil is required on macOS"
 
 payload="$(pkgutil --payload-files "$PACKAGE" | sed 's#^\./##')"
 EXPANDED="$(mktemp -d "${TMPDIR:-/tmp}/vox-package-verify.XXXXXX")"
+rmdir "$EXPANDED"
 trap 'rm -rf "$EXPANDED"' EXIT
 pkgutil --expand-full "$PACKAGE" "$EXPANDED"
 require_path() {
@@ -22,7 +23,6 @@ reject_path() {
 
 require_path "Applications/Vox/VoxHelper.app/Contents/Info.plist"
 require_path "Applications/Vox/VoxServer.app/Contents/Info.plist"
-require_path "Applications/Vox/VoxHelper.app/Contents/Frameworks/Sparkle.framework/Versions/A/Sparkle"
 require_path "Library/Application Support/Vox/Bootstrap/vox.sh"
 require_path "Library/Application Support/Vox/Bootstrap/scripts/update.sh"
 require_path "Library/Application Support/Vox/Bootstrap/scripts/prepare-release-candidate.sh"
@@ -34,6 +34,11 @@ reject_path "Library/Application Support/Vox/.env"
 
 while IFS= read -r path; do
   [[ -n "$path" ]] || continue
+  if [[ "$(basename "$path")" == ._* && ! -e "$EXPANDED/Payload/$path" ]]; then
+    # Newer macOS versions expose provenance xattrs as virtual AppleDouble
+    # records in pkgutil output. They are not payload files after expansion.
+    continue
+  fi
   case "$path" in
     .|Applications|Applications/Vox|Library|"Library/Application Support"|\
     "Library/Application Support/Vox"|"Library/Application Support/Vox/Bootstrap"|\
@@ -41,6 +46,7 @@ while IFS= read -r path; do
     "Library/Application Support/Vox/Bootstrap/ui-dist"|\
     "Library/Application Support/Vox/Bootstrap/scripts"|\
     "Library/Application Support/Vox/Bootstrap/voices") ;;
+    Applications/Vox/VoxHelper.app|Applications/Vox/VoxServer.app|\
     Applications/Vox/VoxHelper.app/*|Applications/Vox/VoxServer.app/*) ;;
     "Library/Application Support/Vox/Bootstrap/vox.sh"|\
     "Library/Application Support/Vox/Bootstrap/setup.sh"|\
@@ -64,7 +70,10 @@ done <<<"$payload"
 FRAMEWORK="$EXPANDED/Payload/Applications/Vox/VoxHelper.app/Contents/Frameworks/Sparkle.framework"
 HELPER="$EXPANDED/Payload/Applications/Vox/VoxHelper.app/Contents/MacOS/VoxHelper"
 [[ -L "$FRAMEWORK/Versions/Current" ]] || fail "Sparkle framework Current symlink is missing"
-[[ "$(readlink "$FRAMEWORK/Versions/Current")" == "A" ]] || fail "Sparkle framework Current symlink must target A"
+CURRENT_FRAMEWORK_VERSION="$(readlink "$FRAMEWORK/Versions/Current")"
+[[ "$CURRENT_FRAMEWORK_VERSION" =~ ^[A-Za-z0-9._-]+$ && -d "$FRAMEWORK/Versions/$CURRENT_FRAMEWORK_VERSION" ]] \
+  || fail "Sparkle framework Current symlink has an invalid target"
+[[ -f "$FRAMEWORK/Versions/Current/Sparkle" ]] || fail "Sparkle framework executable is missing"
 [[ -f "$HELPER" ]] || fail "VoxHelper executable is missing from package payload"
 otool -L "$HELPER" | grep -Fq "@rpath/Sparkle.framework" \
   || fail "VoxHelper is not linked against Sparkle through @rpath"
