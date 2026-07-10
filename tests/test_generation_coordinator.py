@@ -74,6 +74,14 @@ class FakeEncoderProcess:
         self.joined = True
 
 
+class StubbornEncoderProcess(FakeEncoderProcess):
+    def terminate(self):
+        self.terminated = True
+
+    def kill(self):
+        pass
+
+
 @pytest.fixture
 async def generation_db(tmp_path, monkeypatch):
     db = await aiosqlite.connect(tmp_path / "jobs.db")
@@ -511,6 +519,41 @@ async def test_cleanup_failure_prevents_terminal_cancellation(generation_db, tmp
     assert row["error_code"] == "cleanup_failed"
     monkeypatch.setattr(generation_module.shutil, "rmtree", original_rmtree)
     await coordinator.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_stubborn_encoder_remains_nonterminal_and_retained(generation_db, tmp_path, monkeypatch):
+    db = generation_db
+    worker = FakeWorker([
+        WorkerEvent(kind="ready", device="cpu"),
+        WorkerEvent(kind="finished", request_id="job-1", sample_rate=24000, segment_paths=("dummy",), device="cpu"),
+    ])
+    encoder = StubbornEncoderProcess()
+    coordinator = GenerationCoordinator(
+        lambda: worker, output_dir=tmp_path, publication_timeout_s=0.01, terminate_grace_s=0
+    )
+    monkeypatch.setattr(coordinator, "_launch_encoder", lambda *_args: (encoder, Queue()))
+    await coordinator.start()
+    await db.execute("INSERT INTO jobs(request_id,status) VALUES('job-1','queued')")
+    await db.commit()
+    await coordinator.submit(request_for(tmp_path))
+    for _ in range(100):
+        if (await status_of(db))["error_code"] == "encoder_would_not_stop":
+            break
+        await asyncio.sleep(0.01)
+    row = await status_of(db)
+    assert row["status"] == "recovering"
+    assert coordinator._encoder_process is encoder
+    encoder.alive = False
+    await coordinator.shutdown()
+
+
+def test_publication_markers_are_purged_after_encoder_exit(tmp_path):
+    coordinator = GenerationCoordinator(lambda: FakeWorker([]), output_dir=tmp_path)
+    marker = tmp_path / ".publishing-job-1--audio.wav"
+    marker.write_bytes(b"private audio")
+    coordinator._purge_publication_markers("job-1")
+    assert not marker.exists()
 
 
 def test_api_generation_modules_do_not_import_model_runtime():

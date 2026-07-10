@@ -1,5 +1,7 @@
 import asyncio
 import multiprocessing
+import os
+import signal
 import shutil
 import time
 from dataclasses import dataclass
@@ -17,6 +19,10 @@ from api.core.logger import get_logger
 log = get_logger(__name__)
 TERMINAL_STATES = {"completed", "failed", "cancelled", "interrupted"}
 NONTERMINAL_STATES = {"queued", "processing", "cancelling", "encoding", "recovering"}
+
+
+class EncoderWouldNotStop(RuntimeError):
+    pass
 
 
 def _stitch_chunks(chunks: list[tuple[np.ndarray, float]], sample_rate: int) -> np.ndarray:
@@ -137,11 +143,12 @@ class GenerationCoordinator:
 
     async def shutdown(self) -> None:
         self._shutting_down = True
+        resources_stopped = True
         if self._active:
             await self._cas(self._active.request.request_id, NONTERMINAL_STATES, "cancelling", state_detail="Stopping for Vox shutdown…")
             self._active.cancelled.set()
-            await self._stop_worker()
-            await self._stop_encoder()
+            resources_stopped = await self._stop_worker() and resources_stopped
+            resources_stopped = await self._stop_encoder() and resources_stopped
         shutdown_deadline = time.monotonic() + self.shutdown_timeout_s
         timed_out_request_id: str | None = None
         if self._runner and self._active:
@@ -153,14 +160,15 @@ class GenerationCoordinator:
             self._runner.cancel()
             await asyncio.gather(self._runner, return_exceptions=True)
             self._runner = None
-        await self._stop_worker()
+        resources_stopped = await self._stop_worker() and resources_stopped
+        resources_stopped = await self._stop_encoder() and resources_stopped
         for request in list(self._requests.values()):
             if request.request_id == timed_out_request_id:
                 continue
-            await self._cleanup_request(request)
-            await self._cas(request.request_id, NONTERMINAL_STATES, "interrupted", error_code="server_shutdown", error="Vox stopped before generation completed.", terminal=True)
+            if await self._cleanup_or_recover(request):
+                await self._cas(request.request_id, NONTERMINAL_STATES, "interrupted", error_code="server_shutdown", error="Vox stopped before generation completed.", terminal=True)
         self._requests.clear()
-        self._state = "stopped"
+        self._state = "stopped" if resources_stopped else "error"
         self._ready = False
 
     async def submit(self, request: GenerationRequest) -> None:
@@ -183,7 +191,7 @@ class GenerationCoordinator:
                 request = self._requests.get(request_id)
                 try:
                     if request:
-                        await self._cleanup_request(request)
+                        await self._cleanup_or_recover(request)
                 except OSError:
                     await self._cas(request_id, {"queued"}, "recovering", error_code="cleanup_failed", error="Private generation files could not be removed; restart Vox to retry cleanup.")
                     return "recovering"
@@ -309,7 +317,8 @@ class GenerationCoordinator:
                 if not stopped:
                     await self._cas(request.request_id, {"cancelling"}, "cancelling", state_detail="Model worker did not stop; restart Vox before generating again.")
                     return
-                await self._cleanup_request(request)
+                if not await self._cleanup_or_recover(request):
+                    return
                 await self._finish_stopped_request(request.request_id)
                 await self._restart_worker()
                 return
@@ -348,7 +357,10 @@ class GenerationCoordinator:
         if failure_code:
             await self._cas(request.request_id, {"processing"}, "recovering", state_detail="Restarting the model worker…")
             stopped = await self._stop_worker()
-            await self._cleanup_request(request)
+            if not await self._cleanup_or_recover(request):
+                if stopped:
+                    await self._restart_worker()
+                return
             if cancelled.is_set():
                 await self._finish_stopped_request(request.request_id)
                 if stopped:
@@ -365,12 +377,14 @@ class GenerationCoordinator:
             if not stopped:
                 await self._cas(request.request_id, {"cancelling", "processing"}, "cancelling", state_detail="Model worker did not stop; restart Vox before generating again.")
                 return
-            await self._cleanup_request(request)
+            if not await self._cleanup_or_recover(request):
+                return
             await self._finish_stopped_request(request.request_id)
             await self._restart_worker()
             return
         if event is None or event.kind == "failed":
-            await self._cleanup_request(request)
+            if not await self._cleanup_or_recover(request):
+                return
             await self._cas(request.request_id, {"processing"}, "failed", error_code=(event.error_code if event else "generation_failed"), error=(event.detail if event else "Generation failed."), terminal=True)
             return
         await self._cas(request.request_id, {"processing"}, "encoding", state_detail="Encoding final audio…")
@@ -381,12 +395,15 @@ class GenerationCoordinator:
                 if not stopped:
                     await self._cas(request.request_id, {"cancelling"}, "cancelling", state_detail="Model worker did not stop; restart Vox before generating again.")
                     return
-                await self._cleanup_request(request)
+                if not await self._cleanup_or_recover(request):
+                    return
                 await self._finish_stopped_request(request.request_id)
                 await self._restart_worker()
+        except EncoderWouldNotStop:
+            await self._cas(request.request_id, {"encoding", "cancelling"}, "recovering", error_code="encoder_would_not_stop", error="The audio encoder could not be stopped safely. Restart Vox before generating again.")
         except Exception as exc:
-            await self._cleanup_request(request)
-            await self._cas(request.request_id, {"encoding"}, "failed", error_code="encoding_failed", error=str(exc), terminal=True)
+            if await self._cleanup_or_recover(request):
+                await self._cas(request.request_id, {"encoding"}, "failed", error_code="encoding_failed", error=str(exc), terminal=True)
 
     async def _publish(self, request: GenerationRequest, event: WorkerEvent) -> None:
         if not event.sample_rate or not event.segment_paths:
@@ -398,10 +415,14 @@ class GenerationCoordinator:
         result = None
         while result is None and process.is_alive():
             if (self._active and self._active.cancelled.is_set()) or self._shutting_down:
-                await self._stop_encoder()
+                if not await self._stop_encoder():
+                    raise EncoderWouldNotStop()
+                self._purge_publication_markers(request.request_id)
                 return
             if time.monotonic() >= deadline:
-                await self._stop_encoder()
+                if not await self._stop_encoder():
+                    raise EncoderWouldNotStop()
+                self._purge_publication_markers(request.request_id)
                 raise TimeoutError("Audio encoding timed out.")
             try:
                 result = await asyncio.to_thread(results.get, True, 0.2)
@@ -422,7 +443,6 @@ class GenerationCoordinator:
             request, event, marker_path, final_path,
             result["samples"], result["encode_s"], result["total_s"],
         )
-        await self._cleanup_request(request)
 
     def _launch_encoder(self, request: GenerationRequest, event: WorkerEvent):
         from api.core.generation_encoder import encoder_main
@@ -457,6 +477,7 @@ class GenerationCoordinator:
                 marker_path.unlink(missing_ok=True)
                 return
             marker_path.replace(final_path)
+            await self._cleanup_request(request)
             cursor = await db.execute(
                 """UPDATE jobs SET status='completed', state_detail='Audio is ready.', completed_at=datetime('now')
                WHERE request_id=? AND status='encoding' AND output_path=?""",
@@ -478,6 +499,25 @@ class GenerationCoordinator:
         if partial.exists():
             raise OSError(f"Could not remove generation partial directory: {partial}")
 
+    async def _cleanup_or_recover(self, request: GenerationRequest) -> bool:
+        try:
+            await self._cleanup_request(request)
+            return True
+        except OSError as exc:
+            await self._cas(
+                request.request_id, NONTERMINAL_STATES, "recovering",
+                error_code="cleanup_failed",
+                error=f"Private generation files could not be removed: {exc}",
+            )
+            return False
+
+    def _purge_publication_markers(self, request_id: str) -> None:
+        for marker in self.output_dir.glob(f".publishing-{request_id}--*"):
+            if marker.is_symlink():
+                marker.unlink(missing_ok=True)
+            else:
+                managed_path(self.output_dir, marker.name).unlink(missing_ok=True)
+
     def _request_partial(self, request: GenerationRequest) -> Path:
         path = managed_path(self.partial_root, request.request_id)
         if path != Path(request.partial_dir).resolve():
@@ -489,10 +529,24 @@ class GenerationCoordinator:
         if process is None:
             return True
         if process.is_alive():
-            process.terminate()
+            pid = getattr(process, "pid", None)
+            if pid:
+                try:
+                    os.killpg(pid, signal.SIGTERM)
+                except ProcessLookupError:
+                    process.terminate()
+            else:
+                process.terminate()
             await asyncio.to_thread(process.join, self.terminate_grace_s)
         if process.is_alive():
-            process.kill()
+            pid = getattr(process, "pid", None)
+            if pid:
+                try:
+                    os.killpg(pid, signal.SIGKILL)
+                except ProcessLookupError:
+                    process.kill()
+            else:
+                process.kill()
             await asyncio.to_thread(process.join, self.terminate_grace_s)
         if process.is_alive():
             self._state = "error"

@@ -13,6 +13,7 @@ from api.core.generation_protocol import GenerationRequest, WorkerEvent
 
 def encoder_main(request: GenerationRequest, event: WorkerEvent, output_dir_value: str, result_queue: Queue) -> None:
     try:
+        os.setsid()
         output_dir = Path(output_dir_value).resolve()
         partial_dir = managed_path(managed_path(output_dir, ".partial"), request.request_id)
         if partial_dir != Path(request.partial_dir).resolve():
@@ -52,3 +53,4 @@ def encoder_main(request: GenerationRequest, event: WorkerEvent, output_dir_valu
         result_queue.put({"ok": True, "marker": str(marker_path), "final": str(final_path), "samples": len(final_audio), "encode_s": encode_s, "total_s": total_s})
     except BaseException as exc:
         result_queue.put({"ok": False, "error": str(exc)})
+import os
