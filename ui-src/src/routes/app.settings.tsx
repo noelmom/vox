@@ -156,6 +156,11 @@ function SettingsPage() {
   const [saveFeedback, setSaveFeedback] = useState(false);
   const [confirmClear, setConfirmClear] = useState(false);
   const [confirmRevokeAll, setConfirmRevokeAll] = useState(false);
+  const [pendingCredentialRevoke, setPendingCredentialRevoke] = useState<{
+    id: string;
+    name: string;
+    kind: "session" | "token";
+  } | null>(null);
   const [pendingRestore, setPendingRestore] = useState<File | null>(null);
   const [backupFeedback, setBackupFeedback] = useState("");
   const [tokenName, setTokenName] = useState("");
@@ -233,7 +238,10 @@ function SettingsPage() {
 
   const revokeCredentialMutation = useMutation({
     mutationFn: revokeRemoteCredential,
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["remote-credentials"] }),
+    onSuccess: () => {
+      setPendingCredentialRevoke(null);
+      queryClient.invalidateQueries({ queryKey: ["remote-credentials"] });
+    },
   });
 
   const revokeAllMutation = useMutation({
@@ -421,11 +429,11 @@ function SettingsPage() {
             </InfoRow>
             <InfoRow label="Paired devices & API tokens" hint="Pair browsers from Vox Helper. Create scoped tokens for trusted local automation.">
               <div className="flex w-full max-w-2xl flex-col gap-3">
-                <div className="overflow-hidden rounded-xl border border-border bg-white">
+                <div className="divide-y divide-border border-y border-border">
                   {remoteCredentials.length === 0 ? (
                     <p className="px-3 py-3 text-[12px] text-muted-foreground">No paired devices or active API tokens.</p>
                   ) : remoteCredentials.map((credential) => (
-                    <div key={credential.id} className="flex flex-wrap items-center gap-2 border-b border-border px-3 py-2.5 last:border-b-0">
+                    <div key={credential.id} className="flex flex-wrap items-center gap-2 px-1 py-2.5">
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-[13px] font-semibold text-foreground">{credential.name}</p>
                         <p className="text-[11px] text-muted-foreground">
@@ -434,7 +442,11 @@ function SettingsPage() {
                       </div>
                       <button
                         type="button"
-                        onClick={() => revokeCredentialMutation.mutate(credential.id)}
+                        onClick={() => setPendingCredentialRevoke({
+                          id: credential.id,
+                          name: credential.name,
+                          kind: credential.kind,
+                        })}
                         disabled={revokeCredentialMutation.isPending}
                         className="rounded-lg border border-border px-2.5 py-1.5 text-[11.5px] font-semibold text-[var(--brand-warm)] hover:bg-muted disabled:opacity-50"
                       >
@@ -481,10 +493,10 @@ function SettingsPage() {
                   </button>
                 </div>
                 {issuedToken && (
-                  <div className="rounded-xl border border-[color-mix(in_oklch,var(--brand-secondary)_30%,white)] bg-[color-mix(in_oklch,var(--brand-secondary)_8%,white)] p-3">
+                  <div className="border-l-2 border-[var(--brand-secondary)] py-1 pl-3">
                     <p className="text-[12px] font-semibold">Copy this token now. Vox stores only its hash.</p>
                     <div className="mt-2 flex gap-2">
-                      <code className="min-w-0 flex-1 overflow-x-auto rounded-lg bg-white px-2.5 py-2 text-[11px]">{issuedToken}</code>
+                      <code className="min-w-0 flex-1 overflow-x-auto border-b border-border px-1 py-2 text-[11px]">{issuedToken}</code>
                       <button
                         type="button"
                         onClick={() => navigator.clipboard.writeText(issuedToken)}
@@ -860,6 +872,17 @@ function SettingsPage() {
           confirmLabel="Revoke all access"
           onCancel={() => setConfirmRevokeAll(false)}
           onConfirm={() => revokeAllMutation.mutate()}
+        />
+      )}
+      {pendingCredentialRevoke && (
+        <ConfirmDialog
+          title={`Revoke ${pendingCredentialRevoke.name}?`}
+          description={pendingCredentialRevoke.kind === "session"
+            ? "This browser will lose access immediately and must be paired again to reconnect."
+            : "This API token will stop working immediately and must be recreated to restore automation access."}
+          confirmLabel="Revoke access"
+          onCancel={() => setPendingCredentialRevoke(null)}
+          onConfirm={() => revokeCredentialMutation.mutate(pendingCredentialRevoke.id)}
         />
       )}
       {pendingRestore && (

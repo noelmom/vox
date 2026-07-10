@@ -76,14 +76,36 @@ test("mobile navigation remains available", async ({ page }) => {
 test("Settings confirms a destructive backup restore before uploading", async ({ page }) => {
   await installFakeApi(page);
   let restoreRequests = 0;
+  let revokeRequests = 0;
   await page.route("**/api/v1/backups/restore", (route) => {
     restoreRequests += 1;
     return route.fulfill({ json: { restored: true, voices_restored: 1, message: "Restored." } });
   });
+  await page.route("**/api/v1/auth/credentials**", (route) => {
+    if (route.request().method() === "DELETE") {
+      revokeRequests += 1;
+      return route.fulfill({ json: { revoked: true } });
+    }
+    return route.fulfill({
+      json: [{
+        id: "device-1",
+        kind: "session",
+        name: "Kitchen iPad",
+        scopes: ["admin"],
+        created_at: "2026-07-10T00:00:00Z",
+        expires_at: null,
+        last_used_at: null,
+      }],
+    });
+  });
   await page.goto("/app/settings");
 
   await expect(page.getByText("Paired devices & API tokens")).toBeVisible();
-  await expect(page.getByRole("button", { name: "Revoke all devices & tokens" })).toBeDisabled();
+  await page.getByRole("button", { name: "Revoke", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Revoke Kitchen iPad?" })).toBeVisible();
+  expect(revokeRequests).toBe(0);
+  await page.getByRole("button", { name: "Revoke access" }).click();
+  await expect.poll(() => revokeRequests).toBe(1);
 
   await page.locator('input[type="file"]').setInputFiles({
     name: "Vox-Backup.zip",
