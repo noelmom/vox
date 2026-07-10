@@ -144,13 +144,15 @@ bash scripts/run.sh
 
 ## Release Procedure
 
-Prepare a local release candidate (it does not push, tag, or publish):
+Prepare local, non-publishing appcast evidence from a staged package:
 
 ```bash
-bash scripts/release.sh 0.5.4-beta
+bash scripts/prepare-release-candidate.sh 0.5.4 2026071001 2026070001 \
+  /staging/Vox-0.5.4.pkg https://updates.example.com/vox/releases/Vox-0.5.4.pkg \
+  /staging/0.5.4.md stable 2026-07-10T14:00:00Z
 ```
 
-The candidate script currently:
+The guarded release script (used only after approval) currently:
 
 1. Updates `VERSION`.
 2. Stamps `build_info.json`.

@@ -1,8 +1,8 @@
 #!/bin/bash
 # Unified Vox release helper.
 #
-# Usage:
-#   bash scripts/release.sh 0.5.4-beta
+# Usage (publication only, requires explicit approval):
+#   VOX_RELEASE_PUBLISH=1 bash scripts/release.sh 0.5.4-beta --publish
 #
 # This script updates VERSION/changelog shell metadata, builds signed/notarized
 # DMG + pkg artifacts, updates the public-site package checksum, commits,
@@ -27,6 +27,7 @@ RELEASE_REPO="${RELEASE_REPO:-noelmom/vox}"
 [[ -n "$VERSION" ]] || fail "Version required, e.g. bash scripts/release.sh 0.5.4-beta"
 [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[A-Za-z0-9.-]+)?$ ]] || fail "Invalid version: $VERSION"
 [[ -z "$PUBLISH" || "$PUBLISH" == "--publish" ]] || fail "Unknown release mode: $PUBLISH"
+[[ "$PUBLISH" == "--publish" && "${VOX_RELEASE_PUBLISH:-}" == "1" ]] || fail "This command publishes. Prepare evidence with scripts/prepare-release-candidate.sh; publishing requires --publish and VOX_RELEASE_PUBLISH=1."
 
 cd "$ROOT"
 [[ -z "$(git status --porcelain)" ]] || fail "Working tree is dirty. Commit or stash changes first."
@@ -122,7 +123,6 @@ git add build_info.json public-site/index.html ui-dist assets/Vox.dmg
 git commit -m "docs: update $VERSION package metadata"
 
 info "Pushing branch and tag"
-[[ "$PUBLISH" == "--publish" && "${VOX_RELEASE_PUBLISH:-}" == "1" ]] || fail "Candidate prepared locally. Publishing is disabled unless invoked with --publish and VOX_RELEASE_PUBLISH=1."
 git push origin "$(git branch --show-current)"
 git tag -a "$TAG" -m "$RELEASE_LABEL"
 git push origin "$TAG"

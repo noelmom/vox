@@ -84,10 +84,12 @@ The private EdDSA key remains in the release operator's Keychain. Do not add it 
 `release.sh` creates GitHub releases against `noelmom/vox` by default. Versions with a suffix such as `-rc11` are marked as prereleases; plain versions such as `1.0.0` are public releases:
 
 ```bash
-bash scripts/release.sh 1.0.0-rc9
+bash scripts/prepare-release-candidate.sh 1.0.0-rc9 2026071001 2026070001 \
+  /staging/Vox-1.0.0-rc9.pkg https://updates.example.com/vox/releases/Vox-1.0.0-rc9.pkg \
+  /staging/1.0.0-rc9.md beta 2026-07-10T14:00:00Z
 ```
 
-That prepares a local candidate only. To publish after explicit approval, use the guarded command shown below.
+That prepares local evidence only. To build/publish after explicit approval, use the guarded command shown below.
 
 The target is explicit because GitHub CLI repo inference can be unreliable after repo renames or redirects. To test releases against a fork, override it:
 
