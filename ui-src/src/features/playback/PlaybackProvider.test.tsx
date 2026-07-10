@@ -1,6 +1,6 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { PlaybackProvider } from "./PlaybackProvider";
+import { PlaybackProvider, usePlayback } from "./PlaybackProvider";
 import { getJobAudio } from "@/lib/api";
 
 vi.mock("@/lib/api", async (load) => {
@@ -67,4 +67,29 @@ describe("PlaybackProvider", () => {
     fireEvent.click(screen.getByRole("button", { name: "Play" }));
     await waitFor(() => expect(getJobAudio).toHaveBeenCalledWith("restored"));
   });
+
+  it("keeps a fetched recording available when the media device rejects playback", async () => {
+    vi.mocked(HTMLMediaElement.prototype.play).mockRejectedValueOnce(new DOMException("device unavailable", "NotAllowedError"));
+    render(<PlaybackProvider><div /></PlaybackProvider>);
+    fireEvent(window, new CustomEvent("vox:play-job", { detail: { request_id: "retryable", text: "Retryable clip", voice_name: null, audio_duration_s: 8, file_available: true } }));
+    await waitFor(() => expect(getJobAudio).toHaveBeenCalledWith("retryable"));
+    expect(await screen.findByLabelText("Download audio")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Play" })).not.toBeDisabled();
+    expect(localStorage.getItem("vox:last-playback-item")).toContain('"file_available":true');
+  });
+
+  it("attributes loading to the newly requested recording", async () => {
+    let resolveAudio!: (blob: Blob) => void;
+    vi.mocked(getJobAudio).mockReturnValueOnce(new Promise((resolve) => { resolveAudio = resolve; }));
+    render(<PlaybackProvider><PendingRequest /></PlaybackProvider>);
+    fireEvent(window, new CustomEvent("vox:play-job", { detail: { request_id: "pending", text: "Pending clip", voice_name: null, audio_duration_s: 8, file_available: true } }));
+    await waitFor(() => expect(screen.getByText("pending")).toBeInTheDocument());
+    resolveAudio(new Blob(["audio"]));
+    await waitFor(() => expect(screen.getByText("none")).toBeInTheDocument());
+  });
 });
+
+function PendingRequest() {
+  const { pendingRequestId } = usePlayback();
+  return <div>{pendingRequestId ?? "none"}</div>;
+}

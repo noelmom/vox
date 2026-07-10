@@ -50,9 +50,9 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { type ApiVoice, type Job, getRuntimeStatus, listVoices, listPresets, listJobs, submitTTS, getJob, getJobAudio, savePreset, deletePreset, deleteJob, cancelJob, patchVoice, parseServerDate } from "@/lib/api";
+import { type ApiVoice, type Job, getRuntimeStatus, listVoices, listPresets, listJobs, submitTTS, getJob, savePreset, deletePreset, deleteJob, cancelJob, patchVoice, parseServerDate } from "@/lib/api";
 import { setGenerationState, type DurableGenerationState } from "@/lib/generation";
-import { notifyJobDeleted, notifyJobDeleteFailed, notifyJobDeleting, requestPlayback } from "@/features/playback/PlaybackProvider";
+import { notifyJobDeleted, notifyJobDeleteFailed, notifyJobDeleting, requestPlayback, usePlayback } from "@/features/playback/PlaybackProvider";
 import { hydrateCachedPreferences, savePreferences, writeCachedPreference } from "@/lib/preferences";
 import { tagStyle } from "@/lib/utils";
 import { BRAND, BRAND_GRADIENT, BRAND_SECONDARY, BRAND_WARM } from "@/lib/theme";
@@ -227,7 +227,7 @@ function presetToAdvanced(p: Record<string, number>): typeof ADVANCED_DEFAULTS {
   };
 }
 
-type GenResult = { job: Job; blob: Blob; url: string };
+type GenResult = { job: Job };
 
 type GenState =
   | { phase: "idle" }
@@ -303,8 +303,7 @@ function GeneratePage() {
   const [outputSort, setOutputSort] = useState<"desc" | "asc">("desc");
   const [filterOpen, setFilterOpen] = useState(false);
   const [filterQuery, setFilterQuery] = useState("");
-  const [activePlayerId, setActivePlayerId] = useState<string | null>(null);
-  const [visibleCount, setVisibleCount] = useState(5);
+  const [visibleCount, setVisibleCount] = useState(3);
   const [genState, setGenState] = useState<GenState>({ phase: "idle" });
   const [elapsed, setElapsed] = useState(0);
   const abortRef = useRef(false);
@@ -549,10 +548,8 @@ function GeneratePage() {
         if (cancelled) return;
 
         if (job.status === "completed") {
-          const blob = await getJobAudio(savedRequestId);
-          if (cancelled) return;
-          const url = URL.createObjectURL(blob);
-          setGenState({ phase: "done", result: { job, blob, url } });
+          setGenState({ phase: "done", result: { job } });
+          requestPlayback(job);
           setGenerationState({ phase: "done", requestId: savedRequestId });
           return;
         }
@@ -610,10 +607,7 @@ function GeneratePage() {
       }
 
       if (job.status === "completed") {
-        const blob = await getJobAudio(requestId);
-        if (stopped) return;
-        const url = URL.createObjectURL(blob);
-        setGenState({ phase: "done", result: { job, blob, url } });
+        setGenState({ phase: "done", result: { job } });
         // Promote a completed render into the single persistent player so it
         // remains available when the user navigates away from Create.
         requestPlayback(job);
@@ -674,9 +668,6 @@ function GeneratePage() {
     abortRef.current = false;
     activeRequestRef.current = null;
     setStopping(false);
-
-    // Revoke previous blob URL
-    if (genState.phase === "done") URL.revokeObjectURL(genState.result.url);
 
     generationStartedAtRef.current = Date.now();
     setElapsed(0);
@@ -755,7 +746,6 @@ function GeneratePage() {
       return;
     }
     notifyJobDeleted(genResult.job.request_id);
-    if (genResult.url.startsWith("blob:")) URL.revokeObjectURL(genResult.url);
     setGenState({ phase: "idle" });
     setGenerationState({ phase: "idle" });
     localStorage.removeItem(LAST_REQUEST_KEY);
@@ -1076,9 +1066,6 @@ function GeneratePage() {
             ) : genResult ? (
               <JobRow
                 job={genResult.job}
-                preloadedUrl={genResult.url}
-                activePlayerId={activePlayerId}
-                onActivate={setActivePlayerId}
                 onRegenerate={handleGenerate}
                 onDelete={handleDeleteCurrentResult}
               />
@@ -1146,9 +1133,6 @@ function GeneratePage() {
                   <JobRow
                     key={job.request_id}
                     job={job}
-                    preloadedUrl={genResult?.job.request_id === job.request_id ? genResult.url : undefined}
-                    activePlayerId={activePlayerId}
-                    onActivate={setActivePlayerId}
                     timelineStyle
                     isLatest={idx === 0 && outputSort === "desc"}
                     onRegenerate={() => setScript(job.text)}
@@ -2213,35 +2197,26 @@ function GenerationErrorState({
 
 function JobRow({
   job,
-  preloadedUrl,
-  activePlayerId,
-  onActivate,
   onRegenerate,
   onDelete,
   timelineStyle = false,
   isLatest = false,
 }: {
   job: Job;
-  preloadedUrl?: string;
-  activePlayerId: string | null;
-  onActivate: (id: string | null) => void;
   onRegenerate?: () => void;
   onDelete?: () => void;
   timelineStyle?: boolean;
   isLatest?: boolean;
 }) {
-  const audioRef = useRef<HTMLAudioElement>(null);
-  const onActivateRef = useRef(onActivate);
-  onActivateRef.current = onActivate;
-
-  const initialStatus = preloadedUrl ? "ready" : job.file_available === false ? "expired" : "idle";
-  const [fetchStatus, setFetchStatus] = useState<"idle" | "loading" | "ready" | "expired">(initialStatus);
-  const [blobUrl, setBlobUrl] = useState<string | undefined>(preloadedUrl);
-  const [playing, setPlaying] = useState(false);
-  const [progress, setProgress] = useState(0);
-  const [duration, setDuration] = useState(0);
-  const [volume, setVolume] = useState(0.8);
-  const [speed, setSpeed] = useState<number>(1);
+  const playback = usePlayback();
+  const active = playback.current?.request_id === job.request_id;
+  const unavailable = (active ? playback.current?.file_available : job.file_available) === false;
+  const fetchStatus = unavailable ? "expired" : playback.pendingRequestId === job.request_id ? "loading" : "ready";
+  const playing = active && playback.playing;
+  const progress = active ? playback.position : 0;
+  const duration = active ? playback.duration : 0;
+  const volume = playback.volume;
+  const speed = playback.rate;
   const [menuOpen, setMenuOpen] = useState(false);
   const [hover, setHover]     = useState<number | null>(null);
   const menuRef  = useRef<HTMLDivElement>(null);
@@ -2255,99 +2230,14 @@ function JobRow({
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, [menuOpen]);
-  const [muted, setMuted] = useState(false);
+  const muted = volume === 0;
   const [copied, setCopied] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
-  const [waveformBars, setWaveformBars] = useState<number[] | null>(null);
-
-  useEffect(() => {
-    if (preloadedUrl && fetchStatus !== "ready") {
-      setBlobUrl(preloadedUrl);
-      setFetchStatus("ready");
-    }
-  }, [preloadedUrl]);
-
-  // Decode audio into amplitude buckets whenever a blob URL becomes available
-  useEffect(() => {
-    if (!blobUrl) return;
-    let cancelled = false;
-    (async () => {
-      try {
-        const response = await fetch(blobUrl);
-        const arrayBuffer = await response.arrayBuffer();
-        const ctx = new AudioContext();
-        const audioBuffer = await ctx.decodeAudioData(arrayBuffer);
-        await ctx.close();
-        if (cancelled) return;
-
-        const BAR_COUNT = 48;
-        const data = audioBuffer.getChannelData(0);
-        const blockSize = Math.floor(data.length / BAR_COUNT);
-        const bars: number[] = [];
-        for (let i = 0; i < BAR_COUNT; i++) {
-          let peak = 0;
-          const start = i * blockSize;
-          for (let j = start; j < start + blockSize; j++) {
-            const abs = Math.abs(data[j]);
-            if (abs > peak) peak = abs;
-          }
-          bars.push(peak);
-        }
-        // Normalise to [0.08, 1] so bars are never invisible
-        const max = Math.max(...bars, 0.001);
-        setWaveformBars(bars.map((v) => Math.max(0.08, v / max)));
-      } catch {
-        // decode failure — stay on fallback sine bars
-      }
-    })();
-    return () => { cancelled = true; };
-  }, [blobUrl]);
-
-  // Pause when another player becomes active
-  useEffect(() => {
-    if (activePlayerId !== job.request_id && playing) {
-      setPlaying(false);
-    }
-  }, [activePlayerId, job.request_id]);
-
-  useEffect(() => {
-    const a = audioRef.current;
-    if (!a || !blobUrl) return;
-    const onTime = () => setProgress(a.currentTime);
-    const onDur = () => { if (isFinite(a.duration)) setDuration(a.duration); };
-    const onEnded = () => { setPlaying(false); setProgress(0); onActivateRef.current(null); };
-    a.addEventListener("timeupdate", onTime);
-    a.addEventListener("durationchange", onDur);
-    a.addEventListener("loadedmetadata", onDur);
-    a.addEventListener("ended", onEnded);
-    return () => {
-      a.removeEventListener("timeupdate", onTime);
-      a.removeEventListener("durationchange", onDur);
-      a.removeEventListener("loadedmetadata", onDur);
-      a.removeEventListener("ended", onEnded);
-    };
-  }, [blobUrl]);
-
-  useEffect(() => {
-    const a = audioRef.current;
-    if (!a) return;
-    if (playing) a.play().catch(() => setPlaying(false));
-    else a.pause();
-  }, [playing]);
-
-  useEffect(() => {
-    if (audioRef.current) audioRef.current.volume = muted ? 0 : volume;
-  }, [volume, muted]);
-
-  useEffect(() => {
-    if (audioRef.current) audioRef.current.playbackRate = speed;
-  }, [speed]);
-
   // Derived values needed by both the draw loop and JSX — declared before the draw loop
   const audioDuration = duration || (job.audio_duration_s ?? 0);
   const jobPeaks = useMemo(() => jobSpeechPeaks(300, job.request_id), [job.request_id]);
-  const peaks = waveformBars ?? jobPeaks;
+  const peaks = jobPeaks;
   useEffect(() => {
     const progressRatio = audioDuration > 0 ? progress / audioDuration : 0;
     const draw = () => {
@@ -2407,9 +2297,15 @@ function JobRow({
     return () => window.removeEventListener("resize", onResize);
   }, [peaks, progress, audioDuration, hover, fetchStatus]);
 
-  const handlePlayClick = async () => {
+  const handlePlayClick = () => {
     if (fetchStatus === "expired") return;
-    requestPlayback(job);
+    if (active && playing) {
+      playback.pause();
+    } else if (active) {
+      void playback.resume();
+    } else {
+      requestPlayback(job);
+    }
   };
 
   const handleCopyScript = async () => {
@@ -2553,12 +2449,11 @@ function JobRow({
           onMouseMove={(e) => { const r = e.currentTarget.getBoundingClientRect(); setHover(Math.min(1, Math.max(0, (e.clientX - r.left) / r.width))); }}
           onMouseLeave={() => setHover(null)}
           onClick={(e) => {
-            if (fetchStatus !== "ready") { handlePlayClick(); return; }
+            if (!active) { handlePlayClick(); return; }
             const r = e.currentTarget.getBoundingClientRect();
             const ratio = Math.min(1, Math.max(0, (e.clientX - r.left) / r.width));
             const t = ratio * audioDuration;
-            setProgress(t);
-            if (audioRef.current) audioRef.current.currentTime = t;
+            playback.seek(t);
           }}
           className={"relative block h-[88px] w-full " + (fetchStatus === "ready" ? "cursor-pointer" : fetchStatus !== "expired" ? "cursor-pointer" : "")}
         />
@@ -2574,8 +2469,8 @@ function JobRow({
       {fetchStatus !== "expired" && (
         <div className="flex flex-col gap-2 px-4 pb-3 pt-3 sm:flex-row sm:items-center sm:gap-3 sm:py-3">
           <div className="flex items-center gap-3">
-            <JobVolumeControl value={volume} muted={muted} onChange={(v) => { setVolume(v); setMuted(false); }} onToggleMute={() => setMuted((m) => !m)} />
-            <SpeedControl value={speed} onChange={setSpeed} />
+            <JobVolumeControl value={volume} muted={muted} onChange={playback.setVolume} onToggleMute={playback.toggleMute} />
+            <SpeedControl value={speed} onChange={playback.setRate} />
           </div>
           <div className="flex items-center gap-1 sm:ml-auto">
             <span className="mr-auto font-mono text-[11px] tabular-nums text-foreground/60 sm:mr-0">

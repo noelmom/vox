@@ -6,6 +6,8 @@ type PlaybackItem = Pick<Job, "request_id" | "text" | "voice_name" | "audio_dura
 type PlaybackContextValue = {
   current: PlaybackItem | null;
   playing: boolean;
+  loading: boolean;
+  pendingRequestId: string | null;
   position: number;
   duration: number;
   volume: number;
@@ -15,6 +17,7 @@ type PlaybackContextValue = {
   pause: () => void;
   seek: (seconds: number) => void;
   setVolume: (value: number) => void;
+  toggleMute: () => void;
   setRate: (value: number) => void;
   clear: () => void;
 };
@@ -27,11 +30,13 @@ export function PlaybackProvider({ children }: { children: React.ReactNode }) {
   const objectUrlRef = useRef<string | null>(null);
   const operationRef = useRef(0);
   const resumeAfterDeleteRef = useRef(false);
+  const lastAudibleVolumeRef = useRef(1);
   const [current, setCurrent] = useState<PlaybackItem | null>(() => {
     try { return JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "null") as PlaybackItem | null; } catch { return null; }
   });
   const [playing, setPlaying] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [pendingRequestId, setPendingRequestId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [position, setPosition] = useState(0);
   const [duration, setDuration] = useState(0);
@@ -50,6 +55,7 @@ export function PlaybackProvider({ children }: { children: React.ReactNode }) {
     setCurrent(null);
     setPlaying(false);
     setLoading(false);
+    setPendingRequestId(null);
     setPosition(0);
     setError(null);
     localStorage.removeItem(STORAGE_KEY);
@@ -61,6 +67,7 @@ export function PlaybackProvider({ children }: { children: React.ReactNode }) {
     revokeUrl();
     setPlaying(false);
     setLoading(true);
+    setPendingRequestId(job.request_id);
     setError(null);
     try {
       const blob = await getJobAudio(job.request_id);
@@ -91,7 +98,10 @@ export function PlaybackProvider({ children }: { children: React.ReactNode }) {
         setPlaying(false);
       }
     } finally {
-      if (operation === operationRef.current) setLoading(false);
+      if (operation === operationRef.current) {
+        setLoading(false);
+        setPendingRequestId(null);
+      }
     }
   }, [rate, revokeUrl, volume]);
   const resume = useCallback(async () => {
@@ -130,23 +140,28 @@ export function PlaybackProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => () => revokeUrl(), [revokeUrl]);
 
   const updateVolume = useCallback((value: number) => {
+    if (value > 0) lastAudibleVolumeRef.current = value;
     setVolume(value);
     localStorage.setItem("vox:player-volume", String(value));
     if (audioRef.current) audioRef.current.volume = value;
   }, []);
+  const toggleMute = useCallback(() => {
+    updateVolume(volume > 0 ? 0 : lastAudibleVolumeRef.current);
+  }, [updateVolume, volume]);
   const updateRate = useCallback((value: number) => {
     setRate(value);
     localStorage.setItem("vox:player-rate", String(value));
     if (audioRef.current) audioRef.current.playbackRate = value;
   }, []);
   const value = useMemo<PlaybackContextValue>(() => ({
-    current, playing, position, duration, volume, rate, play, resume,
+    current, playing, loading, pendingRequestId, position, duration, volume, rate, play, resume,
     pause: () => audioRef.current?.pause(),
     seek: (seconds) => { if (audioRef.current) audioRef.current.currentTime = Math.max(0, Math.min(seconds, duration || seconds)); },
     setVolume: updateVolume,
+    toggleMute,
     setRate: updateRate,
     clear,
-  }), [clear, current, duration, play, playing, position, rate, resume, updateRate, updateVolume, volume]);
+  }), [clear, current, duration, loading, pendingRequestId, play, playing, position, rate, resume, toggleMute, updateRate, updateVolume, volume]);
 
   return (
     <PlaybackContext.Provider value={value}>

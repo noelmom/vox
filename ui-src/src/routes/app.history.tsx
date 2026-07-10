@@ -450,7 +450,12 @@ function ClipCard({
   const failed = job.status === "failed";
   const initialFetchStatus = failed || job.file_available === false ? "expired" : "ready";
 
-  const [fetchStatus, setFetchStatus] = useState<"idle" | "loading" | "ready" | "expired">(initialFetchStatus);
+  const [storedFetchStatus, setFetchStatus] = useState<"idle" | "loading" | "ready" | "expired">(initialFetchStatus);
+  const fetchStatus = playback.pendingRequestId === job.request_id
+    ? "loading"
+    : globalActive && playback.current?.file_available === false
+      ? "expired"
+      : storedFetchStatus;
   const progress = globalActive ? playback.position : 0;
   const [hover, setHover] = useState<number | null>(null);
   const [expanded, setExpanded] = useState(false);

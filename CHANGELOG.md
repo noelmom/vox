@@ -50,6 +50,7 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## Unreleased
 
 ### Changed
+- Create and History recordings now use one persistent player, so playback, position, speed, and volume survive navigation.
 - Release automation now passes an explicit `--repo noelmom/vox` target to GitHub CLI while publishing only the signed PKG, avoiding repo-inference failures after the project rename without exposing the internal/manual-install DMG as a public release download.
 - Project identity cleanup: public repository/download references now target `noelmom/vox`, and LaunchAgent/bundle/package identifiers now use the `com.noelmom.vox*` namespace.
 
