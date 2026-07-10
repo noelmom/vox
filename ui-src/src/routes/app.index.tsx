@@ -752,7 +752,7 @@ function GeneratePage() {
   const filteredJobs = useMemo(() => {
     // Exclude the job currently shown in the Output card — it lives there, not here
     const currentId = genResult?.job.request_id;
-    let jobs = currentId ? sortedJobs.filter((j) => j.request_id !== currentId) : sortedJobs;
+    const jobs = currentId ? sortedJobs.filter((j) => j.request_id !== currentId) : sortedJobs;
     if (!filterQuery.trim()) return jobs;
     const q = filterQuery.toLowerCase();
     return jobs.filter(

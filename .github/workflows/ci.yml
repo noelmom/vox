@@ -45,13 +45,25 @@ jobs:
           node-version: "22"
 
       - name: Install frontend dependencies
-        run: npm install
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
 
       - name: Typecheck
         run: npm run typecheck
 
+      - name: Unit and accessibility tests
+        run: npm test
+
       - name: Build
         run: npm run build
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Browser tests
+        run: npm run test:e2e
 
   scripts:
     name: Shell scripts

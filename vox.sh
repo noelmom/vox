@@ -287,7 +287,8 @@ _source_id() {
 }
 
 _write_installed_version() {
-    local source_commit="$(_source_id)"
+    local source_commit
+    source_commit="$(_source_id)"
     local version="unknown"
     [[ -f "$ROOT/VERSION" ]] && version="$(tr -d '[:space:]' < "$ROOT/VERSION")"
     [[ -f "$VENV/bin/python3" ]] || return 0

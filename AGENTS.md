@@ -86,13 +86,22 @@ This split matters because web/server changes can ship without rebuilding native
 
 ## Common Development Commands
 
+Complete local CI (preferred before every push):
+
+```bash
+bash scripts/ci-local.sh
+bash scripts/ci-local.sh --clean  # release-sized handoffs / cache-independence check
+```
+
+Results, individual logs, and a machine-readable summary are written below `.ci/results/`. The clean mode removes only project-local CI caches and dependencies; it does not touch installed Vox data.
+
 Backend tests and lint:
 
 ```bash
 "$HOME/Library/Application Support/Vox/venv/bin/python3" -m pip install -r requirements-dev.txt
 "$HOME/Library/Application Support/Vox/venv/bin/python3" -m pytest
 "$HOME/Library/Application Support/Vox/venv/bin/python3" -m ruff check api tests
-"$HOME/Library/Application Support/Vox/venv/bin/codespell" --skip './.git,./assets,./data,./input,./outputs,./ui-dist,./ui-src/bun.lock,./ui-src/node_modules,./voices,./working-poc' .
+"$HOME/Library/Application Support/Vox/venv/bin/codespell" --skip './.git,./assets,./data,./input,./outputs,./ui-dist,./ui-src/bun.lock,./ui-src/package-lock.json,./ui-src/node_modules,./voices,./working-poc' .
 ```
 
 GitHub Actions installs `requirements-ci.txt` plus `requirements-dev.txt` for backend checks so CI does not download Torch/Chatterbox model dependencies just to run unit tests.
@@ -100,8 +109,12 @@ GitHub Actions installs `requirements-ci.txt` plus `requirements-dev.txt` for ba
 Frontend checks:
 
 ```bash
+npm ci --prefix ui-src
+npm run lint --prefix ui-src
 npm run typecheck --prefix ui-src
+npm run test --prefix ui-src
 npm run build --prefix ui-src
+npm run test:e2e --prefix ui-src
 ```
 
 Shell syntax:

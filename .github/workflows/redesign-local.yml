@@ -1,0 +1,19 @@
+name: Redesign local CI
+
+on:
+  push:
+    branches: [redesign]
+  workflow_dispatch:
+
+jobs:
+  local-ci:
+    name: Apple Silicon local runner
+    runs-on: [self-hosted, macOS, ARM64, vox-ci]
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          clean: true
+
+      - name: Run clean local CI
+        run: bash scripts/ci-local.sh --clean

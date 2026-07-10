@@ -8,11 +8,11 @@ Build the backend hardening, creative-workspace UI, Sparkle package updates, and
 
 **Blocked by:** None — can start immediately.
 
-- [ ] Commit the npm lockfile and switch automation to reproducible installs.
-- [ ] Add frontend lint, unit/component, accessibility, and deterministic browser-test foundations.
-- [ ] Add a local CI runner with normal and clean-cache modes plus machine-readable summaries.
-- [ ] Run CI on `redesign` pushes and pull requests without weakening existing `main` checks.
-- [ ] Preserve a clean generated UI tree and document the command in contributor/agent guidance.
+- [x] Commit the npm lockfile and switch automation to reproducible installs.
+- [x] Add frontend lint, unit/component, accessibility, and deterministic browser-test foundations.
+- [x] Add a local CI runner with normal and clean-cache modes plus machine-readable summaries.
+- [x] Run CI on `redesign` pushes and pull requests without weakening existing `main` checks.
+- [x] Preserve a clean generated UI tree and document the command in contributor/agent guidance.
 
 **Rollback point:** Tooling-only commit; reverting it restores the former commands without changing runtime behavior.
 
