@@ -61,7 +61,23 @@ The server prints its address and API docs URL on startup. Logs stream directly 
 | `uninstall-helper.sh` | Stop and remove the helper LaunchAgent. Icon disappears from menu bar. |
 | `run.sh` | Start the server manually in the foreground. Bypasses launchd entirely. |
 | `update.sh` | Pull latest changes + sync deps + re-register agents only when installed build differs. Supports `--force`, `--no-restart`, `--agent-only`, and `--helper-only`. |
-| `release.sh` | Unified release helper: stamps build info, builds/signs/notarizes DMG and PKG, updates landing metadata, tags, pushes, and uploads the PKG GitHub release asset. |
+| `release.sh` | Release helper: prepares/signs/notarizes a candidate. It can only tag, push, or upload when explicitly invoked with `--publish` and `VOX_RELEASE_PUBLISH=1`. |
+| `appcast.py` | Renders and verifies local Sparkle stable/beta package appcast candidates. It cannot publish; it signs only a staged local package through the Keychain-backed Sparkle tool. |
+
+### Sparkle appcast candidates
+
+Prepare packages and release notes first, then render the candidate locally. The package URL must already be the final immutable HTTPS location; this command never uploads or publishes anything.
+
+```bash
+python3 scripts/appcast.py render \
+  --version 1.2.3 --build 2026071001 --channel stable \
+  --package /staging/Vox-1.2.3.pkg \
+  --url https://updates.example.com/vox/releases/Vox-1.2.3.pkg \
+  --notes /staging/1.2.3.md --output /staging/appcast.xml
+python3 scripts/appcast.py verify --appcast /staging/appcast.xml --channel stable
+```
+
+The private EdDSA key remains in the release operator's Keychain. Do not add it to an environment variable, command line, appcast, or repository.
 
 ### Release repository target
 
@@ -71,10 +87,12 @@ The server prints its address and API docs URL on startup. Logs stream directly 
 bash scripts/release.sh 1.0.0-rc9
 ```
 
+That prepares a local candidate only. To publish after explicit approval, use the guarded command shown below.
+
 The target is explicit because GitHub CLI repo inference can be unreliable after repo renames or redirects. To test releases against a fork, override it:
 
 ```bash
-RELEASE_REPO=owner/repo bash scripts/release.sh 1.0.0-rc9
+RELEASE_REPO=owner/repo VOX_RELEASE_PUBLISH=1 bash scripts/release.sh 1.0.0-rc9 --publish
 ```
 
 GitHub Releases intentionally publish only `Vox-<version>.pkg`. `assets/Vox.dmg` is built and committed for the manual/script install path, but it is not uploaded as a release asset because it only contains the two app bundles and can confuse testers.

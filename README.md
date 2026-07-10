@@ -133,7 +133,7 @@ vox/
 │   ├── run.sh                   # Manual foreground start (troubleshooting / dev)
 │   ├── build-apps.sh            # Build, sign, and package VoxHelper + VoxServer DMG
 │   ├── build-pkg.sh             # Build, sign, notarize, and staple the one-click installer package
-│   ├── release.sh               # Unified release: version, build, notarize, tag, upload
+│   ├── release.sh               # Candidate build; guarded tag/push/upload only with explicit publish flag
 │   ├── write-build-info.sh      # Stamp VERSION + git commit + UTC build time
 │   ├── install-agent.sh         # Register server LaunchAgent with macOS launchd
 │   ├── uninstall-agent.sh       # Unload and remove the server LaunchAgent

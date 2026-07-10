@@ -144,13 +144,13 @@ bash scripts/run.sh
 
 ## Release Procedure
 
-Preferred release command:
+Prepare a local release candidate (it does not push, tag, or publish):
 
 ```bash
 bash scripts/release.sh 0.5.4-beta
 ```
 
-The release script:
+The candidate script currently:
 
 1. Updates `VERSION`.
 2. Stamps `build_info.json`.
@@ -162,13 +162,18 @@ The release script:
 8. Updates public landing package metadata in `public-site/index.html`.
 9. Rebuilds `ui-dist`.
 10. Commits final release metadata.
-11. Pushes branch and tag.
-12. Creates the GitHub release on `noelmom/vox` and uploads only the PKG. Versions with a suffix such as `-rc11` are marked as prereleases; plain versions such as `1.0.0` are public releases.
+11. Stops before push/tag/publication unless a maintainer explicitly supplies both `--publish` and `VOX_RELEASE_PUBLISH=1`.
+
+Publishing requires separate explicit authorization and uses:
+
+```bash
+VOX_RELEASE_PUBLISH=1 bash scripts/release.sh 1.0.0-rc9 --publish
+```
 
 `scripts/release.sh` intentionally sets `RELEASE_REPO="${RELEASE_REPO:-noelmom/vox}"` and passes `--repo "$RELEASE_REPO"` to `gh release create`. Keep that explicit. After the project moved from `MeloLabDev/codename-vox` to `noelmom/vox`, relying on GitHub CLI repo inference caused intermittent `401 Unauthorized` failures during release creation even though `gh auth status` was valid. If testing a fork, override it explicitly:
 
 ```bash
-RELEASE_REPO=owner/repo bash scripts/release.sh 1.0.0-rc9
+RELEASE_REPO=owner/repo VOX_RELEASE_PUBLISH=1 bash scripts/release.sh 1.0.0-rc9 --publish
 ```
 
 GitHub Releases should publish `Vox-<version>.pkg` only. `assets/Vox.dmg` is still built, signed, notarized, stapled, committed, and used by `vox.sh install` / manual local install flows, but do not upload it to public releases because it only contains the two app bundles and can confuse testers who need the one-click installer.

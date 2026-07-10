@@ -22,9 +22,11 @@ fail()    { echo -e "${RED}[release] ✗${RESET} $*"; exit 1; }
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 VERSION="${1:-}"
+PUBLISH="${2:-}"
 RELEASE_REPO="${RELEASE_REPO:-noelmom/vox}"
 [[ -n "$VERSION" ]] || fail "Version required, e.g. bash scripts/release.sh 0.5.4-beta"
 [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[A-Za-z0-9.-]+)?$ ]] || fail "Invalid version: $VERSION"
+[[ -z "$PUBLISH" || "$PUBLISH" == "--publish" ]] || fail "Unknown release mode: $PUBLISH"
 
 cd "$ROOT"
 [[ -z "$(git status --porcelain)" ]] || fail "Working tree is dirty. Commit or stash changes first."
@@ -120,6 +122,7 @@ git add build_info.json public-site/index.html ui-dist assets/Vox.dmg
 git commit -m "docs: update $VERSION package metadata"
 
 info "Pushing branch and tag"
+[[ "$PUBLISH" == "--publish" && "${VOX_RELEASE_PUBLISH:-}" == "1" ]] || fail "Candidate prepared locally. Publishing is disabled unless invoked with --publish and VOX_RELEASE_PUBLISH=1."
 git push origin "$(git branch --show-current)"
 git tag -a "$TAG" -m "$RELEASE_LABEL"
 git push origin "$TAG"
