@@ -26,11 +26,27 @@ provenance_value() {
 [[ -z "$(git -C "$ROOT" status --porcelain)" ]] || fail "working tree is dirty"
 
 cd "$ROOT"
+[[ "$(git branch --show-current)" == "redesign" ]] \
+  || fail "release finalization is restricted to the redesign branch until explicit merge approval"
 [[ "$(provenance_value version)" == "$VERSION" ]] || fail "candidate version does not match requested release"
 [[ "$(provenance_value source_commit)" == "$(git rev-parse HEAD)" ]] \
   || fail "candidate was not built from the current commit"
 PACKAGE="$EVIDENCE/Vox-${VERSION}.pkg"
 [[ -f "$PACKAGE" ]] || fail "candidate package is missing: $PACKAGE"
+[[ -f "$EVIDENCE/evidence.sha256" ]] || fail "candidate integrity manifest is missing"
+(cd "$EVIDENCE" && shasum -a 256 -c evidence.sha256 >/dev/null) \
+  || fail "candidate evidence no longer matches its integrity manifest"
+package_probe_found=false
+for probe in "$EVIDENCE"/hosted-probe.*; do
+  [[ -f "$probe" ]] || continue
+  if rg -Fq '"phase":"package"' "$probe" && \
+     rg -Fq "\"package_url\":\"$(provenance_value package_url)\"" "$probe" && \
+     rg -Fq "\"package_sha256\":\"$(provenance_value package_sha256)\"" "$probe"; then
+    package_probe_found=true
+    break
+  fi
+done
+$package_probe_found || fail "a matching hosted package-only probe is required before appcast finalization"
 
 # This is intentionally before every tag, push, or GitHub mutation. It proves
 # the hosted package matches the candidate provenance and that the appcast was

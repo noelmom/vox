@@ -75,4 +75,9 @@ appcast_length=$APPCAST_LENGTH
 source_commit=$(git -C "$ROOT" rev-parse HEAD)
 sparkle_version=$(grep -A6 '"identity" : "sparkle"' "$ROOT/Package.resolved" | grep '"version"' | tr -d ' ,"' | cut -d: -f2)
 EOF
+(
+  cd "$EVIDENCE"
+  shasum -a 256 "$(basename "$PACKAGE")" appcast.xml release-notes.md provenance.txt > evidence.sha256
+  chmod a-w "$(basename "$PACKAGE")" appcast.xml release-notes.md provenance.txt evidence.sha256
+)
 echo "Candidate evidence written to $EVIDENCE (not published)."

@@ -69,9 +69,11 @@ def existing_items(appcast: Path | None, build: str) -> list[ET.Element]:
         root = ET.parse(appcast).getroot()
     except (OSError, ET.ParseError) as error:
         fail(f"invalid --existing-appcast: {error}")
+    if root.find("./channel") is None:
+        fail("--existing-appcast needs an RSS channel")
     items = root.findall("./channel/item")
-    if not items:
-        fail("--existing-appcast needs at least one channel item")
+    if items:
+        verify_file(appcast, None, None, None)
     highest_build = 0
     for item in items:
         existing_build = item.findtext(f"{{{SPARKLE}}}version")
@@ -175,6 +177,37 @@ def verify_file(
     items = root.findall("./channel/item")
     if not items:
         fail("appcast needs one channel item")
+    seen_builds: set[str] = set()
+    for candidate in items:
+        candidate_build = candidate.findtext(f"{{{SPARKLE}}}version")
+        candidate_version = candidate.findtext(f"{{{SPARKLE}}}shortVersionString")
+        candidate_channel = candidate.findtext(f"{{{SPARKLE}}}channel") or "stable"
+        candidate_enclosure = candidate.find("enclosure")
+        if not candidate_build or not candidate_build.isdecimal() or int(candidate_build) <= 0:
+            fail("invalid sparkle build number")
+        if candidate_build in seen_builds:
+            fail("appcast contains duplicate sparkle build numbers")
+        seen_builds.add(candidate_build)
+        if not candidate_version or not SEMVER.match(candidate_version):
+            fail("invalid short version")
+        if candidate_channel not in {"stable", "beta"}:
+            fail("channel must be stable or beta")
+        if candidate_enclosure is None:
+            fail("missing package enclosure")
+        valid_url(candidate_enclosure.get("url", ""), candidate_version)
+        if not candidate_enclosure.get(f"{{{SPARKLE}}}edSignature", ""):
+            fail("missing Sparkle EdDSA signature")
+        try:
+            candidate_length = int(candidate_enclosure.get("length", "0"))
+        except ValueError:
+            fail("invalid enclosure length")
+        if candidate_length <= 0:
+            fail("invalid enclosure length")
+        relevant_channel = candidate_channel == expected_channel or (
+            expected_channel == "beta" and candidate_channel == "stable"
+        )
+        if expected_build is not None and relevant_channel and int(candidate_build) > int(expected_build):
+            fail("appcast contains a newer update in the selected channel")
     item = next(
         (candidate for candidate in items if candidate.findtext(f"{{{SPARKLE}}}version") == expected_build),
         None,

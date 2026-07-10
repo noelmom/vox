@@ -122,3 +122,40 @@ def test_merge_preserves_stable_items_when_adding_a_beta_item(tmp_path: Path) ->
     assert text.count("<item>") == 2
     subprocess.run([sys.executable, str(TOOL), "verify", "--appcast", str(merged), "--channel", "beta", "--build", "11"], check=True)
     subprocess.run([sys.executable, str(TOOL), "verify", "--appcast", str(merged), "--channel", "stable", "--build", "10"], check=True)
+
+
+def test_merge_accepts_the_empty_repository_feed(tmp_path: Path) -> None:
+    empty_feed = tmp_path / "empty-appcast.xml"
+    empty_feed.write_text('<?xml version="1.0" encoding="UTF-8"?>\n<rss version="2.0"><channel><title>Vox updates</title></channel></rss>\n', encoding="utf-8")
+    package = tmp_path / "Vox-1.2.3.pkg"
+    package.write_bytes(b"package fixture")
+    notes = tmp_path / "notes.md"
+    notes.write_text("- First update\n", encoding="utf-8")
+    output = tmp_path / "appcast.xml"
+    subprocess.run([
+        sys.executable, str(TOOL), "render", "--version", "1.2.3", "--build", "2", "--previous-build", "1",
+        "--published-at", "2026-07-10T13:00:00Z", "--package", str(package),
+        "--url", "https://github.com/noelmom/vox/releases/download/v1.2.3/Vox-1.2.3.pkg", "--notes", str(notes),
+        "--output", str(output), "--existing-appcast", str(empty_feed), "--fixture", "--signature", "fixture-signature",
+    ], check=True)
+    subprocess.run([sys.executable, str(TOOL), "verify", "--appcast", str(output), "--build", "2"], check=True)
+
+
+def test_verify_rejects_a_stale_selected_item_when_a_newer_stable_item_exists(tmp_path: Path) -> None:
+    first = render(tmp_path, build="10")
+    package = tmp_path / "Vox-1.2.4.pkg"
+    package.write_bytes(b"newer stable package")
+    notes = tmp_path / "newer-notes.md"
+    notes.write_text("- Newer stable\n", encoding="utf-8")
+    merged = tmp_path / "merged-stable.xml"
+    subprocess.run([
+        sys.executable, str(TOOL), "render", "--version", "1.2.4", "--build", "11", "--previous-build", "10",
+        "--published-at", "2026-07-10T14:00:00Z", "--package", str(package),
+        "--url", "https://updates.example.test/vox/releases/Vox-1.2.4.pkg", "--notes", str(notes),
+        "--output", str(merged), "--existing-appcast", str(first), "--fixture", "--signature", "fixture-signature",
+    ], check=True)
+    failed = subprocess.run([
+        sys.executable, str(TOOL), "verify", "--appcast", str(merged), "--channel", "stable", "--build", "10",
+    ], capture_output=True, text=True)
+    assert failed.returncode != 0
+    assert "newer update in the selected channel" in failed.stderr

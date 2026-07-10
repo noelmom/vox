@@ -96,7 +96,7 @@ cat > "$HELPER_APP/Contents/Info.plist" <<EOF
   <key>VoxBuiltAt</key><string>$BUILD_DATE</string>
   <key>LSUIElement</key><true/>
   <key>LSMinimumSystemVersion</key><string>13.0</string>
-  <key>SUFeedURL</key><string>https://updates.noelmom.com/vox/appcast.xml</string>
+  <key>SUFeedURL</key><string>https://raw.githubusercontent.com/noelmom/vox/main/updates/appcast.xml</string>
   <key>SUPublicEDKey</key><string>$SPARKLE_PUBLIC_KEY</string>
   <key>SUEnableAutomaticChecks</key><true/>
   <key>SUAutomaticallyUpdate</key><false/>
