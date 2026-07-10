@@ -3,15 +3,26 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-PACKAGE_URL="${1:-}"
+cd "$ROOT"
+EVIDENCE="${1:-}"
 APPCAST_URL="${2:-}"
-VERSION="${3:-}"
-BUILD="${4:-}"
-CHANNEL="${5:-stable}"
 
 fail() { echo "published-candidate: $*" >&2; exit 1; }
-[[ -n "$PACKAGE_URL" && -n "$APPCAST_URL" && -n "$VERSION" && -n "$BUILD" ]] \
-  || fail "usage: $0 PACKAGE_URL APPCAST_URL VERSION BUILD [stable|beta]"
+[[ -n "$EVIDENCE" && -n "$APPCAST_URL" ]] \
+  || fail "usage: $0 /path/to/candidate-evidence https://updates.example.com/vox/appcast.xml"
+[[ -d "$EVIDENCE" && -f "$EVIDENCE/provenance.txt" ]] \
+  || fail "candidate provenance not found: $EVIDENCE/provenance.txt"
+provenance_value() {
+  local key="$1"
+  awk -F= -v key="$key" '$1 == key { print substr($0, length(key) + 2); exit }' "$EVIDENCE/provenance.txt"
+}
+VERSION="$(provenance_value version)"
+BUILD="$(provenance_value build)"
+CHANNEL="$(provenance_value channel)"
+PACKAGE_URL="$(provenance_value package_url)"
+EXPECTED_SHA256="$(provenance_value package_sha256)"
+[[ -n "$VERSION" && -n "$BUILD" && -n "$CHANNEL" && -n "$PACKAGE_URL" && -n "$EXPECTED_SHA256" ]] \
+  || fail "candidate provenance is incomplete"
 [[ "$CHANNEL" == "stable" || "$CHANNEL" == "beta" ]] || fail "channel must be stable or beta"
 [[ "$PACKAGE_URL" == https://* && "$APPCAST_URL" == https://* ]] \
   || fail "package and appcast URLs must use HTTPS"
@@ -32,10 +43,16 @@ download() {
 
 download "$PACKAGE_URL" "$PACKAGE"
 download "$APPCAST_URL" "$APPCAST"
+ACTUAL_SHA256="$(shasum -a 256 "$PACKAGE" | awk '{print $1}')"
+[[ "$ACTUAL_SHA256" == "$EXPECTED_SHA256" ]] \
+  || fail "hosted package SHA-256 does not match candidate provenance"
 
 python3 "$ROOT/scripts/appcast.py" verify \
   --appcast "$APPCAST" --package "$PACKAGE" --channel "$CHANNEL" \
   --build "$BUILD" --package-url "$PACKAGE_URL" --verify-signature
 
 bash "$ROOT/scripts/verify-package-candidate.sh" "$PACKAGE"
-echo "published-candidate: hosted package and appcast passed verification"
+PROBE="$EVIDENCE/hosted-probe-$(date -u +%Y%m%dT%H%M%SZ).json"
+printf '{"state":"passed","verified_at":"%s","appcast_url":"%s","package_url":"%s","package_sha256":"%s"}\n' \
+  "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$APPCAST_URL" "$PACKAGE_URL" "$ACTUAL_SHA256" > "$PROBE"
+echo "published-candidate: hosted package and appcast passed verification; evidence: $PROBE"

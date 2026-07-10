@@ -30,5 +30,6 @@ pkgutil --check-signature "$PACKAGE"
 if command -v spctl >/dev/null 2>&1; then
   spctl --assess --type install --verbose "$PACKAGE"
 fi
+xcrun stapler validate "$PACKAGE"
 
-echo "package-verify: payload, signature, and protected-data boundaries passed"
+echo "package-verify: payload, signature, stapling, and protected-data boundaries passed"

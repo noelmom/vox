@@ -63,7 +63,8 @@ The server prints its address and API docs URL on startup. Logs stream directly 
 | `update.sh` | Pull latest changes + sync deps + re-register agents only when installed build differs. Supports `--force`, `--no-restart`, `--agent-only`, and `--helper-only`. |
 | `release.sh` | Release helper: prepares/signs/notarizes a candidate. It can only tag, push, or upload when explicitly invoked with `--publish` and `VOX_RELEASE_PUBLISH=1`. |
 | `appcast.py` | Renders and verifies local Sparkle stable/beta package appcast candidates. It cannot publish; it signs only a staged local package through the Keychain-backed Sparkle tool. |
-| `verify-package-candidate.sh` | Read-only package smoke check: verifies signature/Gatekeeper, required payload paths, and absence of protected runtime data. It never installs the package. |
+| `verify-package-candidate.sh` | Read-only package smoke check: verifies signature, Gatekeeper, stapling, required payload paths, and absence of protected runtime data. It never installs the package. |
+| `verify-published-candidate.sh` | Read-only HTTPS probe: binds a hosted appcast/package to immutable local candidate provenance, then verifies SHA-256, Sparkle signature, package signature, Gatekeeper, and stapling. |
 
 ### Sparkle appcast candidates
 
@@ -93,10 +94,13 @@ checks the candidate; it never uploads, tags, or publishes.
 
 ```bash
 bash scripts/verify-published-candidate.sh \
-  https://updates.example.com/vox/releases/Vox-1.2.3.pkg \
-  https://updates.example.com/vox/appcast.xml \
-  1.2.3 2026071001 stable
+  .release-candidates/1.2.3-2026071001 \
+  https://updates.example.com/vox/appcast.xml
 ```
+
+The probe takes the exact package URL, version, build, channel, and SHA-256
+from the candidate's provenance record and archives a timestamped successful
+probe alongside that record. Candidate evidence cannot be overwritten.
 
 ### Release repository target
 

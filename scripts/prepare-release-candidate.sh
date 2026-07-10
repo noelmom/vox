@@ -3,6 +3,7 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+cd "$ROOT"
 VERSION="${1:-}"
 BUILD="${2:-}"
 PREVIOUS_BUILD="${3:-}"
@@ -24,6 +25,7 @@ fail() { echo "candidate: $*" >&2; exit 1; }
 bash "$ROOT/scripts/verify-package-candidate.sh" "$PACKAGE"
 
 EVIDENCE="$ROOT/.release-candidates/${VERSION}-${BUILD}"
+[[ ! -e "$EVIDENCE" ]] || fail "candidate evidence already exists: $EVIDENCE"
 mkdir -p "$EVIDENCE"
 cp "$NOTES" "$EVIDENCE/release-notes.md"
 cp "$PACKAGE" "$EVIDENCE/$(basename "$PACKAGE")"
