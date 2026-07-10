@@ -25,6 +25,7 @@ Produce an approved, implementation-ready specification and dependency-ordered e
 <!-- Resolution pointers are appended here as tickets close. -->
 
 - [Define the local and LAN trust model](01-define-local-and-lan-trust-model.md) — keep loopback frictionless but cross-origin protected; require short-lived pairing and revocable scoped credentials for the full LAN Studio and API.
+- [Design a cancellation-safe generation lifecycle](02-design-cancellation-safe-generation-lifecycle.md) — isolate Chatterbox in one supervised subprocess; cancellation and timeout kill and reap that owner before terminal state or replacement, while the coordinator owns durable queueing and atomic output publication.
 
 ## Not yet specified
 
