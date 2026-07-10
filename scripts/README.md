@@ -63,6 +63,7 @@ The server prints its address and API docs URL on startup. Logs stream directly 
 | `update.sh` | Pull latest changes + sync deps + re-register agents only when installed build differs. Supports `--force`, `--no-restart`, `--agent-only`, and `--helper-only`. |
 | `release.sh` | Release helper: prepares/signs/notarizes a candidate. It can only tag, push, or upload when explicitly invoked with `--publish` and `VOX_RELEASE_PUBLISH=1`. |
 | `appcast.py` | Renders and verifies local Sparkle stable/beta package appcast candidates. It cannot publish; it signs only a staged local package through the Keychain-backed Sparkle tool. |
+| `verify-package-candidate.sh` | Read-only package smoke check: verifies signature/Gatekeeper, required payload paths, and absence of protected runtime data. It never installs the package. |
 
 ### Sparkle appcast candidates
 
@@ -78,6 +79,12 @@ python3 scripts/appcast.py verify --appcast /staging/appcast.xml --channel stabl
 ```
 
 The private EdDSA key remains in the release operator's Keychain. Do not add it to an environment variable, command line, appcast, or repository.
+
+Before an installer smoke test, inspect the final staged package without installing it:
+
+```bash
+bash scripts/verify-package-candidate.sh /staging/Vox-1.2.3.pkg
+```
 
 ### Release repository target
 
