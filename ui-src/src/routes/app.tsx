@@ -16,9 +16,9 @@ import {
 import voxLogo from "@/assets/vox-logo-app.png";
 import voxIcon from "@/assets/vox-icon-2.png";
 import voxLogoDark from "@/assets/vox-logo-dark-trim.png";
-import { getAlerts, getStats, getServerSettings, healthCheck, type Stats, type ServerSettings, type SystemAlert } from "@/lib/api";
+import { getAlerts, getJob, getStats, getServerSettings, healthCheck, type Job, type Stats, type ServerSettings, type SystemAlert } from "@/lib/api";
 import { cancelJob } from "@/lib/api";
-import { getGenerationState, subscribeGenerationState, type GenerationStatus } from "@/lib/generation";
+import { getGenerationState, setGenerationState, subscribeGenerationState, type DurableGenerationState, type GenerationStatus } from "@/lib/generation";
 
 export const Route = createFileRoute("/app")({
   head: () => ({
@@ -236,6 +236,33 @@ function GenerationWidget() {
   const [now, setNow] = useState(() => Date.now());
 
   useEffect(() => subscribeGenerationState(setState), []);
+  useEffect(() => {
+    if (state.phase !== "polling") return;
+    const requestId = state.requestId;
+    let stopped = false;
+    const apply = (job: Job) => {
+      if (stopped) return;
+      if (["queued", "processing", "cancelling", "encoding", "recovering"].includes(job.status)) {
+        setGenerationState({ ...state, status: job.status as DurableGenerationState });
+      } else if (job.status === "completed") {
+        setGenerationState({ phase: "done", requestId });
+      } else if (job.status === "cancelled") {
+        setGenerationState({ phase: "cancelled", requestId });
+      } else if (job.status === "failed" || job.status === "interrupted") {
+        setGenerationState({ phase: "error", requestId, message: job.error ?? "Generation was interrupted." });
+      }
+    };
+    const reconcile = () => { void getJob(requestId).then(apply).catch(() => undefined); };
+    const source = new EventSource(`/api/v1/jobs/${encodeURIComponent(requestId)}/events`);
+    source.addEventListener("job", (event) => apply(JSON.parse((event as MessageEvent).data) as Job));
+    reconcile();
+    const interval = window.setInterval(reconcile, 5000);
+    return () => {
+      stopped = true;
+      source.close();
+      window.clearInterval(interval);
+    };
+  }, [state.phase === "polling" ? state.requestId : null]);
   useEffect(() => {
     if (state.phase !== "submitting" && state.phase !== "polling") return;
     const id = window.setInterval(() => setNow(Date.now()), 1000);

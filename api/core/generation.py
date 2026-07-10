@@ -98,12 +98,16 @@ class GenerationCoordinator:
         output_dir: Path | None = None,
         job_timeout_s: float = 900,
         terminate_grace_s: float = 5,
+        publication_timeout_s: float = 120,
+        shutdown_timeout_s: float = 15,
     ) -> None:
         self.worker_factory = worker_factory
         self.output_dir = (output_dir or settings.output_dir).resolve()
         self.partial_root = self.output_dir / ".partial"
         self.job_timeout_s = job_timeout_s
         self.terminate_grace_s = terminate_grace_s
+        self.publication_timeout_s = publication_timeout_s
+        self.shutdown_timeout_s = shutdown_timeout_s
         self.queue: asyncio.Queue[GenerationRequest] = asyncio.Queue()
         self.worker: WorkerHandle | None = None
         self._runner: asyncio.Task | None = None
@@ -140,15 +144,21 @@ class GenerationCoordinator:
             await self._cas(self._active.request.request_id, NONTERMINAL_STATES, "cancelling", state_detail="Stopping for Vox shutdown…")
             self._active.cancelled.set()
             await self._stop_worker()
+        shutdown_deadline = time.monotonic() + self.shutdown_timeout_s
+        timed_out_request_id: str | None = None
         if self._runner and self._active:
-            while self._active:
+            while self._active and time.monotonic() < shutdown_deadline:
                 await asyncio.sleep(0.05)
+            if self._active:
+                timed_out_request_id = self._active.request.request_id
         if self._runner:
             self._runner.cancel()
             await asyncio.gather(self._runner, return_exceptions=True)
             self._runner = None
         await self._stop_worker()
         for request in list(self._requests.values()):
+            if request.request_id == timed_out_request_id:
+                continue
             await self._cleanup_request(request)
             await self._cas(request.request_id, NONTERMINAL_STATES, "interrupted", error_code="server_shutdown", error="Vox stopped before generation completed.", terminal=True)
         self._requests.clear()
@@ -181,6 +191,10 @@ class GenerationCoordinator:
     async def reconcile_after_restart(self) -> None:
         db = await get_db()
         for marker in self.output_dir.glob(".publishing-*--*"):
+            if marker.is_symlink():
+                marker.unlink(missing_ok=True)
+                continue
+            marker = managed_path(self.output_dir, marker.name)
             request_id = marker.name.removeprefix(".publishing-").split("--", 1)[0]
             async with db.execute(
                 "SELECT status, output_path FROM jobs WHERE request_id=?", (request_id,)
@@ -218,6 +232,10 @@ class GenerationCoordinator:
         await db.commit()
         if self.partial_root.exists():
             for child in self.partial_root.iterdir():
+                if child.is_symlink():
+                    child.unlink(missing_ok=True)
+                    continue
+                child = managed_path(self.partial_root, child.name)
                 if child.is_dir():
                     shutil.rmtree(child, ignore_errors=True)
                 else:
@@ -249,8 +267,8 @@ class GenerationCoordinator:
         while not self._shutting_down:
             if not self._ready and not await self._wait_ready():
                 await asyncio.sleep(2)
-                await self._stop_worker()
-                await self._spawn_worker()
+                if await self._stop_worker():
+                    await self._spawn_worker()
                 continue
             request = await self.queue.get()
             try:
@@ -283,7 +301,10 @@ class GenerationCoordinator:
         failure_code: str | None = None
         while event is None:
             if cancelled.is_set():
-                await self._stop_worker()
+                stopped = await self._stop_worker()
+                if not stopped:
+                    await self._cas(request.request_id, {"cancelling"}, "cancelling", state_detail="Model worker did not stop; restart Vox before generating again.")
+                    return
                 await self._cleanup_request(request)
                 await self._finish_stopped_request(request.request_id)
                 await self._restart_worker()
@@ -333,10 +354,13 @@ class GenerationCoordinator:
                 await self._cas(request.request_id, {"recovering"}, "failed", error_code=failure_code, error="The model worker stopped unexpectedly. Vox recovered and is ready to retry.", terminal=True)
                 await self._restart_worker()
             else:
-                await self._cas(request.request_id, {"recovering"}, "failed", error_code="worker_would_not_stop", error="The model worker could not be stopped safely. Restart Vox before generating again.", terminal=True)
+                await self._cas(request.request_id, {"recovering"}, "recovering", error_code="worker_would_not_stop", error="The model worker could not be stopped safely. Restart Vox before generating again.")
             return
         if cancelled.is_set():
-            await self._stop_worker()
+            stopped = await self._stop_worker()
+            if not stopped:
+                await self._cas(request.request_id, {"cancelling", "processing"}, "cancelling", state_detail="Model worker did not stop; restart Vox before generating again.")
+                return
             await self._cleanup_request(request)
             await self._finish_stopped_request(request.request_id)
             await self._restart_worker()
@@ -349,7 +373,10 @@ class GenerationCoordinator:
         try:
             await self._publish(request, event)
             if cancelled.is_set():
-                await self._stop_worker()
+                stopped = await self._stop_worker()
+                if not stopped:
+                    await self._cas(request.request_id, {"cancelling"}, "cancelling", state_detail="Model worker did not stop; restart Vox before generating again.")
+                    return
                 await self._cleanup_request(request)
                 await self._finish_stopped_request(request.request_id)
                 await self._restart_worker()
@@ -360,7 +387,9 @@ class GenerationCoordinator:
     async def _publish(self, request: GenerationRequest, event: WorkerEvent) -> None:
         if not event.sample_rate or not event.segment_paths:
             raise RuntimeError("Model worker returned no audio.")
-        marker_path, final_path, sample_count, encode_s, total_s = await asyncio.to_thread(self._encode, request, event)
+        marker_path, final_path, sample_count, encode_s, total_s = await asyncio.wait_for(
+            asyncio.to_thread(self._encode, request, event), timeout=self.publication_timeout_s
+        )
         await self._commit_publication(request, event, marker_path, final_path, sample_count, encode_s, total_s)
         await self._cleanup_request(request)
 
@@ -401,28 +430,34 @@ class GenerationCoordinator:
     ) -> None:
         duration = sample_count / int(event.sample_rate or 1)
         db = await get_db()
-        cursor = await db.execute(
-            """UPDATE jobs SET state_detail='Publishing final audio…', error_code=NULL,
+        try:
+            cursor = await db.execute(
+                """UPDATE jobs SET state_detail='Publishing final audio…', error_code=NULL,
                output_path=?, chunks=?, audio_duration_s=?, generation_s=?, encode_s=?, total_s=?, rtf=?,
                device=?, progress_current=?, progress_total=?
                WHERE request_id=? AND status='encoding'""",
-            (str(final_path), len(request.chunks), duration, event.generation_s, encode_s, total_s,
-             (event.generation_s or 0) / duration if duration else 0, event.device,
-             len(request.chunks), len(request.chunks), request.request_id),
-        )
-        await db.commit()
-        if cursor.rowcount != 1:
-            marker_path.unlink(missing_ok=True)
-            return
-        marker_path.replace(final_path)
-        cursor = await db.execute(
-            """UPDATE jobs SET status='completed', state_detail='Audio is ready.', completed_at=datetime('now')
+                (str(final_path), len(request.chunks), duration, event.generation_s, encode_s, total_s,
+                 (event.generation_s or 0) / duration if duration else 0, event.device,
+                 len(request.chunks), len(request.chunks), request.request_id),
+            )
+            await db.commit()
+            if cursor.rowcount != 1:
+                marker_path.unlink(missing_ok=True)
+                return
+            marker_path.replace(final_path)
+            cursor = await db.execute(
+                """UPDATE jobs SET status='completed', state_detail='Audio is ready.', completed_at=datetime('now')
                WHERE request_id=? AND status='encoding' AND output_path=?""",
-            (request.request_id, str(final_path)),
-        )
-        await db.commit()
-        if cursor.rowcount != 1:
+                (request.request_id, str(final_path)),
+            )
+            await db.commit()
+            if cursor.rowcount != 1:
+                final_path.unlink(missing_ok=True)
+        except Exception:
+            await db.rollback()
+            marker_path.unlink(missing_ok=True)
             final_path.unlink(missing_ok=True)
+            raise
 
     async def _cleanup_request(self, request: GenerationRequest) -> None:
         shutil.rmtree(self._request_partial(request), ignore_errors=True)
@@ -434,7 +469,7 @@ class GenerationCoordinator:
         return path
 
     async def _stop_worker(self) -> bool:
-        worker, self.worker = self.worker, None
+        worker = self.worker
         self._ready = False
         if not worker:
             return True
@@ -450,6 +485,7 @@ class GenerationCoordinator:
             self._state = "error"
             self._detail = "Model worker could not be stopped; replacement is blocked."
             return False
+        self.worker = None
         return True
 
     async def _restart_worker(self) -> None:

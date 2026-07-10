@@ -223,6 +223,9 @@ Do not spend time chasing sandbox-only codesign behavior unless the real build/i
 - `GET /api/v1/status` reports model state: `not_loaded`, `loading`, `ready`, or `error`.
 - Vox Helper displays model readiness in the menu.
 - `POST /api/v1/tts` returns `503` while the model is not ready.
+- Only `api/core/generation_worker.py` may import Torch/Chatterbox or own MPS. A replacement worker must never start until the previous process is confirmed dead and reaped.
+- Generation cancellation remains `cancelling` until worker exit; a worker that survives terminate/kill is quarantined and requires a Vox restart.
+- Final audio crosses `outputs/.publishing-*` markers. Startup must reconcile markers and job-scoped `.partial/` data before interrupting other nonterminal jobs.
 
 ## Network Trust And Pairing
 

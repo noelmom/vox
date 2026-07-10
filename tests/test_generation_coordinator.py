@@ -1,4 +1,5 @@
 import asyncio
+import threading
 from pathlib import Path
 
 import aiosqlite
@@ -246,13 +247,38 @@ async def test_stubborn_worker_blocks_replacement(generation_db, tmp_path):
     await db.commit()
     await coordinator.submit(request_for(tmp_path))
     for _ in range(100):
-        if (await status_of(db))["status"] == "failed":
+        if (await status_of(db))["error_code"] == "worker_would_not_stop":
             break
         await asyncio.sleep(0.01)
     row = await status_of(db)
     assert row["error_code"] == "worker_would_not_stop"
+    assert row["status"] == "recovering"
     assert worker.terminated and worker.killed
     assert replacements == 1
+    worker.alive = False
+    await coordinator.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_stubborn_worker_cancel_never_reports_terminal(generation_db, tmp_path):
+    db = generation_db
+    worker = StubbornWorker([WorkerEvent(kind="ready", device="cpu")])
+    coordinator = GenerationCoordinator(lambda: worker, output_dir=tmp_path, terminate_grace_s=0)
+    await coordinator.start()
+    await db.execute("INSERT INTO jobs(request_id,status) VALUES('job-1','queued')")
+    await db.commit()
+    await coordinator.submit(request_for(tmp_path))
+    for _ in range(50):
+        if worker.sent:
+            break
+        await asyncio.sleep(0.01)
+    assert await coordinator.cancel("job-1") == "cancelling"
+    for _ in range(50):
+        if (await status_of(db))["state_detail"] == "Model worker did not stop; restart Vox before generating again.":
+            break
+        await asyncio.sleep(0.01)
+    assert (await status_of(db))["status"] == "cancelling"
+    assert coordinator.worker is worker
     worker.alive = False
     await coordinator.shutdown()
 
@@ -320,6 +346,85 @@ async def test_coordinator_owns_retry_budget_and_progress(generation_db, tmp_pat
     assert row["progress_total"] == 1
     assert row["error_code"] == "generation_failed"
     await coordinator.shutdown()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("fail_on", [1, 2])
+async def test_publication_commit_failure_removes_marker_and_final(generation_db, tmp_path, monkeypatch, fail_on):
+    db = generation_db
+    await db.execute("INSERT INTO jobs(request_id,status) VALUES('job-1','encoding')")
+    await db.commit()
+    marker = tmp_path / ".publishing-job-1--final.wav"
+    final = tmp_path / "final.wav"
+    marker.write_bytes(b"audio")
+    coordinator = GenerationCoordinator(lambda: FakeWorker([]), output_dir=tmp_path)
+    request = request_for(tmp_path)
+    event = WorkerEvent(kind="finished", request_id="job-1", sample_rate=24000, generation_s=1, device="cpu")
+    original_commit = db.commit
+    commits = 0
+
+    async def failing_commit():
+        nonlocal commits
+        commits += 1
+        if commits == fail_on:
+            raise RuntimeError("injected commit failure")
+        await original_commit()
+
+    monkeypatch.setattr(db, "commit", failing_commit)
+    with pytest.raises(RuntimeError, match="injected"):
+        await coordinator._commit_publication(request, event, marker, final, 2400, 0.1, 1.1)
+    assert not marker.exists()
+    assert not final.exists()
+
+
+@pytest.mark.asyncio
+async def test_restart_unlinks_symlinks_without_mutating_targets(generation_db, tmp_path):
+    outside_dir = tmp_path.parent / f"{tmp_path.name}-outside"
+    outside_dir.mkdir()
+    secret = outside_dir / "secret.wav"
+    secret.write_bytes(b"keep")
+    partial_root = tmp_path / ".partial"
+    partial_root.mkdir()
+    (partial_root / "job-link").symlink_to(outside_dir, target_is_directory=True)
+    (tmp_path / ".publishing-job-link--secret.wav").symlink_to(secret)
+    worker = FakeWorker([WorkerEvent(kind="ready", device="cpu")])
+    coordinator = GenerationCoordinator(lambda: worker, output_dir=tmp_path)
+    await coordinator.start()
+    assert secret.read_bytes() == b"keep"
+    assert not (partial_root / "job-link").exists()
+    assert not (tmp_path / ".publishing-job-link--secret.wav").exists()
+    await coordinator.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_shutdown_is_bounded_while_encoder_is_stuck(generation_db, tmp_path, monkeypatch):
+    db = generation_db
+    release = threading.Event()
+    worker = FakeWorker([
+        WorkerEvent(kind="ready", device="cpu"),
+        WorkerEvent(kind="finished", request_id="job-1", sample_rate=24000, segment_paths=("dummy",), device="cpu"),
+    ])
+    coordinator = GenerationCoordinator(
+        lambda: worker, output_dir=tmp_path, publication_timeout_s=60, shutdown_timeout_s=0.01
+    )
+
+    def stuck_encode(*_args):
+        release.wait(2)
+        raise RuntimeError("released")
+
+    monkeypatch.setattr(coordinator, "_encode", stuck_encode)
+    await coordinator.start()
+    await db.execute("INSERT INTO jobs(request_id,status) VALUES('job-1','queued')")
+    await db.commit()
+    await coordinator.submit(request_for(tmp_path))
+    for _ in range(50):
+        if (await status_of(db))["status"] == "encoding":
+            break
+        await asyncio.sleep(0.01)
+    await asyncio.wait_for(coordinator.shutdown(), timeout=0.5)
+    assert (await status_of(db))["status"] == "cancelling"
+    assert worker.joined
+    release.set()
 
 
 def test_api_generation_modules_do_not_import_model_runtime():

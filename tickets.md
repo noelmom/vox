@@ -58,12 +58,12 @@ Build the backend hardening, creative-workspace UI, Sparkle package updates, and
 
 **Blocked by:** Establish the local quality loop.
 
-- [ ] Introduce the coordinator/worker IPC boundary from the generation lifecycle prototype.
-- [ ] Make the coordinator own FIFO queueing, compare-and-set job transitions, cancellation, retries, encoding, cleanup, and atomic output publication.
-- [ ] Kill and reap the active worker before terminal cancellation/timeout or replacement startup.
-- [ ] Reconcile non-terminal jobs and partial directories after restart.
-- [ ] Extend `/api/v1` and SSE/polling with additive stable state/error fields.
-- [ ] Update generation UI state handling so “Stopping…” and model recovery reflect backend truth.
+- [x] Introduce the coordinator/worker IPC boundary from the generation lifecycle prototype.
+- [x] Make the coordinator own FIFO queueing, compare-and-set job transitions, cancellation, retries, encoding, cleanup, and atomic output publication.
+- [x] Kill and reap the active worker before terminal cancellation/timeout or replacement startup.
+- [x] Reconcile non-terminal jobs and partial directories after restart.
+- [x] Extend `/api/v1` and SSE/polling with additive stable state/error fields.
+- [x] Update generation UI state handling so “Stopping…” and model recovery reflect backend truth.
 
 **Rollback point:** Preserve the public submission/status contract so the previous in-process runner can be restored in one commit before schema rollout; migrations are additive.
 

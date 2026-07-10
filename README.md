@@ -345,7 +345,7 @@ Content-Type: multipart/form-data
 
 Listen to `GET /api/v1/jobs/{request_id}/events` for server-sent job updates, or poll `GET /api/v1/jobs/{request_id}` as a fallback. Durable states are `queued`, `processing`, `cancelling`, `encoding`, `recovering`, `completed`, `failed`, `cancelled`, and `interrupted`. A coordinator serializes jobs through one spawned model owner; cancellation is terminal only after that worker exits, and a replacement never starts while the old worker is alive.
 
-For an installed Apple Silicon build, run `scripts/smoke-generation-recovery.py` while Vox is open. It cancels an active render, waits for worker recovery, and verifies a second render completes. Set `VOX_SMOKE_BASE_URL` or `VOX_SMOKE_TOKEN` when testing a non-default or paired endpoint.
+For an installed Apple Silicon build, run `python3 scripts/smoke-generation-recovery.py` while Vox is open. It cancels an active render, confirms the original worker PID is gone, waits for a distinct replacement, and verifies a second render completes. Set `VOX_SMOKE_BASE_URL` or `VOX_SMOKE_TOKEN` when testing a non-default or paired endpoint.
 
 **Response headers (on the 202):**
 

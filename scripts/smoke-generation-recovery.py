@@ -34,6 +34,16 @@ def wait_for(request_id: str, wanted: set[str], timeout: float = 120):
     raise TimeoutError(f"Timed out waiting for {wanted}")
 
 
+def pid_exists(pid: int | None) -> bool:
+    if not pid:
+        return False
+    try:
+        os.kill(pid, 0)
+        return True
+    except ProcessLookupError:
+        return False
+
+
 def main() -> int:
     status = request("/api/v1/status")
     if not status["model"]["ready"]:
@@ -46,6 +56,8 @@ def main() -> int:
     if cancel["status"] not in {"cancelling", "cancelled"}:
         raise RuntimeError(f"Unexpected cancel response: {cancel}")
     wait_for(long_job["request_id"], {"cancelled"})
+    if pid_exists(original_pid):
+        raise RuntimeError(f"Original model worker PID {original_pid} is still alive after cancellation.")
     wait_for_model = time.monotonic() + 300
     recovered = None
     while time.monotonic() < wait_for_model:
