@@ -709,6 +709,51 @@ async def test_encoder_spawn_failure_does_not_poison_fifo(generation_db, tmp_pat
     await coordinator.shutdown()
 
 
+@pytest.mark.asyncio
+async def test_quarantine_reaps_live_group_before_resuming_fifo(generation_db, tmp_path, monkeypatch):
+    db = generation_db
+    worker = FakeWorker([
+        WorkerEvent(kind="ready", device="cpu"),
+        WorkerEvent(kind="failed", request_id="job-2", error_code="generation_failed", detail="two"),
+    ])
+    coordinator = GenerationCoordinator(lambda: worker, output_dir=tmp_path, terminate_grace_s=0)
+    coordinator.partial_root.mkdir(parents=True)
+    await coordinator._spawn_worker()
+    request = request_for(tmp_path, "job-1")
+    Path(request.partial_dir).mkdir(parents=True)
+    encoder = FakeEncoderProcess()
+    encoder.pid = 4243
+    encoder.alive = False
+    coordinator._encoder_process = encoder
+    coordinator._quarantined_encoder_request = request
+    group_alive = True
+    killed = asyncio.Event()
+
+    def fake_killpg(_pid, sig):
+        nonlocal group_alive
+        if sig == 0:
+            if not group_alive:
+                raise ProcessLookupError
+        elif sig == signal.SIGKILL:
+            group_alive = False
+            killed.set()
+
+    monkeypatch.setattr("api.core.generation.os.killpg", fake_killpg)
+    await db.executemany("INSERT INTO jobs(request_id,status) VALUES(?,?)", [("job-1", "recovering"), ("job-2", "queued")])
+    await db.commit()
+    coordinator._runner = asyncio.create_task(coordinator._run())
+    await coordinator.submit(request_for(tmp_path, "job-2"))
+    await asyncio.wait_for(killed.wait(), timeout=1)
+    for _ in range(100):
+        if worker.sent:
+            break
+        await asyncio.sleep(0.01)
+    assert not group_alive
+    assert (await status_of(db, "job-1"))["status"] == "failed"
+    assert [item.request_id for item in worker.sent] == ["job-2"]
+    await coordinator.shutdown()
+
+
 def test_api_generation_modules_do_not_import_model_runtime():
     import api.core.engine  # noqa: F401
     import api.core.generation  # noqa: F401

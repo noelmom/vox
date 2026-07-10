@@ -283,12 +283,14 @@ class GenerationCoordinator:
     async def _run(self) -> None:
         while not self._shutting_down:
             if self._encoder_process is not None:
-                if self._encoder_process.is_alive():
+                encoder = self._encoder_process
+                if encoder.is_alive() or self._process_group_alive(getattr(encoder, "pid", None)):
                     self._ready = False
                     self._state = "error"
-                    await asyncio.sleep(0.25)
-                    continue
-                self._encoder_process.join(0)
+                    if not await self._stop_encoder():
+                        await asyncio.sleep(0.25)
+                        continue
+                encoder.join(0)
                 quarantined = self._quarantined_encoder_request
                 if quarantined:
                     try:
