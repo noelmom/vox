@@ -8,7 +8,7 @@ from fastapi import Request
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import JSONResponse, RedirectResponse
 
-from api.core.security import Credential
+from api.core.security import Credential, Scope
 
 SAFE_METHODS = {"GET", "HEAD", "OPTIONS"}
 PUBLIC_REMOTE_PATHS = {"/health", "/pair", "/api/v1/auth/pair"}
@@ -57,28 +57,28 @@ def _origin_host(origin: str | None) -> str:
         return ""
 
 
-def _required_scope(path: str, method: str) -> str:
+def _required_scope(path: str, method: str) -> Scope:
     if path.startswith(("/api/v1/settings", "/api/v1/logs", "/api/v1/backups", "/api/v1/alerts")):
-        return "admin"
+        return Scope.ADMIN
     if path.startswith("/api/v1/auth/") and path != "/api/v1/auth/pair":
-        return "admin"
+        return Scope.ADMIN
     if method not in SAFE_METHODS:
         if path == "/api/v1/tts" or (path.startswith("/api/v1/tts/") and path.endswith("/cancel")):
-            return "generate"
-        return "admin"
+            return Scope.GENERATE
+        return Scope.ADMIN
     if path.startswith("/api/v1/jobs/") and path.endswith("/audio"):
-        return "generate"
+        return Scope.GENERATE
     if path.startswith("/api/v1/voices/") and path.endswith("/audio"):
-        return "generate"
-    return "read"
+        return Scope.GENERATE
+    return Scope.READ
 
 
-def _has_scope(credential: Credential, required: str) -> bool:
+def _has_scope(credential: Credential, required: Scope) -> bool:
     scopes = credential.scopes
-    if "admin" in scopes:
+    if Scope.ADMIN in scopes:
         return True
-    if required == "read":
-        return bool(scopes & {"read", "generate"})
+    if required is Scope.READ:
+        return bool(scopes & {Scope.READ, Scope.GENERATE})
     return required in scopes
 
 
@@ -124,6 +124,6 @@ class SecurityMiddleware(BaseHTTPMiddleware):
             return RedirectResponse("/pair", status_code=307)
         required = _required_scope(request.url.path, request.method)
         if not _has_scope(credential, required):
-            return _error(403, "insufficient_scope", f"This action requires the {required} scope.")
+            return _error(403, "insufficient_scope", f"This action requires the {required.value} scope.")
         request.state.credential = credential
         return await call_next(request)

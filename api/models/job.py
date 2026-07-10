@@ -21,3 +21,4 @@ class JobOut(BaseModel):
     created_at: str
     completed_at: str | None
     file_available: bool = False
+    private_fields_redacted: bool = False

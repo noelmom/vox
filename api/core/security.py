@@ -10,6 +10,7 @@ import time
 import uuid
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from enum import StrEnum
 from pathlib import Path
 
 
@@ -19,6 +20,17 @@ def _now_iso(timestamp: float | None = None) -> str:
 
 def _secret_hash(secret: str) -> str:
     return hashlib.sha256(secret.encode("utf-8")).hexdigest()
+
+
+class Scope(StrEnum):
+    READ = "read"
+    GENERATE = "generate"
+    ADMIN = "admin"
+
+
+class CredentialKind(StrEnum):
+    SESSION = "session"
+    TOKEN = "token"
 
 
 @dataclass(frozen=True)
@@ -31,18 +43,18 @@ class PairingCode:
 class IssuedCredential:
     id: str
     secret: str
-    kind: str
+    kind: CredentialKind
     name: str
-    scopes: frozenset[str]
+    scopes: frozenset[Scope]
     expires_at: str | None
 
 
 @dataclass(frozen=True)
 class Credential:
     id: str
-    kind: str
+    kind: CredentialKind
     name: str
-    scopes: frozenset[str]
+    scopes: frozenset[Scope]
     created_at: str
     expires_at: str | None
     last_used_at: str | None
@@ -121,30 +133,33 @@ class SecurityStore:
         if expiry is None or expiry <= now:
             return None
         return self._issue(
-            "session",
+            CredentialKind.SESSION,
             device_name,
-            {"admin"},
+            {Scope.ADMIN},
             expires_at=now + session_ttl_seconds,
         )
 
     def create_api_token(
         self,
         name: str,
-        scopes: set[str],
+        scopes: set[str | Scope],
         *,
         ttl_seconds: int | None = None,
     ) -> IssuedCredential:
-        allowed = {"read", "generate", "admin"}
-        if not scopes or not scopes <= allowed:
+        try:
+            normalized_scopes = {Scope(scope) for scope in scopes}
+        except ValueError as exc:
+            raise ValueError("Token scopes must contain read, generate, or admin.") from exc
+        if not normalized_scopes:
             raise ValueError("Token scopes must contain read, generate, or admin.")
         expires_at = time.time() + ttl_seconds if ttl_seconds else None
-        return self._issue("token", name, scopes, expires_at=expires_at)
+        return self._issue(CredentialKind.TOKEN, name, normalized_scopes, expires_at=expires_at)
 
     def _issue(
         self,
-        kind: str,
+        kind: CredentialKind,
         name: str,
-        scopes: set[str],
+        scopes: set[Scope],
         *,
         expires_at: float | None,
     ) -> IssuedCredential:
@@ -162,9 +177,9 @@ class SecurityStore:
                 (
                     credential_id,
                     _secret_hash(secret),
-                    kind,
+                    kind.value,
                     name.strip()[:80] or "Unnamed device",
-                    json.dumps(sorted(scopes)),
+                    json.dumps(sorted(scope.value for scope in scopes)),
                     created_at,
                     expiry_iso,
                 ),
@@ -198,14 +213,18 @@ class SecurityStore:
                 "UPDATE credentials SET last_used_at = ? WHERE id = ?",
                 (now, row["id"]),
             )
+        return self._credential_from_row(row, last_used_at=now)
+
+    @staticmethod
+    def _credential_from_row(row: sqlite3.Row, *, last_used_at: str | None = None) -> Credential:
         return Credential(
             id=row["id"],
-            kind=row["kind"],
+            kind=CredentialKind(row["kind"]),
             name=row["name"],
-            scopes=frozenset(json.loads(row["scopes"])),
+            scopes=frozenset(Scope(scope) for scope in json.loads(row["scopes"])),
             created_at=row["created_at"],
             expires_at=row["expires_at"],
-            last_used_at=now,
+            last_used_at=last_used_at if last_used_at is not None else row["last_used_at"],
         )
 
     def list_credentials(self) -> list[Credential]:
@@ -216,18 +235,7 @@ class SecurityStore:
                 FROM credentials WHERE revoked_at IS NULL ORDER BY created_at DESC
                 """
             ).fetchall()
-        return [
-            Credential(
-                id=row["id"],
-                kind=row["kind"],
-                name=row["name"],
-                scopes=frozenset(json.loads(row["scopes"])),
-                created_at=row["created_at"],
-                expires_at=row["expires_at"],
-                last_used_at=row["last_used_at"],
-            )
-            for row in rows
-        ]
+        return [self._credential_from_row(row) for row in rows]
 
     def revoke_credential(self, credential_id: str) -> bool:
         with self._connect() as db:

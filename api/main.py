@@ -82,10 +82,16 @@ def _read_env_int(key: str, default: int) -> int:
         return default
 
 
+def _enforce_lan_credential_state(application: FastAPI) -> None:
+    if settings.host != "0.0.0.0":
+        application.state.security_store.revoke_all_remote_credentials()
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     global _model_task
     setup_logging()
+    _enforce_lan_credential_state(app)
     await connect()
     _model_task = asyncio.create_task(load_model_async())
 

@@ -1,9 +1,10 @@
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from api.core.security import SecurityStore
+from api.core.security import Credential, CredentialKind, Scope, SecurityStore
 from api.middleware.security import SecurityMiddleware
 from api.routers import auth
+from api.routers.jobs import _redact_private_fields
 
 
 def _app(tmp_path, *, lan_enabled: bool = True) -> tuple[FastAPI, SecurityStore]:
@@ -173,3 +174,47 @@ def test_read_scope_cannot_download_private_audio(tmp_path):
         headers={"Authorization": f"Bearer {token.secret}"},
     )
     assert response.status_code == 403
+
+
+def test_remote_admin_cannot_mint_pairing_codes(tmp_path):
+    app, store = _app(tmp_path)
+    session = store.redeem_pairing_code(store.create_pairing_code().value, "Admin browser")
+    assert session is not None
+    client = TestClient(app, client=("192.168.1.20", 50000), headers={"Host": "192.168.1.10:8000"})
+    client.cookies.set("vox_session", session.secret)
+
+    response = client.post("/api/v1/auth/pairing-codes")
+    assert response.status_code == 403
+
+
+def test_read_scope_redacts_private_job_fields():
+    request = type("RequestStub", (), {})()
+    request.state = type("StateStub", (), {})()
+    request.state.credential = Credential(
+        id="read-token",
+        kind=CredentialKind.TOKEN,
+        name="Read only",
+        scopes=frozenset({Scope.READ}),
+        created_at="2026-07-10T00:00:00+00:00",
+        expires_at=None,
+        last_used_at=None,
+    )
+    job = {
+        "request_id": "job-1",
+        "status": "failed",
+        "text": "private script",
+        "output_path": "/private/output.mp3",
+        "error": "private diagnostic",
+        "device": "mps",
+        "user_agent": "private agent",
+        "file_available": True,
+    }
+
+    visible = _redact_private_fields(job, request)
+    assert visible["text"] == "[private]"
+    assert visible["output_path"] is None
+    assert visible["error"] == "Generation failed."
+    assert visible["device"] is None
+    assert visible["user_agent"] is None
+    assert visible["file_available"] is False
+    assert visible["private_fields_redacted"] is True

@@ -8,6 +8,7 @@ from fastapi.responses import FileResponse, StreamingResponse
 
 from api.core.db import get_db
 from api.models.job import JobOut
+from api.core.security import Scope
 
 router = APIRouter(prefix="/jobs", tags=["jobs"])
 
@@ -24,6 +25,25 @@ def _annotate(row: Any) -> dict:
     p = d.get("output_path")
     d["file_available"] = bool(p and Path(p).exists())
     return d
+
+
+def _redact_private_fields(job: dict, request: Request) -> dict:
+    credential = getattr(request.state, "credential", None)
+    if credential is None or credential.scopes & {Scope.GENERATE, Scope.ADMIN}:
+        return job
+    visible = dict(job)
+    visible.update(
+        {
+            "text": "[private]",
+            "output_path": None,
+            "error": "Generation failed." if job.get("error") else None,
+            "device": None,
+            "user_agent": None,
+            "file_available": False,
+            "private_fields_redacted": True,
+        }
+    )
+    return visible
 
 
 async def _get_job_row(request_id: str) -> dict | None:
@@ -47,7 +67,7 @@ async def list_jobs(request: Request, limit: int = 50, offset: int = 0):
         (limit, offset),
     ) as cur:
         rows = await cur.fetchall()
-    return [_annotate(r) for r in rows]
+    return [_redact_private_fields(_annotate(r), request) for r in rows]
 
 
 @router.get(
@@ -70,7 +90,7 @@ async def stream_job_events(request_id: str, request: Request):
                 yield "event: deleted\ndata: {}\n\n"
                 return
 
-            payload = json.dumps(job, default=str)
+            payload = json.dumps(_redact_private_fields(job, request), default=str)
             if payload != last_payload:
                 yield f"event: job\ndata: {payload}\n\n"
                 last_payload = payload
@@ -108,7 +128,7 @@ async def get_job(request_id: str, request: Request):
     job = await _get_job_row(request_id)
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
-    return job
+    return _redact_private_fields(job, request)
 
 
 @router.delete(

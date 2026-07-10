@@ -42,6 +42,13 @@ jobs:
         with:
           node-version: "22"
 
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install pairing test server dependencies
+        run: python -m pip install -r ../requirements-ci-lock.txt
+
       - name: Install frontend dependencies
         run: npm ci
 
@@ -62,6 +69,8 @@ jobs:
 
       - name: Browser tests
         run: npm run test:e2e
+        env:
+          PAIRING_TEST_PYTHON: python
 
   scripts:
     name: Shell scripts

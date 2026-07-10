@@ -37,6 +37,7 @@ export type Job = {
   created_at: string;
   completed_at: string | null;
   file_available: boolean;
+  private_fields_redacted?: boolean;
 };
 
 export type LogFileName = "server" | "server-error" | "helper" | "helper-error" | "install";
@@ -280,6 +281,44 @@ export async function patchServerSettings(patch: ServerSettingsPatch): Promise<{
     body: JSON.stringify(patch),
   });
   return r.json();
+}
+
+export type RemoteCredential = {
+  id: string;
+  kind: "session" | "token";
+  name: string;
+  scopes: Array<"read" | "generate" | "admin">;
+  created_at: string;
+  expires_at: string | null;
+  last_used_at: string | null;
+};
+
+export async function listRemoteCredentials(): Promise<RemoteCredential[]> {
+  return apiFetch("/api/v1/auth/credentials").then((r) => r.json());
+}
+
+export async function createPairingCode(): Promise<{ code: string; expires_at: string }> {
+  return apiFetch("/api/v1/auth/pairing-codes", { method: "POST" }).then((r) => r.json());
+}
+
+export async function createApiToken(payload: {
+  name: string;
+  scopes: Array<"read" | "generate" | "admin">;
+}): Promise<{ id: string; token: string; name: string; scopes: string[]; expires_at: string | null; notice: string }> {
+  return apiFetch("/api/v1/auth/tokens", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  }).then((r) => r.json());
+}
+
+export async function revokeRemoteCredential(id: string): Promise<void> {
+  await apiFetch(`/api/v1/auth/credentials/${encodeURIComponent(id)}`, { method: "DELETE" });
+}
+
+export async function revokeAllRemoteCredentials(): Promise<number> {
+  const result = await apiFetch("/api/v1/auth/revoke-all", { method: "POST" }).then((r) => r.json());
+  return result.revoked as number;
 }
 
 export async function deleteJob(requestId: string): Promise<void> {

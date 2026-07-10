@@ -38,6 +38,8 @@ def _credential_payload(credential) -> dict:
 
 @router.post("/pairing-codes", summary="Create a short-lived pairing code")
 async def create_pairing_code(request: Request):
+    if not request.state.is_loopback:
+        raise HTTPException(status_code=403, detail="Pairing codes can be created only on the Vox Mac.")
     code = _store(request).create_pairing_code()
     return {"code": code.value, "expires_at": code.expires_at}
 

@@ -155,6 +155,7 @@ PY
 
 run_check "Python environment" ensure_python
 PYTHON="$VENV/bin/python"
+export PAIRING_TEST_PYTHON="$PYTHON"
 run_check "Frontend dependencies" npm --prefix "$UI" ci
 run_check "Playwright browser" install_browser
 run_check "Backend lint" "$PYTHON" -m ruff check "$ROOT/api" "$ROOT/tests"

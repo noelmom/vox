@@ -72,3 +72,27 @@ test("mobile navigation remains available", async ({ page }) => {
   await expect(page.getByRole("button", { name: "Open menu" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Voice Studio" })).toBeVisible();
 });
+
+test("Settings confirms a destructive backup restore before uploading", async ({ page }) => {
+  await installFakeApi(page);
+  let restoreRequests = 0;
+  await page.route("**/api/v1/backups/restore", (route) => {
+    restoreRequests += 1;
+    return route.fulfill({ json: { restored: true, voices_restored: 1, message: "Restored." } });
+  });
+  await page.goto("/app/settings");
+
+  await expect(page.getByText("Paired devices & API tokens")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Revoke all devices & tokens" })).toBeDisabled();
+
+  await page.locator('input[type="file"]').setInputFiles({
+    name: "Vox-Backup.zip",
+    mimeType: "application/zip",
+    buffer: Buffer.from("test-backup"),
+  });
+
+  await expect(page.getByRole("heading", { name: "Restore this Vox backup?" })).toBeVisible();
+  expect(restoreRequests).toBe(0);
+  await page.getByRole("button", { name: "Restore backup" }).last().click();
+  await expect.poll(() => restoreRequests).toBe(1);
+});

@@ -24,7 +24,19 @@ import {
   Sun,
   FileText,
 } from "lucide-react";
-import { type ServerSettings, exportBackup, getServerSettings, listVoices, listPresets, patchServerSettings, restoreBackup } from "@/lib/api";
+import {
+  type ServerSettings,
+  createApiToken,
+  exportBackup,
+  getServerSettings,
+  listPresets,
+  listRemoteCredentials,
+  listVoices,
+  patchServerSettings,
+  restoreBackup,
+  revokeAllRemoteCredentials,
+  revokeRemoteCredential,
+} from "@/lib/api";
 import { hydrateCachedPreferences, readCachedPreference, savePreferences, writeCachedPreference } from "@/lib/preferences";
 import { BRAND, BRAND_GRADIENT, BRAND_SECONDARY, BRAND_WARM } from "@/lib/theme";
 
@@ -143,7 +155,12 @@ function SettingsPage() {
 
   const [saveFeedback, setSaveFeedback] = useState(false);
   const [confirmClear, setConfirmClear] = useState(false);
+  const [confirmRevokeAll, setConfirmRevokeAll] = useState(false);
+  const [pendingRestore, setPendingRestore] = useState<File | null>(null);
   const [backupFeedback, setBackupFeedback] = useState("");
+  const [tokenName, setTokenName] = useState("");
+  const [tokenScope, setTokenScope] = useState<"read" | "generate" | "admin">("read");
+  const [issuedToken, setIssuedToken] = useState("");
   const [serverDrafts, setServerDrafts] = useState({
     outputTtlHours: "",
     maxVoiceClipDurationS: "",
@@ -197,6 +214,33 @@ function SettingsPage() {
     },
     onError: (err) => {
       setBackupFeedback(err instanceof Error ? err.message : "Backup restore failed.");
+    },
+  });
+
+  const { data: remoteCredentials = [], isError: remoteCredentialsError } = useQuery({
+    queryKey: ["remote-credentials"],
+    queryFn: listRemoteCredentials,
+  });
+
+  const createTokenMutation = useMutation({
+    mutationFn: () => createApiToken({ name: tokenName.trim(), scopes: [tokenScope] }),
+    onSuccess: (result) => {
+      setIssuedToken(result.token);
+      setTokenName("");
+      queryClient.invalidateQueries({ queryKey: ["remote-credentials"] });
+    },
+  });
+
+  const revokeCredentialMutation = useMutation({
+    mutationFn: revokeRemoteCredential,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["remote-credentials"] }),
+  });
+
+  const revokeAllMutation = useMutation({
+    mutationFn: revokeAllRemoteCredentials,
+    onSuccess: () => {
+      setConfirmRevokeAll(false);
+      queryClient.invalidateQueries({ queryKey: ["remote-credentials"] });
     },
   });
 
@@ -365,8 +409,97 @@ function SettingsPage() {
                 <p className="text-[12px] leading-relaxed text-muted-foreground">
                   Local only is the safest default. Choose network access only when you want another device on the same network to use Vox.
                 </p>
+                {configuredHost === "0.0.0.0" && (
+                  <p className="rounded-xl border border-[color-mix(in_oklch,var(--brand-warm)_25%,white)] bg-[color-mix(in_oklch,var(--brand-warm)_8%,white)] px-3 py-2 text-[12px] leading-relaxed text-[var(--brand-warm)]">
+                    Vox LAN traffic uses HTTP unless you provide trusted TLS. Pair only on a trusted network and never reuse Vox credentials elsewhere.
+                  </p>
+                )}
                 {networkMutation.isError && (
                   <p className="text-[12px] font-medium text-[var(--brand-warm)]">Could not save network access setting.</p>
+                )}
+              </div>
+            </InfoRow>
+            <InfoRow label="Paired devices & API tokens" hint="Pair browsers from Vox Helper. Create scoped tokens for trusted local automation.">
+              <div className="flex w-full max-w-2xl flex-col gap-3">
+                <div className="overflow-hidden rounded-xl border border-border bg-white">
+                  {remoteCredentials.length === 0 ? (
+                    <p className="px-3 py-3 text-[12px] text-muted-foreground">No paired devices or active API tokens.</p>
+                  ) : remoteCredentials.map((credential) => (
+                    <div key={credential.id} className="flex flex-wrap items-center gap-2 border-b border-border px-3 py-2.5 last:border-b-0">
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-[13px] font-semibold text-foreground">{credential.name}</p>
+                        <p className="text-[11px] text-muted-foreground">
+                          {credential.kind === "session" ? "Paired browser" : "API token"} · {credential.scopes.join(", ")}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => revokeCredentialMutation.mutate(credential.id)}
+                        disabled={revokeCredentialMutation.isPending}
+                        className="rounded-lg border border-border px-2.5 py-1.5 text-[11.5px] font-semibold text-[var(--brand-warm)] hover:bg-muted disabled:opacity-50"
+                      >
+                        Revoke
+                      </button>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="flex flex-wrap gap-2">
+                  <input
+                    value={tokenName}
+                    onChange={(event) => setTokenName(event.target.value)}
+                    placeholder="Token name"
+                    aria-label="API token name"
+                    maxLength={80}
+                    className="h-9 min-w-44 flex-1 rounded-lg border border-border bg-white px-3 text-[12.5px]"
+                  />
+                  <select
+                    value={tokenScope}
+                    onChange={(event) => setTokenScope(event.target.value as typeof tokenScope)}
+                    aria-label="API token scope"
+                    className="h-9 rounded-lg border border-border bg-white px-3 text-[12.5px]"
+                  >
+                    <option value="read">Read metadata</option>
+                    <option value="generate">Read + generate</option>
+                    <option value="admin">Administrator</option>
+                  </select>
+                  <button
+                    type="button"
+                    onClick={() => createTokenMutation.mutate()}
+                    disabled={!tokenName.trim() || createTokenMutation.isPending}
+                    className="rounded-lg bg-foreground px-3 py-2 text-[12px] font-bold text-white disabled:opacity-40"
+                  >
+                    Create token
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setConfirmRevokeAll(true)}
+                    disabled={remoteCredentials.length === 0}
+                    className="rounded-lg border border-border px-3 py-2 text-[12px] font-semibold text-[var(--brand-warm)] disabled:opacity-40"
+                  >
+                    Revoke all devices &amp; tokens
+                  </button>
+                </div>
+                {issuedToken && (
+                  <div className="rounded-xl border border-[color-mix(in_oklch,var(--brand-secondary)_30%,white)] bg-[color-mix(in_oklch,var(--brand-secondary)_8%,white)] p-3">
+                    <p className="text-[12px] font-semibold">Copy this token now. Vox stores only its hash.</p>
+                    <div className="mt-2 flex gap-2">
+                      <code className="min-w-0 flex-1 overflow-x-auto rounded-lg bg-white px-2.5 py-2 text-[11px]">{issuedToken}</code>
+                      <button
+                        type="button"
+                        onClick={() => navigator.clipboard.writeText(issuedToken)}
+                        className="rounded-lg border border-border bg-white px-3 text-[11.5px] font-semibold"
+                      >
+                        Copy
+                      </button>
+                    </div>
+                  </div>
+                )}
+                {(createTokenMutation.isError || revokeCredentialMutation.isError || revokeAllMutation.isError) && (
+                  <p className="text-[12px] font-medium text-[var(--brand-warm)]">Could not update remote access. Try again or restart Vox.</p>
+                )}
+                {remoteCredentialsError && (
+                  <p className="text-[12px] font-medium text-[var(--brand-warm)]">Could not load paired devices and API tokens.</p>
                 )}
               </div>
             </InfoRow>
@@ -601,7 +734,7 @@ function SettingsPage() {
                     onChange={(event) => {
                       const file = event.currentTarget.files?.[0];
                       event.currentTarget.value = "";
-                      if (file) restoreMutation.mutate(file);
+                      if (file) setPendingRestore(file);
                     }}
                   />
                 </div>
@@ -718,6 +851,28 @@ function SettingsPage() {
           confirmLabel="Yes, clear outputs"
           onCancel={() => setConfirmClear(false)}
           onConfirm={() => setConfirmClear(false)}
+        />
+      )}
+      {confirmRevokeAll && (
+        <ConfirmDialog
+          title="Revoke every remote device and token?"
+          description="All paired browsers and API tokens will lose access immediately. Local Vox data is not deleted."
+          confirmLabel="Revoke all access"
+          onCancel={() => setConfirmRevokeAll(false)}
+          onConfirm={() => revokeAllMutation.mutate()}
+        />
+      )}
+      {pendingRestore && (
+        <ConfirmDialog
+          title="Restore this Vox backup?"
+          description={`This replaces current voice profiles and history with ${pendingRestore.name}. Existing generated output audio and local settings are kept.`}
+          confirmLabel="Restore backup"
+          onCancel={() => setPendingRestore(null)}
+          onConfirm={() => {
+            const file = pendingRestore;
+            setPendingRestore(null);
+            restoreMutation.mutate(file);
+          }}
         />
       )}
     </div>

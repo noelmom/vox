@@ -1,4 +1,9 @@
 import { defineConfig, devices } from "@playwright/test";
+import { existsSync } from "node:fs";
+import { resolve } from "node:path";
+
+const pairingPython = process.env.PAIRING_TEST_PYTHON
+  ?? (existsSync(resolve("../.ci/venv/bin/python")) ? resolve("../.ci/venv/bin/python") : "python3");
 
 export default defineConfig({
   testDir: "./e2e",
@@ -16,9 +21,17 @@ export default defineConfig({
       use: { ...devices["Desktop Chrome"] },
     },
   ],
-  webServer: {
-    command: "npm run dev -- --host 127.0.0.1 --port 4173",
-    url: "http://127.0.0.1:4173",
-    reuseExistingServer: !process.env.CI,
-  },
+  webServer: [
+    {
+      command: "npm run dev -- --host 127.0.0.1 --port 4173",
+      url: "http://127.0.0.1:4173",
+      reuseExistingServer: !process.env.CI,
+    },
+    {
+      command: `"${pairingPython}" ../tests/pairing_browser_server.py`,
+      url: "http://127.0.0.1:4181/health",
+      reuseExistingServer: !process.env.CI,
+      timeout: 30_000,
+    },
+  ],
 });
