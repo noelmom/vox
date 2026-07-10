@@ -49,6 +49,16 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## Unreleased
 
+## [1.0.1] — 2026-07-10
+
+### Added
+- **Creative workspace redesign** — Create, Voices, History, and Settings now use a responsive, focused `/app` workspace with persistent playback and resilient runtime states.
+- **Sparkle update path** — Vox Helper includes pinned Sparkle 2, transactional package-update handling, and a GitHub-hosted appcast feed with stable/beta channels.
+- **Release evidence gates** — package payload, linkage, signing, stapling, appcast, provenance, and hosted-artifact verification are enforced before a release can be finalized.
+
+### Fixed
+- **Installer candidate safety** — package verification rejects protected runtime data, secrets, developer artifacts, invalid Sparkle framework links, and unexpected payload paths.
+
 ### Changed
 - Vox Helper now builds against a pinned Sparkle 2 dependency and exposes its native update controller; package updates distinguish fresh setup from transactional in-place updates while preserving local data.
 - Create and History recordings now use one persistent player, so playback, position, speed, and volume survive navigation.
