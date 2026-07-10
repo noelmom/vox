@@ -44,3 +44,20 @@ def test_fixture_rendering_is_deterministic_and_missing_package_is_controlled(tm
     failed = subprocess.run([sys.executable, str(TOOL), "verify", "--appcast", str(first), "--package", str(tmp_path / "missing.pkg")], capture_output=True, text=True)
     assert failed.returncode != 0
     assert "existing .pkg" in failed.stderr
+
+
+def test_verify_signature_delegates_to_sparkle_for_the_staged_package(tmp_path: Path) -> None:
+    output = render(tmp_path)
+    package = tmp_path / "Vox-1.2.3.pkg"
+    verifier = tmp_path / "sign_update"
+    verifier.write_text(
+        "#!/bin/sh\n"
+        "[ \"$1\" = \"--verify\" ] && [ \"$2\" = \"--account\" ] && [ \"$3\" = \"test-account\" ] && "
+        "[ \"$4\" = \"%s\" ] && [ \"$5\" = \"fixture-signature\" ]\n" % package,
+        encoding="utf-8",
+    )
+    verifier.chmod(0o755)
+    subprocess.run([
+        sys.executable, str(TOOL), "verify", "--appcast", str(output), "--package", str(package),
+        "--verify-signature", "--sign-tool", str(verifier), "--account", "test-account",
+    ], check=True)

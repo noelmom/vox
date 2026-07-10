@@ -49,6 +49,19 @@ def signature_for(package: Path, tool: Path, account: str) -> tuple[str, int]:
     return match.group(1), int(match.group(2))
 
 
+def verify_signature(package: Path, signature: str, tool: Path, account: str) -> None:
+    if not tool.is_file():
+        fail(f"Sparkle sign_update tool not found: {tool}")
+    result = subprocess.run(
+        [str(tool), "--verify", "--account", account, str(package), signature],
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    if result.returncode:
+        fail(f"Sparkle signature verification failed: {result.stderr.strip() or result.stdout.strip()}")
+
+
 def render(args: argparse.Namespace) -> None:
     package = args.package.resolve()
     if not package.is_file() or package.suffix != ".pkg":
@@ -101,10 +114,27 @@ def render(args: argparse.Namespace) -> None:
     ET.indent(rss, space="  ")
     args.output.parent.mkdir(parents=True, exist_ok=True)
     ET.ElementTree(rss).write(args.output, encoding="utf-8", xml_declaration=True)
-    verify_file(args.output, package, args.channel, args.previous_build)
+    verify_file(
+        args.output,
+        package,
+        args.channel,
+        args.previous_build,
+        verify_sparkle_signature=not args.fixture,
+        sign_tool=args.sign_tool,
+        account=args.account,
+    )
 
 
-def verify_file(appcast: Path, package: Path | None, expected_channel: str | None, previous_build: int | None) -> None:
+def verify_file(
+    appcast: Path,
+    package: Path | None,
+    expected_channel: str | None,
+    previous_build: int | None,
+    *,
+    verify_sparkle_signature: bool = False,
+    sign_tool: Path | None = None,
+    account: str | None = None,
+) -> None:
     try:
         root = ET.parse(appcast).getroot()
     except ET.ParseError as error:
@@ -144,6 +174,12 @@ def verify_file(appcast: Path, package: Path | None, expected_channel: str | Non
             fail("--package must be an existing .pkg file")
         if length != package.stat().st_size:
             fail("enclosure length does not match local package")
+    if verify_sparkle_signature:
+        if package is None:
+            fail("--verify-signature requires --package")
+        if sign_tool is None or account is None:
+            fail("--verify-signature requires a Sparkle signing tool and account")
+        verify_signature(package, signature, sign_tool, account)
 
 
 def main() -> None:
@@ -168,11 +204,22 @@ def main() -> None:
     verify_parser.add_argument("--package", type=Path)
     verify_parser.add_argument("--channel", choices=("stable", "beta"))
     verify_parser.add_argument("--previous-build", type=int)
+    verify_parser.add_argument("--verify-signature", action="store_true", help="validate the enclosure signature with Sparkle")
+    verify_parser.add_argument("--sign-tool", type=Path, default=Path(".build/artifacts/sparkle/Sparkle/bin/sign_update"))
+    verify_parser.add_argument("--account", default="com.noelmom.vox")
     args = parser.parse_args()
     if args.command == "render":
         render(args)
     else:
-        verify_file(args.appcast, args.package, args.channel, args.previous_build)
+        verify_file(
+            args.appcast,
+            args.package,
+            args.channel,
+            args.previous_build,
+            verify_sparkle_signature=args.verify_signature,
+            sign_tool=args.sign_tool,
+            account=args.account,
+        )
 
 
 if __name__ == "__main__":

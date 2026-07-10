@@ -31,7 +31,7 @@ python3 "$ROOT/scripts/appcast.py" render \
   --published-at "$PUBLISHED_AT" --output "$EVIDENCE/appcast.xml"
 python3 "$ROOT/scripts/appcast.py" verify \
   --appcast "$EVIDENCE/appcast.xml" --package "$EVIDENCE/$(basename "$PACKAGE")" \
-  --channel "$CHANNEL" --previous-build "$PREVIOUS_BUILD"
+  --channel "$CHANNEL" --previous-build "$PREVIOUS_BUILD" --verify-signature
 
 SHA256="$(shasum -a 256 "$EVIDENCE/$(basename "$PACKAGE")" | awk '{print $1}')"
 cat > "$EVIDENCE/provenance.txt" <<EOF

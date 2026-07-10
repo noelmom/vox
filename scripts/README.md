@@ -75,10 +75,11 @@ python3 scripts/appcast.py render \
   --package /staging/Vox-1.2.3.pkg \
   --url https://updates.example.com/vox/releases/Vox-1.2.3.pkg \
   --notes /staging/1.2.3.md --output /staging/appcast.xml
-python3 scripts/appcast.py verify --appcast /staging/appcast.xml --channel stable
+python3 scripts/appcast.py verify --appcast /staging/appcast.xml --package /staging/Vox-1.2.3.pkg \
+  --channel stable --verify-signature
 ```
 
-The private EdDSA key remains in the release operator's Keychain. Do not add it to an environment variable, command line, appcast, or repository.
+`--verify-signature` asks Sparkle's Keychain-backed signing tool to cryptographically validate the staged package; `prepare-release-candidate.sh` always performs this check. The private EdDSA key remains in the release operator's Keychain. Do not add it to an environment variable, command line, appcast, or repository.
 
 Before an installer smoke test, inspect the final staged package without installing it:
 
