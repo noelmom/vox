@@ -28,10 +28,11 @@ Produce an approved, implementation-ready specification and dependency-ordered e
 - [Design a cancellation-safe generation lifecycle](02-design-cancellation-safe-generation-lifecycle.md) — isolate Chatterbox in one supervised subprocess; cancellation and timeout kill and reap that owner before terminal state or replacement, while the coordinator owns durable queueing and atomic output publication.
 - [Specify the Sparkle package-update architecture](03-specify-sparkle-package-update-architecture.md) — Vox Helper hosts pinned Sparkle 2; immutable notarized flat packages ship through a stable/default plus opt-in beta appcast after a one-time manual bridge, with the shell updater retained only for recovery/source installs.
 - [Validate the redesigned application workflows](04-validate-redesigned-application-workflows.md) — use a responsive four-route creative workspace with truthful generation states, inspector-based editing, one persistent player, explicit pairing/degraded behavior, accessible controls, route-level code splitting, and compact history/media lists.
+- [Define the full stability and release-acceptance gate](05-define-stability-and-release-acceptance-gate.md) — require reproducible local CI plus security, MPS recovery, responsive/accessibility, bundle, Sparkle, signed package, legacy/bridge/update failure, data-preservation, and Apple Silicon evidence before requesting merge approval.
 
 ## Not yet specified
 
-- Detailed API compatibility policy and whether any security changes require versioned endpoints.
+<!-- All currently visible planning questions have graduated into tickets or decisions. -->
 
 ## Out of scope
 
