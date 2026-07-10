@@ -348,9 +348,12 @@ async def pair():
 @app.get("/app/")
 @app.get("/app/library")
 @app.get("/app/recordings")
+@app.get("/app/voices")
+@app.get("/app/history")
 @app.get("/app/settings")
+@app.get("/app/settings/{tab}")
 @app.get("/logs")
-async def spa_routes():
+async def spa_routes(tab: str | None = None):
     if _SPA_INDEX.exists():
         return _spa()
     return {"error": "UI not found"}

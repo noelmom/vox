@@ -31,6 +31,7 @@ It exposes a clean REST API and a web UI for generating high-quality audio from 
 - **Configurable cleanup** — generated output files are pruned on a TTL schedule
 - **Zero cloud dependency** — fully self-hosted
 - **Web UI** — single-page app for generating audio, managing voices, viewing history, and configuring settings
+- **Persistent creative workspace** — canonical Create, Voices, History, and sectioned Settings routes with one global paused-on-reload audio dock
 - **In-browser voice recording** — capture microphone audio directly in the browser with live waveform visualisation
 - **Audio player with synchronized waveform** — generated audio plays inline with a waveform display that fills as playback progresses and stays synchronized when seeking
 - **Voice profile editing** — update description, tags, and TTS defaults without re-uploading audio
@@ -100,8 +101,8 @@ vox/
 │   │   │   ├── index.tsx        # Local installed welcome page
 │   │   │   ├── app.tsx          # Shell layout — sidebar, header, footer
 │   │   │   ├── app.index.tsx    # Create page (TTS generation)
-│   │   │   ├── app.library.tsx  # Library page (voice profile management)
-│   │   │   ├── app.recordings.tsx # Recordings page (job history)
+│   │   │   ├── app.voices.tsx   # Voices workspace (profile management)
+│   │   │   ├── app.history.tsx  # History workspace (generation jobs)
 │   │   │   └── app.settings.tsx # Settings page
 │   │   ├── lib/
 │   │   │   └── api.ts           # Typed fetch wrappers for every API endpoint

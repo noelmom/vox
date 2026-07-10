@@ -61,7 +61,7 @@ test("Create route renders against a deterministic API", async ({ page }) => {
 
   await expect(page.getByRole("heading", { name: "Create", exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Generate Voice" })).toBeVisible();
-  await expect(page.getByText("System Status")).toBeVisible();
+  await expect(page.getByText("Ready", { exact: true })).toBeVisible();
 });
 
 test("mobile navigation remains available", async ({ page }) => {
@@ -69,8 +69,40 @@ test("mobile navigation remains available", async ({ page }) => {
   await installFakeApi(page);
   await page.goto("/app");
 
-  await expect(page.getByRole("button", { name: "Open menu" })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Voice Studio" })).toBeVisible();
+  await expect(page.getByRole("navigation", { name: "Primary" }).getByText("Voices")).toBeVisible();
+  await expect(page.getByRole("navigation", { name: "Primary" }).getByText("History")).toBeVisible();
+});
+
+test("compatibility routes redirect to canonical workspaces", async ({ page }) => {
+  await installFakeApi(page);
+  await page.goto("/app/library");
+  await expect(page).toHaveURL(/\/app\/voices$/);
+  await page.goto("/app/recordings");
+  await expect(page).toHaveURL(/\/app\/history$/);
+  await page.goto("/logs");
+  await expect(page).toHaveURL(/\/app\/settings\/diagnostics$/);
+});
+
+test("global player metadata survives route navigation", async ({ page }) => {
+  await installFakeApi(page);
+  await page.route("**/api/v1/jobs/job-player/audio", (route) => route.fulfill({
+    status: 200,
+    contentType: "audio/wav",
+    body: Buffer.from("RIFF0000WAVE"),
+  }));
+  await page.goto("/app");
+  await expect(page.getByRole("heading", { name: "Create", exact: true })).toBeVisible();
+  await page.evaluate(() => window.dispatchEvent(new CustomEvent("vox:play-job", { detail: {
+    request_id: "job-player",
+    text: "Persistent player test.",
+    voice_name: "Noel Demo",
+    audio_duration_s: 12,
+    file_available: true,
+  } })));
+  await expect(page.getByRole("region", { name: "Audio player" })).toContainText("Persistent player test");
+  await page.getByRole("link", { name: "History" }).click();
+  await expect(page).toHaveURL(/\/app\/history$/);
+  await expect(page.getByRole("region", { name: "Audio player" })).toContainText("Persistent player test");
 });
 
 test("Settings confirms a destructive backup restore before uploading", async ({ page }) => {

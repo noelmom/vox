@@ -75,11 +75,11 @@ Build the backend hardening, creative-workspace UI, Sparkle package updates, and
 
 **Blocked by:** Establish the local quality loop.
 
-- [ ] Introduce canonical Create, Voices, History, and sectioned Settings routes plus redirects from old URLs.
-- [ ] Remove sidebar analytics, marketing footer, and healthy-state hardware pills from the main workspace.
-- [ ] Add wide/collapsed/mobile navigation, skip link, landmarks, error boundary, pairing gate slot, and actionable global banners.
-- [ ] Add one global audio controller, dock, mobile mini-player, waveform seek alternative, URL cleanup, and paused reload restoration.
-- [ ] Route-split the application and keep shell/media contracts independently testable.
+- [x] Introduce canonical Create, Voices, History, and sectioned Settings routes plus redirects from old URLs.
+- [x] Remove sidebar analytics, marketing footer, and healthy-state hardware pills from the main workspace.
+- [x] Add wide/collapsed/mobile navigation, skip link, landmarks, error boundary, pairing gate slot, and actionable global banners.
+- [x] Add one global audio controller, dock, mobile mini-player, waveform seek alternative, URL cleanup, and paused reload restoration.
+- [x] Route-split the application and keep shell/media contracts independently testable.
 
 **Rollback point:** Compatibility routes and the old page modules remain callable until each page ticket migrates; contract before deleting old shell code.
 

@@ -1160,8 +1160,8 @@ function GeneratePage() {
 
           <div className="mt-5 flex items-center justify-between border-t border-border pt-4 text-[12px] text-foreground/65">
             <span>{filteredJobs.length} recording{filteredJobs.length !== 1 ? "s" : ""}</span>
-            <a className="inline-flex items-center gap-1 font-semibold text-[oklch(0.55_0.22_260)] hover:underline" href="/app/recordings">
-              View All Recordings <ChevronRight className="h-3.5 w-3.5" />
+            <a className="inline-flex items-center gap-1 font-semibold text-[oklch(0.55_0.22_260)] hover:underline" href="/app/history">
+              View all history <ChevronRight className="h-3.5 w-3.5" />
             </a>
           </div>
         </section>
@@ -1795,7 +1795,7 @@ function VoicePicker({
       </div>
 
       <a
-        href="/app/library"
+        href="/app/voices"
         className="flex items-center justify-between border-t border-border bg-[var(--background)] px-4 py-3 text-[12px] font-semibold text-[oklch(0.55_0.22_260)] transition-colors hover:bg-[var(--brand-soft)]"
       >
         <span className="inline-flex items-center gap-1.5">
