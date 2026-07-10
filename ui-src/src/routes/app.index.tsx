@@ -2338,11 +2338,10 @@ function JobRow({
               ))}
             </div>
           )}
-          {(job.generation_s != null || job.device != null) && (
+          {(job.total_s != null || job.generation_s != null || job.device != null) && (
             <div className="mt-1 flex flex-wrap gap-x-2.5 gap-y-0.5 text-[11px] text-foreground/35">
               <span>{job.text.split(/\s+/).filter(Boolean).length.toLocaleString()} words</span>
-              {job.generation_s != null && <span>gen {formatElapsedTime(job.generation_s)}</span>}
-              {job.total_s != null && <span>total {formatElapsedTime(job.total_s)}</span>}
+              {(job.total_s ?? job.generation_s) != null && <span>total {formatElapsedTime(job.total_s ?? job.generation_s ?? 0)}</span>}
               {job.device != null && <span className="uppercase">{job.device}</span>}
             </div>
           )}
