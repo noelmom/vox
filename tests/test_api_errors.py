@@ -30,7 +30,8 @@ def test_http_errors_keep_detail_and_add_structured_shape(monkeypatch):
 
     from api.main import app
 
-    response = TestClient(app).patch("/api/v1/settings", json={"host": "example.com"})
+    client = TestClient(app, client=("127.0.0.1", 50000), headers={"Host": "localhost:8000"})
+    response = client.patch("/api/v1/settings", json={"host": "example.com"})
 
     assert response.status_code == 422
     body = response.json()

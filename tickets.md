@@ -24,12 +24,12 @@ Build the backend hardening, creative-workspace UI, Sparkle package updates, and
 
 **Blocked by:** Establish the local quality loop.
 
-- [ ] Enforce trusted host, Origin/Fetch Metadata, and loopback/LAN request classification.
-- [ ] Generate short-lived, single-use, rate-limited pairing codes without logging secrets.
-- [ ] Issue secure browser sessions and hashed scoped API tokens with read/generate/admin enforcement across every route.
-- [ ] Store secrets with owner-only permissions, support device/token listing and revocation, and revoke remote sessions when LAN mode is disabled.
-- [ ] Present pairing and network-security UX without leaking private status before authentication.
-- [ ] Prove existing loopback `/api/v1` clients remain compatible.
+- [x] Enforce trusted host, Origin/Fetch Metadata, and loopback/LAN request classification.
+- [x] Generate short-lived, single-use, rate-limited pairing codes without logging secrets.
+- [x] Issue secure browser sessions and hashed scoped API tokens with read/generate/admin enforcement across every route.
+- [x] Store secrets with owner-only permissions, support device/token listing and revocation, and revoke remote sessions when LAN mode is disabled.
+- [x] Present pairing and network-security UX without leaking private status before authentication.
+- [x] Prove existing loopback `/api/v1` clients remain compatible.
 
 **Rollback point:** Feature flag/default loopback mode keeps the new remote surface disabled; one focused commit can revert middleware, schema, and pairing UI together.
 

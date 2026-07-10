@@ -224,6 +224,16 @@ Do not spend time chasing sandbox-only codesign behavior unless the real build/i
 - Vox Helper displays model readiness in the menu.
 - `POST /api/v1/tts` returns `503` while the model is not ready.
 
+## Network Trust And Pairing
+
+- Loopback requests remain token-free, but every request still passes Host validation and unsafe browser methods pass Origin/Fetch Metadata checks.
+- LAN mode is opt-in (`VOX_HOST=0.0.0.0`). Unauthenticated remote clients may access only minimal `GET /health` and the pairing flow.
+- Vox Helper creates single-use five-minute pairing codes through the loopback-only trusted path. Never put pairing codes, bearer tokens, or cookies in logs or URLs.
+- Remote sessions and API tokens are stored only as SHA-256 hashes in `data/security/credentials.db`; its directory and file must remain owner-only.
+- Scope boundaries live centrally in `api/middleware/security.py`: read for metadata, generate for synthesis/private audio, and admin for settings, logs, backups, mutation, deletion, and credential management.
+- Disabling LAN mode revokes all remote credentials immediately. Do not weaken this behavior to preserve a remote session.
+- The LAN browser cookie cannot be `Secure` on Vox's default HTTP transport. Keep it `HttpOnly` and `SameSite=Strict`, show the trusted-LAN warning, and use `Secure` only when a future trusted-TLS mode can enforce HTTPS end to end.
+
 ## UI Build Rules
 
 - Edit React source under `ui-src/src`.

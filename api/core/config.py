@@ -15,6 +15,7 @@ class Settings(BaseSettings):
     voice_dir: Path = Path("voices")
     input_dir: Path = Path("input")
     db_path: Path = Path("data/vox.db")
+    security_dir: Path = Path("data/security")
     ffmpeg_path: str = "/opt/homebrew/bin/ffmpeg"
 
     default_max_chars: int = 450
@@ -100,3 +101,4 @@ settings.voice_dir.mkdir(exist_ok=True)
 settings.input_dir.mkdir(exist_ok=True)
 (settings.input_dir / "processed").mkdir(exist_ok=True)
 settings.db_path.parent.mkdir(exist_ok=True)
+settings.security_dir.mkdir(parents=True, exist_ok=True, mode=0o700)

@@ -17,8 +17,10 @@ from api.core.engine import get_device, get_model_status, load_model_async
 from api.core.logger import setup_logging
 from api.core.presets import PRESETS
 from api.core.watcher import watch_input_folder
+from api.core.security import SecurityStore
 from api.middleware.request_id import RequestIDMiddleware
-from api.routers import alerts, backups, jobs, logs, preferences, presets, tts, voices
+from api.middleware.security import SecurityMiddleware
+from api.routers import alerts, auth, backups, jobs, logs, preferences, presets, tts, voices
 
 _UI_DIST = Path(__file__).parent.parent / "ui-dist"
 _ENV_PATH = Path(".env")
@@ -209,6 +211,8 @@ app = FastAPI(
     redoc_url=None,
 )
 
+app.state.security_store = SecurityStore(settings.security_dir / "credentials.db")
+app.add_middleware(SecurityMiddleware, lan_enabled=lambda: settings.host == "0.0.0.0")
 app.add_middleware(RequestIDMiddleware)
 
 
@@ -241,6 +245,7 @@ v1.include_router(presets.router)
 v1.include_router(logs.router)
 v1.include_router(alerts.router)
 v1.include_router(preferences.router)
+v1.include_router(auth.router)
 
 # Serve React SPA built assets
 if _UI_DIST.exists():
@@ -302,6 +307,11 @@ async def landing():
     if _SPA_INDEX.exists():
         return _spa()
     return {"status": "ok", "device": get_device(), "presets": list(PRESETS.keys())}
+
+
+@app.get("/pair", include_in_schema=False)
+async def pair():
+    return auth.pairing_page()
 
 
 # Client-side routes — all must return index.html so TanStack Router handles them
@@ -515,6 +525,8 @@ async def patch_settings(patch: SettingsPatch):
             raise HTTPException(status_code=422, detail="host must be either 127.0.0.1 or 0.0.0.0")
         _write_env_value("VOX_HOST", host)
         changed["host"] = host
+        if host == "127.0.0.1":
+            app.state.security_store.revoke_all_remote_credentials()
 
     if patch.output_ttl_hours is not None:
         if patch.output_ttl_hours < 0 or patch.output_ttl_hours > 8760:

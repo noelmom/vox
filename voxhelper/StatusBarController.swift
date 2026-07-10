@@ -20,6 +20,7 @@ class StatusBarController: NSObject {
     private let startItem   = NSMenuItem(title: "▶  Start Server",       action: nil, keyEquivalent: "")
     private let stopItem    = NSMenuItem(title: "■  Stop Server",        action: nil, keyEquivalent: "")
     private let restartItem = NSMenuItem(title: "↺  Restart Server",     action: nil, keyEquivalent: "")
+    private let pairingItem = NSMenuItem(title: "⌁  Pair a Device…",     action: nil, keyEquivalent: "")
     private let updateItem  = NSMenuItem(title: "↑  Check for Updates…", action: nil, keyEquivalent: "")
     private let helperLoginItem = NSMenuItem(title: "Start Helper at Login", action: nil, keyEquivalent: "")
     private let serverLoginItem = NSMenuItem(title: "Start Server at Login", action: nil, keyEquivalent: "")
@@ -47,7 +48,7 @@ class StatusBarController: NSObject {
     private func setupMenu() {
         [statusItem, addrItem, cpuItem, gpuItem, ramItem, modelItem, studioBuildItem, helperBuildItem].forEach { $0.isEnabled = false }
         [copyItem, openItem, inputItem, supportItem, startItem, stopItem,
-         restartItem, updateItem, helperLoginItem, serverLoginItem, logsItem, uninstallItem, quitItem].forEach { $0.target = self }
+         restartItem, pairingItem, updateItem, helperLoginItem, serverLoginItem, logsItem, uninstallItem, quitItem].forEach { $0.target = self }
 
         copyItem.action    = #selector(copyAddress)
         openItem.action    = #selector(openBrowser)
@@ -56,6 +57,7 @@ class StatusBarController: NSObject {
         startItem.action   = #selector(startServer)
         stopItem.action    = #selector(stopServer)
         restartItem.action = #selector(restartServer)
+        pairingItem.action = #selector(createPairingCode)
         updateItem.action  = #selector(checkForUpdates)
         helperLoginItem.action = #selector(toggleHelperLogin)
         serverLoginItem.action = #selector(toggleServerLogin)
@@ -71,7 +73,7 @@ class StatusBarController: NSObject {
                   NSMenuItem.separator(),
                   studioBuildItem, helperBuildItem,
                   NSMenuItem.separator(),
-                  startItem, stopItem, restartItem,
+                  startItem, stopItem, restartItem, pairingItem,
                   NSMenuItem.separator(),
                   updateItem, helperLoginItem, serverLoginItem,
                   NSMenuItem.separator(),
@@ -95,6 +97,7 @@ class StatusBarController: NSObject {
         startItem.action    = state.running ? nil                      : #selector(startServer)
         stopItem.action     = state.running ? #selector(stopServer)    : nil
         restartItem.action  = state.running ? #selector(restartServer) : nil
+        pairingItem.action  = state.running && state.networkAccessible ? #selector(createPairingCode) : nil
         cpuItem.title       = "⚡  CPU   \(Int(state.cpu.rounded()))%"
         gpuItem.title       = state.gpu.map { "◈  GPU   \(Int($0.rounded()))%" } ?? "◈  GPU   unavailable"
         ramItem.title       = "🧠  RAM   \(String(format: "%.1f", state.ramUsed)) / \(Int(state.ramTotal)) GB"
@@ -161,6 +164,53 @@ class StatusBarController: NSObject {
         statusItem.title = "Restarting…"
         applyMenuBarIcon(running: true)
         monitor.launchctl("kickstart", "-k", "gui/\(getuid())/com.noelmom.vox")
+    }
+
+    @objc private func createPairingCode() {
+        guard let url = URL(string: monitor.loopbackURL() + "/api/v1/auth/pairing-codes") else { return }
+        pairingItem.title = "Creating pairing code…"
+        pairingItem.action = nil
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.timeoutInterval = 5
+        URLSession.shared.dataTask(with: request) { [weak self] data, response, _ in
+            guard let self else { return }
+            let status = (response as? HTTPURLResponse)?.statusCode
+            let payload = data.flatMap { try? JSONSerialization.jsonObject(with: $0) as? [String: Any] }
+            let code = payload?["code"] as? String
+            DispatchQueue.main.async {
+                self.pairingItem.title = "⌁  Pair a Device…"
+                self.pairingItem.action = #selector(StatusBarController.createPairingCode)
+                guard status == 200, let code else {
+                    self.showPairingError()
+                    return
+                }
+                self.showPairingCode(code)
+            }
+        }.resume()
+    }
+
+    private func showPairingCode(_ code: String) {
+        let alert = NSAlert()
+        alert.messageText = "Pair a device with Vox"
+        alert.informativeText = "Enter this one-time code on the device:\n\n\(code)\n\nThe code expires in five minutes. Pair only on a trusted LAN; Vox uses HTTP unless you provide trusted TLS."
+        alert.alertStyle = .informational
+        alert.addButton(withTitle: "Copy Code")
+        alert.addButton(withTitle: "Done")
+        if alert.runModal() == .alertFirstButtonReturn {
+            NSPasteboard.general.clearContents()
+            NSPasteboard.general.setString(code, forType: .string)
+        }
+    }
+
+    private func showPairingError() {
+        let alert = NSAlert()
+        alert.messageText = "Unable to create pairing code"
+        alert.informativeText = "Make sure the Vox server is running, then try again."
+        alert.alertStyle = .warning
+        alert.addButton(withTitle: "OK")
+        alert.runModal()
     }
 
     @objc private func checkForUpdates() {

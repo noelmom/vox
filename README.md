@@ -63,10 +63,12 @@ vox/
 ├── api/
 │   ├── main.py                  # FastAPI app, lifespan, SPA routing, settings endpoint
 │   ├── middleware/
-│   │   └── request_id.py        # Attaches X-Request-ID to every req/res
+│   │   ├── request_id.py        # Attaches X-Request-ID to every req/res
+│   │   └── security.py          # Host/origin checks, LAN auth, scope enforcement
 │   ├── core/
 │   │   ├── config.py            # All settings via VOX_ env vars or .env file
 │   │   ├── db.py                # aiosqlite connection, schema migrations
+│   │   ├── security.py          # Pairing codes and hashed credential store
 │   │   ├── engine.py            # Chatterbox model loader, MPS/CPU auto-detect
 │   │   ├── presets.py           # Built-in TTS preset definitions
 │   │   ├── chunker.py           # Long-text sentence splitting logic
@@ -80,6 +82,7 @@ vox/
 │   │   ├── jobs.py              # GET /api/v1/jobs — history, status, audio download
 │   │   ├── logs.py              # GET /api/v1/logs — structured job diagnostics + bounded log tails
 │   │   ├── alerts.py            # GET /api/v1/alerts — install/runtime warning banners
+│   │   ├── auth.py              # Pairing, devices, scoped tokens, revocation
 │   │   └── presets.py           # GET /api/v1/presets — built-in + custom tone definitions
 │   └── models/
 │       ├── voice.py             # VoiceOut, VoiceParams, VoiceCreate schemas
@@ -274,7 +277,11 @@ See [`scripts/README.md`](scripts/README.md) for a full reference of all scripts
 
 The server starts on `http://127.0.0.1:8000` by default — local to the Mac running Vox. Open `http://localhost:8000/app` for the web UI or `http://localhost:8000/docs` for the interactive API docs.
 
-To allow phones, tablets, or other machines on your LAN to reach Vox, open Settings → Runtime → Network access and switch to **Network accessible**. Restart the local server for the host change to take effect.
+To allow phones, tablets, or other machines on your LAN to reach Vox, open Settings → Runtime → Network access and switch to **Network accessible**. Restart the local server for the host change to take effect. Then choose **Pair a Device…** from Vox Helper and enter its single-use five-minute code on the remote device.
+
+Loopback Studio and API clients remain token-free. Remote devices can see only `GET /health` until paired. Browser sessions are `HttpOnly` and `SameSite=Strict`; API clients use explicit bearer tokens with `read`, `generate`, or `admin` scope. Pairing codes and raw tokens are never stored—only credential hashes are written under the installed Vox `data/security/` directory with owner-only permissions. Disabling LAN access revokes remote credentials.
+
+Vox serves plain HTTP on the LAN unless you place it behind trusted TLS. Pair only on a trusted network and do not reuse Vox credentials elsewhere.
 
 ---
 
