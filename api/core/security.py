@@ -123,7 +123,7 @@ class SecurityStore:
         return self._issue(
             "session",
             device_name,
-            {"read", "generate"},
+            {"admin"},
             expires_at=now + session_ttl_seconds,
         )
 

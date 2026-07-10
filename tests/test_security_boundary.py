@@ -97,7 +97,13 @@ def test_pairing_code_is_single_use_and_scopes_are_enforced(tmp_path):
     client.cookies.set("vox_session", session.secret)
     assert client.get("/api/v1/status").status_code == 200
     assert client.post("/api/v1/tts").status_code == 200
-    assert client.patch("/api/v1/settings").status_code == 403
+    assert client.patch("/api/v1/settings").status_code == 200
+
+    generate_token = store.create_api_token("Generator", scopes={"generate"})
+    token_client = TestClient(app, client=("192.168.1.21", 50000), headers={"Host": "192.168.1.10:8000"})
+    token_headers = {"Authorization": f"Bearer {generate_token.secret}"}
+    assert token_client.post("/api/v1/tts", headers=token_headers).status_code == 200
+    assert token_client.patch("/api/v1/settings", headers=token_headers).status_code == 403
 
 
 def test_token_revocation_and_lan_disable_invalidate_credentials(tmp_path):
