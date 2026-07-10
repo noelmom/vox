@@ -14,7 +14,8 @@ from api.core.cleanup import run_cleanup_loop
 from api.core.config import settings
 from api.core.build_info import get_build_info
 from api.core.db import connect, disconnect
-from api.core.engine import get_device, get_model_status, load_model_async
+from api.core.engine import get_device, get_model_status
+from api.core.generation import GenerationCoordinator, set_generation_coordinator
 from api.core.logger import setup_logging
 from api.core.presets import PRESETS
 from api.core.watcher import watch_input_folder
@@ -28,7 +29,6 @@ _ENV_PATH = Path(".env")
 _VALID_HOSTS = {"127.0.0.1", "0.0.0.0"}
 
 _background_tasks: list[asyncio.Task] = []
-_model_task: asyncio.Task | None = None
 
 
 class SettingsPatch(BaseModel):
@@ -90,22 +90,23 @@ def _enforce_lan_credential_state(application: FastAPI) -> None:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    global _model_task
     setup_logging()
     _enforce_lan_credential_state(app)
     await connect()
-    _model_task = asyncio.create_task(load_model_async())
+    coordinator = GenerationCoordinator()
+    set_generation_coordinator(coordinator)
+    await coordinator.start()
 
     _background_tasks.append(asyncio.create_task(watch_input_folder()))
     _background_tasks.append(asyncio.create_task(run_cleanup_loop()))
 
     yield
 
-    if _model_task:
-        _model_task.cancel()
     for task in _background_tasks:
         task.cancel()
-    await asyncio.gather(*_background_tasks, _model_task, return_exceptions=True)
+    await asyncio.gather(*_background_tasks, return_exceptions=True)
+    await coordinator.shutdown()
+    set_generation_coordinator(None)
     await disconnect()
 
 
@@ -170,8 +171,10 @@ Every TTS response includes timing telemetry:
 ## Async job lifecycle
 
 ```
-POST /api/v1/tts → queued → processing → completed → audio available
-                                └→ failed   → error field set
+POST /api/v1/tts → queued → processing → encoding → completed → audio available
+                                ├→ cancelling → cancelled
+                                ├→ recovering → failed
+                                └→ interrupted (after restart)
 ```
 
 Audio files are automatically cleaned up after `VOX_OUTPUT_TTL_HOURS` (default 24 h).
@@ -188,7 +191,7 @@ _TAGS = [
     },
     {
         "name": "jobs",
-        "description": "Track generation jobs and download completed audio. Jobs move through `queued → processing → completed` (or `failed`).",
+        "description": "Track generation jobs and download completed audio. Durable states include queued, processing, cancelling, encoding, recovering, completed, failed, cancelled, and interrupted.",
     },
     {
         "name": "backups",

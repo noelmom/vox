@@ -111,6 +111,10 @@ async def _migrate(db: aiosqlite.Connection):
         ("deleted_at",   "ALTER TABLE voices ADD COLUMN deleted_at TEXT"),
         ("device",       "ALTER TABLE jobs ADD COLUMN device TEXT"),
         ("user_agent",   "ALTER TABLE jobs ADD COLUMN user_agent TEXT"),
+        ("error_code",   "ALTER TABLE jobs ADD COLUMN error_code TEXT"),
+        ("state_detail", "ALTER TABLE jobs ADD COLUMN state_detail TEXT"),
+        ("progress_current", "ALTER TABLE jobs ADD COLUMN progress_current INTEGER"),
+        ("progress_total", "ALTER TABLE jobs ADD COLUMN progress_total INTEGER"),
     ]:
         try:
             await db.execute(ddl)
@@ -200,10 +204,12 @@ async def _rename_noelmo_demo_tag(db: aiosqlite.Connection):
 async def _fail_stale_jobs(db: aiosqlite.Connection):
     await db.execute(
         """UPDATE jobs
-           SET status='failed',
+           SET status='interrupted',
+               error_code='server_restarted',
+               state_detail='Generation was interrupted by a Vox restart.',
                error='Generation was interrupted because the Vox agent restarted.',
                completed_at=datetime('now')
-           WHERE status IN ('queued', 'processing')"""
+           WHERE status IN ('queued', 'processing', 'cancelling', 'encoding', 'recovering')"""
     )
     await db.commit()
 

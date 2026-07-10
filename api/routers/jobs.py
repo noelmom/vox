@@ -107,7 +107,7 @@ async def stream_job_events(request_id: str, request: Request):
                 yield f"event: job\ndata: {payload}\n\n"
                 last_payload = payload
 
-            if job["status"] in {"completed", "failed", "cancelled"}:
+            if job["status"] in {"completed", "failed", "cancelled", "interrupted"}:
                 return
 
             await asyncio.sleep(0.75)
@@ -127,9 +127,13 @@ async def stream_job_events(request_id: str, request: Request):
 |---|---|
 | `queued` | Job is waiting — another generation may be in progress |
 | `processing` | Model is actively generating audio |
+| `cancelling` | Vox is stopping and reaping the active model worker |
+| `encoding` | Audio generation finished and the final file is being encoded |
+| `recovering` | Vox is restarting the isolated model worker after a fault |
 | `completed` | Audio is ready — download via `GET /api/v1/jobs/{request_id}/audio` |
 | `failed` | Generation failed — see the `error` field for the reason |
 | `cancelled` | Generation was stopped by the user |
+| `interrupted` | Vox restarted before generation could finish |
 
 Typical generation time on Apple Silicon is 1–5× real-time depending on text length and voice complexity.
 """,

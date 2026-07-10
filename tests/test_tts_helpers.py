@@ -27,7 +27,7 @@ def _install_model_stubs(monkeypatch):
 
 def test_stitch_chunks_applies_pause_after_current_chunk(monkeypatch):
     _install_model_stubs(monkeypatch)
-    from api.routers.tts import _stitch_chunks
+    from api.core.generation import _stitch_chunks
 
     first = np.array([1.0, 1.0], dtype=np.float32)
     second = np.array([2.0], dtype=np.float32)
@@ -40,7 +40,7 @@ def test_stitch_chunks_applies_pause_after_current_chunk(monkeypatch):
 
 def test_stitch_chunks_handles_empty_segments(monkeypatch):
     _install_model_stubs(monkeypatch)
-    from api.routers.tts import _stitch_chunks
+    from api.core.generation import _stitch_chunks
 
     result = _stitch_chunks([(np.array([], dtype=np.float32), 0.1), (np.array([4.0], dtype=np.float32), 0.0)], 10)
 

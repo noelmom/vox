@@ -54,7 +54,7 @@ async def _run_cleanup():
                 log.warning("Could not reconcile stale cleanup file %s: %s", stale.name, exc)
 
     if settings.job_retention_days != 0:
-        terminal_statuses = ("'completed', 'failed', 'cancelled'" if settings.output_ttl_hours != 0 else "'failed', 'cancelled'")
+        terminal_statuses = ("'completed', 'failed', 'cancelled', 'interrupted'" if settings.output_ttl_hours != 0 else "'failed', 'cancelled', 'interrupted'")
         async with db.execute(
             f"""SELECT request_id, output_path FROM jobs
                WHERE created_at < datetime('now', ?)

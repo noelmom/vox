@@ -1,105 +1,26 @@
-import asyncio
 import time
 import uuid
 from pathlib import Path
 
-import numpy as np
-import soundfile as sf
 from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import JSONResponse
 
 from api.core.audio import (
-    INGESTABLE_EXTENSIONS, VALID_MP3_BITRATES, VALID_WAV_DEPTHS, WAV_SUBTYPES,
-    audio_duration_seconds, convert_to_wav, export_mp3, trim_wav_edges,
+    INGESTABLE_EXTENSIONS, VALID_MP3_BITRATES, VALID_WAV_DEPTHS,
+    audio_duration_seconds, convert_to_wav, trim_wav_edges,
 )
 from api.core.chunker import clamp_max_chars, split_text
 from api.core.config import settings
 from api.core.db import get_db
 from api.core.data_safety import canonical_voice_slug, generation_parameter_values, managed_path, stream_upload
-from api.core.engine import get_device, get_lock, get_model, get_model_status, is_model_ready
+from api.core.engine import get_model_status, is_model_ready
+from api.core.generation import get_generation_coordinator
+from api.core.generation_protocol import GenerationChunk, GenerationRequest
 from api.core.logger import get_logger
 from api.core.presets import PRESETS
 
 router = APIRouter(prefix="/tts", tags=["tts"])
 log = get_logger(__name__)
-
-_ACTIVE_TASKS: dict[str, asyncio.Task] = {}
-
-EDGE_TRIM_PAD_S = 0.005
-CHUNK_GENERATION_ATTEMPTS = 3
-CHUNK_GENERATION_TIMEOUT_BASE_S = 120
-CHUNK_GENERATION_TIMEOUT_PER_CHAR_S = 2.5
-CHUNK_GENERATION_TIMEOUT_MAX_S = 300
-
-
-def _trim_edge_silence(audio: np.ndarray, sample_rate: int) -> np.ndarray:
-    """Trim near-silent samples from the beginning and end of a chunk.
-
-    This keeps the model's internal pauses intact while removing the dead air
-    that can appear around chunk boundaries.
-    """
-    if audio.size == 0:
-        return audio
-
-    peak = float(np.max(np.abs(audio)))
-    if peak <= 0.0:
-        return audio[:0]
-
-    threshold = max(3e-4, peak * 0.02)
-    silent = np.abs(audio) <= threshold
-    if not silent.any():
-        return audio
-
-    start = 0
-    end = audio.size
-
-    while start < end and silent[start]:
-        start += 1
-    while end > start and silent[end - 1]:
-        end -= 1
-
-    if start >= end:
-        return audio[:0]
-
-    # Keep a tiny cushion so we do not clip the first/last phoneme too tightly.
-    pad = int(sample_rate * EDGE_TRIM_PAD_S)
-    return audio[max(0, start - pad) : min(audio.size, end + pad)]
-
-
-def _stitch_chunks(chunks: list[tuple[np.ndarray, float]], sample_rate: int) -> np.ndarray:
-    """Join generated chunks and restore a small pause where the text boundary needs it."""
-    if not chunks:
-        return np.array([], dtype=np.float32)
-
-    pieces: list[np.ndarray] = []
-    output_dtype = next((chunk.dtype for chunk, _ in chunks if chunk.size), np.float32)
-
-    for index, (chunk, pause_after_s) in enumerate(chunks):
-        if chunk.size:
-            pieces.append(chunk)
-            if pause_after_s > 0 and index < len(chunks) - 1:
-                pieces.append(np.zeros(int(sample_rate * pause_after_s), dtype=output_dtype))
-
-    if not pieces:
-        return np.array([], dtype=np.float32)
-    return np.concatenate(pieces)
-
-
-def _minimum_expected_chunk_duration_s(text: str) -> float:
-    """Catch obvious model early-stops without rejecting genuinely short clips."""
-    chars = len(text.strip())
-    if chars < 80:
-        return 0.0
-    return min(10.0, max(3.0, chars / 28))
-
-
-def _generation_timeout_s(text: str) -> float:
-    """Bound one chunk render so a wedged model call cannot hold a job forever."""
-    chars = len(text.strip())
-    return min(
-        CHUNK_GENERATION_TIMEOUT_MAX_S,
-        max(CHUNK_GENERATION_TIMEOUT_BASE_S, chars * CHUNK_GENERATION_TIMEOUT_PER_CHAR_S),
-    )
 
 
 def _enforce_duration_limit(wav_path: Path):
@@ -142,164 +63,6 @@ async def _resolve_voice(voice_name: str | None, rid: str, db) -> tuple[Path | N
 
     return wav_path, row["id"]
 
-
-async def _run_generation(
-    rid: str,
-    text: str,
-    preset_name: str,
-    output_format_name: str,
-    chunk_max_chars: int,
-    params: dict,
-    audio_prompt_path: Path | None,
-    tmp_paths: list[Path],
-    mp3_bitrate: int | None = None,
-    wav_bit_depth: str | None = None,
-):
-    """Background task: run TTS generation and update job record when done."""
-    request_start = time.time()
-    db = await get_db()
-
-    try:
-        chunks = split_text(text, chunk_max_chars, settings.chunk_headroom_chars)
-        if not chunks:
-            await db.execute(
-                "UPDATE jobs SET status='failed', error=?, completed_at=datetime('now') WHERE request_id=?",
-                ("Text cannot be empty.", rid),
-            )
-            await db.commit()
-            return
-
-        model = get_model()
-        loop = asyncio.get_running_loop()
-        async with get_lock():
-            await db.execute("UPDATE jobs SET status='processing' WHERE request_id=?", (rid,))
-            await db.commit()
-
-            log.info(
-                "TTS job started: preset=%s chunks=%d format=%s",
-                preset_name, len(chunks), output_format_name,
-                extra={"request_id": rid},
-            )
-
-            generation_start = time.time()
-            audio_segments = []
-
-            for i, chunk in enumerate(chunks):
-                prompt_path = str(audio_prompt_path) if audio_prompt_path else None
-                min_duration_s = _minimum_expected_chunk_duration_s(chunk.text)
-                timeout_s = _generation_timeout_s(chunk.text)
-                last_duration_s = 0.0
-                audio = np.array([], dtype=np.float32)
-
-                for attempt in range(1, CHUNK_GENERATION_ATTEMPTS + 1):
-                    # Run blocking model inference in a thread so the event loop stays
-                    # free to serve status-poll requests while generation is in progress.
-                    try:
-                        wav = await asyncio.wait_for(
-                            loop.run_in_executor(
-                                None,
-                                lambda c=chunk.text, p=prompt_path: model.generate(
-                                    text=c,
-                                    audio_prompt_path=p,
-                                    **params,
-                                ),
-                            ),
-                            timeout=timeout_s,
-                        )
-                    except asyncio.TimeoutError as exc:
-                        raise RuntimeError(
-                            f"Generation timed out on chunk {i + 1} after {timeout_s:.0f}s. "
-                            "The model did not return audio in time."
-                        ) from exc
-
-                    audio = wav.squeeze().cpu().numpy()
-                    audio = _trim_edge_silence(audio, model.sr)
-                    last_duration_s = len(audio) / model.sr if model.sr else 0.0
-                    if min_duration_s == 0.0 or last_duration_s >= min_duration_s:
-                        break
-                    log.warning(
-                        "TTS chunk looked truncated: chunk=%d attempt=%d duration=%.2fs min_expected=%.2fs chars=%d",
-                        i + 1, attempt, last_duration_s, min_duration_s, len(chunk.text),
-                        extra={"request_id": rid},
-                    )
-
-                if min_duration_s > 0.0 and last_duration_s < min_duration_s:
-                    raise RuntimeError(
-                        f"Generation stopped early on chunk {i + 1}. "
-                        f"Produced {last_duration_s:.1f}s for {len(chunk.text)} characters after {CHUNK_GENERATION_ATTEMPTS} attempts."
-                    )
-
-                audio_segments.append((audio, chunk.pause_after_s if i < len(chunks) - 1 else 0.0))
-
-            generation_s = time.time() - generation_start
-
-        final_audio = _stitch_chunks(audio_segments, model.sr)
-        audio_duration_s = len(final_audio) / model.sr
-        rtf = generation_s / audio_duration_s if audio_duration_s > 0 else 0
-
-        output_id = uuid.uuid4()
-        encode_s = None
-
-        if output_format_name == "mp3":
-            wav_path = settings.output_dir / f"{output_id}.wav"
-            sf.write(str(wav_path), final_audio, model.sr, subtype="PCM_16")
-            mp3_path = settings.output_dir / f"{output_id}.mp3"
-            t0 = time.time()
-            export_mp3(wav_path, mp3_path, bitrate=mp3_bitrate)
-            encode_s = time.time() - t0
-            wav_path.unlink(missing_ok=True)
-            output_path = mp3_path
-        else:
-            subtype = WAV_SUBTYPES.get(wav_bit_depth or "16", "PCM_16")
-            wav_path = settings.output_dir / f"{output_id}.wav"
-            sf.write(str(wav_path), final_audio, model.sr, subtype=subtype)
-            output_path = wav_path
-
-        total_s = time.time() - request_start
-        device = get_device()
-
-        await db.execute(
-            """UPDATE jobs SET
-                status='completed', output_path=?, chunks=?,
-                audio_duration_s=?, generation_s=?, encode_s=?,
-                total_s=?, rtf=?, device=?,
-                completed_at=datetime('now')
-               WHERE request_id=? AND status NOT IN ('cancelled', 'failed')""",
-            (str(output_path), len(chunks), audio_duration_s,
-             generation_s, encode_s, total_s, rtf, device, rid),
-        )
-        await db.commit()
-
-        log.info(
-            "TTS job completed: duration=%.2fs generation=%.2fs rtf=%.2f",
-            audio_duration_s, generation_s, rtf,
-            extra={"request_id": rid},
-        )
-
-    except asyncio.CancelledError:
-        try:
-            await db.execute(
-                "UPDATE jobs SET status='cancelled', error=?, completed_at=datetime('now') WHERE request_id=? AND status != 'completed'",
-                ("Generation cancelled by user.", rid),
-            )
-            await db.commit()
-        except Exception:
-            pass
-        log.info("TTS job cancelled", extra={"request_id": rid})
-        raise
-
-    except Exception as exc:
-        await db.execute(
-            "UPDATE jobs SET status='failed', error=?, completed_at=datetime('now') WHERE request_id=? AND status != 'cancelled'",
-            (str(exc), rid),
-        )
-        await db.commit()
-        log.error("TTS job failed: %s", exc, extra={"request_id": rid})
-
-    finally:
-        for p in tmp_paths:
-            p.unlink(missing_ok=True)
-        _ACTIVE_TASKS.pop(rid, None)
 
 
 @router.post(
@@ -478,13 +241,20 @@ async def generate_tts(
             await db.commit()
             raise
 
-    task = asyncio.create_task(_run_generation(
-        rid, text, preset_name, output_format_name,
-        chunk_max_chars, params, audio_prompt_path, tmp_paths,
+    chunks = split_text(text, chunk_max_chars, settings.chunk_headroom_chars)
+    partial_dir = settings.output_dir / ".partial" / rid
+    generation_request = GenerationRequest(
+        request_id=rid,
+        chunks=tuple(GenerationChunk(chunk.text, chunk.pause_after_s) for chunk in chunks),
+        params=params,
+        audio_prompt_path=str(audio_prompt_path) if audio_prompt_path else None,
+        partial_dir=str(partial_dir),
+        output_format=output_format_name,
         mp3_bitrate=mp3_bitrate,
         wav_bit_depth=wav_bit_depth,
-    ))
-    _ACTIVE_TASKS[rid] = task
+        submitted_at=time.time(),
+    )
+    await get_generation_coordinator().submit(generation_request)
 
     return JSONResponse({"request_id": rid}, status_code=202)
 
@@ -492,7 +262,7 @@ async def generate_tts(
 @router.post(
     "/{request_id}/cancel",
     summary="Cancel a running generation job",
-    description="Cancels an in-flight generation job on the server. If the model is currently inside a blocking chunk render, cancellation lands as soon as that call returns to the event loop.",
+    description="Requests cancellation. Active work enters `cancelling` until the isolated model worker has stopped and been reaped; only then does the job become `cancelled`.",
     responses={
         200: {"description": "Job cancelled or already cancelled"},
         404: {"description": "Job not found"},
@@ -508,14 +278,5 @@ async def cancel_generation(request_id: str, request: Request):
     if row["status"] in {"completed", "failed", "cancelled"}:
         return JSONResponse({"request_id": request_id, "status": row["status"]})
 
-    await db.execute(
-        "UPDATE jobs SET status='cancelled', error=?, completed_at=datetime('now') WHERE request_id=?",
-        ("Generation cancelled by user.", request_id),
-    )
-    await db.commit()
-
-    task = _ACTIVE_TASKS.get(request_id)
-    if task and not task.done():
-        task.cancel()
-
-    return JSONResponse({"request_id": request_id, "status": "cancelled"})
+    status = await get_generation_coordinator().cancel(request_id)
+    return JSONResponse({"request_id": request_id, "status": status})

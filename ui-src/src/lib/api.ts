@@ -32,6 +32,10 @@ export type Job = {
   total_s: number | null;
   rtf: number | null;
   error: string | null;
+  error_code: string | null;
+  state_detail: string | null;
+  progress_current: number | null;
+  progress_total: number | null;
   voice_name: string | null;
   device: string | null;
   created_at: string;
@@ -330,8 +334,8 @@ export async function deleteJob(requestId: string): Promise<void> {
   await apiFetch(`/api/v1/jobs/${encodeURIComponent(requestId)}`, { method: "DELETE" });
 }
 
-export async function cancelJob(requestId: string): Promise<void> {
-  await apiFetch(`/api/v1/tts/${encodeURIComponent(requestId)}/cancel`, { method: "POST" });
+export async function cancelJob(requestId: string): Promise<{ request_id: string; status: string }> {
+  return apiFetch(`/api/v1/tts/${encodeURIComponent(requestId)}/cancel`, { method: "POST" }).then((r) => r.json());
 }
 
 export async function exportBackup(): Promise<Blob> {

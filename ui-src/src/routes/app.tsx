@@ -248,7 +248,10 @@ function GenerationWidget() {
   const elapsed = Math.max(0, Math.floor((now - startedAt) / 1000));
   const requestLabel = state.phase === "polling" ? state.requestId.slice(0, 8) : "pending";
   const queued = state.phase === "polling" && state.status === "queued";
-  const progressPct = queued ? 18 : Math.min(92, 24 + elapsed / 3);
+  const stopping = state.phase === "polling" && state.status === "cancelling";
+  const recovering = state.phase === "polling" && state.status === "recovering";
+  const encoding = state.phase === "polling" && state.status === "encoding";
+  const label = stopping ? "Stopping generation" : recovering ? "Recovering model" : encoding ? "Encoding audio" : queued ? "Queued" : "Generating audio";
 
   return (
     <div className="border-b border-[color-mix(in_oklch,var(--brand)_12%,white)] bg-white/85 px-4 py-2 backdrop-blur-xl dark:bg-card/90 sm:px-8">
@@ -258,30 +261,29 @@ function GenerationWidget() {
         </div>
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[12px]">
-            <span className="font-bold text-foreground">{queued ? "Queued" : "Generating audio"}</span>
+            <span className="font-bold text-foreground">{label}</span>
             <span className="text-foreground/45">job {requestLabel}</span>
             <span className="font-medium text-foreground/65">
-              {queued ? "Waiting for engine" : `${formatElapsed(elapsed)} elapsed`}
+              {stopping ? "Waiting for worker to stop" : recovering ? "Restarting isolated worker" : queued ? "Waiting for engine" : `${formatElapsed(elapsed)} elapsed`}
             </span>
           </div>
           <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-[color-mix(in_oklch,var(--brand-soft)_60%,white)]">
-            <div
-              className="h-full rounded-full bg-[linear-gradient(90deg,var(--brand),var(--brand-secondary),var(--brand-warm))] transition-[width] duration-700"
-              style={{ width: `${progressPct}%` }}
-            />
+            <div className="h-full w-1/3 animate-pulse rounded-full bg-[linear-gradient(90deg,var(--brand),var(--brand-secondary),var(--brand-warm))]" />
           </div>
         </div>
         <button
           type="button"
-          disabled={state.phase !== "polling"}
+          disabled={state.phase !== "polling" || stopping}
           onClick={async () => {
             if (state.phase !== "polling") return;
-            await cancelJob(state.requestId);
-            setState({ phase: "cancelled", requestId: state.requestId });
+            const result = await cancelJob(state.requestId);
+            setState(result.status === "cancelled"
+              ? { phase: "cancelled", requestId: state.requestId }
+              : { ...state, status: "cancelling" });
           }}
           className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg border border-[oklch(0.78_0.12_25)] bg-[oklch(0.99_0.02_25)] px-3 text-[12px] font-semibold text-[oklch(0.55_0.2_25)] transition-colors hover:bg-[oklch(0.97_0.03_25)] disabled:cursor-not-allowed disabled:opacity-50"
         >
-          Stop
+          {stopping ? "Stopping…" : "Stop"}
         </button>
       </div>
     </div>

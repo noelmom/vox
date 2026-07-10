@@ -15,6 +15,10 @@ class JobOut(BaseModel):
     total_s: float | None
     rtf: float | None
     error: str | None
+    error_code: str | None = None
+    state_detail: str | None = None
+    progress_current: int | None = None
+    progress_total: int | None = None
     voice_name: str | None = None
     device: str | None = None
     user_agent: str | None = None
