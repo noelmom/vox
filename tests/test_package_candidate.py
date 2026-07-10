@@ -8,6 +8,7 @@ VERIFY = ROOT / "scripts" / "verify-package-candidate.sh"
 REQUIRED_PAYLOAD = """\
 Applications/Vox/VoxHelper.app/Contents/Info.plist
 Applications/Vox/VoxServer.app/Contents/Info.plist
+Applications/Vox/VoxHelper.app/Contents/Frameworks/Sparkle.framework/Versions/A/Sparkle
 Library/Application Support/Vox/Bootstrap/vox.sh
 Library/Application Support/Vox/Bootstrap/scripts/update.sh
 Library/Application Support/Vox/Bootstrap/scripts/prepare-release-candidate.sh
@@ -18,7 +19,7 @@ def run_verifier(tmp_path: Path, payload: str) -> subprocess.CompletedProcess[st
     package = tmp_path / "Vox-1.2.3.pkg"
     package.write_bytes(b"fixture package")
     bin_dir = tmp_path / "bin"
-    bin_dir.mkdir()
+    bin_dir.mkdir(exist_ok=True)
     for name, body in {
         "pkgutil": f"#!/bin/sh\nif [ \"$1\" = \"--payload-files\" ]; then printf '%s\\n' '{payload}'; exit 0; fi\nexit 0\n",
         "spctl": "#!/bin/sh\nexit 0\n",
@@ -38,6 +39,25 @@ def test_package_candidate_verifier_accepts_only_the_expected_payload(tmp_path: 
 
 
 def test_package_candidate_verifier_rejects_protected_runtime_data(tmp_path: Path) -> None:
-    result = run_verifier(tmp_path, REQUIRED_PAYLOAD + "\nLibrary/Application Support/Vox/outputs/private.wav\n")
+    result = run_verifier(tmp_path, REQUIRED_PAYLOAD + "Library/Application Support/Vox/outputs/private.wav\n")
     assert result.returncode != 0
     assert "protected runtime data" in result.stderr
+
+
+def test_package_candidate_verifier_rejects_unexpected_and_secret_payloads(tmp_path: Path) -> None:
+    unexpected = run_verifier(tmp_path, REQUIRED_PAYLOAD + "Library/Application Support/Vox/Bootstrap/developer-notes.txt\n")
+    assert unexpected.returncode != 0
+    assert "unexpected package payload" in unexpected.stderr
+
+    secret = run_verifier(tmp_path, REQUIRED_PAYLOAD + "Library/Application Support/Vox/Bootstrap/api/.env\n")
+    assert secret.returncode != 0
+    assert "development, cache, or secret material" in secret.stderr
+
+
+def test_package_candidate_verifier_requires_embedded_sparkle_runtime(tmp_path: Path) -> None:
+    missing_sparkle = REQUIRED_PAYLOAD.replace(
+        "Applications/Vox/VoxHelper.app/Contents/Frameworks/Sparkle.framework/Versions/A/Sparkle\n", "",
+    )
+    result = run_verifier(tmp_path, missing_sparkle)
+    assert result.returncode != 0
+    assert "Sparkle.framework" in result.stderr
