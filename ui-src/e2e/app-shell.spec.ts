@@ -128,6 +128,21 @@ test("compatibility routes redirect to canonical workspaces", async ({ page }) =
   await expect(page.getByRole("heading", { name: "Diagnostics" })).toBeVisible();
 });
 
+test("Voices exposes selected-profile handoff to Create", async ({ page }) => {
+  await installFakeApi(page);
+  await page.route("**/api/v1/voices", (route) => route.fulfill({ json: [{
+    id: "voice-demo", name: "demo-voice", filename: "demo-voice.wav", description: "A warm narration voice.",
+    tags: ["warm"], exaggeration: null, cfg_weight: null, temperature: null, repetition_penalty: null,
+    top_p: null, min_p: null, created_at: "2026-07-10T00:00:00Z", is_favorite: false,
+    display_name: "Demo voice", icon_data: null,
+  }] }));
+  await page.goto("/app/voices");
+  await page.getByRole("button", { name: "Details" }).click();
+  await expect(page.getByRole("region", { name: "Selected voice" })).toContainText("Demo voice");
+  await page.getByRole("button", { name: "Use in Create" }).click();
+  await expect(page).toHaveURL(/\/app\/?$/);
+});
+
 test("global player metadata survives route navigation", async ({ page }) => {
   await installFakeApi(page);
   await page.route("**/api/v1/jobs/job-player/audio", (route) => route.fulfill({

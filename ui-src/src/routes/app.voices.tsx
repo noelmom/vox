@@ -93,6 +93,7 @@ function VoicesPage() {
   const [tab, setTab] = useState<"upload" | "record">("record");
   const [query, setQuery] = useState("");
   const [activeVoiceId, setActiveVoiceId] = useState<string | null>(null);
+  const [selectedVoiceId, setSelectedVoiceId] = useState<string | null>(null);
   const queryClient = useQueryClient();
   const navigate = useNavigate();
 
@@ -114,6 +115,7 @@ function VoicesPage() {
       (v.description ?? "").toLowerCase().includes(query.toLowerCase()) ||
       v.tags.some((t) => t.toLowerCase().includes(query.toLowerCase())),
   );
+  const selectedVoice = voices.find((voice) => voice.name === selectedVoiceId);
 
   const handleUse = (voice: ApiVoice) => {
     localStorage.setItem("vox:voiceId", JSON.stringify(voice.name));
@@ -124,6 +126,7 @@ function VoicesPage() {
     await deleteVoice(voice.name);
     queryClient.invalidateQueries({ queryKey: ["voices"] });
     if (activeVoiceId === voice.name) setActiveVoiceId(null);
+    if (selectedVoiceId === voice.name) setSelectedVoiceId(null);
   };
 
   const handleUploaded = () => queryClient.invalidateQueries({ queryKey: ["voices"] });
@@ -216,13 +219,30 @@ function VoicesPage() {
               key={v.id}
               voice={v}
               activeVoiceId={activeVoiceId}
+              selected={selectedVoiceId === v.name}
               onActivate={setActiveVoiceId}
+              onSelect={() => setSelectedVoiceId(v.name)}
               onUse={() => handleUse(v)}
               onDelete={() => handleDelete(v)}
               onSaved={() => queryClient.invalidateQueries({ queryKey: ["voices"] })}
             />
           ))}
         </div>
+      )}
+
+      {selectedVoice && (
+        <section aria-label="Selected voice" className="vox-panel-muted flex flex-col gap-4 border-[var(--brand)]/25 bg-[linear-gradient(135deg,var(--brand-soft),transparent_55%)] p-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0">
+            <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-[var(--brand)]">Selected voice</p>
+            <h2 className="mt-1 text-lg font-black tracking-tight text-foreground">{voiceDisplayLabel(selectedVoice)}</h2>
+            <p className="mt-1 max-w-2xl text-sm text-muted-foreground">{selectedVoice.description || "Ready to use for your next script."}</p>
+            {selectedVoice.tags.length > 0 && <div className="mt-2 flex flex-wrap gap-1.5">{selectedVoice.tags.map((tag) => <span key={tag} className="rounded-md px-1.5 py-0.5 text-[11px] font-semibold" style={tagStyle(tag)}>{tag}</span>)}</div>}
+          </div>
+          <div className="flex shrink-0 items-center gap-2">
+            <button type="button" onClick={() => handleUse(selectedVoice)} className="rounded-lg bg-[var(--brand)] px-3.5 py-2 text-sm font-bold text-white shadow-sm">Use in Create</button>
+            <button type="button" onClick={() => setSelectedVoiceId(null)} className="vox-control px-3 py-2 text-sm font-semibold">Close</button>
+          </div>
+        </section>
       )}
 
       {!isLoading && (
@@ -1330,11 +1350,13 @@ function AvatarPlayButton({
 }
 
 function ProfileCard({
-  voice, activeVoiceId, onActivate, onUse, onDelete, onSaved,
+  voice, activeVoiceId, selected, onActivate, onSelect, onUse, onDelete, onSaved,
 }: {
   voice: ApiVoice;
   activeVoiceId: string | null;
+  selected: boolean;
   onActivate: (id: string | null) => void;
+  onSelect: () => void;
   onUse: () => void;
   onDelete: () => void;
   onSaved: () => void;
@@ -1506,7 +1528,7 @@ function ProfileCard({
   const fmt = (s: number) => { const t = Math.max(0, Math.floor(s)); return `${Math.floor(t / 60)}:${String(t % 60).padStart(2, "0")}`; };
 
   return (
-    <div className="vox-panel p-4">
+    <div className={"vox-panel p-4 transition-shadow " + (selected ? "ring-2 ring-[var(--brand)]/45 shadow-[0_12px_28px_-22px_var(--brand)]" : "")}>
       {blobUrl && <audio ref={audioRef} src={blobUrl} preload="auto" className="hidden" />}
 
       {/* Header: name + tags + actions */}
@@ -1522,6 +1544,7 @@ function ProfileCard({
         </div>
         <div className="flex shrink-0 items-center gap-1.5">
           <button onClick={onUse} className="vox-control px-3 py-1.5 text-[12.5px] font-semibold">Use</button>
+          <button type="button" onClick={onSelect} aria-pressed={selected} className={"vox-control px-2.5 py-1.5 text-[12px] font-semibold " + (selected ? "border-[var(--brand)]/45 bg-[var(--brand-soft)] text-[var(--brand)]" : "")}>{selected ? "Selected" : "Details"}</button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button aria-label="More options" className="vox-control flex h-8 w-8 items-center justify-center">
