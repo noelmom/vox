@@ -107,6 +107,15 @@ test("authentication expiry replaces private shell with pairing gate", async ({ 
   await expect(page.getByRole("link", { name: "Open pairing" })).toHaveAttribute("href", "/pair");
 });
 
+test("offline runtime disables generation and exposes recovery guidance", async ({ page }) => {
+  await installFakeApi(page);
+  await page.route("**/health", (route) => route.fulfill({ status: 503, json: { detail: "offline" } }));
+  await page.route("**/api/v1/status", (route) => route.fulfill({ status: 503, json: { detail: "offline" } }));
+  await page.goto("/app");
+  await expect(page.getByText("Vox server is unavailable. Your draft and paused playback metadata are safe.")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Server unavailable" })).toBeDisabled();
+});
+
 test("compatibility routes redirect to canonical workspaces", async ({ page }) => {
   await installFakeApi(page);
   await page.goto("/app/library");
