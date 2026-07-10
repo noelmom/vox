@@ -15,7 +15,7 @@ from api.core.audio import (
 from api.core.chunker import clamp_max_chars, split_text
 from api.core.config import settings
 from api.core.db import get_db
-from api.core.data_safety import canonical_voice_slug, managed_path, stream_upload, validate_generation_parameters
+from api.core.data_safety import canonical_voice_slug, generation_parameter_values, managed_path, stream_upload
 from api.core.engine import get_device, get_lock, get_model, get_model_status, is_model_ready
 from api.core.logger import get_logger
 from api.core.presets import PRESETS
@@ -384,15 +384,13 @@ async def generate_tts(
         raise HTTPException(status_code=422, detail=f"mp3_bitrate must be one of {sorted(VALID_MP3_BITRATES)}")
     if wav_bit_depth is not None and wav_bit_depth not in VALID_WAV_DEPTHS:
         raise HTTPException(status_code=422, detail=f"wav_bit_depth must be one of {sorted(VALID_WAV_DEPTHS)}")
-    validate_generation_parameters(
-        {
-            "temperature": temperature,
-            "exaggeration": exaggeration,
-            "cfg_weight": cfg_weight,
-            "repetition_penalty": repetition_penalty,
-            "top_p": top_p,
-            "min_p": min_p,
-        }
+    request_overrides = generation_parameter_values(
+        temperature=temperature,
+        exaggeration=exaggeration,
+        cfg_weight=cfg_weight,
+        repetition_penalty=repetition_penalty,
+        top_p=top_p,
+        min_p=min_p,
     )
     chunk_max_chars = clamp_max_chars(
         max_chars,
@@ -434,14 +432,6 @@ async def generate_tts(
         if voice_row:
             params.update({k: v for k, v in dict(voice_row).items() if v is not None})
 
-    request_overrides = {
-        "temperature": temperature,
-        "exaggeration": exaggeration,
-        "cfg_weight": cfg_weight,
-        "repetition_penalty": repetition_penalty,
-        "top_p": top_p,
-        "min_p": min_p,
-    }
     params.update({k: v for k, v in request_overrides.items() if v is not None})
 
     # Handle inline voice file upload — write to disk before returning

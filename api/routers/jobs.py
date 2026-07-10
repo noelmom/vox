@@ -11,8 +11,10 @@ from api.models.job import JobOut
 from api.core.security import Scope
 from api.core.config import settings
 from api.core.data_safety import stored_managed_path
+from api.core.logger import get_logger
 
 router = APIRouter(prefix="/jobs", tags=["jobs"])
+log = get_logger(__name__)
 
 
 _JOB_SELECT = """
@@ -161,7 +163,7 @@ async def delete_job(request_id: str, request: Request):
         if output_path and output_path.exists():
             staged_delete = stored_managed_path(
                 settings.output_dir,
-                str(output_path.with_name(f".deleting-{uuid.uuid4()}{output_path.suffix}")),
+                str(output_path.with_name(f".deleting-{uuid.uuid4()}--{output_path.name}")),
             )
             output_path.replace(staged_delete)
         await db.execute("DELETE FROM jobs WHERE request_id = ?", (request_id,))
@@ -172,7 +174,10 @@ async def delete_job(request_id: str, request: Request):
             staged_delete.replace(output_path)
         raise
     if staged_delete:
-        staged_delete.unlink(missing_ok=True)
+        try:
+            staged_delete.unlink(missing_ok=True)
+        except OSError as exc:
+            log.warning("Job deleted but staged audio cleanup will need retry: %s", exc, extra={"request_id": request_id})
 
 
 @router.get(

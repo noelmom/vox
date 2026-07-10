@@ -17,6 +17,7 @@ idna==3.18
 iniconfig==2.3.0
 numpy==2.4.6
 packaging==26.2
+pillow==12.3.0
 pip==26.1.2
 pluggy==1.6.0
 pycparser==3.0

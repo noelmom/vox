@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import base64
 import binascii
+import io
 import re
 import stat
 import unicodedata
@@ -9,6 +10,7 @@ import zipfile
 from pathlib import Path, PurePosixPath
 
 from fastapi import HTTPException, UploadFile
+from PIL import Image, UnidentifiedImageError
 
 _NON_SLUG = re.compile(r"[^a-z0-9]+")
 _PNG_DATA_URL = "data:image/png;base64,"
@@ -39,6 +41,27 @@ def validate_generation_parameters(values: dict[str, float | None]) -> None:
         minimum, maximum = GENERATION_PARAMETER_BOUNDS[field]
         if not minimum <= value <= maximum:
             raise HTTPException(status_code=422, detail=f"{field} must be between {minimum:g} and {maximum:g}.")
+
+
+def generation_parameter_values(
+    *,
+    temperature: float | None,
+    exaggeration: float | None,
+    cfg_weight: float | None,
+    repetition_penalty: float | None,
+    top_p: float | None,
+    min_p: float | None,
+) -> dict[str, float | None]:
+    values = {
+        "temperature": temperature,
+        "exaggeration": exaggeration,
+        "cfg_weight": cfg_weight,
+        "repetition_penalty": repetition_penalty,
+        "top_p": top_p,
+        "min_p": min_p,
+    }
+    validate_generation_parameters(values)
+    return values
 
 
 def managed_path(root: Path, relative_name: str) -> Path:
@@ -77,14 +100,18 @@ def decode_voice_icon(value: str, *, max_bytes: int) -> bytes:
         raise HTTPException(status_code=422, detail="Voice icon contains invalid base64 data.") from exc
     if len(payload) > max_bytes:
         raise HTTPException(status_code=413, detail=f"Voice icon exceeds the {max_bytes // 1024} KB limit.")
-    if not payload.startswith(b"\x89PNG\r\n\x1a\n"):
-        raise HTTPException(status_code=422, detail="Voice icon content is not a PNG file.")
-    if len(payload) < 24 or payload[12:16] != b"IHDR":
-        raise HTTPException(status_code=422, detail="Voice icon PNG header is invalid.")
-    width = int.from_bytes(payload[16:20], "big")
-    height = int.from_bytes(payload[20:24], "big")
-    if width < 1 or height < 1 or width > 1024 or height > 1024 or width * height > 1_048_576:
-        raise HTTPException(status_code=422, detail="Voice icon dimensions must be between 1 and 1,024 pixels.")
+    try:
+        with Image.open(io.BytesIO(payload)) as image:
+            if image.format != "PNG":
+                raise HTTPException(status_code=422, detail="Voice icon content is not a PNG file.")
+            width, height = image.size
+            if width < 1 or height < 1 or width > 1024 or height > 1024 or width * height > 1_048_576:
+                raise HTTPException(status_code=422, detail="Voice icon dimensions must be between 1 and 1,024 pixels.")
+            image.verify()
+        with Image.open(io.BytesIO(payload)) as image:
+            image.load()
+    except (UnidentifiedImageError, OSError, SyntaxError, ValueError) as exc:
+        raise HTTPException(status_code=422, detail="Voice icon is not a complete, valid PNG file.") from exc
     return payload
 
 

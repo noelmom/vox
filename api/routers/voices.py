@@ -11,9 +11,9 @@ from api.core.config import settings
 from api.core.data_safety import (
     canonical_voice_slug,
     decode_voice_icon,
+    generation_parameter_values,
     managed_path,
     stream_upload,
-    validate_generation_parameters,
 )
 from api.core.db import get_db
 from api.core.logger import get_logger
@@ -160,15 +160,14 @@ async def create_voice(
     parsed_tags = _parse_tags(tags)
     if len(parsed_tags) > 20 or any(len(tag) > 40 for tag in parsed_tags):
         raise HTTPException(status_code=422, detail="Use at most 20 tags of 40 characters or fewer.")
-    parameter_values = {
-        "exaggeration": exaggeration,
-        "cfg_weight": cfg_weight,
-        "temperature": temperature,
-        "repetition_penalty": repetition_penalty,
-        "top_p": top_p,
-        "min_p": min_p,
-    }
-    validate_generation_parameters(parameter_values)
+    parameter_values = generation_parameter_values(
+        temperature=temperature,
+        exaggeration=exaggeration,
+        cfg_weight=cfg_weight,
+        repetition_penalty=repetition_penalty,
+        top_p=top_p,
+        min_p=min_p,
+    )
     params = VoiceParams(**parameter_values)
     suffix = Path(original_filename).suffix.lower()
 
@@ -305,15 +304,13 @@ async def update_voice_params(
         raise HTTPException(status_code=422, detail="Voice display name must be 120 characters or fewer.")
     if icon_data:
         decode_voice_icon(icon_data, max_bytes=settings.voice_icon_max_kb * 1024)
-    validate_generation_parameters(
-        {
-            "exaggeration": exaggeration,
-            "cfg_weight": cfg_weight,
-            "temperature": temperature,
-            "repetition_penalty": repetition_penalty,
-            "top_p": top_p,
-            "min_p": min_p,
-        }
+    generation_parameter_values(
+        temperature=temperature,
+        exaggeration=exaggeration,
+        cfg_weight=cfg_weight,
+        repetition_penalty=repetition_penalty,
+        top_p=top_p,
+        min_p=min_p,
     )
     if is_favorite not in {None, 0, 1}:
         raise HTTPException(status_code=422, detail="is_favorite must be 0 or 1.")

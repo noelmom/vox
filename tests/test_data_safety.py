@@ -4,10 +4,15 @@ import json
 import sqlite3
 import zipfile
 from pathlib import Path
+from types import SimpleNamespace
 
+import numpy as np
 import pytest
+import soundfile as sf
 from fastapi import HTTPException
+from PIL import Image
 
+from api.core import cleanup, watcher
 from api.core.data_safety import (
     canonical_voice_slug,
     decode_voice_icon,
@@ -17,6 +22,7 @@ from api.core.data_safety import (
     validate_backup_members,
 )
 from api.routers import backups
+from api.routers import jobs as jobs_router
 
 
 def test_voice_slug_is_ascii_canonical_and_cannot_be_empty():
@@ -43,13 +49,18 @@ def test_managed_path_rejects_escape_and_symlink_escape(tmp_path):
 
 
 def test_voice_icon_requires_a_bounded_png_data_url():
-    png = b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x20\x00\x00\x00\x20" + b"payload"
+    output = io.BytesIO()
+    Image.new("RGBA", (32, 32), (0, 0, 0, 0)).save(output, format="PNG")
+    png = output.getvalue()
     encoded = base64.b64encode(png).decode()
     assert decode_voice_icon(f"data:image/png;base64,{encoded}", max_bytes=100) == png
     with pytest.raises(HTTPException):
         decode_voice_icon("data:image/jpeg;base64,ZmFrZQ==", max_bytes=100)
     with pytest.raises(HTTPException):
         decode_voice_icon(f"data:image/png;base64,{encoded}", max_bytes=4)
+    truncated = base64.b64encode(png[:32]).decode()
+    with pytest.raises(HTTPException):
+        decode_voice_icon(f"data:image/png;base64,{truncated}", max_bytes=100)
 
 
 def _archive(entries: dict[str, bytes]) -> zipfile.ZipFile:
@@ -98,6 +109,36 @@ def test_backup_manifest_and_database_schema_are_strict(tmp_path):
     database.close()
     with pytest.raises(HTTPException):
         backups._validate_database(database_path)
+
+
+def test_backup_database_rejects_a_malformed_restored_icon(tmp_path, monkeypatch):
+    voice_root = tmp_path / "voices"
+    voice_root.mkdir()
+    (voice_root / "safe.wav").write_bytes(b"voice")
+    monkeypatch.setattr(backups.settings, "voice_dir", voice_root)
+    monkeypatch.setattr(backups.settings, "output_dir", tmp_path / "outputs")
+
+    database_path = tmp_path / "backup.db"
+    database = sqlite3.connect(database_path)
+    database.executescript(
+        """
+        CREATE TABLE voices (id TEXT, name TEXT, filename TEXT, status TEXT, icon_data TEXT);
+        CREATE TABLE jobs (request_id TEXT, status TEXT, text TEXT, created_at TEXT, output_path TEXT);
+        CREATE TABLE user_presets (name TEXT, temperature REAL);
+        CREATE TABLE meta (key TEXT, value TEXT);
+        CREATE TABLE user_preferences (key TEXT, value TEXT);
+        """
+    )
+    malformed = "data:image/png;base64," + base64.b64encode(b"\x89PNG\r\n\x1a\ntruncated").decode()
+    database.execute(
+        "INSERT INTO voices VALUES ('1', 'safe', 'safe.wav', 'active', ?)",
+        (malformed,),
+    )
+    database.commit()
+    database.close()
+
+    with pytest.raises(HTTPException):
+        backups._validate_database(database_path, voice_root)
 
 
 @pytest.mark.asyncio
@@ -174,7 +215,15 @@ async def test_restore_transaction_preserves_unrelated_runtime_data(tmp_path, mo
     transaction = tmp_path / "transaction-success"
     transaction.mkdir()
     restored_db = transaction / "restored.db"
-    restored_db.write_bytes(b"new-database")
+    restored_database = sqlite3.connect(restored_db)
+    restored_database.execute(
+        "CREATE TABLE user_preferences (key TEXT PRIMARY KEY, value TEXT NOT NULL, updated_at TEXT NOT NULL)"
+    )
+    restored_database.execute(
+        "INSERT INTO user_preferences VALUES ('vox:theme', '\"backup-theme\"', '2020-01-01')"
+    )
+    restored_database.commit()
+    restored_database.close()
     restored_voices = transaction / "restored-voices"
     restored_voices.mkdir()
     (restored_voices / "new.wav").write_bytes(b"new-voice")
@@ -188,9 +237,168 @@ async def test_restore_transaction_preserves_unrelated_runtime_data(tmp_path, mo
     monkeypatch.setattr(backups.db_core, "disconnect", no_op)
     monkeypatch.setattr(backups.db_core, "connect", no_op)
 
-    await backups._commit_restore(restored_db, restored_voices, transaction)
+    await backups._commit_restore(
+        restored_db,
+        restored_voices,
+        transaction,
+        preserved_preferences=[("vox:theme", '"current-theme"', "2026-07-10")],
+    )
 
-    assert current_db.read_bytes() == b"new-database"
+    current_database = sqlite3.connect(current_db)
+    assert current_database.execute("SELECT value FROM user_preferences WHERE key='vox:theme'").fetchone()[0] == '"current-theme"'
+    current_database.close()
     assert (current_voices / "new.wav").read_bytes() == b"new-voice"
     assert (tmp_path / ".env").read_text() == "VOX_HOST=127.0.0.1\n"
     assert (outputs / "keep.mp3").read_bytes() == b"generated-audio"
+
+
+@pytest.mark.asyncio
+async def test_watcher_restores_source_and_prior_voice_when_registration_fails(tmp_path, monkeypatch):
+    input_dir = tmp_path / "input"
+    (input_dir / "processed").mkdir(parents=True)
+    voice_dir = tmp_path / "voices"
+    voice_dir.mkdir()
+    source = input_dir / "existing.wav"
+    sf.write(source, np.zeros(2400, dtype=np.float32), 24000)
+    prior_voice = voice_dir / "existing.wav"
+    prior_voice.write_bytes(b"prior-voice")
+
+    monkeypatch.setattr(watcher.settings, "input_dir", input_dir)
+    monkeypatch.setattr(watcher.settings, "voice_dir", voice_dir)
+
+    async def get_db():
+        return object()
+
+    async def fail_registration(**_kwargs):
+        raise RuntimeError("injected database failure")
+
+    import api.routers.voices as voices
+
+    monkeypatch.setattr(watcher, "get_db", get_db)
+    monkeypatch.setattr(voices, "_register_voice", fail_registration)
+
+    await watcher._ingest_file(source)
+
+    assert source.exists()
+    assert prior_voice.read_bytes() == b"prior-voice"
+    assert not list((input_dir / "processed").iterdir())
+
+
+@pytest.mark.asyncio
+async def test_watcher_rejects_an_input_symlink(tmp_path, monkeypatch):
+    input_dir = tmp_path / "input"
+    input_dir.mkdir()
+    external = tmp_path / "external.wav"
+    sf.write(external, np.zeros(2400, dtype=np.float32), 24000)
+    symlink = input_dir / "linked.wav"
+    symlink.symlink_to(external)
+    monkeypatch.setattr(watcher.settings, "input_dir", input_dir)
+
+    with pytest.raises(ValueError, match="symbolic links"):
+        await watcher._ingest_file(symlink)
+
+
+@pytest.mark.asyncio
+async def test_job_delete_restores_audio_when_database_commit_fails(tmp_path, monkeypatch):
+    output_dir = tmp_path / "outputs"
+    output_dir.mkdir()
+    output = output_dir / "job.mp3"
+    output.write_bytes(b"audio")
+
+    class Cursor:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *_args):
+            return None
+
+        async def fetchone(self):
+            return {"output_path": str(output)}
+
+        def __await__(self):
+            async def result():
+                return self
+
+            return result().__await__()
+
+    class FailingDatabase:
+        def execute(self, *_args):
+            return Cursor()
+
+        async def commit(self):
+            raise RuntimeError("injected commit failure")
+
+        async def rollback(self):
+            return None
+
+    async def get_db():
+        return FailingDatabase()
+
+    monkeypatch.setattr(jobs_router, "get_db", get_db)
+    monkeypatch.setattr(jobs_router.settings, "output_dir", output_dir)
+
+    with pytest.raises(RuntimeError, match="injected commit failure"):
+        await jobs_router.delete_job("job-1", SimpleNamespace())
+
+    assert output.read_bytes() == b"audio"
+    assert not list(output_dir.glob(".deleting-*"))
+
+
+@pytest.mark.asyncio
+async def test_deleted_voice_cleanup_leaves_files_when_database_commit_fails(tmp_path, monkeypatch):
+    voice_dir = tmp_path / "voices"
+    deleted_dir = voice_dir / "deleted"
+    deleted_dir.mkdir(parents=True)
+    voice_file = deleted_dir / "old.wav"
+    sidecar = deleted_dir / "old.json"
+    voice_file.write_bytes(b"voice")
+    sidecar.write_text("{}")
+
+    class Cursor:
+        def __init__(self, rows):
+            self.rows = rows
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *_args):
+            return None
+
+        async def fetchall(self):
+            return self.rows
+
+        def __await__(self):
+            async def result():
+                return self
+
+            return result().__await__()
+
+    class FailingDatabase:
+        def execute(self, query, _params=()):
+            if "output_path FROM jobs" in query:
+                return Cursor([])
+            if "FROM voices" in query:
+                return Cursor([{"id": "voice-1", "name": "old", "filename": "old.wav"}])
+            return Cursor([])
+
+        async def commit(self):
+            raise RuntimeError("injected commit failure")
+
+        async def rollback(self):
+            return None
+
+    async def get_db():
+        return FailingDatabase()
+
+    monkeypatch.setattr(cleanup, "get_db", get_db)
+    monkeypatch.setattr(cleanup.settings, "voice_dir", voice_dir)
+    monkeypatch.setattr(cleanup.settings, "output_dir", tmp_path / "outputs")
+    cleanup.settings.output_dir.mkdir()
+    monkeypatch.setattr(cleanup.settings, "output_ttl_hours", 0)
+    monkeypatch.setattr(cleanup.settings, "job_retention_days", 0)
+    monkeypatch.setattr(cleanup.settings, "deleted_voice_ttl_hours", 1)
+
+    await cleanup._run_cleanup()
+
+    assert voice_file.read_bytes() == b"voice"
+    assert sidecar.read_text() == "{}"

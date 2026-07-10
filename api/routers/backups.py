@@ -17,6 +17,7 @@ from api.core import db as db_core
 from api.core.config import settings
 from api.core.data_safety import (
     canonical_voice_slug,
+    decode_voice_icon,
     managed_path,
     stored_managed_path,
     stream_upload,
@@ -78,12 +79,14 @@ def _validate_database(path: Path, voice_root: Path | None = None) -> None:
                 raise HTTPException(status_code=400, detail="Backup database contains invalid references.")
             if database.execute("SELECT 1 FROM sqlite_master WHERE type IN ('trigger', 'view') LIMIT 1").fetchone():
                 raise HTTPException(status_code=400, detail="Backup database contains unsupported executable schema objects.")
-            for name, filename, status in database.execute("SELECT name, filename, status FROM voices"):
+            for name, filename, status, icon_data in database.execute("SELECT name, filename, status, icon_data FROM voices"):
                 if canonical_voice_slug(name) != name or Path(filename).name != filename or Path(filename).suffix.lower() != ".wav":
                     raise HTTPException(status_code=400, detail="Backup contains a non-canonical voice record.")
                 managed_path(settings.voice_dir, filename)
                 if voice_root is not None and status == "active" and not managed_path(voice_root, filename).is_file():
                     raise HTTPException(status_code=400, detail="Backup is missing audio for an active voice profile.")
+                if icon_data:
+                    decode_voice_icon(icon_data, max_bytes=settings.voice_icon_max_kb * 1024)
             for (output_path,) in database.execute("SELECT output_path FROM jobs WHERE output_path IS NOT NULL"):
                 stored_managed_path(settings.output_dir, output_path)
         finally:
@@ -108,7 +111,28 @@ def _extract_validated(archive: zipfile.ZipFile, destination: Path) -> None:
             shutil.copyfileobj(source, output, length=1024 * 1024)
 
 
-async def _commit_restore(restored_db: Path, restored_voices: Path, transaction_root: Path) -> None:
+def _merge_preserved_preferences(restored_db: Path, preferences: list[tuple[str, str, str]]) -> None:
+    database = sqlite3.connect(restored_db)
+    try:
+        database.execute("DELETE FROM user_preferences")
+        database.executemany(
+            "INSERT INTO user_preferences (key, value, updated_at) VALUES (?, ?, ?)",
+            preferences,
+        )
+        database.commit()
+    except Exception:
+        database.rollback()
+        raise
+    finally:
+        database.close()
+
+
+async def _commit_restore(
+    restored_db: Path,
+    restored_voices: Path,
+    transaction_root: Path,
+    preserved_preferences: list[tuple[str, str, str]] | None = None,
+) -> None:
     prior_db = transaction_root / "prior-vox.db"
     prior_voices = transaction_root / "prior-voices"
     sidecars = [Path(f"{settings.db_path}-wal"), Path(f"{settings.db_path}-shm")]
@@ -117,6 +141,8 @@ async def _commit_restore(restored_db: Path, restored_voices: Path, transaction_
     moved_voices = False
     moved_sidecars: list[tuple[Path, Path]] = []
 
+    if preserved_preferences is not None:
+        _merge_preserved_preferences(restored_db, preserved_preferences)
     await db_core.disconnect()
     try:
         if settings.db_path.exists():
@@ -240,7 +266,15 @@ async def restore_backup(file: UploadFile = File(...)):
             _validate_database(restored_db, restored_voices)
             voice_count = sum(1 for path in restored_voices.glob("*.wav") if path.is_file())
 
-            await _commit_restore(restored_db, restored_voices, transaction_root)
+            current_db = await get_db()
+            async with current_db.execute("SELECT key, value, updated_at FROM user_preferences") as cursor:
+                preserved_preferences = [tuple(row) for row in await cursor.fetchall()]
+            await _commit_restore(
+                restored_db,
+                restored_voices,
+                transaction_root,
+                preserved_preferences=preserved_preferences,
+            )
 
     return RestoreOut(
         restored=True,
