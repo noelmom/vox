@@ -7,7 +7,10 @@ fail() { echo "package-verify: $*" >&2; exit 1; }
 [[ -n "$PACKAGE" && -f "$PACKAGE" ]] || fail "usage: $0 /path/to/Vox-x.y.z.pkg"
 command -v pkgutil >/dev/null 2>&1 || fail "pkgutil is required on macOS"
 
-payload="$(pkgutil --payload-files "$PACKAGE")"
+payload="$(pkgutil --payload-files "$PACKAGE" | sed 's#^\./##')"
+EXPANDED="$(mktemp -d "${TMPDIR:-/tmp}/vox-package-verify.XXXXXX")"
+trap 'rm -rf "$EXPANDED"' EXIT
+pkgutil --expand-full "$PACKAGE" "$EXPANDED"
 require_path() {
   grep -Fxq "$1" <<<"$payload" || fail "missing payload path: $1"
 }
@@ -32,6 +35,12 @@ reject_path "Library/Application Support/Vox/.env"
 while IFS= read -r path; do
   [[ -n "$path" ]] || continue
   case "$path" in
+    .|Applications|Applications/Vox|Library|"Library/Application Support"|\
+    "Library/Application Support/Vox"|"Library/Application Support/Vox/Bootstrap"|\
+    "Library/Application Support/Vox/Bootstrap/api"|\
+    "Library/Application Support/Vox/Bootstrap/ui-dist"|\
+    "Library/Application Support/Vox/Bootstrap/scripts"|\
+    "Library/Application Support/Vox/Bootstrap/voices") ;;
     Applications/Vox/VoxHelper.app/*|Applications/Vox/VoxServer.app/*) ;;
     "Library/Application Support/Vox/Bootstrap/vox.sh"|\
     "Library/Application Support/Vox/Bootstrap/setup.sh"|\
@@ -51,6 +60,14 @@ while IFS= read -r path; do
       fail "development, cache, or secret material must not be packaged: $path" ;;
   esac
 done <<<"$payload"
+
+FRAMEWORK="$EXPANDED/Payload/Applications/Vox/VoxHelper.app/Contents/Frameworks/Sparkle.framework"
+HELPER="$EXPANDED/Payload/Applications/Vox/VoxHelper.app/Contents/MacOS/VoxHelper"
+[[ -L "$FRAMEWORK/Versions/Current" ]] || fail "Sparkle framework Current symlink is missing"
+[[ "$(readlink "$FRAMEWORK/Versions/Current")" == "A" ]] || fail "Sparkle framework Current symlink must target A"
+[[ -f "$HELPER" ]] || fail "VoxHelper executable is missing from package payload"
+otool -L "$HELPER" | grep -Fq "@rpath/Sparkle.framework" \
+  || fail "VoxHelper is not linked against Sparkle through @rpath"
 
 pkgutil --check-signature "$PACKAGE"
 if command -v spctl >/dev/null 2>&1; then
