@@ -161,6 +161,31 @@ def test_backup_database_requires_preference_merge_schema(tmp_path, monkeypatch)
         backups._validate_database(database_path)
 
 
+def test_backup_database_rejects_composite_preference_primary_key(tmp_path, monkeypatch):
+    monkeypatch.setattr(backups.settings, "voice_dir", tmp_path / "voices")
+    monkeypatch.setattr(backups.settings, "output_dir", tmp_path / "outputs")
+    database_path = tmp_path / "preferences-composite-key.db"
+    database = sqlite3.connect(database_path)
+    database.executescript(
+        """
+        CREATE TABLE voices (id TEXT, name TEXT, filename TEXT, status TEXT, icon_data TEXT);
+        CREATE TABLE jobs (request_id TEXT, status TEXT, text TEXT, created_at TEXT, output_path TEXT);
+        CREATE TABLE user_presets (name TEXT, temperature REAL);
+        CREATE TABLE meta (key TEXT, value TEXT);
+        CREATE TABLE user_preferences (
+            key TEXT,
+            value TEXT,
+            updated_at TEXT,
+            PRIMARY KEY (key, value)
+        );
+        """
+    )
+    database.close()
+
+    with pytest.raises(HTTPException, match="sole primary key"):
+        backups._validate_database(database_path)
+
+
 @pytest.mark.asyncio
 async def test_stream_upload_removes_partial_file_when_limit_is_exceeded(tmp_path):
     from starlette.datastructures import UploadFile
@@ -532,3 +557,98 @@ async def test_job_retention_restores_staged_audio_when_commit_fails(tmp_path, m
 
     assert output.read_bytes() == b"audio"
     assert not list(output_dir.glob(".pruning-*"))
+
+
+@pytest.mark.asyncio
+async def test_cleanup_reconciles_referenced_and_orphaned_output_markers(tmp_path, monkeypatch):
+    output_dir = tmp_path / "outputs"
+    output_dir.mkdir()
+    referenced = output_dir / "job.mp3"
+    referenced_marker = output_dir / ".deleting-crash--job.mp3"
+    referenced_marker.write_bytes(b"referenced-audio")
+    orphan_marker = output_dir / ".expired-crash--orphan.mp3"
+    orphan_marker.write_bytes(b"orphan-audio")
+
+    class Cursor:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *_args):
+            return None
+
+        async def fetchall(self):
+            return [{"output_path": str(referenced)}]
+
+    class Database:
+        def execute(self, *_args):
+            return Cursor()
+
+    async def get_db():
+        return Database()
+
+    monkeypatch.setattr(cleanup, "get_db", get_db)
+    monkeypatch.setattr(cleanup.settings, "output_dir", output_dir)
+    monkeypatch.setattr(cleanup.settings, "voice_dir", tmp_path / "voices")
+    cleanup.settings.voice_dir.mkdir()
+    monkeypatch.setattr(cleanup.settings, "output_ttl_hours", 0)
+    monkeypatch.setattr(cleanup.settings, "job_retention_days", 0)
+    monkeypatch.setattr(cleanup.settings, "deleted_voice_ttl_hours", 0)
+
+    await cleanup._run_cleanup()
+
+    assert referenced.read_bytes() == b"referenced-audio"
+    assert not referenced_marker.exists()
+    assert not orphan_marker.exists()
+
+
+@pytest.mark.asyncio
+async def test_cleanup_reconciles_referenced_and_orphaned_voice_markers(tmp_path, monkeypatch):
+    output_dir = tmp_path / "outputs"
+    output_dir.mkdir()
+    deleted_dir = tmp_path / "voices" / "deleted"
+    deleted_dir.mkdir(parents=True)
+    referenced_voice_marker = deleted_dir / ".voice-purge-crash--old.wav"
+    referenced_sidecar_marker = deleted_dir / ".voice-purge-crash--old.json"
+    referenced_voice_marker.write_bytes(b"voice")
+    referenced_sidecar_marker.write_text("{}")
+    orphan_marker = deleted_dir / ".voice-purge-crash--orphan.wav"
+    orphan_marker.write_bytes(b"orphan")
+
+    class Cursor:
+        def __init__(self, rows):
+            self.rows = rows
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *_args):
+            return None
+
+        async def fetchall(self):
+            return self.rows
+
+    class Database:
+        def execute(self, query, _params=()):
+            if query.startswith("SELECT output_path"):
+                return Cursor([])
+            if query.startswith("SELECT filename"):
+                return Cursor([{"filename": "old.wav"}])
+            return Cursor([])
+
+    async def get_db():
+        return Database()
+
+    monkeypatch.setattr(cleanup, "get_db", get_db)
+    monkeypatch.setattr(cleanup.settings, "output_dir", output_dir)
+    monkeypatch.setattr(cleanup.settings, "voice_dir", deleted_dir.parent)
+    monkeypatch.setattr(cleanup.settings, "output_ttl_hours", 0)
+    monkeypatch.setattr(cleanup.settings, "job_retention_days", 0)
+    monkeypatch.setattr(cleanup.settings, "deleted_voice_ttl_hours", 1)
+
+    await cleanup._run_cleanup()
+
+    assert (deleted_dir / "old.wav").read_bytes() == b"voice"
+    assert (deleted_dir / "old.json").read_text() == "{}"
+    assert not referenced_voice_marker.exists()
+    assert not referenced_sidecar_marker.exists()
+    assert not orphan_marker.exists()

@@ -76,8 +76,10 @@ def _validate_database(path: Path, voice_root: Path | None = None) -> None:
                 columns = {row[1] for row in table_info}
                 if not required_columns <= columns:
                     raise HTTPException(status_code=400, detail=f"Backup database is missing required {table} fields.")
-                if table == "user_preferences" and not any(row[1] == "key" and row[5] == 1 for row in table_info):
-                    raise HTTPException(status_code=400, detail="Backup preferences table is missing its key constraint.")
+                if table == "user_preferences":
+                    primary_key = [(row[5], row[1]) for row in table_info if row[5] > 0]
+                    if primary_key != [(1, "key")]:
+                        raise HTTPException(status_code=400, detail="Backup preferences table must use key as its sole primary key.")
             if database.execute("PRAGMA foreign_key_check").fetchone() is not None:
                 raise HTTPException(status_code=400, detail="Backup database contains invalid references.")
             if database.execute("SELECT 1 FROM sqlite_master WHERE type IN ('trigger', 'view') LIMIT 1").fetchone():
