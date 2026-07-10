@@ -8,7 +8,7 @@ import numpy as np
 import pytest
 
 import api.core.db as db_module
-from api.core.generation import GenerationCoordinator
+from api.core.generation import GenerationCoordinator, _ActiveJob
 from api.core.generation_protocol import GenerationChunk, GenerationRequest, WorkerEvent
 
 
@@ -81,6 +81,11 @@ class StubbornEncoderProcess(FakeEncoderProcess):
 
     def kill(self):
         pass
+
+
+class StartFailEncoderProcess(FakeEncoderProcess):
+    def start(self):
+        raise RuntimeError("spawn failed")
 
 
 @pytest.fixture
@@ -548,7 +553,16 @@ async def test_stubborn_encoder_remains_nonterminal_and_retained(generation_db, 
     assert coordinator._encoder_process is encoder
     await asyncio.sleep(0.05)
     assert [item.request_id for item in worker.sent] == ["job-1"]
+    marker = tmp_path / ".publishing-job-1--late.wav"
+    marker.write_bytes(b"late")
     encoder.alive = False
+    for _ in range(100):
+        if (await status_of(db, "job-1"))["status"] == "failed" and len(worker.sent) == 2:
+            break
+        await asyncio.sleep(0.01)
+    assert (await status_of(db, "job-1"))["status"] == "failed"
+    assert not marker.exists()
+    assert [item.request_id for item in worker.sent] == ["job-1", "job-2"]
     await coordinator.shutdown()
 
 
@@ -599,15 +613,48 @@ async def test_active_cleanup_failure_keeps_runner_available(generation_db, tmp_
 
 
 @pytest.mark.asyncio
-async def test_cancel_after_completed_publication_preserves_audio(generation_db, tmp_path):
+async def test_cancel_racing_publication_never_deletes_completed_audio_or_keeps_unpublished_audio(generation_db, tmp_path, monkeypatch):
     db = generation_db
-    audio = tmp_path / "done.wav"
-    audio.write_bytes(b"audio")
-    await db.execute("INSERT INTO jobs(request_id,status,output_path) VALUES('job-1','completed',?)", (str(audio),))
+    request = request_for(tmp_path)
+    Path(request.partial_dir).mkdir(parents=True)
+    marker = tmp_path / ".publishing-job-1--done.wav"
+    final = tmp_path / "done.wav"
+    marker.write_bytes(b"audio")
+    await db.execute("INSERT INTO jobs(request_id,status) VALUES('job-1','encoding')")
     await db.commit()
     coordinator = GenerationCoordinator(lambda: FakeWorker([]), output_dir=tmp_path)
-    assert await coordinator.cancel("job-1") == "completed"
-    assert audio.read_bytes() == b"audio"
+    coordinator._active = _ActiveJob(request, asyncio.Event())
+    original_commit = db.commit
+    first_commit = asyncio.Event()
+    release = asyncio.Event()
+    commits = 0
+
+    async def barrier_commit():
+        nonlocal commits
+        commits += 1
+        if commits == 1:
+            first_commit.set()
+            await release.wait()
+        await original_commit()
+
+    monkeypatch.setattr(db, "commit", barrier_commit)
+    event = WorkerEvent(kind="finished", request_id="job-1", sample_rate=24000, generation_s=1, device="cpu")
+    publishing = asyncio.create_task(coordinator._commit_publication(request, event, marker, final, 2400, 0.1, 1.1))
+    await first_commit.wait()
+    cancelling = asyncio.create_task(coordinator.cancel("job-1"))
+    await asyncio.sleep(0)
+    release.set()
+    cancel_status = await cancelling
+    await publishing
+    row = await status_of(db)
+    if cancel_status == "completed":
+        assert row["status"] == "completed"
+        assert final.read_bytes() == b"audio"
+    else:
+        assert cancel_status == "cancelling"
+        assert row["status"] == "cancelling"
+        assert not final.exists()
+    assert not marker.exists()
 
 
 @pytest.mark.asyncio
@@ -636,6 +683,30 @@ async def test_encoder_process_group_escalates_after_leader_exits(tmp_path, monk
     coordinator._encoder_process = encoder
     assert await coordinator._stop_encoder()
     assert signals == [signal.SIGTERM, signal.SIGKILL]
+
+
+@pytest.mark.asyncio
+async def test_encoder_spawn_failure_does_not_poison_fifo(generation_db, tmp_path, monkeypatch):
+    db = generation_db
+    worker = FakeWorker([
+        WorkerEvent(kind="ready", device="cpu"),
+        WorkerEvent(kind="finished", request_id="job-1", sample_rate=24000, segment_paths=("dummy",), device="cpu"),
+        WorkerEvent(kind="failed", request_id="job-2", error_code="generation_failed", detail="two"),
+    ])
+    coordinator = GenerationCoordinator(lambda: worker, output_dir=tmp_path)
+    monkeypatch.setattr(coordinator, "_launch_encoder", lambda *_args: (StartFailEncoderProcess(), Queue()))
+    await coordinator.start()
+    await db.executemany("INSERT INTO jobs(request_id,status) VALUES(?,'queued')", [("job-1",), ("job-2",)])
+    await db.commit()
+    await coordinator.submit(request_for(tmp_path, "job-1"))
+    await coordinator.submit(request_for(tmp_path, "job-2"))
+    for _ in range(100):
+        if (await status_of(db, "job-2"))["status"] == "failed":
+            break
+        await asyncio.sleep(0.01)
+    assert coordinator._encoder_process is None
+    assert [item.request_id for item in worker.sent] == ["job-1", "job-2"]
+    await coordinator.shutdown()
 
 
 def test_api_generation_modules_do_not_import_model_runtime():

@@ -117,6 +117,7 @@ class GenerationCoordinator:
         self.queue: asyncio.Queue[GenerationRequest] = asyncio.Queue()
         self.worker: WorkerHandle | None = None
         self._encoder_process = None
+        self._quarantined_encoder_request: GenerationRequest | None = None
         self._runner: asyncio.Task | None = None
         self._active: _ActiveJob | None = None
         self._requests: dict[str, GenerationRequest] = {}
@@ -288,10 +289,24 @@ class GenerationCoordinator:
                     await asyncio.sleep(0.25)
                     continue
                 self._encoder_process.join(0)
+                quarantined = self._quarantined_encoder_request
+                if quarantined:
+                    try:
+                        self._purge_publication_markers(quarantined.request_id)
+                    except OSError as exc:
+                        await self._cas(quarantined.request_id, NONTERMINAL_STATES, "recovering", error_code="cleanup_failed", error=f"Publishing marker cleanup failed: {exc}")
+                        await asyncio.sleep(0.25)
+                        continue
+                    if not await self._cleanup_or_recover(quarantined):
+                        await asyncio.sleep(0.25)
+                        continue
+                    await self._cas(quarantined.request_id, {"recovering", "cancelling", "encoding"}, "failed", error_code="encoder_would_not_stop", error="The quarantined encoder exited; no audio was published.", terminal=True)
                 self._encoder_process = None
+                self._quarantined_encoder_request = None
                 if self.worker and self.worker.is_alive():
                     self._ready = True
                     self._state = "ready"
+                    self._detail = f"Chatterbox model loaded on {self._device}."
             if not self._ready and not await self._wait_ready():
                 await asyncio.sleep(2)
                 if await self._stop_worker():
@@ -415,6 +430,7 @@ class GenerationCoordinator:
                 await self._finish_stopped_request(request.request_id)
                 await self._restart_worker()
         except EncoderWouldNotStop:
+            self._quarantined_encoder_request = request
             await self._cas(request.request_id, {"encoding", "cancelling"}, "recovering", error_code="encoder_would_not_stop", error="The audio encoder could not be stopped safely. Restart Vox before generating again.")
         except CleanupFailed as exc:
             await self._cas(request.request_id, {"encoding", "cancelling"}, "recovering", error_code="cleanup_failed", error=str(exc))
@@ -426,8 +442,12 @@ class GenerationCoordinator:
         if not event.sample_rate or not event.segment_paths:
             raise RuntimeError("Model worker returned no audio.")
         process, results = self._launch_encoder(request, event)
+        try:
+            process.start()
+        except Exception:
+            self._encoder_process = None
+            raise
         self._encoder_process = process
-        process.start()
         deadline = time.monotonic() + self.publication_timeout_s
         result = None
         while result is None and process.is_alive():
