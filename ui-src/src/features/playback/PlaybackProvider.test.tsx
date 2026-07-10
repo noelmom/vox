@@ -64,7 +64,7 @@ describe("PlaybackProvider", () => {
   it("lazily fetches a restored item when Play is pressed", async () => {
     localStorage.setItem("vox:last-playback-item", JSON.stringify({ request_id: "restored", text: "Restored audio", voice_name: null, audio_duration_s: 8, file_available: true }));
     render(<PlaybackProvider><div /></PlaybackProvider>);
-    fireEvent.click(screen.getByRole("button", { name: "Play" }));
+    fireEvent.click(screen.getAllByRole("button", { name: "Play" })[0]);
     await waitFor(() => expect(getJobAudio).toHaveBeenCalledWith("restored"));
   });
 
@@ -74,7 +74,7 @@ describe("PlaybackProvider", () => {
     fireEvent(window, new CustomEvent("vox:play-job", { detail: { request_id: "retryable", text: "Retryable clip", voice_name: null, audio_duration_s: 8, file_available: true } }));
     await waitFor(() => expect(getJobAudio).toHaveBeenCalledWith("retryable"));
     expect(await screen.findByLabelText("Download audio")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Play" })).not.toBeDisabled();
+    expect(screen.getAllByRole("button", { name: "Play" })[0]).not.toBeDisabled();
     expect(localStorage.getItem("vox:last-playback-item")).toContain('"file_available":true');
   });
 
@@ -86,6 +86,16 @@ describe("PlaybackProvider", () => {
     await waitFor(() => expect(screen.getByText("pending")).toBeInTheDocument());
     resolveAudio(new Blob(["audio"]));
     await waitFor(() => expect(screen.getByText("none")).toBeInTheDocument());
+  });
+
+  it("expands the mobile mini-player into touch-safe transport controls", async () => {
+    render(<PlaybackProvider><div /></PlaybackProvider>);
+    fireEvent(window, new CustomEvent("vox:play-job", { detail: { request_id: "mobile", text: "Mobile clip", voice_name: null, audio_duration_s: 8, file_available: true } }));
+    await screen.findByRole("region", { name: "Audio player" });
+    fireEvent.click(screen.getByRole("button", { name: "Expand player" }));
+    expect(screen.getByLabelText("Mobile seek audio")).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: "Back 10 seconds" }).length).toBeGreaterThan(1);
+    expect(screen.getByRole("button", { name: "Collapse player" })).toBeInTheDocument();
   });
 });
 

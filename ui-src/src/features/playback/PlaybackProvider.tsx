@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
-import { Download, Pause, Play, RefreshCw, RotateCcw, RotateCw, X } from "lucide-react";
+import { ChevronDown, ChevronUp, Download, Pause, Play, RefreshCw, RotateCcw, RotateCw, X } from "lucide-react";
 import { getJobAudio, type Job } from "@/lib/api";
 
 type PlaybackItem = Pick<Job, "request_id" | "text" | "voice_name" | "audio_duration_s" | "file_available">;
@@ -42,6 +42,7 @@ export function PlaybackProvider({ children }: { children: React.ReactNode }) {
   const [duration, setDuration] = useState(0);
   const [volume, setVolume] = useState(() => Number(localStorage.getItem("vox:player-volume") ?? 1));
   const [rate, setRate] = useState(() => Number(localStorage.getItem("vox:player-rate") ?? 1));
+  const [mobileExpanded, setMobileExpanded] = useState(false);
 
   const revokeUrl = useCallback(() => {
     if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current);
@@ -177,7 +178,7 @@ export function PlaybackProvider({ children }: { children: React.ReactNode }) {
       />
       {current && (
         <section aria-label="Audio player" className="fixed inset-x-0 bottom-16 z-30 border-t border-border bg-white/95 p-3 shadow-[0_-12px_30px_-24px_rgba(15,23,42,.4)] backdrop-blur-xl md:bottom-0 md:left-[68px] xl:left-[216px]">
-          <div className="mx-auto flex max-w-[1400px] items-center gap-3">
+          <div className="mx-auto hidden max-w-[1400px] items-center gap-3 sm:flex">
             <button type="button" onClick={() => { if (playing) audioRef.current?.pause(); else if (objectUrlRef.current) void audioRef.current?.play(); else void play(current); }} aria-label={playing ? "Pause" : "Play"} disabled={loading || current.file_available === false} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[var(--brand)] text-white disabled:opacity-40">
               {playing ? <Pause className="h-5 w-5" /> : <Play className="ml-0.5 h-5 w-5" />}
             </button>
@@ -201,6 +202,27 @@ export function PlaybackProvider({ children }: { children: React.ReactNode }) {
             {current.file_available !== false && <a href={`/api/v1/jobs/${encodeURIComponent(current.request_id)}/audio`} download aria-label="Download audio" className="hidden h-10 w-10 items-center justify-center rounded-lg hover:bg-muted sm:flex"><Download className="h-4 w-4" /></a>}
             <button type="button" onClick={() => window.dispatchEvent(new CustomEvent("vox:regenerate-job", { detail: current }))} aria-label="Regenerate audio" className="flex h-10 items-center gap-1.5 rounded-lg px-2 text-xs font-semibold text-[var(--brand)] hover:bg-muted sm:px-3"><RefreshCw className="h-4 w-4" /><span className="hidden sm:inline">Regenerate</span></button>
             <button type="button" onClick={clear} aria-label="Close player" className="flex h-10 w-10 items-center justify-center rounded-lg hover:bg-muted"><X className="h-4 w-4" /></button>
+          </div>
+          <div className="mx-auto flex max-w-[640px] flex-col gap-2 sm:hidden">
+            <div className="flex items-center gap-2">
+              <button type="button" onClick={() => { if (playing) audioRef.current?.pause(); else if (objectUrlRef.current) void audioRef.current?.play(); else void play(current); }} aria-label={playing ? "Pause" : "Play"} disabled={loading || current.file_available === false} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[var(--brand)] text-white disabled:opacity-40">
+                {playing ? <Pause className="h-5 w-5" /> : <Play className="ml-0.5 h-5 w-5" />}
+              </button>
+              <div className="min-w-0 flex-1"><div className="truncate text-sm font-semibold">{titleFor(current.text)}</div><div className="truncate text-xs text-foreground/55">{current.voice_name ?? "Default voice"}{error ? " · Playback issue" : ""}</div></div>
+              <button type="button" aria-label={mobileExpanded ? "Collapse player" : "Expand player"} onClick={() => setMobileExpanded((expanded) => !expanded)} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg hover:bg-muted">{mobileExpanded ? <ChevronDown className="h-5 w-5" /> : <ChevronUp className="h-5 w-5" />}</button>
+              <button type="button" onClick={clear} aria-label="Close player" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg hover:bg-muted"><X className="h-5 w-5" /></button>
+            </div>
+            {mobileExpanded && <div className="border-t border-border pt-3">
+              <label className="sr-only" htmlFor="mobile-player-seek">Seek audio</label>
+              <input id="mobile-player-seek" aria-label="Mobile seek audio" type="range" min={0} max={duration || current.audio_duration_s || 0} step="0.1" value={Math.min(position, duration || 0)} onChange={(event) => { if (audioRef.current) audioRef.current.currentTime = Number(event.target.value); }} className="w-full accent-[var(--brand)]" />
+              <div className="flex justify-between text-[11px] tabular-nums text-foreground/50"><span>{formatTime(position)}</span><span>{formatTime(duration || current.audio_duration_s || 0)}</span></div>
+              <div className="mt-3 flex items-center justify-between gap-2">
+                <button type="button" aria-label="Back 10 seconds" onClick={() => { if (audioRef.current) audioRef.current.currentTime = Math.max(0, audioRef.current.currentTime - 10); }} className="flex h-11 w-11 items-center justify-center rounded-lg border border-border"><RotateCcw className="h-4 w-4" /></button>
+                <button type="button" aria-label="Forward 10 seconds" onClick={() => { if (audioRef.current) audioRef.current.currentTime = Math.min(duration, audioRef.current.currentTime + 10); }} className="flex h-11 w-11 items-center justify-center rounded-lg border border-border"><RotateCw className="h-4 w-4" /></button>
+                <button type="button" onClick={() => window.dispatchEvent(new CustomEvent("vox:regenerate-job", { detail: current }))} className="flex h-11 items-center gap-1.5 rounded-lg border border-border px-3 text-xs font-semibold text-[var(--brand)]"><RefreshCw className="h-4 w-4" />Regenerate</button>
+                {current.file_available !== false && <a href={`/api/v1/jobs/${encodeURIComponent(current.request_id)}/audio`} download aria-label="Download audio" className="flex h-11 w-11 items-center justify-center rounded-lg border border-border"><Download className="h-4 w-4" /></a>}
+              </div>
+            </div>}
           </div>
         </section>
       )}
