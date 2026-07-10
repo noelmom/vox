@@ -69,7 +69,9 @@ async function apiFetch(path: string, init?: RequestInit): Promise<Response> {
     const detail = typeof data.detail === "string" ? data.detail : undefined;
     const message = data.error?.message ?? detail ?? r.statusText;
     const suffix = data.request_id ? ` (${data.request_id})` : "";
-    throw new Error(`${message}${suffix}`);
+    const error = new Error(`${message}${suffix}`) as Error & { status?: number };
+    error.status = r.status;
+    throw error;
   }
   return r;
 }

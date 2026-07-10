@@ -551,6 +551,7 @@ function ClipCard({
   const handlePlayClick = async () => {
     if (fetchStatus === "expired" || failed) return;
     if (globalActive && playback.playing) { playback.pause(); return; }
+    if (globalActive) { void playback.resume(); return; }
     requestPlayback(job);
   };
 

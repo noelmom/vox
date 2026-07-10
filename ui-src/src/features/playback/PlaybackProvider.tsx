@@ -11,6 +11,7 @@ type PlaybackContextValue = {
   volume: number;
   rate: number;
   play: (job: PlaybackItem) => Promise<void>;
+  resume: () => Promise<void>;
   pause: () => void;
   seek: (seconds: number) => void;
   setVolume: (value: number) => void;
@@ -77,16 +78,30 @@ export function PlaybackProvider({ children }: { children: React.ReactNode }) {
       audio.playbackRate = rate;
       audio.volume = volume;
       await audio.play();
-    } catch {
+    } catch (caught) {
       if (operation !== operationRef.current) return;
-      const unavailable = { ...job, file_available: false };
-      setCurrent(unavailable);
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(unavailable));
-      setError("Audio is unavailable. It may have expired or been deleted.");
+      const status = (caught as { status?: number })?.status;
+      if (status === 404 || status === 410) {
+        const unavailable = { ...job, file_available: false };
+        setCurrent(unavailable);
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(unavailable));
+        setError("Audio is unavailable. It may have expired or been deleted.");
+      } else {
+        setError("Playback could not start. Press Play to try again.");
+        setPlaying(false);
+      }
     } finally {
       if (operation === operationRef.current) setLoading(false);
     }
   }, [rate, revokeUrl, volume]);
+  const resume = useCallback(async () => {
+    const audio = audioRef.current;
+    if (!audio || !objectUrlRef.current) {
+      if (current) await play(current);
+      return;
+    }
+    try { await audio.play(); } catch { setError("Playback could not start. Press Play to try again."); }
+  }, [current, play]);
 
   useEffect(() => {
     const handler = (event: Event) => {
@@ -125,13 +140,13 @@ export function PlaybackProvider({ children }: { children: React.ReactNode }) {
     if (audioRef.current) audioRef.current.playbackRate = value;
   }, []);
   const value = useMemo<PlaybackContextValue>(() => ({
-    current, playing, position, duration, volume, rate, play,
+    current, playing, position, duration, volume, rate, play, resume,
     pause: () => audioRef.current?.pause(),
     seek: (seconds) => { if (audioRef.current) audioRef.current.currentTime = Math.max(0, Math.min(seconds, duration || seconds)); },
     setVolume: updateVolume,
     setRate: updateRate,
     clear,
-  }), [clear, current, duration, play, playing, position, rate, updateRate, updateVolume, volume]);
+  }), [clear, current, duration, play, playing, position, rate, resume, updateRate, updateVolume, volume]);
 
   return (
     <PlaybackContext.Provider value={value}>

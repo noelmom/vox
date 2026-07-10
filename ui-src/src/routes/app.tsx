@@ -27,7 +27,7 @@ function AppLayout() {
 function AppWorkspace() {
   const pathname = useRouterState({ select: (state) => state.location.pathname });
   const { data: health, isLoading, isError } = useQuery({ queryKey: ["health"], queryFn: healthCheck, refetchInterval: 15_000, retry: 1 });
-  const { data: runtime } = useQuery({ queryKey: ["runtime-status"], queryFn: getRuntimeStatus, refetchInterval: 5_000, retry: 1 });
+  const { data: runtime, isError: runtimeError } = useQuery({ queryKey: ["runtime-status"], queryFn: getRuntimeStatus, refetchInterval: 5_000, retry: 1 });
   const { data: alerts = [] } = useQuery<SystemAlert[]>({ queryKey: ["alerts"], queryFn: getAlerts, refetchInterval: 5 * 60_000, retry: 1 });
   const [authExpired, setAuthExpired] = useState<string | null>(null);
   useEffect(() => {
@@ -52,8 +52,8 @@ function AppWorkspace() {
         <PrimaryNavigation pathname={pathname} />
         <div className="mt-auto px-1 pb-2">
           <div className={`flex items-center justify-center gap-2 rounded-xl border px-2 py-2.5 text-xs font-semibold xl:justify-start xl:px-3 ${isError ? "border-red-200 bg-red-50 text-red-700" : "border-border bg-white text-foreground/70"}`}>
-            <span className={`h-2.5 w-2.5 rounded-full ${isLoading || !modelReady ? "bg-amber-400" : isError ? "bg-red-500" : "bg-emerald-500"}`} />
-            <span className="hidden xl:inline">{isLoading ? "Connecting" : isError ? "Unavailable" : !modelReady ? modelStatusLabel(health?.model_state) : "Ready"}</span>
+            <span className={`h-2.5 w-2.5 rounded-full ${isLoading || runtimeError || !modelReady ? "bg-amber-400" : isError ? "bg-red-500" : "bg-emerald-500"}`} />
+            <span className="hidden xl:inline">{isLoading ? "Connecting" : isError || runtimeError ? "Unavailable" : !modelReady ? modelStatusLabel(runtime?.model.state) : "Ready"}</span>
           </div>
         </div>
       </aside>
@@ -67,7 +67,8 @@ function AppWorkspace() {
           <span className="text-xs font-medium text-foreground/45">On-device voice studio</span>
         </header>
         {isError && <GlobalBanner message="Vox server is unavailable. Your draft and paused playback metadata are safe." action="Retry" onAction={() => window.location.reload()} />}
-        {!isError && !isLoading && runtime && !modelReady && <GlobalBanner message={`The voice model is ${modelStatusLabel(runtime.model.state).toLowerCase()}. Existing playback remains available; generation will resume when it is ready.`} action="Retry" onAction={() => window.location.reload()} />}
+        {!isError && runtimeError && <GlobalBanner message="Runtime status is unavailable. Existing playback remains available; reconnect to enable generation." action="Retry" onAction={() => window.location.reload()} />}
+        {!isError && !runtimeError && !isLoading && runtime && !modelReady && <GlobalBanner message={`The voice model is ${modelStatusLabel(runtime.model.state).toLowerCase()}. Existing playback remains available; generation will resume when it is ready.`} action="Retry" onAction={() => window.location.reload()} />}
         <GenerationStatusBar />
         <AlertBanners alerts={alerts} />
         <main id="workspace-main" tabIndex={-1} className="mx-auto min-h-[calc(100vh-4rem)] w-full max-w-[1500px] px-4 pb-40 pt-7 outline-none sm:px-6 md:px-8 md:pb-32">

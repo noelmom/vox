@@ -162,6 +162,8 @@ export function SettingsPage() {
   const [tokenName, setTokenName] = useState("");
   const [tokenScope, setTokenScope] = useState<"read" | "generate" | "admin">("read");
   const [issuedToken, setIssuedToken] = useState("");
+  const [updateChannel, setUpdateChannel] = useState<"stable" | "beta">(() => lsGet("vox:update-channel", "stable"));
+  const [automaticUpdates, setAutomaticUpdates] = useState(() => lsGet("vox:auto-update-checks", true));
   const [serverDrafts, setServerDrafts] = useState({
     outputTtlHours: "",
     maxVoiceClipDurationS: "",
@@ -355,6 +357,12 @@ export function SettingsPage() {
           View logs
         </Link>
       </div>
+
+      <nav aria-label="Settings sections" className="sticky top-2 z-10 -mx-1 flex gap-1 overflow-x-auto rounded-xl border border-border bg-white/95 p-1 shadow-sm backdrop-blur">
+        {[['runtime', 'Runtime'], ['audio', 'Audio'], ['storage', 'Storage'], ['network', 'Network'], ['updates', 'Updates'], ['about', 'About']].map(([id, label]) => (
+          <a key={id} href={`#${id}`} className="whitespace-nowrap rounded-lg px-3 py-2 text-xs font-semibold text-foreground/60 hover:bg-muted hover:text-foreground">{label}</a>
+        ))}
+      </nav>
 
       {/* RUNTIME (server read-only) */}
       <Section id="runtime" title="Runtime" Icon={Server} subtitle="Live server configuration and network access.">
@@ -796,6 +804,40 @@ export function SettingsPage() {
         </Row>
       </Section>
 
+      <Section id="updates" title="Updates" Icon={Download} subtitle="Keep Vox current without changing your local data or recovery path.">
+        <Row label="Update channel" hint="Stable is recommended. Beta receives prerelease builds when available.">
+          <select
+            value={updateChannel}
+            onChange={(event) => {
+              const next = event.target.value as "stable" | "beta";
+              setUpdateChannel(next);
+              writeCachedPreference("vox:update-channel", next);
+            }}
+            className="h-10 rounded-lg border border-border bg-white px-3 text-[13px] font-semibold"
+          >
+            <option value="stable">Stable</option>
+            <option value="beta">Beta</option>
+          </select>
+        </Row>
+        <Row label="Check automatically" hint="Vox Helper checks the selected Sparkle appcast; installation always requires your approval.">
+          <Toggle checked={automaticUpdates} onChange={(value) => { setAutomaticUpdates(value); writeCachedPreference("vox:auto-update-checks", value); }} />
+        </Row>
+        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border px-5 py-4">
+          <div className="text-[12.5px] text-muted-foreground">Installed version <strong className="text-foreground">{server?.vox_version ?? "—"}</strong></div>
+          <button type="button" onClick={() => window.dispatchEvent(new Event("vox:check-for-updates"))} className="inline-flex h-10 items-center gap-2 rounded-lg border border-border bg-white px-3 text-[12.5px] font-bold hover:bg-muted">
+            <Download className="h-3.5 w-3.5" /> Check for updates
+          </button>
+        </div>
+        <p className="px-5 pb-4 text-[11.5px] text-muted-foreground">If the native updater is unavailable, use Diagnostics to access the documented repair/source update flow.</p>
+      </Section>
+
+      <Section id="about" title="About" Icon={Info} subtitle="Build identity and support information for this device.">
+        <Row label="Version" hint="Installed Vox build">{server?.vox_version ?? "—"}</Row>
+        <Row label="Build commit" hint="Useful when reporting an issue">{server?.build_commit ?? "—"}</Row>
+        <Row label="Built at" hint="Build timestamp">{server?.build_built_at ?? "—"}</Row>
+        <div className="border-t border-border px-5 py-4 text-[12px] text-muted-foreground">Vox runs locally on your Mac. Audio, scripts, and voice profiles stay in the managed folders shown under Storage.</div>
+      </Section>
+
       {/* Save bar — in page flow when clean, fixed+floating when dirty */}
       {!isFloating && (
         <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-border bg-white px-4 py-3 shadow-[0_2px_8px_-4px_oklch(0.16_0.02_260/0.08)]">
@@ -822,7 +864,7 @@ export function SettingsPage() {
       )}
 
       {isFloating && (
-        <div className="fixed bottom-6 left-64 right-4 z-10 flex flex-wrap items-center gap-2 rounded-2xl border border-[color-mix(in oklch, var(--brand-warm) 22%, white)] bg-[color-mix(in oklch, var(--brand-warm) 8%, white)] px-4 py-3 shadow-[0_12px_32px_-8px_oklch(0.16_0.02_260/0.22)]">
+        <div className="fixed bottom-6 left-4 right-4 z-10 flex flex-wrap items-center gap-2 rounded-2xl border border-[color-mix(in oklch, var(--brand-warm) 22%, white)] bg-[color-mix(in oklch, var(--brand-warm) 8%, white)] px-4 py-3 shadow-[0_12px_32px_-8px_oklch(0.16_0.02_260/0.22)] md:left-64">
           <div className="mr-auto flex min-w-0 items-center gap-2">
             <AlertTriangle className="h-4 w-4 shrink-0 text-[var(--brand-warm)]" />
             <span className="text-[12.5px] font-medium text-[var(--brand-warm)]">

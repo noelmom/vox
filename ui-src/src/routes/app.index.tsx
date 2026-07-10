@@ -321,7 +321,7 @@ function GeneratePage() {
   const [editingPreset, setEditingPreset] = useState(false);
   const [editPresetError, setEditPresetError] = useState("");
   const queryClient = useQueryClient();
-  const { data: runtime } = useQuery({ queryKey: ["runtime-status"], queryFn: getRuntimeStatus, refetchInterval: 5_000, retry: 1 });
+  const { data: runtime, isError: runtimeError } = useQuery({ queryKey: ["runtime-status"], queryFn: getRuntimeStatus, refetchInterval: 5_000, retry: 1 });
 
   const { data: voicesData } = useQuery({ queryKey: ["voices"], queryFn: listVoices });
   const { data: presetsData } = useQuery({ queryKey: ["presets"], queryFn: listPresets });
@@ -614,6 +614,9 @@ function GeneratePage() {
         if (stopped) return;
         const url = URL.createObjectURL(blob);
         setGenState({ phase: "done", result: { job, blob, url } });
+        // Promote a completed render into the single persistent player so it
+        // remains available when the user navigates away from Create.
+        requestPlayback(job);
         setGenerationState({ phase: "done", requestId });
         localStorage.setItem(LAST_REQUEST_KEY, requestId);
         queryClient.invalidateQueries({ queryKey: ["jobs"] });
@@ -1037,7 +1040,7 @@ function GeneratePage() {
             ) : (
               <>
                 <AudioLines className="h-5 w-5" />
-                {generationReady ? "Generate Voice" : "Model loading…"}
+                {runtimeError ? "Server unavailable" : generationReady ? "Generate Voice" : "Model loading…"}
                 <Sparkles className="h-4 w-4 opacity-80" />
               </>
             )}
