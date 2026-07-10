@@ -27,12 +27,11 @@ Produce an approved, implementation-ready specification and dependency-ordered e
 - [Define the local and LAN trust model](01-define-local-and-lan-trust-model.md) — keep loopback frictionless but cross-origin protected; require short-lived pairing and revocable scoped credentials for the full LAN Studio and API.
 - [Design a cancellation-safe generation lifecycle](02-design-cancellation-safe-generation-lifecycle.md) — isolate Chatterbox in one supervised subprocess; cancellation and timeout kill and reap that owner before terminal state or replacement, while the coordinator owns durable queueing and atomic output publication.
 - [Specify the Sparkle package-update architecture](03-specify-sparkle-package-update-architecture.md) — Vox Helper hosts pinned Sparkle 2; immutable notarized flat packages ship through a stable/default plus opt-in beta appcast after a one-time manual bridge, with the shell updater retained only for recovery/source installs.
+- [Validate the redesigned application workflows](04-validate-redesigned-application-workflows.md) — use a responsive four-route creative workspace with truthful generation states, inspector-based editing, one persistent player, explicit pairing/degraded behavior, accessible controls, route-level code splitting, and compact history/media lists.
 
 ## Not yet specified
 
 - Detailed API compatibility policy and whether any security changes require versioned endpoints.
-- Final component/module seams for decomposing the current large React route files.
-- Performance budgets beyond the initial bundle/image observations.
 
 ## Out of scope
 
