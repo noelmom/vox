@@ -19,6 +19,10 @@ fail() { echo "candidate: $*" >&2; exit 1; }
 [[ -f "$NOTES" ]] || fail "release notes not found: $NOTES"
 [[ -z "$(git -C "$ROOT" status --porcelain)" ]] || fail "working tree is dirty"
 
+# Candidate evidence must begin with the exact signed, stapled package that
+# will later be uploaded. This remains read-only and never installs anything.
+bash "$ROOT/scripts/verify-package-candidate.sh" "$PACKAGE"
+
 EVIDENCE="$ROOT/.release-candidates/${VERSION}-${BUILD}"
 mkdir -p "$EVIDENCE"
 cp "$NOTES" "$EVIDENCE/release-notes.md"

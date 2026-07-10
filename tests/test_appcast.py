@@ -75,3 +75,18 @@ def test_verify_signature_rejects_a_failed_sparkle_check(tmp_path: Path) -> None
     ], capture_output=True, text=True)
     assert failed.returncode != 0
     assert "Sparkle signature verification failed" in failed.stderr
+
+
+def test_verify_can_require_exact_hosted_build_and_package_url(tmp_path: Path) -> None:
+    output = render(tmp_path, build="42")
+    package = tmp_path / "Vox-1.2.3.pkg"
+    url = "https://updates.example.test/vox/releases/Vox-1.2.3.pkg"
+    subprocess.run([
+        sys.executable, str(TOOL), "verify", "--appcast", str(output), "--package", str(package),
+        "--build", "42", "--package-url", url,
+    ], check=True)
+    failed = subprocess.run([
+        sys.executable, str(TOOL), "verify", "--appcast", str(output), "--build", "43",
+    ], capture_output=True, text=True)
+    assert failed.returncode != 0
+    assert "unexpected sparkle build" in failed.stderr

@@ -87,6 +87,17 @@ Before an installer smoke test, inspect the final staged package without install
 bash scripts/verify-package-candidate.sh /staging/Vox-1.2.3.pkg
 ```
 
+After a separately approved package and appcast upload, verify the exact hosted
+bytes before changing any live update reference. This probe only downloads and
+checks the candidate; it never uploads, tags, or publishes.
+
+```bash
+bash scripts/verify-published-candidate.sh \
+  https://updates.example.com/vox/releases/Vox-1.2.3.pkg \
+  https://updates.example.com/vox/appcast.xml \
+  1.2.3 2026071001 stable
+```
+
 ### Release repository target
 
 `release.sh` creates GitHub releases against `noelmom/vox` by default. Versions with a suffix such as `-rc11` are marked as prereleases; plain versions such as `1.0.0` are public releases:

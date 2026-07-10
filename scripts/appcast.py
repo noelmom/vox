@@ -131,6 +131,8 @@ def verify_file(
     expected_channel: str | None,
     previous_build: int | None,
     *,
+    expected_build: str | None = None,
+    expected_package_url: str | None = None,
     verify_sparkle_signature: bool = False,
     sign_tool: Path | None = None,
     account: str | None = None,
@@ -148,6 +150,8 @@ def verify_file(
     enclosure = item.find("enclosure")
     if not version or not version.isdecimal() or int(version) <= 0:
         fail("invalid sparkle build number")
+    if expected_build is not None and version != expected_build:
+        fail("unexpected sparkle build number")
     if previous_build is not None and int(version) <= previous_build:
         fail("appcast build is not newer than the previous build")
     if not short_version or not SEMVER.match(short_version):
@@ -160,6 +164,8 @@ def verify_file(
         fail("missing package enclosure")
     url = enclosure.get("url", "")
     valid_url(url, short_version)
+    if expected_package_url is not None and url != expected_package_url:
+        fail("unexpected package enclosure URL")
     signature = enclosure.get(f"{{{SPARKLE}}}edSignature", "")
     if not signature:
         fail("missing Sparkle EdDSA signature")
@@ -203,6 +209,8 @@ def main() -> None:
     verify_parser.add_argument("--appcast", type=Path, required=True)
     verify_parser.add_argument("--package", type=Path)
     verify_parser.add_argument("--channel", choices=("stable", "beta"))
+    verify_parser.add_argument("--build", help="require this exact sparkle build number")
+    verify_parser.add_argument("--package-url", help="require this exact enclosure URL")
     verify_parser.add_argument("--previous-build", type=int)
     verify_parser.add_argument("--verify-signature", action="store_true", help="validate the enclosure signature with Sparkle")
     verify_parser.add_argument("--sign-tool", type=Path, default=Path(".build/artifacts/sparkle/Sparkle/bin/sign_update"))
@@ -216,6 +224,8 @@ def main() -> None:
             args.package,
             args.channel,
             args.previous_build,
+            expected_build=args.build,
+            expected_package_url=args.package_url,
             verify_sparkle_signature=args.verify_signature,
             sign_tool=args.sign_tool,
             account=args.account,
