@@ -34,7 +34,7 @@ _REQUIRED_SCHEMA = {
     "jobs": {"request_id", "status", "text", "created_at"},
     "user_presets": {"name", "temperature"},
     "meta": {"key", "value"},
-    "user_preferences": {"key", "value"},
+    "user_preferences": {"key", "value", "updated_at"},
 }
 
 
@@ -72,9 +72,12 @@ def _validate_database(path: Path, voice_root: Path | None = None) -> None:
             if database.execute("PRAGMA integrity_check").fetchone()[0] != "ok":
                 raise HTTPException(status_code=400, detail="Backup database failed its integrity check.")
             for table, required_columns in _REQUIRED_SCHEMA.items():
-                columns = {row[1] for row in database.execute(f'PRAGMA table_info("{table}")')}
+                table_info = list(database.execute(f'PRAGMA table_info("{table}")'))
+                columns = {row[1] for row in table_info}
                 if not required_columns <= columns:
                     raise HTTPException(status_code=400, detail=f"Backup database is missing required {table} fields.")
+                if table == "user_preferences" and not any(row[1] == "key" and row[5] == 1 for row in table_info):
+                    raise HTTPException(status_code=400, detail="Backup preferences table is missing its key constraint.")
             if database.execute("PRAGMA foreign_key_check").fetchone() is not None:
                 raise HTTPException(status_code=400, detail="Backup database contains invalid references.")
             if database.execute("SELECT 1 FROM sqlite_master WHERE type IN ('trigger', 'view') LIMIT 1").fetchone():

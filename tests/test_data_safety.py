@@ -126,7 +126,7 @@ def test_backup_database_rejects_a_malformed_restored_icon(tmp_path, monkeypatch
         CREATE TABLE jobs (request_id TEXT, status TEXT, text TEXT, created_at TEXT, output_path TEXT);
         CREATE TABLE user_presets (name TEXT, temperature REAL);
         CREATE TABLE meta (key TEXT, value TEXT);
-        CREATE TABLE user_preferences (key TEXT, value TEXT);
+        CREATE TABLE user_preferences (key TEXT PRIMARY KEY, value TEXT, updated_at TEXT);
         """
     )
     malformed = "data:image/png;base64," + base64.b64encode(b"\x89PNG\r\n\x1a\ntruncated").decode()
@@ -139,6 +139,26 @@ def test_backup_database_rejects_a_malformed_restored_icon(tmp_path, monkeypatch
 
     with pytest.raises(HTTPException):
         backups._validate_database(database_path, voice_root)
+
+
+def test_backup_database_requires_preference_merge_schema(tmp_path, monkeypatch):
+    monkeypatch.setattr(backups.settings, "voice_dir", tmp_path / "voices")
+    monkeypatch.setattr(backups.settings, "output_dir", tmp_path / "outputs")
+    database_path = tmp_path / "preferences-missing-updated-at.db"
+    database = sqlite3.connect(database_path)
+    database.executescript(
+        """
+        CREATE TABLE voices (id TEXT, name TEXT, filename TEXT, status TEXT, icon_data TEXT);
+        CREATE TABLE jobs (request_id TEXT, status TEXT, text TEXT, created_at TEXT, output_path TEXT);
+        CREATE TABLE user_presets (name TEXT, temperature REAL);
+        CREATE TABLE meta (key TEXT, value TEXT);
+        CREATE TABLE user_preferences (key TEXT PRIMARY KEY, value TEXT);
+        """
+    )
+    database.close()
+
+    with pytest.raises(HTTPException, match="user_preferences"):
+        backups._validate_database(database_path)
 
 
 @pytest.mark.asyncio
@@ -299,6 +319,56 @@ async def test_watcher_rejects_an_input_symlink(tmp_path, monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_watcher_rejects_a_processed_directory_symlink(tmp_path, monkeypatch):
+    input_dir = tmp_path / "input"
+    input_dir.mkdir()
+    external = tmp_path / "external-processed"
+    external.mkdir()
+    (input_dir / "processed").symlink_to(external, target_is_directory=True)
+    source = input_dir / "safe.wav"
+    sf.write(source, np.zeros(2400, dtype=np.float32), 24000)
+    voice_dir = tmp_path / "voices"
+    voice_dir.mkdir()
+    monkeypatch.setattr(watcher.settings, "input_dir", input_dir)
+    monkeypatch.setattr(watcher.settings, "voice_dir", voice_dir)
+
+    with pytest.raises(HTTPException):
+        await watcher._ingest_file(source)
+
+    assert source.exists()
+    assert not list(external.iterdir())
+
+
+@pytest.mark.asyncio
+async def test_watcher_restores_prior_voice_when_install_replace_fails(tmp_path, monkeypatch):
+    input_dir = tmp_path / "input"
+    (input_dir / "processed").mkdir(parents=True)
+    voice_dir = tmp_path / "voices"
+    voice_dir.mkdir()
+    source = input_dir / "existing.wav"
+    sf.write(source, np.zeros(2400, dtype=np.float32), 24000)
+    prior_voice = voice_dir / "existing.wav"
+    prior_voice.write_bytes(b"prior-voice")
+    monkeypatch.setattr(watcher.settings, "input_dir", input_dir)
+    monkeypatch.setattr(watcher.settings, "voice_dir", voice_dir)
+
+    original_replace = Path.replace
+
+    def fail_install_replace(path, target):
+        if path.name.startswith("tmp_watcher_") and Path(target) == prior_voice:
+            raise OSError("injected install replace failure")
+        return original_replace(path, target)
+
+    monkeypatch.setattr(Path, "replace", fail_install_replace)
+
+    await watcher._ingest_file(source)
+
+    assert source.exists()
+    assert prior_voice.read_bytes() == b"prior-voice"
+    assert not list((input_dir / "processed").iterdir())
+
+
+@pytest.mark.asyncio
 async def test_job_delete_restores_audio_when_database_commit_fails(tmp_path, monkeypatch):
     output_dir = tmp_path / "outputs"
     output_dir.mkdir()
@@ -402,3 +472,63 @@ async def test_deleted_voice_cleanup_leaves_files_when_database_commit_fails(tmp
 
     assert voice_file.read_bytes() == b"voice"
     assert sidecar.read_text() == "{}"
+
+
+@pytest.mark.asyncio
+async def test_job_retention_restores_staged_audio_when_commit_fails(tmp_path, monkeypatch):
+    output_dir = tmp_path / "outputs"
+    output_dir.mkdir()
+    output = output_dir / "old.mp3"
+    output.write_bytes(b"audio")
+
+    class Cursor:
+        def __init__(self, rows):
+            self.rows = rows
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *_args):
+            return None
+
+        async def fetchall(self):
+            return self.rows
+
+        def __await__(self):
+            async def result():
+                return self
+
+            return result().__await__()
+
+    class FailingRetentionDatabase:
+        def execute(self, query, _params=()):
+            if query.startswith("SELECT output_path"):
+                return Cursor([{"output_path": str(output)}])
+            if "SELECT request_id, output_path FROM jobs" in query:
+                return Cursor([{"request_id": "old-job", "output_path": str(output)}])
+            return Cursor([])
+
+        async def executemany(self, *_args):
+            return None
+
+        async def commit(self):
+            raise RuntimeError("injected retention commit failure")
+
+        async def rollback(self):
+            return None
+
+    async def get_db():
+        return FailingRetentionDatabase()
+
+    monkeypatch.setattr(cleanup, "get_db", get_db)
+    monkeypatch.setattr(cleanup.settings, "output_dir", output_dir)
+    monkeypatch.setattr(cleanup.settings, "voice_dir", tmp_path / "voices")
+    cleanup.settings.voice_dir.mkdir()
+    monkeypatch.setattr(cleanup.settings, "output_ttl_hours", 24)
+    monkeypatch.setattr(cleanup.settings, "job_retention_days", 1)
+    monkeypatch.setattr(cleanup.settings, "deleted_voice_ttl_hours", 0)
+
+    await cleanup._run_cleanup()
+
+    assert output.read_bytes() == b"audio"
+    assert not list(output_dir.glob(".pruning-*"))

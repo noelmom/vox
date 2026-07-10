@@ -31,10 +31,14 @@ async def _ingest_file(path: Path):
     prior_wav = managed_path(settings.voice_dir, f".prior-watcher-{uuid.uuid4()}.wav")
     processed_dir = managed_path(settings.input_dir, "processed")
     processed_dir.mkdir(exist_ok=True)
-    processed_dest = managed_path(processed_dir, source.name)
+    processed_dest = managed_path(settings.input_dir, f"processed/{source.name}")
     if processed_dest.exists():
-        processed_dest = managed_path(processed_dir, f"{source.stem}-{uuid.uuid4().hex[:8]}{source.suffix}")
+        processed_dest = managed_path(
+            settings.input_dir,
+            f"processed/{source.stem}-{uuid.uuid4().hex[:8]}{source.suffix}",
+        )
     source_moved = False
+    prior_voice_moved = False
     live_voice_replaced = False
 
     try:
@@ -54,6 +58,7 @@ async def _ingest_file(path: Path):
         source_moved = True
         if wav_dest.exists():
             wav_dest.replace(prior_wav)
+            prior_voice_moved = True
         staged_wav.replace(wav_dest)
         live_voice_replaced = True
 
@@ -76,8 +81,8 @@ async def _ingest_file(path: Path):
     except Exception as exc:
         if live_voice_replaced:
             wav_dest.unlink(missing_ok=True)
-            if prior_wav.exists():
-                prior_wav.replace(wav_dest)
+        if prior_voice_moved and prior_wav.exists() and not wav_dest.exists():
+            prior_wav.replace(wav_dest)
         if source_moved and processed_dest.exists() and not source.exists():
             processed_dest.replace(source)
         log.error("Failed to ingest %s: %s", source.name, exc)
