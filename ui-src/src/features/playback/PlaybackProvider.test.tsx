@@ -97,6 +97,15 @@ describe("PlaybackProvider", () => {
     expect(screen.getAllByRole("button", { name: "Back 10 seconds" }).length).toBeGreaterThan(1);
     expect(screen.getByRole("button", { name: "Collapse player" })).toBeInTheDocument();
   });
+
+  it("clears the active dock when its recording is deleted", async () => {
+    render(<PlaybackProvider><div /></PlaybackProvider>);
+    fireEvent(window, new CustomEvent("vox:play-job", { detail: { request_id: "delete-me", text: "Delete me", voice_name: null, audio_duration_s: 8, file_available: true } }));
+    await screen.findByRole("region", { name: "Audio player" });
+    fireEvent(window, new CustomEvent("vox:job-deleted", { detail: { requestId: "delete-me" } }));
+    await waitFor(() => expect(screen.queryByRole("region", { name: "Audio player" })).not.toBeInTheDocument());
+    expect(URL.revokeObjectURL).toHaveBeenCalled();
+  });
 });
 
 function PendingRequest() {
