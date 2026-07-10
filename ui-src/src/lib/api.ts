@@ -184,9 +184,14 @@ export type ServerSettings = {
   configured_chunk_headroom_chars: number;
   chunk_headroom_restart_required: boolean;
   max_voice_clip_duration_s: number;
+  max_voice_upload_mb: number;
+  max_script_chars: number;
   configured_max_voice_clip_duration_s: number;
   max_voice_clip_duration_restart_required: boolean;
   voice_icon_max_kb: number;
+  max_backup_upload_mb: number;
+  max_backup_expanded_mb: number;
+  max_backup_entries: number;
   ffmpeg_available: boolean;
   ffmpeg_path: string;
   model_name: string;

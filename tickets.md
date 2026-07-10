@@ -41,12 +41,12 @@ Build the backend hardening, creative-workspace UI, Sparkle package updates, and
 
 **Blocked by:** Establish the local quality loop.
 
-- [ ] Replace permissive voice-name handling with a documented canonical slug and containment checks.
-- [ ] Stream uploads with explicit byte, duration, format, and entry limits and deterministic cleanup.
-- [ ] Validate backup manifests, archive entries, expanded size, compression ratio, and database schema before mutation.
-- [ ] Restore database/voices atomically with rollback and preserve `.env`, outputs, input, and unrelated preferences.
-- [ ] Bound list/query inputs and return stable safe errors with request IDs.
-- [ ] Surface actionable validation and recovery messages in existing/new UI flows.
+- [x] Replace permissive voice-name handling with a documented canonical slug and containment checks.
+- [x] Stream uploads with explicit byte, duration, format, and entry limits and deterministic cleanup.
+- [x] Validate backup manifests, archive entries, expanded size, compression ratio, and database schema before mutation.
+- [x] Restore database/voices atomically with rollback and preserve `.env`, outputs, input, and unrelated preferences.
+- [x] Bound list/query inputs and return stable safe errors with request IDs.
+- [x] Surface actionable validation and recovery messages in existing/new UI flows.
 
 **Rollback point:** Keep the old data untouched until atomic replacement; code can revert without a data migration.
 

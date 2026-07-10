@@ -1,5 +1,6 @@
-import io
+import asyncio
 import json
+import os
 import shutil
 import sqlite3
 import tempfile
@@ -8,16 +9,32 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from fastapi import APIRouter, File, HTTPException, UploadFile
-from fastapi.responses import Response
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
+from starlette.background import BackgroundTask
 
 from api.core import db as db_core
 from api.core.config import settings
+from api.core.data_safety import (
+    canonical_voice_slug,
+    managed_path,
+    stored_managed_path,
+    stream_upload,
+    validate_backup_members,
+)
 from api.core.db import get_db
 
 router = APIRouter(prefix="/backups", tags=["backups"])
 
 BACKUP_VERSION = 1
+_RESTORE_LOCK = asyncio.Lock()
+_REQUIRED_SCHEMA = {
+    "voices": {"id", "name", "filename", "status"},
+    "jobs": {"request_id", "status", "text", "created_at"},
+    "user_presets": {"name", "temperature"},
+    "meta": {"key", "value"},
+    "user_preferences": {"key", "value"},
+}
 
 
 class RestoreOut(BaseModel):
@@ -26,19 +43,118 @@ class RestoreOut(BaseModel):
     message: str
 
 
-def _safe_zip_path(name: str) -> Path:
-    path = Path(name)
-    if path.is_absolute() or ".." in path.parts:
-        raise HTTPException(status_code=400, detail="Backup contains an unsafe path")
-    return path
-
-
-def _write_tree(zf: zipfile.ZipFile, source: Path, prefix: str):
+def _write_tree(archive: zipfile.ZipFile, source: Path, prefix: str) -> None:
     if not source.exists():
         return
     for path in source.rglob("*"):
-        if path.is_file():
-            zf.write(path, f"{prefix}/{path.relative_to(source)}")
+        if path.is_file() and not path.is_symlink():
+            archive.write(path, f"{prefix}/{path.relative_to(source)}")
+
+
+def _validate_manifest(archive: zipfile.ZipFile) -> dict:
+    try:
+        manifest = json.loads(archive.read("manifest.json"))
+    except json.JSONDecodeError as exc:
+        raise HTTPException(status_code=400, detail="Backup manifest is invalid.") from exc
+    if manifest.get("app") != "Vox" or manifest.get("backup_version") != BACKUP_VERSION:
+        raise HTTPException(status_code=400, detail="Backup version is not supported by this Vox build.")
+    includes = manifest.get("includes")
+    if not isinstance(includes, list) or not {"data/vox.db", "voices"}.issubset(includes):
+        raise HTTPException(status_code=400, detail="Backup manifest does not describe the required Vox data.")
+    return manifest
+
+
+def _validate_database(path: Path, voice_root: Path | None = None) -> None:
+    try:
+        database = sqlite3.connect(f"file:{path}?mode=ro", uri=True)
+        try:
+            if database.execute("PRAGMA integrity_check").fetchone()[0] != "ok":
+                raise HTTPException(status_code=400, detail="Backup database failed its integrity check.")
+            for table, required_columns in _REQUIRED_SCHEMA.items():
+                columns = {row[1] for row in database.execute(f'PRAGMA table_info("{table}")')}
+                if not required_columns <= columns:
+                    raise HTTPException(status_code=400, detail=f"Backup database is missing required {table} fields.")
+            if database.execute("PRAGMA foreign_key_check").fetchone() is not None:
+                raise HTTPException(status_code=400, detail="Backup database contains invalid references.")
+            if database.execute("SELECT 1 FROM sqlite_master WHERE type IN ('trigger', 'view') LIMIT 1").fetchone():
+                raise HTTPException(status_code=400, detail="Backup database contains unsupported executable schema objects.")
+            for name, filename, status in database.execute("SELECT name, filename, status FROM voices"):
+                if canonical_voice_slug(name) != name or Path(filename).name != filename or Path(filename).suffix.lower() != ".wav":
+                    raise HTTPException(status_code=400, detail="Backup contains a non-canonical voice record.")
+                managed_path(settings.voice_dir, filename)
+                if voice_root is not None and status == "active" and not managed_path(voice_root, filename).is_file():
+                    raise HTTPException(status_code=400, detail="Backup is missing audio for an active voice profile.")
+            for (output_path,) in database.execute("SELECT output_path FROM jobs WHERE output_path IS NOT NULL"):
+                stored_managed_path(settings.output_dir, output_path)
+        finally:
+            database.close()
+    except sqlite3.DatabaseError as exc:
+        raise HTTPException(status_code=400, detail="Backup database is invalid.") from exc
+
+
+def _extract_validated(archive: zipfile.ZipFile, destination: Path) -> None:
+    members = validate_backup_members(
+        archive,
+        max_entries=settings.max_backup_entries,
+        max_expanded_bytes=settings.max_backup_expanded_mb * 1024 * 1024,
+    )
+    _validate_manifest(archive)
+    for member in members:
+        if member.is_dir():
+            continue
+        target = managed_path(destination, member.filename)
+        target.parent.mkdir(parents=True, exist_ok=True)
+        with archive.open(member) as source, target.open("xb") as output:
+            shutil.copyfileobj(source, output, length=1024 * 1024)
+
+
+async def _commit_restore(restored_db: Path, restored_voices: Path, transaction_root: Path) -> None:
+    prior_db = transaction_root / "prior-vox.db"
+    prior_voices = transaction_root / "prior-voices"
+    sidecars = [Path(f"{settings.db_path}-wal"), Path(f"{settings.db_path}-shm")]
+    prior_sidecars = [transaction_root / f"prior-{sidecar.name}" for sidecar in sidecars]
+    moved_db = False
+    moved_voices = False
+    moved_sidecars: list[tuple[Path, Path]] = []
+
+    await db_core.disconnect()
+    try:
+        if settings.db_path.exists():
+            os.replace(settings.db_path, prior_db)
+            moved_db = True
+        for sidecar, prior_sidecar in zip(sidecars, prior_sidecars, strict=True):
+            if sidecar.exists():
+                os.replace(sidecar, prior_sidecar)
+                moved_sidecars.append((sidecar, prior_sidecar))
+        if settings.voice_dir.exists():
+            os.replace(settings.voice_dir, prior_voices)
+            moved_voices = True
+
+        settings.db_path.parent.mkdir(parents=True, exist_ok=True)
+        settings.voice_dir.parent.mkdir(parents=True, exist_ok=True)
+        os.replace(restored_db, settings.db_path)
+        os.replace(restored_voices, settings.voice_dir)
+        (settings.voice_dir / "deleted").mkdir(exist_ok=True)
+        await db_core.connect()
+    except Exception as exc:
+        await db_core.disconnect()
+        settings.db_path.unlink(missing_ok=True)
+        for sidecar in sidecars:
+            sidecar.unlink(missing_ok=True)
+        if settings.voice_dir.exists():
+            shutil.rmtree(settings.voice_dir)
+        if moved_db and prior_db.exists():
+            os.replace(prior_db, settings.db_path)
+        if moved_voices and prior_voices.exists():
+            os.replace(prior_voices, settings.voice_dir)
+        for sidecar, prior_sidecar in moved_sidecars:
+            if prior_sidecar.exists():
+                os.replace(prior_sidecar, sidecar)
+        try:
+            await db_core.connect()
+        except Exception as reconnect_error:
+            raise HTTPException(status_code=500, detail="Restore failed and Vox could not reopen the prior database. Restart Vox before retrying.") from reconnect_error
+        raise HTTPException(status_code=500, detail="Restore failed; prior Vox data was restored unchanged.") from exc
 
 
 @router.get(
@@ -58,9 +174,9 @@ async def export_backup():
         finally:
             sqlite_target.close()
 
-        buffer = io.BytesIO()
-        with zipfile.ZipFile(buffer, "w", compression=zipfile.ZIP_DEFLATED) as zf:
-            zf.writestr(
+        archive_path = Path(tmp_dir) / f"Vox-Backup-{datetime.now().strftime('%Y%m%d-%H%M%S')}.zip"
+        with zipfile.ZipFile(archive_path, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+            archive.writestr(
                 "manifest.json",
                 json.dumps(
                     {
@@ -72,15 +188,19 @@ async def export_backup():
                     indent=2,
                 ),
             )
-            zf.write(tmp_db, "data/vox.db")
-            _write_tree(zf, settings.voice_dir, "voices")
+            archive.write(tmp_db, "data/vox.db")
+            _write_tree(archive, settings.voice_dir, "voices")
+        descriptor, response_name = tempfile.mkstemp(prefix="vox-export-", suffix=".zip")
+        os.close(descriptor)
+        response_path = Path(response_name)
+        shutil.copy2(archive_path, response_path)
 
-    buffer.seek(0)
     filename = f"Vox-Backup-{datetime.now().strftime('%Y%m%d-%H%M%S')}.zip"
-    return Response(
-        content=buffer.getvalue(),
+    return FileResponse(
+        response_path,
+        filename=filename,
         media_type="application/zip",
-        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        background=BackgroundTask(response_path.unlink, missing_ok=True),
     )
 
 
@@ -88,63 +208,42 @@ async def export_backup():
     "/restore",
     response_model=RestoreOut,
     summary="Restore a Vox backup",
-    description="Restores a backup created by `GET /api/v1/backups/export`. This replaces the current database and voice assets.",
+    description="Validates and atomically restores a Vox backup while preserving settings, generated output, and unrelated files.",
 )
 async def restore_backup(file: UploadFile = File(...)):
-    payload = await file.read()
-    if not payload:
-        raise HTTPException(status_code=400, detail="Backup file is empty")
+    runtime_root = Path(os.path.commonpath((settings.db_path.resolve().parent, settings.voice_dir.resolve().parent)))
+    runtime_root.mkdir(parents=True, exist_ok=True)
 
-    with tempfile.TemporaryDirectory(prefix="vox-restore-") as tmp_dir:
-        restore_root = Path(tmp_dir) / "restore"
-        restore_root.mkdir()
+    async with _RESTORE_LOCK:
+        with tempfile.TemporaryDirectory(prefix=".vox-restore-", dir=runtime_root) as tmp_dir:
+            transaction_root = Path(tmp_dir)
+            upload_path = transaction_root / "upload.zip"
+            size = await stream_upload(
+                file,
+                upload_path,
+                max_bytes=settings.max_backup_upload_mb * 1024 * 1024,
+            )
+            if size == 0:
+                raise HTTPException(status_code=400, detail="Backup file is empty.")
 
-        try:
-            with zipfile.ZipFile(io.BytesIO(payload)) as zf:
-                for member in zf.namelist():
-                    _safe_zip_path(member)
-                if "manifest.json" not in zf.namelist() or "data/vox.db" not in zf.namelist():
-                    raise HTTPException(status_code=400, detail="Backup is missing required Vox files")
-
-                manifest = json.loads(zf.read("manifest.json"))
-                if manifest.get("app") != "Vox":
-                    raise HTTPException(status_code=400, detail="Backup was not created by Vox")
-
-                zf.extractall(restore_root)
-        except zipfile.BadZipFile as exc:
-            raise HTTPException(status_code=400, detail="Backup file is not a valid zip") from exc
-        except json.JSONDecodeError as exc:
-            raise HTTPException(status_code=400, detail="Backup manifest is invalid") from exc
-
-        restored_db = restore_root / "data" / "vox.db"
-        try:
-            probe = sqlite3.connect(restored_db)
+            restore_root = transaction_root / "staged"
+            restore_root.mkdir()
             try:
-                probe.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='voices'")
-                probe.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='jobs'")
-            finally:
-                probe.close()
-        except sqlite3.DatabaseError as exc:
-            raise HTTPException(status_code=400, detail="Backup database is invalid") from exc
+                with zipfile.ZipFile(upload_path) as archive:
+                    _extract_validated(archive, restore_root)
+            except zipfile.BadZipFile as exc:
+                raise HTTPException(status_code=400, detail="Backup file is not a valid zip.") from exc
 
-        restored_voices = restore_root / "voices"
-        voice_count = len(list(restored_voices.glob("*.wav"))) if restored_voices.exists() else 0
+            restored_db = managed_path(restore_root, "data/vox.db")
+            restored_voices = managed_path(restore_root, "voices")
+            restored_voices.mkdir(exist_ok=True)
+            _validate_database(restored_db, restored_voices)
+            voice_count = sum(1 for path in restored_voices.glob("*.wav") if path.is_file())
 
-        await db_core.disconnect()
-        settings.db_path.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(restored_db, settings.db_path)
-
-        if restored_voices.exists():
-            if settings.voice_dir.exists():
-                shutil.rmtree(settings.voice_dir)
-            shutil.copytree(restored_voices, settings.voice_dir)
-        settings.voice_dir.mkdir(parents=True, exist_ok=True)
-        (settings.voice_dir / "deleted").mkdir(exist_ok=True)
-
-        await db_core.connect()
+            await _commit_restore(restored_db, restored_voices, transaction_root)
 
     return RestoreOut(
         restored=True,
         voices_restored=voice_count,
-        message="Backup restored. Refresh Vox Studio to see the latest library and voice profile data.",
+        message="Backup restored. Refresh Vox Studio to see the restored library and history.",
     )

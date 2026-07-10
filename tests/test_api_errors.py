@@ -55,3 +55,24 @@ def test_loopback_startup_revokes_credentials_created_in_an_earlier_lan_session(
     _enforce_lan_credential_state(app)
 
     assert store.authenticate(token.secret) is None
+
+
+def test_validation_errors_are_bounded_and_include_request_id(monkeypatch):
+    _install_model_stubs(monkeypatch)
+
+    from api.main import app
+
+    client = TestClient(app, client=("127.0.0.1", 50000), headers={"Host": "localhost:8000"})
+    response = client.get("/api/v1/jobs?limit=999999", headers={"X-Request-ID": "validation-test"})
+
+    assert response.status_code == 422
+    assert response.json() == {
+        "detail": "Request validation failed.",
+        "error": {"code": 422, "message": "Request validation failed."},
+        "request_id": "validation-test",
+        "fields": [{
+            "location": ["query", "limit"],
+            "message": "Input should be less than or equal to 200",
+            "type": "less_than_equal",
+        }],
+    }

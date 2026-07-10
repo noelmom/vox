@@ -15,6 +15,7 @@ from api.core.audio import (
 from api.core.chunker import clamp_max_chars, split_text
 from api.core.config import settings
 from api.core.db import get_db
+from api.core.data_safety import canonical_voice_slug, managed_path, stream_upload, validate_generation_parameters
 from api.core.engine import get_device, get_lock, get_model, get_model_status, is_model_ready
 from api.core.logger import get_logger
 from api.core.presets import PRESETS
@@ -115,18 +116,19 @@ async def _resolve_voice(voice_name: str | None, rid: str, db) -> tuple[Path | N
     if not voice_name:
         return None, None
 
+    canonical_name = canonical_voice_slug(voice_name)
     async with db.execute(
-        "SELECT id, filename FROM voices WHERE name = ? AND status='active'", (voice_name,)
+        "SELECT id, filename FROM voices WHERE name = ? AND status='active'", (canonical_name,)
     ) as cur:
         row = await cur.fetchone()
 
     if not row:
         raise HTTPException(
             status_code=404,
-            detail=f"Voice profile '{voice_name}' not found. Use GET /api/v1/voices to see available profiles.",
+            detail=f"Voice profile '{canonical_name}' not found. Use GET /api/v1/voices to see available profiles.",
         )
 
-    wav_path = settings.voice_dir / row["filename"]
+    wav_path = managed_path(settings.voice_dir, row["filename"])
     if not wav_path.exists():
         log.warning(
             "Voice '%s' is registered in DB but WAV file is missing: %s",
@@ -358,6 +360,13 @@ async def generate_tts(
     user_agent = request.headers.get("User-Agent")
     db = await get_db()
 
+    if not text.strip():
+        raise HTTPException(status_code=422, detail="Text cannot be empty.")
+    if len(text) > settings.max_script_chars:
+        raise HTTPException(status_code=413, detail=f"Text exceeds the {settings.max_script_chars:,} character limit.")
+    if len(preset) > 80:
+        raise HTTPException(status_code=422, detail="Preset name is too long.")
+
     if not is_model_ready():
         status = get_model_status()
         raise HTTPException(
@@ -368,10 +377,23 @@ async def generate_tts(
     preset_name = preset.lower()
     output_format_name = output_format.lower()
 
+    if output_format_name not in {"mp3", "wav"}:
+        raise HTTPException(status_code=422, detail="output_format must be mp3 or wav.")
+
     if mp3_bitrate is not None and mp3_bitrate not in VALID_MP3_BITRATES:
         raise HTTPException(status_code=422, detail=f"mp3_bitrate must be one of {sorted(VALID_MP3_BITRATES)}")
     if wav_bit_depth is not None and wav_bit_depth not in VALID_WAV_DEPTHS:
         raise HTTPException(status_code=422, detail=f"wav_bit_depth must be one of {sorted(VALID_WAV_DEPTHS)}")
+    validate_generation_parameters(
+        {
+            "temperature": temperature,
+            "exaggeration": exaggeration,
+            "cfg_weight": cfg_weight,
+            "repetition_penalty": repetition_penalty,
+            "top_p": top_p,
+            "min_p": min_p,
+        }
+    )
     chunk_max_chars = clamp_max_chars(
         max_chars,
         settings.default_max_chars,
@@ -437,18 +459,17 @@ async def generate_tts(
                     status_code=400,
                     detail=f"Unsupported voice format '{suffix}'. Accepted: {sorted(INGESTABLE_EXTENSIONS)}",
                 )
-            raw = await voice.read()
             if suffix == ".wav":
-                tmp_path = settings.output_dir / f"tmp_voice_{uuid.uuid4()}.wav"
-                tmp_path.write_bytes(raw)
+                tmp_path = managed_path(settings.output_dir, f"tmp_voice_{uuid.uuid4()}.wav")
+                await stream_upload(voice, tmp_path, max_bytes=settings.max_voice_upload_mb * 1024 * 1024)
                 tmp_paths.append(tmp_path)
                 trim_wav_edges(tmp_path)
                 _enforce_duration_limit(tmp_path)
                 audio_prompt_path = tmp_path
             else:
-                tmp_src = settings.output_dir / f"tmp_voice_{uuid.uuid4()}{suffix}"
-                tmp_wav = tmp_src.with_suffix(".wav")
-                tmp_src.write_bytes(raw)
+                tmp_src = managed_path(settings.output_dir, f"tmp_voice_{uuid.uuid4()}{suffix}")
+                tmp_wav = managed_path(settings.output_dir, f"{tmp_src.stem}.wav")
+                await stream_upload(voice, tmp_src, max_bytes=settings.max_voice_upload_mb * 1024 * 1024)
                 tmp_paths.extend([tmp_src, tmp_wav])
                 convert_to_wav(tmp_src, tmp_wav)
                 tmp_src.unlink(missing_ok=True)
@@ -456,9 +477,15 @@ async def generate_tts(
                 trim_wav_edges(tmp_wav)
                 _enforce_duration_limit(tmp_wav)
                 audio_prompt_path = tmp_wav
-        except Exception:
+        except Exception as exc:
             for p in tmp_paths:
                 p.unlink(missing_ok=True)
+            detail = exc.detail if isinstance(exc, HTTPException) else "Inline voice upload could not be processed."
+            await db.execute(
+                "UPDATE jobs SET status='failed', error=?, completed_at=datetime('now') WHERE request_id=?",
+                (str(detail), rid),
+            )
+            await db.commit()
             raise
 
     task = asyncio.create_task(_run_generation(

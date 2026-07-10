@@ -8,16 +8,19 @@ from fastapi.responses import FileResponse
 
 from api.core.audio import audio_duration_seconds, INGESTABLE_EXTENSIONS, convert_to_wav, trim_wav_edges
 from api.core.config import settings
+from api.core.data_safety import (
+    canonical_voice_slug,
+    decode_voice_icon,
+    managed_path,
+    stream_upload,
+    validate_generation_parameters,
+)
 from api.core.db import get_db
 from api.core.logger import get_logger
 from api.models.voice import VoiceOut, VoiceParams, _parse_tags, _serialize_tags
 
 router = APIRouter(prefix="/voices", tags=["voices"])
 log = get_logger(__name__)
-
-
-def _safe_name(raw: str) -> str:
-    return raw.strip().lower().replace(" ", "-")
 
 
 def _enforce_duration_limit(wav_path: Path):
@@ -40,10 +43,15 @@ async def _register_voice(
     rid: str = "-",
     tags: list[str] | None = None,
 ) -> dict:
+    if canonical_voice_slug(name) != name:
+        raise HTTPException(status_code=422, detail="Voice name is not canonical.")
+    if managed_path(settings.voice_dir, wav_path.name) != wav_path.resolve():
+        raise HTTPException(status_code=400, detail="Voice audio path is outside the managed voice directory.")
     voice_id = str(uuid.uuid4())
     tags_str = _serialize_tags(tags or [])
-    await db.execute(
-        """INSERT INTO voices
+    try:
+        await db.execute(
+            """INSERT INTO voices
                (id, name, filename, original_filename, description, tags,
                 exaggeration, cfg_weight, temperature,
                 repetition_penalty, top_p, min_p)
@@ -61,17 +69,20 @@ async def _register_voice(
                min_p=excluded.min_p,
                status='active',
                deleted_at=NULL""",
-        (
-            voice_id, name, wav_path.name, original_filename, description, tags_str,
-            params.exaggeration, params.cfg_weight, params.temperature,
-            params.repetition_penalty, params.top_p, params.min_p,
-        ),
-    )
-    await db.commit()
+            (
+                voice_id, name, wav_path.name, original_filename, description, tags_str,
+                params.exaggeration, params.cfg_weight, params.temperature,
+                params.repetition_penalty, params.top_p, params.min_p,
+            ),
+        )
+        async with db.execute("SELECT * FROM voices WHERE name = ?", (name,)) as cur:
+            row = await cur.fetchone()
+        await db.commit()
+    except Exception:
+        await db.rollback()
+        raise
     log.info("Voice registered: %s -> %s", name, wav_path.name, extra={"request_id": rid})
-
-    async with db.execute("SELECT * FROM voices WHERE name = ?", (name,)) as cur:
-        return dict(await cur.fetchone())
+    return dict(row)
 
 
 @router.get(
@@ -143,6 +154,22 @@ async def create_voice(
 ):
     rid = request.state.request_id
     original_filename = file.filename or "unknown"
+    original_filename = Path(original_filename).name[:255]
+    if description is not None and len(description) > 2_000:
+        raise HTTPException(status_code=422, detail="Voice description must be 2,000 characters or fewer.")
+    parsed_tags = _parse_tags(tags)
+    if len(parsed_tags) > 20 or any(len(tag) > 40 for tag in parsed_tags):
+        raise HTTPException(status_code=422, detail="Use at most 20 tags of 40 characters or fewer.")
+    parameter_values = {
+        "exaggeration": exaggeration,
+        "cfg_weight": cfg_weight,
+        "temperature": temperature,
+        "repetition_penalty": repetition_penalty,
+        "top_p": top_p,
+        "min_p": min_p,
+    }
+    validate_generation_parameters(parameter_values)
+    params = VoiceParams(**parameter_values)
     suffix = Path(original_filename).suffix.lower()
 
     if suffix not in INGESTABLE_EXTENSIONS:
@@ -151,28 +178,28 @@ async def create_voice(
             detail=f"Unsupported format '{suffix}'. Accepted: {sorted(INGESTABLE_EXTENSIONS)}",
         )
 
-    safe = _safe_name(name)
-    wav_dest = settings.voice_dir / f"{safe}.wav"
-    deleted_match = settings.voice_dir / "deleted" / f"{safe}.wav"
-    deleted_match.unlink(missing_ok=True)
-    deleted_match.with_suffix(".json").unlink(missing_ok=True)
+    safe = canonical_voice_slug(name)
+    wav_dest = managed_path(settings.voice_dir, f"{safe}.wav")
+    deleted_match = managed_path(settings.voice_dir / "deleted", f"{safe}.wav")
     tmp_paths: list[Path] = []
     tmp_wav: Path | None = None
 
-    raw_bytes = await file.read()
-
     if suffix == ".wav":
-        tmp_wav = settings.voice_dir / f"tmp_{uuid.uuid4()}.wav"
-        tmp_wav.write_bytes(raw_bytes)
+        tmp_wav = managed_path(settings.voice_dir, f"tmp_{uuid.uuid4()}.wav")
+        await stream_upload(file, tmp_wav, max_bytes=settings.max_voice_upload_mb * 1024 * 1024)
         tmp_paths.append(tmp_wav)
     else:
-        tmp = settings.voice_dir / f"tmp_{uuid.uuid4()}{suffix}"
-        tmp.write_bytes(raw_bytes)
+        tmp = managed_path(settings.voice_dir, f"tmp_{uuid.uuid4()}{suffix}")
+        await stream_upload(file, tmp, max_bytes=settings.max_voice_upload_mb * 1024 * 1024)
         tmp_paths.append(tmp)
         try:
-            tmp_wav = settings.voice_dir / f"tmp_{uuid.uuid4()}.wav"
+            tmp_wav = managed_path(settings.voice_dir, f"tmp_{uuid.uuid4()}.wav")
             tmp_paths.append(tmp_wav)
             convert_to_wav(tmp, tmp_wav)
+        except Exception:
+            for path in tmp_paths:
+                path.unlink(missing_ok=True)
+            raise
         finally:
             tmp.unlink(missing_ok=True)
         log.info("Converted %s -> %s", original_filename, wav_dest.name, extra={"request_id": rid})
@@ -183,23 +210,32 @@ async def create_voice(
     try:
         trim_wav_edges(tmp_wav)
         _enforce_duration_limit(tmp_wav)
-        tmp_wav.replace(wav_dest)
-        tmp_paths.remove(tmp_wav)
     except Exception:
         for p in tmp_paths:
             p.unlink(missing_ok=True)
         raise
 
-    params = VoiceParams(
-        exaggeration=exaggeration,
-        cfg_weight=cfg_weight,
-        temperature=temperature,
-        repetition_penalty=repetition_penalty,
-        top_p=top_p,
-        min_p=min_p,
-    )
-    db = await get_db()
-    return await _register_voice(db, safe, wav_dest, original_filename, description, params, rid, tags=_parse_tags(tags))
+    prior_path = managed_path(settings.voice_dir, f".prior-{uuid.uuid4()}.wav")
+    try:
+        if wav_dest.exists():
+            wav_dest.replace(prior_path)
+        tmp_wav.replace(wav_dest)
+        tmp_paths.remove(tmp_wav)
+        db = await get_db()
+        result = await _register_voice(db, safe, wav_dest, original_filename, description, params, rid, tags=parsed_tags)
+    except Exception:
+        wav_dest.unlink(missing_ok=True)
+        if prior_path.exists():
+            prior_path.replace(wav_dest)
+        raise
+    else:
+        prior_path.unlink(missing_ok=True)
+        deleted_match.unlink(missing_ok=True)
+        deleted_match.with_suffix(".json").unlink(missing_ok=True)
+        return result
+    finally:
+        for path in tmp_paths:
+            path.unlink(missing_ok=True)
 
 
 @router.get(
@@ -218,7 +254,7 @@ async def get_voice_audio(name: str, request: Request):
         row = await cur.fetchone()
     if not row:
         raise HTTPException(status_code=404, detail=f"Voice '{name}' not found")
-    wav_path = settings.voice_dir / row["filename"]
+    wav_path = managed_path(settings.voice_dir, row["filename"])
     if not wav_path.exists():
         raise HTTPException(status_code=410, detail="Voice audio file is missing on disk")
     return FileResponse(str(wav_path), media_type="audio/wav")
@@ -263,7 +299,28 @@ async def update_voice_params(
         raise HTTPException(status_code=404, detail=f"Voice '{name}' not found")
 
     row = dict(row)
-    tags_str = _serialize_tags(_parse_tags(tags)) if tags is not None else None
+    if description is not None and len(description) > 2_000:
+        raise HTTPException(status_code=422, detail="Voice description must be 2,000 characters or fewer.")
+    if display_name is not None and len(display_name) > 120:
+        raise HTTPException(status_code=422, detail="Voice display name must be 120 characters or fewer.")
+    if icon_data:
+        decode_voice_icon(icon_data, max_bytes=settings.voice_icon_max_kb * 1024)
+    validate_generation_parameters(
+        {
+            "exaggeration": exaggeration,
+            "cfg_weight": cfg_weight,
+            "temperature": temperature,
+            "repetition_penalty": repetition_penalty,
+            "top_p": top_p,
+            "min_p": min_p,
+        }
+    )
+    if is_favorite not in {None, 0, 1}:
+        raise HTTPException(status_code=422, detail="is_favorite must be 0 or 1.")
+    parsed_tags = _parse_tags(tags) if tags is not None else None
+    if parsed_tags is not None and (len(parsed_tags) > 20 or any(len(tag) > 40 for tag in parsed_tags)):
+        raise HTTPException(status_code=422, detail="Use at most 20 tags of 40 characters or fewer.")
+    tags_str = _serialize_tags(parsed_tags) if parsed_tags is not None else None
 
     # Resolve sentinel: None = keep existing; "" = clear to NULL; value = update
     new_display_name = row["display_name"] if display_name is None else (None if display_name == "" else display_name)
@@ -313,31 +370,41 @@ async def delete_voice(name: str, request: Request):
         raise HTTPException(status_code=404, detail=f"Voice '{name}' not found")
 
     row = dict(row)
-    voice_file = settings.voice_dir / row["filename"]
+    voice_file = managed_path(settings.voice_dir, row["filename"])
     deleted_filename = row["filename"]
-    if voice_file.exists():
-        deleted_dir = settings.voice_dir / "deleted"
-        deleted_dir.mkdir(exist_ok=True)
-        deleted_file = deleted_dir / voice_file.name
-        if deleted_file.exists():
-            deleted_file = deleted_dir / f"{voice_file.stem}-{uuid.uuid4().hex[:8]}{voice_file.suffix}"
-        deleted_filename = deleted_file.name
-        voice_file.replace(deleted_file)
+    deleted_file: Path | None = None
+    sidecar: Path | None = None
+    try:
+        if voice_file.exists():
+            deleted_dir = managed_path(settings.voice_dir, "deleted")
+            deleted_dir.mkdir(exist_ok=True)
+            deleted_file = managed_path(deleted_dir, voice_file.name)
+            if deleted_file.exists():
+                deleted_file = managed_path(deleted_dir, f"{voice_file.stem}-{uuid.uuid4().hex[:8]}{voice_file.suffix}")
+            deleted_filename = deleted_file.name
+            voice_file.replace(deleted_file)
 
-        sidecar = deleted_file.with_suffix(".json")
-        deleted_at = datetime.now(timezone.utc).replace(microsecond=0).isoformat()
-        sidecar.write_text(json.dumps({
-            "name": row["name"],
-            "description": row["description"],
-            "tags": row["tags"],
-            "deleted_at": deleted_at,
-            "original_filename": row["original_filename"],
-            "filename": deleted_file.name,
-        }, indent=2))
+            sidecar = deleted_file.with_suffix(".json")
+            deleted_at = datetime.now(timezone.utc).replace(microsecond=0).isoformat()
+            sidecar.write_text(json.dumps({
+                "name": row["name"],
+                "description": row["description"],
+                "tags": row["tags"],
+                "deleted_at": deleted_at,
+                "original_filename": row["original_filename"],
+                "filename": deleted_file.name,
+            }, indent=2))
 
-    await db.execute(
-        "UPDATE voices SET filename=?, status='deleted', deleted_at=datetime('now') WHERE name = ?",
-        (deleted_filename, name),
-    )
-    await db.commit()
+        await db.execute(
+            "UPDATE voices SET filename=?, status='deleted', deleted_at=datetime('now') WHERE name = ?",
+            (deleted_filename, name),
+        )
+        await db.commit()
+    except Exception:
+        await db.rollback()
+        if sidecar:
+            sidecar.unlink(missing_ok=True)
+        if deleted_file and deleted_file.exists() and not voice_file.exists():
+            deleted_file.replace(voice_file)
+        raise
     log.info("Voice deleted: %s", name, extra={"request_id": rid})

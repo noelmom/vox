@@ -1,10 +1,11 @@
 from pathlib import Path
 
 from pydantic import field_validator
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
+    model_config = SettingsConfigDict(env_prefix="VOX_", env_file=".env")
     app_name: str = "Vox"
     # Local-only by default. Set VOX_HOST=0.0.0.0 to allow LAN access.
     host: str = "127.0.0.1"
@@ -23,6 +24,8 @@ class Settings(BaseSettings):
     max_max_chars: int = 3000
     chunk_headroom_chars: int = 40
     max_voice_clip_duration_s: int = 120
+    max_voice_upload_mb: int = 50
+    max_script_chars: int = 100_000
     voice_icon_max_kb: int = 100
     deleted_voice_ttl_hours: int = 72
 
@@ -38,11 +41,9 @@ class Settings(BaseSettings):
     watcher_interval_s: int = 10
     cleanup_interval_s: int = 3600
 
-    class Config:
-        env_prefix = "VOX_"
-        env_file = ".env"
-        # HF_TOKEN is also read without the prefix in engine.py since it's
-        # a standard HuggingFace convention used by the huggingface_hub library.
+    max_backup_upload_mb: int = 2048
+    max_backup_expanded_mb: int = 4096
+    max_backup_entries: int = 10_000
 
     @field_validator("max_voice_clip_duration_s", mode="before")
     @classmethod

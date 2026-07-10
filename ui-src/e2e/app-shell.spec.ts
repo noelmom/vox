@@ -118,3 +118,22 @@ test("Settings confirms a destructive backup restore before uploading", async ({
   await page.getByRole("button", { name: "Restore backup" }).last().click();
   await expect.poll(() => restoreRequests).toBe(1);
 });
+
+test("Settings surfaces a rejected backup without leaving the page", async ({ page }) => {
+  await installFakeApi(page);
+  await page.route("**/api/v1/backups/restore", (route) => route.fulfill({
+    status: 400,
+    json: { detail: "Backup contains an unsafe entry.", request_id: "restore-test" },
+  }));
+  await page.goto("/app/settings");
+
+  await page.locator('input[type="file"]').setInputFiles({
+    name: "unsafe.zip",
+    mimeType: "application/zip",
+    buffer: Buffer.from("unsafe-backup"),
+  });
+  await page.getByRole("button", { name: "Restore backup" }).last().click();
+
+  await expect(page.getByText("Backup contains an unsafe entry. (restore-test)")).toBeVisible();
+  await expect(page).toHaveURL(/\/app\/settings$/);
+});

@@ -4,7 +4,8 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import APIRouter, FastAPI, HTTPException, Request
-from fastapi.exception_handlers import http_exception_handler
+from fastapi.exception_handlers import http_exception_handler, request_validation_exception_handler
+from fastapi.exceptions import RequestValidationError
 from pydantic import BaseModel, Field
 from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
@@ -239,6 +240,25 @@ async def vox_http_exception_handler(request: Request, exc: HTTPException):
             }
         ).encode("utf-8")
     )
+    response.headers["content-length"] = str(len(response.body))
+    return response
+
+
+@app.exception_handler(RequestValidationError)
+async def vox_validation_exception_handler(request: Request, exc: RequestValidationError):
+    response = await request_validation_exception_handler(request, exc)
+    response.body = json.dumps(
+        {
+            "detail": "Request validation failed.",
+            "error": {"code": 422, "message": "Request validation failed."},
+            "request_id": getattr(request.state, "request_id", None),
+            "fields": [
+                {"location": list(error["loc"]), "message": error["msg"], "type": error["type"]}
+                for error in exc.errors()
+            ],
+        },
+        default=str,
+    ).encode("utf-8")
     response.headers["content-length"] = str(len(response.body))
     return response
 
@@ -505,9 +525,14 @@ async def get_settings():
         "configured_default_max_chars": configured_default_max_chars,
         "default_max_chars_restart_required": configured_default_max_chars != settings.default_max_chars,
         "max_voice_clip_duration_s": settings.max_voice_clip_duration_s,
+        "max_voice_upload_mb": settings.max_voice_upload_mb,
+        "max_script_chars": settings.max_script_chars,
         "configured_max_voice_clip_duration_s": configured_max_voice_clip_duration_s,
         "max_voice_clip_duration_restart_required": configured_max_voice_clip_duration_s != settings.max_voice_clip_duration_s,
         "voice_icon_max_kb": settings.voice_icon_max_kb,
+        "max_backup_upload_mb": settings.max_backup_upload_mb,
+        "max_backup_expanded_mb": settings.max_backup_expanded_mb,
+        "max_backup_entries": settings.max_backup_entries,
         "macos_version": mac_ver,
         "chip": chip,
         "vox_version": build_info["version"],

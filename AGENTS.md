@@ -234,6 +234,15 @@ Do not spend time chasing sandbox-only codesign behavior unless the real build/i
 - Disabling LAN mode revokes all remote credentials immediately. Do not weaken this behavior to preserve a remote session.
 - The LAN browser cookie cannot be `Secure` on Vox's default HTTP transport. Keep it `HttpOnly` and `SameSite=Strict`, show the trusted-LAN warning, and use `Secure` only when a future trusted-TLS mode can enforce HTTPS end to end.
 
+## Managed Data Safety
+
+- Voice slugs are lowercase ASCII letters/numbers separated by single hyphens, at most 64 characters. Always use `canonical_voice_slug`; never construct a voice filename from raw user input.
+- Resolve runtime paths through `managed_path` or `stored_managed_path` before reading, replacing, or deleting. Restored database values are untrusted even though the database is local.
+- Voice and inline prompt uploads must use `stream_upload` and `VOX_MAX_VOICE_UPLOAD_MB`; never call `await UploadFile.read()` without a bound.
+- Voice icons must remain bounded PNG data URLs and pass decoded byte, signature, and dimension validation.
+- Restore archives accept only the manifest, Vox database, and voice tree. Preserve entry/count/expanded-size/compression-ratio, duplicate, traversal, symlink, manifest, schema, integrity, and managed-path checks.
+- Database and voice restore is one rollback transaction. Keep the prior database and voice tree until the restored database reconnects successfully; never touch `.env`, outputs, input, or unrelated preferences/files.
+
 ## UI Build Rules
 
 - Edit React source under `ui-src/src`.

@@ -22,6 +22,7 @@ It exposes a clean REST API and a web UI for generating high-quality audio from 
 
 - **Apple Silicon MPS acceleration** — Chatterbox runs on the Metal Performance Shaders backend for fast on-device inference
 - **Voice profiles** — store named voices with reference audio and per-voice TTS defaults
+- **Safe local data handling** — canonical voice slugs, bounded streaming uploads, contained managed paths, validated backups, and rollback-safe restore
 - **Smart presets** — built-in tones like `confident`, `calm`, `newsreader`, and `storyteller` with full per-request parameter overrides
 - **Flexible audio ingest** — upload `.wav`, `.m4a`, `.mp3`, `.aiff`, `.flac`, `.ogg`, or `.webm`; all converted to WAV automatically
 - **Input folder watcher** — drop a voice recording into `input/` and it registers itself automatically
@@ -504,6 +505,12 @@ All settings are controlled via environment variables with a `VOX_` prefix, or b
 | `VOX_WATCHER_INTERVAL_S` | `10` | How often (seconds) the input folder is polled |
 | `VOX_CLEANUP_INTERVAL_S` | `3600` | How often (seconds) the cleanup task runs |
 | `VOX_DEFAULT_MAX_CHARS` | `450` | Default hard maximum characters per generation chunk when an API request does not pass `max_chars`. Editable in Settings as **Default per-chunk max**. |
+| `VOX_MAX_SCRIPT_CHARS` | `100000` | Maximum total script length accepted by one generation request. |
+| `VOX_MAX_VOICE_UPLOAD_MB` | `50` | Maximum stored or inline voice upload size; uploads stream to bounded temporary files. |
+| `VOX_VOICE_ICON_MAX_KB` | `100` | Maximum decoded PNG icon size; dimensions are also limited to 1024×1024. |
+| `VOX_MAX_BACKUP_UPLOAD_MB` | `2048` | Maximum compressed restore archive size. |
+| `VOX_MAX_BACKUP_EXPANDED_MB` | `4096` | Maximum total expanded restore size. |
+| `VOX_MAX_BACKUP_ENTRIES` | `10000` | Maximum number of entries accepted in a restore archive. |
 | `VOX_MIN_MAX_CHARS` | `100` | Minimum allowed per-request `max_chars` value |
 | `VOX_MAX_MAX_CHARS` | `3000` | Maximum allowed per-request `max_chars` value |
 | `VOX_CHUNK_HEADROOM_CHARS` | `40` | Buffer subtracted from the per-chunk max when Vox packs sentences. Example: `450 - 40 = ~410` character soft packing target. Invalid or empty values fall back to 40. |

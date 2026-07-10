@@ -4,9 +4,9 @@ Runs once at startup then on a configurable interval.
 """
 import asyncio
 import time
-from pathlib import Path
 
 from api.core.config import settings
+from api.core.data_safety import managed_path, stored_managed_path
 from api.core.db import get_db
 from api.core.logger import get_logger
 
@@ -26,7 +26,11 @@ async def _run_cleanup():
 
         deleted = 0
         for row in rows:
-            path = Path(row["output_path"])
+            try:
+                path = stored_managed_path(settings.output_dir, row["output_path"])
+            except Exception:
+                log.error("Skipping cleanup for unsafe stored output path on job %s", row["request_id"])
+                continue
             if path.exists() and path.stat().st_mtime < cutoff:
                 path.unlink(missing_ok=True)
                 # Also clean up the paired WAV if we stored an MP3
@@ -60,9 +64,13 @@ async def _run_cleanup():
             rows = await cur.fetchall()
 
         purged = 0
-        deleted_dir = settings.voice_dir / "deleted"
+        deleted_dir = managed_path(settings.voice_dir, "deleted")
         for row in rows:
-            path = deleted_dir / row["filename"]
+            try:
+                path = managed_path(deleted_dir, row["filename"])
+            except Exception:
+                log.error("Skipping cleanup for unsafe stored voice path on voice %s", row["name"])
+                continue
             path.unlink(missing_ok=True)
             path.with_suffix(".json").unlink(missing_ok=True)
             await db.execute("DELETE FROM voices WHERE id = ?", (row["id"],))

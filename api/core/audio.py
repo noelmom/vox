@@ -44,12 +44,18 @@ def convert_to_wav(src: Path, dest: Path):
 
 def audio_duration_seconds(path: Path) -> float:
     """Return the duration of an audio file in seconds."""
-    return float(sf.info(str(path)).duration)
+    try:
+        return float(sf.info(str(path)).duration)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail="Could not read that audio file. Re-export it as a standard WAV or M4A file.") from exc
 
 
 def trim_wav_edges(path: Path, threshold_ratio: float = 0.02, pad_ms: float = 5.0):
     """Trim near-silent samples from the start/end of a WAV file in place."""
-    audio, sample_rate = sf.read(str(path), always_2d=False)
+    try:
+        audio, sample_rate = sf.read(str(path), always_2d=False)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail="Could not read that audio file. Re-export it as a standard WAV or M4A file.") from exc
     if audio.size == 0:
         return
 

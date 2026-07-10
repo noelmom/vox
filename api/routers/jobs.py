@@ -1,14 +1,16 @@
 import asyncio
 import json
-from pathlib import Path
+import uuid
 from typing import Any
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import FileResponse, StreamingResponse
 
 from api.core.db import get_db
 from api.models.job import JobOut
 from api.core.security import Scope
+from api.core.config import settings
+from api.core.data_safety import stored_managed_path
 
 router = APIRouter(prefix="/jobs", tags=["jobs"])
 
@@ -23,7 +25,11 @@ _JOB_SELECT = """
 def _annotate(row: Any) -> dict:
     d = dict(row)
     p = d.get("output_path")
-    d["file_available"] = bool(p and Path(p).exists())
+    try:
+        output_path = stored_managed_path(settings.output_dir, p) if p else None
+    except HTTPException:
+        output_path = None
+    d["file_available"] = bool(output_path and output_path.exists())
     return d
 
 
@@ -60,7 +66,11 @@ async def _get_job_row(request_id: str) -> dict | None:
     description="Returns recent TTS jobs in descending creation order. Supports cursor-style pagination via `limit` and `offset`. Each job includes timing metrics (`generation_s`, `audio_duration_s`, `rtf`) once completed.",
     response_description="Array of job objects",
 )
-async def list_jobs(request: Request, limit: int = 50, offset: int = 0):
+async def list_jobs(
+    request: Request,
+    limit: int = Query(50, ge=1, le=200),
+    offset: int = Query(0, ge=0, le=1_000_000),
+):
     db = await get_db()
     async with db.execute(
         f"{_JOB_SELECT} ORDER BY j.created_at DESC LIMIT ? OFFSET ?",
@@ -145,12 +155,24 @@ async def delete_job(request_id: str, request: Request):
         row = await cur.fetchone()
     if not row:
         raise HTTPException(status_code=404, detail="Job not found")
-    await db.execute("DELETE FROM jobs WHERE request_id = ?", (request_id,))
-    await db.commit()
-    if row["output_path"]:
-        p = Path(row["output_path"])
-        if p.exists():
-            p.unlink(missing_ok=True)
+    output_path = stored_managed_path(settings.output_dir, row["output_path"]) if row["output_path"] else None
+    staged_delete = None
+    try:
+        if output_path and output_path.exists():
+            staged_delete = stored_managed_path(
+                settings.output_dir,
+                str(output_path.with_name(f".deleting-{uuid.uuid4()}{output_path.suffix}")),
+            )
+            output_path.replace(staged_delete)
+        await db.execute("DELETE FROM jobs WHERE request_id = ?", (request_id,))
+        await db.commit()
+    except Exception:
+        await db.rollback()
+        if staged_delete and staged_delete.exists() and output_path:
+            staged_delete.replace(output_path)
+        raise
+    if staged_delete:
+        staged_delete.unlink(missing_ok=True)
 
 
 @router.get(
@@ -175,7 +197,9 @@ async def get_job_audio(request_id: str, request: Request):
         raise HTTPException(status_code=404, detail="Job not found")
     if row["status"] != "completed":
         raise HTTPException(status_code=409, detail=f"Job is {row['status']}")
-    output_path = Path(row["output_path"])
+    if not row["output_path"]:
+        raise HTTPException(status_code=410, detail="Audio file no longer exists (expired or deleted)")
+    output_path = stored_managed_path(settings.output_dir, row["output_path"])
     if not output_path.exists():
         raise HTTPException(status_code=410, detail="Audio file no longer exists (expired or deleted)")
     media_type = "audio/mpeg" if row["output_format"] == "mp3" else "audio/wav"
