@@ -319,6 +319,7 @@ do_update() {
     update_args=()
     [[ -n "$OPT_ZIP" ]] && update_args+=("$OPT_ZIP")
     $OPT_FORCE && update_args+=("--force")
+    $OPT_PKG_MODE && update_args+=("--pkg-mode")
     $OPT_AGENT_ONLY && update_args+=("--agent-only")
     $OPT_HELPER_ONLY && update_args+=("--helper-only")
     if [[ ${#update_args[@]} -gt 0 ]]; then

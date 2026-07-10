@@ -209,13 +209,16 @@ Do not spend time chasing sandbox-only codesign behavior unless the real build/i
 
 ## Update/Install Behavior
 
+- Signed Vox Helper builds use pinned Sparkle 2 for normal native update checks. `scripts/update.sh` remains a recovery/source-update path and must not replace the normal Sparkle action.
+- The Sparkle EdDSA public key is committed at `config/sparkle-public-key.txt`; its private counterpart is held in the release operator's Keychain and must never be committed or passed on a command line.
+- Package scripts detect an installed marker. Fresh installs may perform prerequisite/bootstrap work and open Welcome; updates skip first-install network checks, record a transaction under `/Library/Logs/Vox/`, preserve user data, validate server health, and never open Welcome.
 - `vox.sh install` runs setup and installs LaunchAgents/helper.
 - `vox.sh update` delegates to `scripts/update.sh`.
 - Updates compare desired source build to `~/Library/Application Support/Vox/installed_version.json`.
 - If already current, update exits cleanly without dependency sync or agent restarts.
 - Use `--force` to bypass the skip.
 - `scripts/update.sh` also supports `--no-restart`, `--agent-only`, and `--helper-only`.
-- Helper menu `Check for Updates...` opens the update flow in Terminal so output and prompts are visible.
+- Helper menu `Check for Updates...` uses native Sparkle UI. Keep the Terminal/source updater available only as an explicit Recovery / source update path for repair and development installs.
 
 ## Backend Model Readiness
 

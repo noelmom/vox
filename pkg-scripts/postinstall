@@ -6,6 +6,8 @@ export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/usr/bin:/bin:/
 BOOTSTRAP="/Library/Application Support/Vox/Bootstrap"
 LOG_DIR="/Library/Logs/Vox"
 LOG_FILE="$LOG_DIR/pkg-install.log"
+MODE_FILE="/var/db/com.noelmom.vox-install-mode"
+TRANSACTION_FILE="$LOG_DIR/update-transaction.json"
 
 mkdir -p "$LOG_DIR"
 exec >> "$LOG_FILE" 2>&1
@@ -15,6 +17,11 @@ echo "===== Vox package postinstall ====="
 echo "Started: $(date)"
 echo "macOS: $(sw_vers -productVersion 2>/dev/null || echo unknown)"
 echo "Arch: $(uname -m 2>/dev/null || echo unknown)"
+INSTALL_MODE="fresh"
+if [[ -f "$MODE_FILE" ]]; then
+  INSTALL_MODE="$(cat "$MODE_FILE")"
+fi
+rm -f "$MODE_FILE"
 
 pkg_step() {
   echo ""
@@ -52,18 +59,56 @@ echo "[vox-pkg] Installing for user: $CONSOLE_USER"
 echo "[vox-pkg] User uid: $CONSOLE_UID"
 echo "[vox-pkg] User home: $USER_HOME"
 echo "[vox-pkg] Bootstrap: $BOOTSTRAP"
+echo "[vox-pkg] Install mode: $INSTALL_MODE"
 
 pkg_step 4 6 "Preparing file ownership"
 chown -R "$CONSOLE_USER":staff "$BOOTSTRAP"
 chown -R "$CONSOLE_USER":staff "/Applications/Vox" 2>/dev/null || true
 
 pkg_step 5 6 "Running Vox bootstrap installer"
+TARGET_VERSION="$(tr -d '[:space:]' < "$BOOTSTRAP/VERSION" 2>/dev/null || echo unknown)"
+if [[ "$INSTALL_MODE" == "update" ]]; then
+  printf '{"state":"started","target_version":"%s","started_at":"%s"}\n' "$TARGET_VERSION" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > "$TRANSACTION_FILE"
+  update_failed() {
+    local status=$?
+    printf '{"state":"failed","target_version":"%s","failed_at":"%s","reason":"package update script failed; open /Library/Logs/Vox/pkg-install.log or use Recovery / source update"}\n' "$TARGET_VERSION" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > "$TRANSACTION_FILE"
+    exit "$status"
+  }
+  trap update_failed ERR
+fi
 /usr/bin/sudo -u "$CONSOLE_USER" \
   /usr/bin/env \
   HOME="$USER_HOME" \
   VOX_PKG_MODE=1 \
   PATH="/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin" \
-  /bin/bash "$BOOTSTRAP/vox.sh" install --yes --pkg-mode
+  /bin/bash "$BOOTSTRAP/vox.sh" "$([[ "$INSTALL_MODE" == "update" ]] && echo update || echo install)" --yes --pkg-mode --force
+
+if [[ "$INSTALL_MODE" == "update" ]]; then
+  VOX_PORT="8000"
+  VOX_ENV="$USER_HOME/Library/Application Support/Vox/.env"
+  if [[ -f "$VOX_ENV" ]]; then
+    ENV_PORT="$(grep -E '^VOX_PORT=' "$VOX_ENV" | tail -1 | cut -d= -f2- | tr -d ' \"' || true)"
+    [[ "$ENV_PORT" =~ ^[0-9]+$ ]] && VOX_PORT="$ENV_PORT"
+  fi
+  UPDATE_HEALTHY=false
+  for _ in {1..30}; do
+    if curl --silent --fail --max-time 1 "http://127.0.0.1:$VOX_PORT/health" >/dev/null 2>&1; then
+      UPDATE_HEALTHY=true
+      break
+    fi
+    sleep 1
+  done
+  if [[ "$UPDATE_HEALTHY" != "true" ]]; then
+    printf '{"state":"failed","target_version":"%s","failed_at":"%s","reason":"server health check failed"}\n' "$TARGET_VERSION" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > "$TRANSACTION_FILE"
+    echo "[vox-pkg] Update installed but the local server did not become healthy. Open Vox logs or run the recovery updater."
+    exit 1
+  fi
+  printf '{"state":"completed","target_version":"%s","completed_at":"%s"}\n' "$TARGET_VERSION" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > "$TRANSACTION_FILE"
+  trap - ERR
+  echo "[vox-pkg] Update transaction completed."
+  echo "[vox-pkg] Skipping Welcome launch for update."
+  exit 0
+fi
 
 pkg_step 6 6 "Opening Vox welcome page"
 VOX_ENV="$USER_HOME/Library/Application Support/Vox/.env"

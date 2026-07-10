@@ -34,6 +34,7 @@ FORCE=false
 NO_RESTART=false
 AGENT_ONLY=false
 HELPER_ONLY=false
+PKG_MODE=false
 
 args=("$@")
 ZIP_SRC=""
@@ -43,6 +44,7 @@ for ((i = 0; i < ${#args[@]}; i++)); do
         --no-restart) NO_RESTART=true ;;
         --agent-only) AGENT_ONLY=true ;;
         --helper-only) HELPER_ONLY=true ;;
+        --pkg-mode) PKG_MODE=true ;;
         --*) fail "Unknown option: ${args[$i]}" ;;
         *) ZIP_SRC="${args[$i]}" ;;
     esac
@@ -190,38 +192,19 @@ if ! $HELPER_ONLY; then
 fi
 
 # ── Re-register agents ────────────────────────────────────────────────────────
+agent_args=()
+$PKG_MODE && agent_args+=("--pkg-mode")
+if $NO_RESTART; then agent_args+=("--no-reload"); fi
+$FORCE && agent_args+=("--force-app")
+
 if ! $HELPER_ONLY; then
     info "Reinstalling server LaunchAgent…"
-    if $NO_RESTART; then
-        if $FORCE; then
-            bash "$ROOT/scripts/install-agent.sh" --no-reload --force-app
-        else
-            bash "$ROOT/scripts/install-agent.sh" --no-reload
-        fi
-    else
-        if $FORCE; then
-            bash "$ROOT/scripts/install-agent.sh" --force-app
-        else
-            bash "$ROOT/scripts/install-agent.sh"
-        fi
-    fi
+    bash "$ROOT/scripts/install-agent.sh" "${agent_args[@]}"
 fi
 
 if ! $AGENT_ONLY; then
     info "Reinstalling menu bar helper…"
-    if $NO_RESTART; then
-        if $FORCE; then
-            bash "$ROOT/scripts/install-helper.sh" --no-reload --force-app
-        else
-            bash "$ROOT/scripts/install-helper.sh" --no-reload
-        fi
-    else
-        if $FORCE; then
-            bash "$ROOT/scripts/install-helper.sh" --force-app
-        else
-            bash "$ROOT/scripts/install-helper.sh"
-        fi
-    fi
+    bash "$ROOT/scripts/install-helper.sh" "${agent_args[@]}"
 fi
 
 write_installed_version "$DESIRED_SOURCE"

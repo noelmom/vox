@@ -3,6 +3,7 @@ import AppKit
 class StatusBarController: NSObject {
     private let item: NSStatusItem
     private let monitor: ServerMonitor
+    private let updater: VoxUpdater
     private var restartUntil: Date?
 
     private let statusItem  = NSMenuItem(title: "Stopped…",              action: nil, keyEquivalent: "")
@@ -22,15 +23,17 @@ class StatusBarController: NSObject {
     private let restartItem = NSMenuItem(title: "↺  Restart Server",     action: nil, keyEquivalent: "")
     private let pairingItem = NSMenuItem(title: "⌁  Pair a Device…",     action: nil, keyEquivalent: "")
     private let updateItem  = NSMenuItem(title: "↑  Check for Updates…", action: nil, keyEquivalent: "")
+    private let recoveryUpdateItem = NSMenuItem(title: "Recovery / Source Update…", action: nil, keyEquivalent: "")
     private let helperLoginItem = NSMenuItem(title: "Start Helper at Login", action: nil, keyEquivalent: "")
     private let serverLoginItem = NSMenuItem(title: "Start Server at Login", action: nil, keyEquivalent: "")
     private let logsItem    = NSMenuItem(title: "📋  View Logs",          action: nil, keyEquivalent: "")
     private let uninstallItem = NSMenuItem(title: "Uninstall Vox…",        action: nil, keyEquivalent: "")
     private let quitItem    = NSMenuItem(title: "Quit Helper",            action: nil, keyEquivalent: "")
 
-    override init() {
+    init(updater: VoxUpdater) {
         item    = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         monitor = ServerMonitor()
+        self.updater = updater
         super.init()
         setupMenu()
         monitor.onUpdate = { [weak self] state in
@@ -48,7 +51,7 @@ class StatusBarController: NSObject {
     private func setupMenu() {
         [statusItem, addrItem, cpuItem, gpuItem, ramItem, modelItem, studioBuildItem, helperBuildItem].forEach { $0.isEnabled = false }
         [copyItem, openItem, inputItem, supportItem, startItem, stopItem,
-         restartItem, pairingItem, updateItem, helperLoginItem, serverLoginItem, logsItem, uninstallItem, quitItem].forEach { $0.target = self }
+         restartItem, pairingItem, updateItem, recoveryUpdateItem, helperLoginItem, serverLoginItem, logsItem, uninstallItem, quitItem].forEach { $0.target = self }
 
         copyItem.action    = #selector(copyAddress)
         openItem.action    = #selector(openBrowser)
@@ -58,7 +61,8 @@ class StatusBarController: NSObject {
         stopItem.action    = #selector(stopServer)
         restartItem.action = #selector(restartServer)
         pairingItem.action = #selector(createPairingCode)
-        updateItem.action  = #selector(checkForUpdates)
+        updateItem.action  = updater.canCheckForUpdates ? #selector(checkForUpdates) : nil
+        recoveryUpdateItem.action = #selector(recoveryUpdate)
         helperLoginItem.action = #selector(toggleHelperLogin)
         serverLoginItem.action = #selector(toggleServerLogin)
         logsItem.action    = #selector(viewLogs)
@@ -75,7 +79,7 @@ class StatusBarController: NSObject {
                   NSMenuItem.separator(),
                   startItem, stopItem, restartItem, pairingItem,
                   NSMenuItem.separator(),
-                  updateItem, helperLoginItem, serverLoginItem,
+                  updateItem, recoveryUpdateItem, helperLoginItem, serverLoginItem,
                   NSMenuItem.separator(),
                   logsItem,
                   NSMenuItem.separator(),
@@ -214,13 +218,11 @@ class StatusBarController: NSObject {
     }
 
     @objc private func checkForUpdates() {
-        updateItem.title = "Updating…"
-        updateItem.action = nil
+        updater.checkForUpdates()
+    }
+
+    @objc private func recoveryUpdate() {
         _ = runCommandInTerminal(updateCommand())
-        DispatchQueue.main.asyncAfter(deadline: .now() + 2) { [weak self] in
-            self?.updateItem.title = "↑  Check for Updates…"
-            self?.updateItem.action = #selector(StatusBarController.checkForUpdates)
-        }
     }
 
     private func isRestarting(state: ServerState) -> Bool {

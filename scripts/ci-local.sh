@@ -105,11 +105,7 @@ shell_static() {
 swift_compile() {
   mkdir -p "$CI_DIR/build"
   cd "$ROOT" || return
-  swiftc -target arm64-apple-macos13.0 \
-    -framework AppKit -framework Foundation -framework IOKit \
-    voxhelper/main.swift voxhelper/AppDelegate.swift \
-    voxhelper/StatusBarController.swift voxhelper/ServerMonitor.swift \
-    -o "$CI_DIR/build/VoxHelper-test" &&
+  swift build --configuration release --arch arm64 &&
   swiftc -target arm64-apple-macos13.0 \
     voxserver/main.swift -o "$CI_DIR/build/VoxServer-test"
 }
