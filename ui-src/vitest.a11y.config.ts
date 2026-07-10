@@ -1,16 +1,3 @@
-import react from "@vitejs/plugin-react";
-import { defineConfig } from "vitest/config";
-import tsconfigPaths from "vite-tsconfig-paths";
+import { createVitestConfig } from "./vitest.shared";
 
-export default defineConfig({
-  plugins: [react(), tsconfigPaths()],
-  test: {
-    environment: "jsdom",
-    globals: true,
-    setupFiles: ["./src/test/setup.ts"],
-    include: ["**/*.a11y.test.{ts,tsx}"],
-    exclude: ["e2e/**", "node_modules/**"],
-    css: true,
-    clearMocks: true,
-  },
-});
+export default createVitestConfig(["**/*.a11y.test.{ts,tsx}"]);

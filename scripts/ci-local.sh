@@ -79,9 +79,8 @@ ensure_python() {
     echo "Existing CI environment is older than Python 3.11; rerun with --clean." >&2
     return 1
   }
-  "$VENV/bin/python" -m pip install --disable-pip-version-check --quiet --upgrade pip
   "$VENV/bin/python" -m pip install --disable-pip-version-check --quiet \
-    -r "$ROOT/requirements-ci.txt" -r "$ROOT/requirements-dev.txt"
+    -r "$ROOT/requirements-ci-lock.txt"
 }
 
 install_browser() {
@@ -117,7 +116,10 @@ swift_compile() {
 
 ui_dist_clean() {
   cd "$ROOT" || return
-  git diff --exit-code -- ui-dist
+  [[ -z "$(git status --porcelain --untracked-files=all -- ui-dist)" ]] || {
+    git status --short --untracked-files=all -- ui-dist
+    return 1
+  }
 }
 
 write_summary() {

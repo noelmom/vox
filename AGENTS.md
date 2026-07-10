@@ -104,7 +104,7 @@ Backend tests and lint:
 "$HOME/Library/Application Support/Vox/venv/bin/codespell" --skip './.git,./assets,./data,./input,./outputs,./ui-dist,./ui-src/bun.lock,./ui-src/package-lock.json,./ui-src/node_modules,./voices,./working-poc' .
 ```
 
-GitHub Actions installs `requirements-ci.txt` plus `requirements-dev.txt` for backend checks so CI does not download Torch/Chatterbox model dependencies just to run unit tests.
+GitHub Actions and `scripts/ci-local.sh` install the fully resolved `requirements-ci-lock.txt` so CI does not download Torch/Chatterbox model dependencies or drift between clean runs. When either source requirements file changes, regenerate and review the lock deliberately.
 
 Frontend checks:
 
