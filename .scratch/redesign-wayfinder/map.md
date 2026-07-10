@@ -1,7 +1,7 @@
 ---
 title: "Vox redesign and trusted update path"
 label: "wayfinder:map"
-status: open
+status: closed
 branch: redesign
 ---
 
@@ -29,6 +29,7 @@ Produce an approved, implementation-ready specification and dependency-ordered e
 - [Specify the Sparkle package-update architecture](03-specify-sparkle-package-update-architecture.md) — Vox Helper hosts pinned Sparkle 2; immutable notarized flat packages ship through a stable/default plus opt-in beta appcast after a one-time manual bridge, with the shell updater retained only for recovery/source installs.
 - [Validate the redesigned application workflows](04-validate-redesigned-application-workflows.md) — use a responsive four-route creative workspace with truthful generation states, inspector-based editing, one persistent player, explicit pairing/degraded behavior, accessible controls, route-level code splitting, and compact history/media lists.
 - [Define the full stability and release-acceptance gate](05-define-stability-and-release-acceptance-gate.md) — require reproducible local CI plus security, MPS recovery, responsive/accessibility, bundle, Sparkle, signed package, legacy/bridge/update failure, data-preservation, and Apple Silicon evidence before requesting merge approval.
+- [Slice the approved design into tracer-bullet implementation tickets](06-slice-implementation-tickets.md) — hand off the resolved design as dependency-ordered vertical implementation slices with acceptance criteria, rollback points, verification, and a final unpublished Apple Silicon approval package.
 
 ## Not yet specified
 
@@ -41,11 +42,6 @@ Produce an approved, implementation-ready specification and dependency-ordered e
 - Intel Mac support or lowering the supported macOS baseline.
 - Dark mode and unrelated post-v1 feature expansion.
 
-## Open child tickets
+## Implementation handoff
 
-- [Define the local and LAN trust model](01-define-local-and-lan-trust-model.md)
-- [Design a cancellation-safe generation lifecycle](02-design-cancellation-safe-generation-lifecycle.md)
-- [Specify the Sparkle package-update architecture](03-specify-sparkle-package-update-architecture.md)
-- [Validate the redesigned application workflows](04-validate-redesigned-application-workflows.md)
-- [Define the full stability and release-acceptance gate](05-define-stability-and-release-acceptance-gate.md)
-- [Slice the approved design into tracer-bullet implementation tickets](06-slice-implementation-tickets.md)
+The way is clear. Execute [Tickets: Vox trusted redesign](../../tickets.md) from its frontier, one ticket per fresh implementation context.
