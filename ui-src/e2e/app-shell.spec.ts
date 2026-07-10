@@ -184,6 +184,20 @@ test("History play control opens the global dock", async ({ page }) => {
   await expect(page.getByRole("region", { name: "Audio player" })).toContainText("History playback contract");
 });
 
+test("expired History audio offers regeneration instead of playback", async ({ page }) => {
+  await installFakeApi(page);
+  await page.route("**/api/v1/jobs?*", (route) => route.fulfill({ json: [{
+    request_id: "expired-job", status: "completed", text: "Expired playback contract.", preset: "calm", output_format: "wav",
+    output_path: null, chunks: 1, audio_duration_s: 8, generation_s: 1, encode_s: 0.1, total_s: 1.1, rtf: 0.1,
+    error: null, error_code: null, state_detail: "Audio was cleaned up.", progress_current: 1, progress_total: 1,
+    voice_name: "Noel Demo", device: "mps", created_at: "2026-07-10 12:00:00", completed_at: "2026-07-10 12:00:01", file_available: false,
+  }] }));
+  await page.goto("/app/history");
+  await expect(page.getByText("Audio expired")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Regenerate" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Play" })).toHaveCount(0);
+});
+
 test("Settings confirms a destructive backup restore before uploading", async ({ page }) => {
   await installFakeApi(page);
   let restoreRequests = 0;
