@@ -100,7 +100,7 @@ test("global player metadata survives route navigation", async ({ page }) => {
     file_available: true,
   } })));
   await expect(page.getByRole("region", { name: "Audio player" })).toContainText("Persistent player test");
-  await page.getByRole("link", { name: "History" }).click();
+  await page.locator("aside").getByRole("link", { name: "History" }).click();
   await expect(page).toHaveURL(/\/app\/history$/);
   await expect(page.getByRole("region", { name: "Audio player" })).toContainText("Persistent player test");
 });
