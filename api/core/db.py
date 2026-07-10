@@ -1,8 +1,11 @@
+import json
 import uuid
 
 import aiosqlite
+from fastapi import HTTPException
 
 from api.core.config import settings
+from api.core.data_safety import canonical_voice_slug, managed_path
 from api.models.voice import _serialize_tags
 
 # Default voice profiles bundled with the project.
@@ -122,6 +125,7 @@ async def _migrate(db: aiosqlite.Connection):
             pass  # column already exists
 
     await _run_once(db, "normalize_user_presets_lowercase", _normalize_user_presets_lowercase)
+    await _run_once(db, "normalize_legacy_voice_profile_slugs", _normalize_legacy_voice_profile_slugs)
     await _run_once(db, "tag_noelmo_demo_seed_voice", _tag_noelmo_demo_seed_voice)
     await _run_once(db, "rename_noelmo_demo_tag", _rename_noelmo_demo_tag)
     await db.commit()
@@ -175,6 +179,97 @@ async def _normalize_user_presets_lowercase(db: aiosqlite.Connection):
                 row["min_p"],
                 row["created_at"],
             ),
+        )
+
+
+def _unique_voice_slug(base: str, used_names: set[str]) -> str:
+    candidate = base
+    sequence = 2
+    while candidate in used_names:
+        suffix = f"-{sequence}"
+        candidate = f"{base[:64 - len(suffix)].rstrip('-')}{suffix}"
+        sequence += 1
+    return candidate
+
+
+async def _normalize_legacy_voice_profile_slugs(db: aiosqlite.Connection):
+    """Upgrade pre-v1 voice slugs while keeping their registered audio intact."""
+    async with db.execute("SELECT id, name, filename, status FROM voices ORDER BY rowid") as cur:
+        rows = await cur.fetchall()
+
+    used_names = {row["name"] for row in rows}
+    renamed: dict[str, str] = {}
+    for row in rows:
+        old_name = row["name"]
+        try:
+            normalized = canonical_voice_slug(old_name)
+        except HTTPException:
+            # A malformed legacy record is left intact rather than preventing
+            # the application from starting or risking an unsafe rename.
+            continue
+        if normalized == old_name:
+            continue
+
+        used_names.remove(old_name)
+        new_name = _unique_voice_slug(normalized, used_names)
+        old_filename = row["filename"]
+        new_filename = old_filename
+        moved_audio = False
+        old_audio = new_audio = None
+
+        # Active uploaded profiles conventionally store <slug>.wav. Keep that
+        # invariant when changing their public slug, but leave deleted/archive
+        # filenames untouched so their retention bookkeeping remains valid.
+        if row["status"] == "active" and old_filename == f"{old_name}.wav":
+            new_filename = f"{new_name}.wav"
+            try:
+                old_audio = managed_path(settings.voice_dir, old_filename)
+                new_audio = managed_path(settings.voice_dir, new_filename)
+            except HTTPException:
+                # Keep a path-invalid legacy row untouched; preserving a
+                # questionable file reference is safer than blocking startup.
+                used_names.add(old_name)
+                continue
+            if old_audio.exists() and old_audio != new_audio:
+                while new_audio.exists():
+                    # Preserve both profiles if an unregistered file already
+                    # owns the normalized filename.
+                    used_names.add(new_name)
+                    new_name = _unique_voice_slug(normalized, used_names)
+                    new_filename = f"{new_name}.wav"
+                    new_audio = managed_path(settings.voice_dir, new_filename)
+                old_audio.replace(new_audio)
+                moved_audio = True
+
+        try:
+            await db.execute(
+                "UPDATE voices SET name = ?, filename = ? WHERE id = ?",
+                (new_name, new_filename, row["id"]),
+            )
+        except Exception:
+            if moved_audio and old_audio is not None and new_audio is not None and new_audio.exists():
+                new_audio.replace(old_audio)
+            used_names.add(old_name)
+            raise
+
+        used_names.add(new_name)
+        renamed[old_name] = new_name
+
+    if not renamed:
+        return
+
+    async with db.execute("SELECT value FROM user_preferences WHERE key = 'vox:voiceId'") as cur:
+        preference = await cur.fetchone()
+    if not preference:
+        return
+    try:
+        selected_name = json.loads(preference["value"])
+    except (TypeError, ValueError, json.JSONDecodeError):
+        return
+    if isinstance(selected_name, str) and selected_name in renamed:
+        await db.execute(
+            "UPDATE user_preferences SET value = ?, updated_at = datetime('now') WHERE key = 'vox:voiceId'",
+            (json.dumps(renamed[selected_name]),),
         )
 
 

@@ -6,13 +6,14 @@ import zipfile
 from pathlib import Path
 from types import SimpleNamespace
 
+import aiosqlite
 import numpy as np
 import pytest
 import soundfile as sf
 from fastapi import HTTPException
 from PIL import Image
 
-from api.core import cleanup, watcher
+from api.core import cleanup, db as db_core, watcher
 from api.core.data_safety import (
     canonical_voice_slug,
     decode_voice_icon,
@@ -23,6 +24,7 @@ from api.core.data_safety import (
 )
 from api.routers import backups
 from api.routers import jobs as jobs_router
+from api.routers.tts import _resolve_voice
 
 
 def test_voice_slug_is_ascii_canonical_and_cannot_be_empty():
@@ -30,6 +32,117 @@ def test_voice_slug_is_ascii_canonical_and_cannot_be_empty():
     assert canonical_voice_slug("My___Voice---2") == "my-voice-2"
     with pytest.raises(HTTPException):
         canonical_voice_slug("../../")
+
+
+@pytest.mark.anyio
+async def test_startup_migrates_legacy_multi_hyphen_voice_slug_and_audio(tmp_path, monkeypatch):
+    voice_dir = tmp_path / "voices"
+    voice_dir.mkdir()
+    legacy_audio = voice_dir / "darke---radio-freestyle.wav"
+    legacy_audio.write_bytes(b"voice-audio")
+    monkeypatch.setattr(db_core.settings, "voice_dir", voice_dir)
+
+    database = await aiosqlite.connect(tmp_path / "vox.db")
+    database.row_factory = aiosqlite.Row
+    await database.executescript("""
+        CREATE TABLE voices (id TEXT PRIMARY KEY, name TEXT UNIQUE, filename TEXT, status TEXT);
+        CREATE TABLE user_preferences (key TEXT PRIMARY KEY, value TEXT, updated_at TEXT);
+    """)
+    await database.execute(
+        "INSERT INTO voices VALUES ('voice-1', 'darke---radio-freestyle', 'darke---radio-freestyle.wav', 'active')"
+    )
+    await database.execute(
+        "INSERT INTO user_preferences VALUES ('vox:voiceId', ?, datetime('now'))",
+        (json.dumps("darke---radio-freestyle"),),
+    )
+    await database.commit()
+
+    await db_core._migrate(database)
+
+    async with database.execute("SELECT name, filename FROM voices WHERE id = 'voice-1'") as cursor:
+        row = await cursor.fetchone()
+    assert tuple(row) == ("darke-radio-freestyle", "darke-radio-freestyle.wav")
+    assert not legacy_audio.exists()
+    assert (voice_dir / "darke-radio-freestyle.wav").read_bytes() == b"voice-audio"
+    async with database.execute("SELECT value FROM user_preferences WHERE key = 'vox:voiceId'") as cursor:
+        preference = await cursor.fetchone()
+    assert json.loads(preference[0]) == "darke-radio-freestyle"
+    resolved_audio, voice_id = await _resolve_voice("darke---radio-freestyle", "test-request", database)
+    assert (resolved_audio, voice_id) == (voice_dir / "darke-radio-freestyle.wav", "voice-1")
+    await database.close()
+
+
+@pytest.mark.anyio
+async def test_startup_recovers_a_legacy_slug_after_audio_was_renamed_before_restart(tmp_path, monkeypatch):
+    voice_dir = tmp_path / "voices"
+    voice_dir.mkdir()
+    canonical_audio = voice_dir / "darke-radio-freestyle.wav"
+    canonical_audio.write_bytes(b"voice-audio")
+    monkeypatch.setattr(db_core.settings, "voice_dir", voice_dir)
+
+    database = await aiosqlite.connect(tmp_path / "vox.db")
+    database.row_factory = aiosqlite.Row
+    await database.executescript("""
+        CREATE TABLE voices (id TEXT PRIMARY KEY, name TEXT UNIQUE, filename TEXT, status TEXT);
+    """)
+    await database.execute(
+        "INSERT INTO voices VALUES ('voice-1', 'darke---radio-freestyle', 'darke---radio-freestyle.wav', 'active')"
+    )
+    await database.commit()
+
+    await db_core._migrate(database)
+
+    async with database.execute("SELECT name, filename FROM voices WHERE id = 'voice-1'") as cursor:
+        row = await cursor.fetchone()
+    assert tuple(row) == ("darke-radio-freestyle", "darke-radio-freestyle.wav")
+    assert canonical_audio.read_bytes() == b"voice-audio"
+    await database.close()
+
+
+@pytest.mark.anyio
+async def test_startup_skips_an_irrecoverably_malformed_legacy_voice_name(tmp_path, monkeypatch):
+    voice_dir = tmp_path / "voices"
+    voice_dir.mkdir()
+    monkeypatch.setattr(db_core.settings, "voice_dir", voice_dir)
+
+    database = await aiosqlite.connect(tmp_path / "vox.db")
+    database.row_factory = aiosqlite.Row
+    await database.executescript("CREATE TABLE voices (id TEXT PRIMARY KEY, name TEXT UNIQUE, filename TEXT, status TEXT);")
+    await database.execute("INSERT INTO voices VALUES ('voice-1', '---', 'legacy.wav', 'active')")
+    await database.commit()
+
+    await db_core._migrate(database)
+
+    async with database.execute("SELECT name FROM voices WHERE id = 'voice-1'") as cursor:
+        row = await cursor.fetchone()
+    assert row[0] == "---"
+    await database.close()
+
+
+@pytest.mark.anyio
+async def test_startup_skips_a_legacy_voice_with_an_unsafe_audio_path(tmp_path, monkeypatch):
+    voice_dir = tmp_path / "voices"
+    voice_dir.mkdir()
+    outside_audio = tmp_path / "outside.wav"
+    outside_audio.write_bytes(b"voice-audio")
+    (voice_dir / "darke---radio-freestyle.wav").symlink_to(outside_audio)
+    monkeypatch.setattr(db_core.settings, "voice_dir", voice_dir)
+
+    database = await aiosqlite.connect(tmp_path / "vox.db")
+    database.row_factory = aiosqlite.Row
+    await database.executescript("CREATE TABLE voices (id TEXT PRIMARY KEY, name TEXT UNIQUE, filename TEXT, status TEXT);")
+    await database.execute(
+        "INSERT INTO voices VALUES ('voice-1', 'darke---radio-freestyle', 'darke---radio-freestyle.wav', 'active')"
+    )
+    await database.commit()
+
+    await db_core._migrate(database)
+
+    async with database.execute("SELECT name, filename FROM voices WHERE id = 'voice-1'") as cursor:
+        row = await cursor.fetchone()
+    assert tuple(row) == ("darke---radio-freestyle", "darke---radio-freestyle.wav")
+    assert outside_audio.read_bytes() == b"voice-audio"
+    await database.close()
 
 
 def test_managed_path_rejects_escape_and_symlink_escape(tmp_path):
