@@ -130,7 +130,7 @@ cat > "$SERVER_APP/Contents/Info.plist" <<EOF
   <key>VoxBuildCommit</key><string>$BUILD_COMMIT</string>
   <key>VoxBuiltAt</key><string>$BUILD_DATE</string>
   <key>LSUIElement</key><true/>
-  <key>LSMinimumSystemVersion</key><string>12.0</string>
+  <key>LSMinimumSystemVersion</key><string>13.0</string>
 </dict></plist>
 EOF
 success "VoxServer.app built"
