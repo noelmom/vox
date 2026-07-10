@@ -77,6 +77,11 @@ CURRENT_FRAMEWORK_VERSION="$(readlink "$FRAMEWORK/Versions/Current")"
 [[ -f "$HELPER" ]] || fail "VoxHelper executable is missing from package payload"
 otool -L "$HELPER" | grep -Fq "@rpath/Sparkle.framework" \
   || fail "VoxHelper is not linked against Sparkle through @rpath"
+otool -l "$HELPER" | awk '
+  $1 == "cmd" && $2 == "LC_RPATH" { in_rpath = 1; next }
+  in_rpath && $1 == "path" { if ($2 == "@executable_path/../Frameworks") found = 1; in_rpath = 0 }
+  END { exit(found ? 0 : 1) }
+' || fail "VoxHelper is missing @executable_path/../Frameworks"
 
 pkgutil --check-signature "$PACKAGE"
 if command -v spctl >/dev/null 2>&1; then

@@ -80,6 +80,7 @@ SPARKLE_FRAMEWORK="$(swift build --package-path "$ROOT" --show-bin-path --config
 ditto --norsrc "$HELPER_BIN" "$HELPER_APP/Contents/MacOS/VoxHelper"
 mkdir -p "$HELPER_APP/Contents/Frameworks"
 ditto --norsrc "$SPARKLE_FRAMEWORK" "$HELPER_APP/Contents/Frameworks/Sparkle.framework"
+install_name_tool -add_rpath "@executable_path/../Frameworks" "$HELPER_APP/Contents/MacOS/VoxHelper"
 
 cat > "$HELPER_APP/Contents/Info.plist" <<EOF
 <?xml version="1.0" encoding="UTF-8"?>
@@ -159,6 +160,11 @@ info "Verifying signatures…"
 codesign --verify --deep --strict "$HELPER_APP"
 codesign --verify --deep --strict "$SERVER_APP"
 otool -L "$HELPER_APP/Contents/MacOS/VoxHelper" | grep -F "@rpath/Sparkle.framework" >/dev/null || fail "VoxHelper is not linked to Sparkle.framework"
+otool -l "$HELPER_APP/Contents/MacOS/VoxHelper" | awk '
+  $1 == "cmd" && $2 == "LC_RPATH" { in_rpath = 1; next }
+  in_rpath && $1 == "path" { if ($2 == "@executable_path/../Frameworks") found = 1; in_rpath = 0 }
+  END { exit(found ? 0 : 1) }
+' || fail "VoxHelper is missing the bundled Sparkle framework rpath"
 [[ -L "$HELPER_APP/Contents/Frameworks/Sparkle.framework/Versions/Current" ]] || fail "Sparkle framework symlinks were not preserved"
 success "Signatures verified"
 

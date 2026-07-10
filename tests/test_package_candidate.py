@@ -22,6 +22,7 @@ def run_verifier(
     *,
     missing_current_symlink: bool = False,
     missing_sparkle_executable: bool = False,
+    missing_framework_rpath: bool = False,
 ) -> subprocess.CompletedProcess[str]:
     package = tmp_path / "Vox-1.2.3.pkg"
     package.write_bytes(b"fixture package")
@@ -31,7 +32,7 @@ def run_verifier(
         "pkgutil": f"#!/bin/sh\nif [ \"$1\" = \"--payload-files\" ]; then printf '%s\\n' '{payload}'; exit 0; fi\nif [ \"$1\" = \"--expand-full\" ]; then root=\"$3/Payload/Applications/Vox/VoxHelper.app/Contents\"; mkdir -p \"$root/Frameworks/Sparkle.framework/Versions/B\" \"$root/MacOS\"; [ \"${{VOX_TEST_NO_SPARKLE:-}}\" = 1 ] || touch \"$root/Frameworks/Sparkle.framework/Versions/B/Sparkle\"; touch \"$root/MacOS/VoxHelper\"; [ \"${{VOX_TEST_NO_CURRENT:-}}\" = 1 ] || ln -s B \"$root/Frameworks/Sparkle.framework/Versions/Current\"; exit 0; fi\nexit 0\n",
         "spctl": "#!/bin/sh\nexit 0\n",
         "xcrun": "#!/bin/sh\n[ \"$1\" = \"stapler\" ] && [ \"$2\" = \"validate\" ]\n",
-        "otool": "#!/bin/sh\necho '@rpath/Sparkle.framework/Versions/A/Sparkle'\n",
+        "otool": "#!/bin/sh\nif [ \"$1\" = \"-l\" ]; then [ \"${VOX_TEST_NO_FRAMEWORK_RPATH:-}\" = 1 ] || printf '          cmd LC_RPATH\\n         path @executable_path/../Frameworks (offset 12)\\n'; exit 0; fi\necho '@rpath/Sparkle.framework/Versions/A/Sparkle'\n",
     }.items():
         path = bin_dir / name
         path.write_text(body, encoding="utf-8")
@@ -41,6 +42,7 @@ def run_verifier(
         "PATH": f"{bin_dir}:{os.environ['PATH']}",
         "VOX_TEST_NO_CURRENT": "1" if missing_current_symlink else "",
         "VOX_TEST_NO_SPARKLE": "1" if missing_sparkle_executable else "",
+        "VOX_TEST_NO_FRAMEWORK_RPATH": "1" if missing_framework_rpath else "",
     }
     return subprocess.run(["bash", str(VERIFY), str(package)], capture_output=True, text=True, env=environment)
 
@@ -77,3 +79,9 @@ def test_package_candidate_verifier_requires_sparkle_current_symlink(tmp_path: P
     result = run_verifier(tmp_path, REQUIRED_PAYLOAD, missing_current_symlink=True)
     assert result.returncode != 0
     assert "Current symlink" in result.stderr
+
+
+def test_package_candidate_verifier_requires_framework_runtime_rpath(tmp_path: Path) -> None:
+    result = run_verifier(tmp_path, REQUIRED_PAYLOAD, missing_framework_rpath=True)
+    assert result.returncode != 0
+    assert "@executable_path/../Frameworks" in result.stderr
