@@ -13,7 +13,8 @@ Produce an approved, implementation-ready specification and dependency-ordered e
 
 - Product: a local-first Apple Silicon text-to-speech studio with a FastAPI service, React interface, native menu-bar helper, LaunchAgents, and signed/notarized package distribution.
 - Working branch: `redesign`; `main` is protected by process and remains untouched until explicit approval.
-- Planning only: chart and resolve decisions before implementation. Implementation begins only after the map is clear and the resulting plan is approved.
+- Execution is authorized on `redesign`: chart decisions, implement in dependency order, run local CI and release-candidate checks, commit focused checkpoints, and push only `redesign`.
+- Where the user is unavailable, use the stated recommendation, record the assumption in the resolving ticket, and keep behavior reversible for morning review.
 - Consult `AGENTS.md`, `/grilling`, `/domain-modeling`, `/prototype`, `/research`, `/tdd`, and `/code-review` where their trigger applies.
 - Preserve all runtime/user data and the existing shell updater as a recovery path.
 - Sparkle direction already accepted: Vox Helper hosts Sparkle; releases remain signed/notarized bare package updates delivered through an HTTPS, EdDSA-signed appcast.
@@ -22,6 +23,8 @@ Produce an approved, implementation-ready specification and dependency-ordered e
 ## Decisions so far
 
 <!-- Resolution pointers are appended here as tickets close. -->
+
+- [Define the local and LAN trust model](01-define-local-and-lan-trust-model.md) — keep loopback frictionless but cross-origin protected; require short-lived pairing and revocable scoped credentials for the full LAN Studio and API.
 
 ## Not yet specified
 
