@@ -25,6 +25,10 @@ class EncoderWouldNotStop(RuntimeError):
     pass
 
 
+class CleanupFailed(RuntimeError):
+    pass
+
+
 def _stitch_chunks(chunks: list[tuple[np.ndarray, float]], sample_rate: int) -> np.ndarray:
     pieces: list[np.ndarray] = []
     output_dtype = next((chunk.dtype for chunk, _ in chunks if chunk.size), np.float32)
@@ -277,6 +281,17 @@ class GenerationCoordinator:
 
     async def _run(self) -> None:
         while not self._shutting_down:
+            if self._encoder_process is not None:
+                if self._encoder_process.is_alive():
+                    self._ready = False
+                    self._state = "error"
+                    await asyncio.sleep(0.25)
+                    continue
+                self._encoder_process.join(0)
+                self._encoder_process = None
+                if self.worker and self.worker.is_alive():
+                    self._ready = True
+                    self._state = "ready"
             if not self._ready and not await self._wait_ready():
                 await asyncio.sleep(2)
                 if await self._stop_worker():
@@ -401,6 +416,8 @@ class GenerationCoordinator:
                 await self._restart_worker()
         except EncoderWouldNotStop:
             await self._cas(request.request_id, {"encoding", "cancelling"}, "recovering", error_code="encoder_would_not_stop", error="The audio encoder could not be stopped safely. Restart Vox before generating again.")
+        except CleanupFailed as exc:
+            await self._cas(request.request_id, {"encoding", "cancelling"}, "recovering", error_code="cleanup_failed", error=str(exc))
         except Exception as exc:
             if await self._cleanup_or_recover(request):
                 await self._cas(request.request_id, {"encoding"}, "failed", error_code="encoding_failed", error=str(exc), terminal=True)
@@ -417,19 +434,29 @@ class GenerationCoordinator:
             if (self._active and self._active.cancelled.is_set()) or self._shutting_down:
                 if not await self._stop_encoder():
                     raise EncoderWouldNotStop()
-                self._purge_publication_markers(request.request_id)
+                try:
+                    self._purge_publication_markers(request.request_id)
+                except OSError as exc:
+                    raise CleanupFailed(f"Publishing marker cleanup failed: {exc}") from exc
                 return
             if time.monotonic() >= deadline:
                 if not await self._stop_encoder():
                     raise EncoderWouldNotStop()
-                self._purge_publication_markers(request.request_id)
+                try:
+                    self._purge_publication_markers(request.request_id)
+                except OSError as exc:
+                    raise CleanupFailed(f"Publishing marker cleanup failed: {exc}") from exc
                 raise TimeoutError("Audio encoding timed out.")
             try:
                 result = await asyncio.to_thread(results.get, True, 0.2)
             except Empty:
                 pass
-        process.join(0)
-        self._encoder_process = None
+        await asyncio.to_thread(process.join, self.terminate_grace_s)
+        if process.is_alive() or self._process_group_alive(getattr(process, "pid", None)):
+            if not await self._stop_encoder():
+                raise EncoderWouldNotStop()
+        else:
+            self._encoder_process = None
         if result is None:
             try:
                 result = results.get_nowait()
@@ -538,22 +565,34 @@ class GenerationCoordinator:
             else:
                 process.terminate()
             await asyncio.to_thread(process.join, self.terminate_grace_s)
-        if process.is_alive():
-            pid = getattr(process, "pid", None)
+        pid = getattr(process, "pid", None)
+        if process.is_alive() or self._process_group_alive(pid):
             if pid:
                 try:
                     os.killpg(pid, signal.SIGKILL)
                 except ProcessLookupError:
-                    process.kill()
-            else:
+                    if process.is_alive():
+                        process.kill()
+            elif process.is_alive():
                 process.kill()
             await asyncio.to_thread(process.join, self.terminate_grace_s)
-        if process.is_alive():
+        if process.is_alive() or self._process_group_alive(pid):
             self._state = "error"
+            self._ready = False
             self._detail = "Audio encoder could not be stopped; restart Vox."
             return False
         self._encoder_process = None
         return True
+
+    @staticmethod
+    def _process_group_alive(pid: int | None) -> bool:
+        if not pid:
+            return False
+        try:
+            os.killpg(pid, 0)
+            return True
+        except ProcessLookupError:
+            return False
 
     async def _stop_worker(self) -> bool:
         worker = self.worker

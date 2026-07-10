@@ -1,4 +1,5 @@
 import asyncio
+import signal
 from pathlib import Path
 from queue import Queue
 
@@ -534,9 +535,10 @@ async def test_stubborn_encoder_remains_nonterminal_and_retained(generation_db, 
     )
     monkeypatch.setattr(coordinator, "_launch_encoder", lambda *_args: (encoder, Queue()))
     await coordinator.start()
-    await db.execute("INSERT INTO jobs(request_id,status) VALUES('job-1','queued')")
+    await db.executemany("INSERT INTO jobs(request_id,status) VALUES(?,'queued')", [("job-1",), ("job-2",)])
     await db.commit()
     await coordinator.submit(request_for(tmp_path))
+    await coordinator.submit(request_for(tmp_path, "job-2"))
     for _ in range(100):
         if (await status_of(db))["error_code"] == "encoder_would_not_stop":
             break
@@ -544,6 +546,8 @@ async def test_stubborn_encoder_remains_nonterminal_and_retained(generation_db, 
     row = await status_of(db)
     assert row["status"] == "recovering"
     assert coordinator._encoder_process is encoder
+    await asyncio.sleep(0.05)
+    assert [item.request_id for item in worker.sent] == ["job-1"]
     encoder.alive = False
     await coordinator.shutdown()
 
@@ -554,6 +558,84 @@ def test_publication_markers_are_purged_after_encoder_exit(tmp_path):
     marker.write_bytes(b"private audio")
     coordinator._purge_publication_markers("job-1")
     assert not marker.exists()
+
+
+@pytest.mark.asyncio
+async def test_active_cleanup_failure_keeps_runner_available(generation_db, tmp_path, monkeypatch):
+    import api.core.generation as generation_module
+
+    db = generation_db
+    worker = FakeWorker([
+        WorkerEvent(kind="ready", device="cpu"),
+        WorkerEvent(kind="failed", request_id="job-1", error_code="generation_failed", detail="one"),
+        WorkerEvent(kind="failed", request_id="job-2", error_code="generation_failed", detail="two"),
+    ])
+    coordinator = GenerationCoordinator(lambda: worker, output_dir=tmp_path)
+    await coordinator.start()
+    first = request_for(tmp_path, "job-1")
+    Path(first.partial_dir).mkdir(parents=True)
+    await db.executemany("INSERT INTO jobs(request_id,status) VALUES(?,'queued')", [("job-1",), ("job-2",)])
+    await db.commit()
+    original = generation_module.shutil.rmtree
+    calls = 0
+
+    def fail_once(*args, **kwargs):
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            raise OSError("busy")
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(generation_module.shutil, "rmtree", fail_once)
+    await coordinator.submit(first)
+    await coordinator.submit(request_for(tmp_path, "job-2"))
+    for _ in range(100):
+        if (await status_of(db, "job-2"))["status"] == "failed":
+            break
+        await asyncio.sleep(0.01)
+    assert (await status_of(db, "job-1"))["error_code"] == "cleanup_failed"
+    assert [item.request_id for item in worker.sent] == ["job-1", "job-2"]
+    await coordinator.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_cancel_after_completed_publication_preserves_audio(generation_db, tmp_path):
+    db = generation_db
+    audio = tmp_path / "done.wav"
+    audio.write_bytes(b"audio")
+    await db.execute("INSERT INTO jobs(request_id,status,output_path) VALUES('job-1','completed',?)", (str(audio),))
+    await db.commit()
+    coordinator = GenerationCoordinator(lambda: FakeWorker([]), output_dir=tmp_path)
+    assert await coordinator.cancel("job-1") == "completed"
+    assert audio.read_bytes() == b"audio"
+
+
+@pytest.mark.asyncio
+async def test_encoder_process_group_escalates_after_leader_exits(tmp_path, monkeypatch):
+    encoder = FakeEncoderProcess()
+    encoder.pid = 4242
+    encoder.alive = True
+    group_alive = True
+    signals = []
+
+    def fake_killpg(pid, sig):
+        nonlocal group_alive
+        assert pid == 4242
+        if sig == 0:
+            if not group_alive:
+                raise ProcessLookupError
+            return
+        signals.append(sig)
+        if sig == signal.SIGTERM:
+            encoder.alive = False
+        elif sig == signal.SIGKILL:
+            group_alive = False
+
+    monkeypatch.setattr("api.core.generation.os.killpg", fake_killpg)
+    coordinator = GenerationCoordinator(lambda: FakeWorker([]), output_dir=tmp_path, terminate_grace_s=0)
+    coordinator._encoder_process = encoder
+    assert await coordinator._stop_encoder()
+    assert signals == [signal.SIGTERM, signal.SIGKILL]
 
 
 def test_api_generation_modules_do_not_import_model_runtime():
