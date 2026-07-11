@@ -3,6 +3,20 @@
   <channel>
     <title>Vox updates</title>
     <item>
+      <title>Vox 1.0.4</title>
+      <sparkle:version>202607112216</sparkle:version>
+      <sparkle:shortVersionString>1.0.4</sparkle:shortVersionString>
+      <pubDate>Sat, 11 Jul 2026 22:17:00 +0000</pubDate>
+      <description sparkle:format="markdown"># Vox 1.0.4
+
+- Adds trusted private proxy IPs for Cloudflare Tunnel or authenticated reverse-proxy deployments.
+- Adds Settings controls for trusted proxy IPs and exact trusted hostnames.
+- Ignores and logs unknown `VOX_*` settings instead of blocking startup.
+- Makes Helper start/restart actions wait for launchctl and report failures.
+- Fixes the V-wave menu-bar mark on Retina displays.</description>
+      <enclosure url="https://github.com/noelmom/vox/releases/download/v1.0.4/Vox-1.0.4.pkg" length="9248834" type="application/octet-stream" sparkle:edSignature="bBjeZg9nbBfMzRHGVH0I60UMIwCqpkZIRenimde/NQsbHHw60Bla72k5VLcsp93WA7FxW74NZb3HgnggMBQLCA==" />
+    </item>
+    <item>
       <title>Vox 1.0.3</title>
       <sparkle:version>202607110703</sparkle:version>
       <sparkle:shortVersionString>1.0.3</sparkle:shortVersionString>

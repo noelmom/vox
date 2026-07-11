@@ -178,6 +178,8 @@ export function SettingsPage() {
   const [serverDraftErrors, setServerDraftErrors] = useState<Record<string, string>>({});
   const [trustedHostsDraft, setTrustedHostsDraft] = useState("");
   const [trustedHostsError, setTrustedHostsError] = useState("");
+  const [trustedProxiesDraft, setTrustedProxiesDraft] = useState("");
+  const [trustedProxiesError, setTrustedProxiesError] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -304,6 +306,8 @@ export function SettingsPage() {
     setServerDraftErrors({});
     setTrustedHostsDraft(server.configured_trusted_hosts ?? server.trusted_hosts ?? "");
     setTrustedHostsError("");
+    setTrustedProxiesDraft(server.configured_trusted_proxies ?? server.trusted_proxies ?? "");
+    setTrustedProxiesError("");
   }, [
     server?.configured_output_ttl_hours,
     server?.output_ttl_hours,
@@ -315,6 +319,8 @@ export function SettingsPage() {
     server?.chunk_headroom_chars,
     server?.configured_trusted_hosts,
     server?.trusted_hosts,
+    server?.configured_trusted_proxies,
+    server?.trusted_proxies,
   ]);
 
   const saveServerNumber = (
@@ -344,6 +350,7 @@ export function SettingsPage() {
   const anyServerRestartRequired = Boolean(
     server?.host_restart_required ||
     server?.trusted_hosts_restart_required ||
+    server?.trusted_proxies_restart_required ||
     server?.output_ttl_restart_required ||
     server?.max_voice_clip_duration_restart_required ||
     server?.default_max_chars_restart_required ||
@@ -468,6 +475,32 @@ export function SettingsPage() {
                 <p className="text-[12px] leading-relaxed text-muted-foreground">Comma-separated names only. No ports, schemes, IP ranges, or wildcards. Leave empty unless a trusted proxy or tunnel is the only path to Vox.</p>
                 {trustedHostsRestartRequired && <p className="text-[12px] font-semibold text-[var(--brand-warm)]">Restart the local server to apply hostname changes.</p>}
                 {trustedHostsError && <p className="text-[12px] font-medium text-[var(--brand-warm)]">{trustedHostsError}</p>}
+              </div>
+            </InfoRow>
+            <InfoRow label="Trusted proxy IPs" hint="Private router or reverse-proxy addresses that already enforce an authentication boundary, such as Cloudflare Access.">
+              <div className="flex w-full max-w-2xl flex-col gap-2">
+                <div className="flex flex-wrap gap-2">
+                  <input
+                    value={trustedProxiesDraft}
+                    onChange={(event) => { setTrustedProxiesDraft(event.target.value); setTrustedProxiesError(""); }}
+                    placeholder="192.168.1.1"
+                    className="vox-control min-w-0 flex-1 px-3 py-2 text-[13px]"
+                    aria-label="Trusted proxy IPs"
+                  />
+                  <button
+                    type="button"
+                    className="vox-control px-3 py-2 text-[12px] font-bold"
+                    disabled={serverSettingsMutation.isPending}
+                    onClick={() => serverSettingsMutation.mutate({ trusted_proxies: trustedProxiesDraft.trim() }, {
+                      onError: (error) => setTrustedProxiesError(error instanceof Error ? error.message : "Could not save trusted proxy IPs."),
+                    })}
+                  >
+                    Save
+                  </button>
+                </div>
+                <p className="text-[12px] leading-relaxed text-muted-foreground">Comma-separated private IPs only. Use this only for a proxy or router tunnel protected by an upstream access policy. Direct LAN clients remain paired.</p>
+                {server.trusted_proxies_restart_required && <p className="text-[12px] font-semibold text-[var(--brand-warm)]">Restart the local server to apply proxy changes.</p>}
+                {trustedProxiesError && <p className="text-[12px] font-medium text-[var(--brand-warm)]">{trustedProxiesError}</p>}
               </div>
             </InfoRow>
             <InfoRow label="Paired devices & API tokens" hint="Pair browsers from Vox Helper. Create scoped tokens for trusted local automation.">

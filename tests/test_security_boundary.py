@@ -1,13 +1,14 @@
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
+from api.core.config import Settings, ignored_vox_settings
 from api.core.security import Credential, CredentialKind, Scope, SecurityStore
 from api.middleware.security import SecurityMiddleware
 from api.routers import auth
 from api.routers.jobs import _redact_private_fields
 
 
-def _app(tmp_path, *, lan_enabled: bool = True, trusted_hosts: str = "") -> tuple[FastAPI, SecurityStore]:
+def _app(tmp_path, *, lan_enabled: bool = True, trusted_hosts: str = "", trusted_proxies: str = "") -> tuple[FastAPI, SecurityStore]:
     app = FastAPI()
     store = SecurityStore(tmp_path / "security.db")
     app.state.security_store = store
@@ -15,6 +16,7 @@ def _app(tmp_path, *, lan_enabled: bool = True, trusted_hosts: str = "") -> tupl
         SecurityMiddleware,
         lan_enabled=lambda: lan_enabled,
         trusted_hosts=lambda: trusted_hosts,
+        trusted_proxies=lambda: trusted_proxies,
     )
     app.include_router(auth.router, prefix="/api/v1")
 
@@ -99,6 +101,25 @@ def test_explicit_trusted_dns_host_allows_same_origin_requests_only(tmp_path):
     assert allowed.status_code == 200
     assert client.get("/api/v1/status", headers={"Host": "evil.melolab.dev"}).status_code == 400
     assert client.get("/api/v1/status", headers={"Host": "vox.melolab.dev.evil.example"}).status_code == 400
+
+
+def test_trusted_private_proxy_can_use_the_external_host_without_pairing(tmp_path):
+    app, _ = _app(tmp_path, trusted_hosts="vox.melolab.dev", trusted_proxies="192.168.1.1")
+    proxy = TestClient(app, client=("192.168.1.1", 50000), headers={"Host": "vox.melolab.dev"})
+    other_lan_client = TestClient(app, client=("192.168.1.22", 50000), headers={"Host": "vox.melolab.dev"})
+
+    assert proxy.post("/api/v1/tts", headers={"Origin": "https://vox.melolab.dev"}).status_code == 200
+    assert other_lan_client.get("/api/v1/status").status_code == 401
+
+
+def test_unknown_vox_config_is_ignored_and_reported_by_key_only(tmp_path):
+    env_file = tmp_path / ".env"
+    env_file.write_text("VOX_TRUSTED_PROXIES=192.168.1.1\nVOX_TYPO=value\n", encoding="utf-8")
+
+    settings = Settings(_env_file=env_file)
+
+    assert settings.trusted_proxies == "192.168.1.1"
+    assert ignored_vox_settings(env_file) == ["VOX_TYPO"]
 
 
 def test_pairing_code_is_single_use_and_scopes_are_enforced(tmp_path):

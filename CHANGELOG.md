@@ -20,10 +20,18 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - **Playback completion** — Now Playing snaps its seek state to the exact audio duration at completion.
 - **Favicon delivery** — a versioned V-wave PNG/ICO pair is explicitly served by the local app to avoid stale browser favicon fallbacks.
 
-## [Unreleased]
+## [1.0.4] — 2026-07-11
 
 ### Added
 - **Trusted proxy hostname controls** — Settings → Runtime can now persist exact trusted DNS hostnames for a TLS proxy or Cloudflare Tunnel while retaining Vox's strict local/LAN defaults.
+- **Trusted proxy IP controls** — private router/reverse-proxy addresses can now rely on their authenticated upstream boundary while direct LAN clients continue to use Vox pairing.
+
+### Fixed
+- **Server configuration recovery** — unknown `VOX_*` keys are logged and ignored rather than preventing Vox from starting.
+- **Helper lifecycle actions** — start/restart now waits for launchctl completion, refreshes state, and reports failures.
+- **Retina menu icon rendering** — V-wave uses the matching 2× image representation instead of scaling a 1× bitmap.
+
+## [Unreleased]
 
 ## [1.0.0] — 2026-07-04
 

@@ -289,6 +289,8 @@ To allow phones, tablets, or other machines on your LAN to reach Vox, open Setti
 
 For an Access-protected test deployment, keep Vox bound to loopback and use **Settings → Runtime → Trusted hostnames** to add the exact public hostname, such as `vox.melolab.dev`. Restart Vox after saving. Configure the tunnel/proxy to forward only to `http://127.0.0.1:8000`; do not expose port 8000 directly. The field accepts comma-separated exact DNS names only—no ports, schemes, IP ranges, or wildcards.
 
+If Cloudflare Tunnel runs on a router and forwards to Vox over your LAN, add that router's exact private address under **Trusted proxy IPs** (for example, `192.168.1.1`). Requests from that allowlist rely on the proxy's authentication boundary; direct LAN clients still use normal Vox pairing.
+
 Loopback Studio and API clients remain token-free. Until paired, remote devices can access only `GET /health` and the minimal pairing page/API. Browser sessions are `HttpOnly` and `SameSite=Strict`; API clients use explicit bearer tokens with `read`, `generate`, or `admin` scope. Pairing codes and raw tokens are never stored—only credential hashes are written under the installed Vox `data/security/` directory with owner-only permissions. Disabling LAN access revokes remote credentials.
 
 Vox serves plain HTTP on the LAN unless you place it behind trusted TLS. Pair only on a trusted network and do not reuse Vox credentials elsewhere.

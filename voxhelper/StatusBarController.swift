@@ -458,11 +458,25 @@ class StatusBarController: NSObject {
     }
 
     private func bundledMenuBarIcon(named name: String) -> NSImage? {
-        guard let url = Bundle.main.url(forResource: name, withExtension: "png"),
-              let image = NSImage(contentsOf: url) else {
+        guard let standardURL = Bundle.main.url(forResource: name, withExtension: "png"),
+              let standardData = try? Data(contentsOf: standardURL),
+              let standard = NSBitmapImageRep(data: standardData) else {
             return nil
         }
-        image.size = NSSize(width: 22, height: 22)
+
+        let logicalSize = NSSize(width: 22, height: 22)
+        standard.size = logicalSize
+        let image = NSImage(size: logicalSize)
+        image.addRepresentation(standard)
+
+        // Loading a PNG by URL does not make AppKit discover its @2x sibling.
+        // Add it explicitly so the menu bar gets native pixels on Retina displays.
+        if let retinaURL = Bundle.main.url(forResource: "\(name)@2x", withExtension: "png"),
+           let retinaData = try? Data(contentsOf: retinaURL),
+           let retina = NSBitmapImageRep(data: retinaData) {
+            retina.size = logicalSize
+            image.addRepresentation(retina)
+        }
         image.isTemplate = true
         return image
     }

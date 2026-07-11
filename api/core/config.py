@@ -5,7 +5,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_prefix="VOX_", env_file=".env")
+    model_config = SettingsConfigDict(env_prefix="VOX_", env_file=".env", extra="ignore")
     app_name: str = "Vox"
     # Local-only by default. Set VOX_HOST=0.0.0.0 to allow LAN access.
     host: str = "127.0.0.1"
@@ -13,6 +13,8 @@ class Settings(BaseSettings):
     # placed behind a trusted TLS proxy or tunnel. Empty preserves local-only
     # host validation.
     trusted_hosts: str = ""
+    # Exact private proxy addresses allowed to terminate an authenticated tunnel.
+    trusted_proxies: str = ""
     port: int = 8000
     device: str = "auto"  # auto | mps | cpu
 
@@ -96,6 +98,19 @@ class Settings(BaseSettings):
         except (TypeError, ValueError):
             return default
         return parsed if parsed >= 0 else default
+
+
+def ignored_vox_settings(path: Path = Path(".env")) -> list[str]:
+    """Return unknown VOX_* keys without ever logging their values."""
+    if not path.is_file():
+        return []
+    known = {f"VOX_{field.upper()}" for field in Settings.model_fields}
+    ignored: list[str] = []
+    for line in path.read_text(encoding="utf-8").splitlines():
+        key = line.split("=", 1)[0].strip()
+        if key.startswith("VOX_") and key not in known:
+            ignored.append(key)
+    return ignored
 
 
 settings = Settings()
