@@ -60,6 +60,27 @@ def normalize_configured_hosts(value: str) -> str:
     return ",".join(dict.fromkeys(entries))
 
 
+def normalize_configured_proxies(value: str) -> str:
+    entries = [item.strip() for item in value.split(",") if item.strip()]
+    normalized: list[str] = []
+    for entry in entries:
+        try:
+            address = ipaddress.ip_address(entry)
+        except ValueError as error:
+            raise ValueError("trusted proxies must be exact private IP addresses") from error
+        if not address.is_private:
+            raise ValueError("trusted proxies must be private IP addresses")
+        normalized.append(str(address))
+    return ",".join(dict.fromkeys(normalized))
+
+
+def _trusted_proxy(client_host: str, configured_proxies: str) -> bool:
+    try:
+        return str(ipaddress.ip_address(client_host)) in set(normalize_configured_proxies(configured_proxies).split(","))
+    except ValueError:
+        return False
+
+
 def _trusted_host(host_header: str, configured_hosts: str = "") -> bool:
     hostname = _host_name(host_header)
     if not hostname:
@@ -111,10 +132,11 @@ def _has_scope(credential: Credential, required: Scope) -> bool:
 
 
 class SecurityMiddleware(BaseHTTPMiddleware):
-    def __init__(self, app, lan_enabled: Callable[[], bool], trusted_hosts: Callable[[], str] = lambda: ""):
+    def __init__(self, app, lan_enabled: Callable[[], bool], trusted_hosts: Callable[[], str] = lambda: "", trusted_proxies: Callable[[], str] = lambda: ""):
         super().__init__(app)
         self.lan_enabled = lan_enabled
         self.trusted_hosts = trusted_hosts
+        self.trusted_proxies = trusted_proxies
 
     async def dispatch(self, request: Request, call_next):
         host_header = request.headers.get("host", "")
@@ -129,7 +151,7 @@ class SecurityMiddleware(BaseHTTPMiddleware):
                 return _error(403, "cross_site_request", "Cross-site mutations are not allowed.")
 
         client_host = request.client.host if request.client else ""
-        if _is_loopback(client_host):
+        if _is_loopback(client_host) or _trusted_proxy(client_host, self.trusted_proxies()):
             request.state.is_loopback = True
             request.state.credential = None
             return await call_next(request)

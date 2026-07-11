@@ -11,22 +11,23 @@ from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
 from api.core.cleanup import run_cleanup_loop
-from api.core.config import settings
+from api.core.config import ignored_vox_settings, settings
 from api.core.build_info import get_build_info
 from api.core.db import connect, disconnect
 from api.core.engine import get_device, get_model_status
 from api.core.generation import GenerationCoordinator, set_generation_coordinator
-from api.core.logger import setup_logging
+from api.core.logger import get_logger, setup_logging
 from api.core.presets import PRESETS
 from api.core.watcher import watch_input_folder
 from api.core.security import SecurityStore
 from api.middleware.request_id import RequestIDMiddleware
-from api.middleware.security import SecurityMiddleware, normalize_configured_hosts
+from api.middleware.security import SecurityMiddleware, normalize_configured_hosts, normalize_configured_proxies
 from api.routers import alerts, auth, backups, jobs, logs, preferences, presets, tts, voices
 
 _UI_DIST = Path(__file__).parent.parent / "ui-dist"
 _ENV_PATH = Path(".env")
 _VALID_HOSTS = {"127.0.0.1", "0.0.0.0"}
+log = get_logger(__name__)
 
 _background_tasks: list[asyncio.Task] = []
 
@@ -34,6 +35,7 @@ _background_tasks: list[asyncio.Task] = []
 class SettingsPatch(BaseModel):
     host: str | None = None
     trusted_hosts: str | None = Field(None, max_length=2048)
+    trusted_proxies: str | None = Field(None, max_length=2048)
     output_ttl_hours: int | None = Field(None, ge=0, le=8760)
     max_voice_clip_duration_s: int | None = Field(None, ge=5, le=600)
     default_max_chars: int | None = Field(None, ge=100, le=3000)
@@ -92,6 +94,8 @@ def _enforce_lan_credential_state(application: FastAPI) -> None:
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     setup_logging()
+    for key in ignored_vox_settings():
+        log.warning("Ignoring unknown configuration key %s", key)
     _enforce_lan_credential_state(app)
     await connect()
     coordinator = GenerationCoordinator()
@@ -227,6 +231,7 @@ app.add_middleware(
     SecurityMiddleware,
     lan_enabled=lambda: settings.host == "0.0.0.0",
     trusted_hosts=lambda: settings.trusted_hosts,
+    trusted_proxies=lambda: settings.trusted_proxies,
 )
 app.add_middleware(RequestIDMiddleware)
 
@@ -511,6 +516,7 @@ async def get_settings():
     ffmpeg_ok = bool(shutil.which(ffmpeg) or shutil.which("ffmpeg"))
     configured_host = _read_env_value("VOX_HOST", settings.host) or settings.host
     configured_trusted_hosts = _read_env_value("VOX_TRUSTED_HOSTS", settings.trusted_hosts) or ""
+    configured_trusted_proxies = _read_env_value("VOX_TRUSTED_PROXIES", settings.trusted_proxies) or ""
     configured_output_ttl_hours = _read_env_int("VOX_OUTPUT_TTL_HOURS", settings.output_ttl_hours)
     configured_max_voice_clip_duration_s = _read_env_int("VOX_MAX_VOICE_CLIP_DURATION_S", settings.max_voice_clip_duration_s)
     configured_default_max_chars = _read_env_int("VOX_DEFAULT_MAX_CHARS", settings.default_max_chars)
@@ -530,6 +536,9 @@ async def get_settings():
         "trusted_hosts": settings.trusted_hosts,
         "configured_trusted_hosts": configured_trusted_hosts,
         "trusted_hosts_restart_required": configured_trusted_hosts != settings.trusted_hosts,
+        "trusted_proxies": settings.trusted_proxies,
+        "configured_trusted_proxies": configured_trusted_proxies,
+        "trusted_proxies_restart_required": configured_trusted_proxies != settings.trusted_proxies,
         "port": settings.port,
         "output_dir": str(settings.output_dir.resolve()),
         "voice_dir": str(settings.voice_dir.resolve()),
@@ -593,6 +602,14 @@ async def patch_settings(patch: SettingsPatch):
         _write_env_value("VOX_TRUSTED_HOSTS", trusted_hosts)
         changed["trusted_hosts"] = trusted_hosts
 
+    if patch.trusted_proxies is not None:
+        try:
+            trusted_proxies = normalize_configured_proxies(patch.trusted_proxies)
+        except ValueError as error:
+            raise HTTPException(status_code=422, detail=str(error)) from error
+        _write_env_value("VOX_TRUSTED_PROXIES", trusted_proxies)
+        changed["trusted_proxies"] = trusted_proxies
+
     if patch.output_ttl_hours is not None:
         if patch.output_ttl_hours < 0 or patch.output_ttl_hours > 8760:
             raise HTTPException(status_code=422, detail="output_ttl_hours must be between 0 and 8760")
@@ -622,6 +639,7 @@ async def patch_settings(patch: SettingsPatch):
 
     configured_host = _read_env_value("VOX_HOST", settings.host) or settings.host
     configured_trusted_hosts = _read_env_value("VOX_TRUSTED_HOSTS", settings.trusted_hosts) or ""
+    configured_trusted_proxies = _read_env_value("VOX_TRUSTED_PROXIES", settings.trusted_proxies) or ""
     configured_output_ttl_hours = _read_env_int("VOX_OUTPUT_TTL_HOURS", settings.output_ttl_hours)
     configured_max_voice_clip_duration_s = _read_env_int("VOX_MAX_VOICE_CLIP_DURATION_S", settings.max_voice_clip_duration_s)
     configured_default_max_chars = _read_env_int("VOX_DEFAULT_MAX_CHARS", settings.default_max_chars)
@@ -634,6 +652,9 @@ async def patch_settings(patch: SettingsPatch):
         "trusted_hosts": settings.trusted_hosts,
         "configured_trusted_hosts": configured_trusted_hosts,
         "trusted_hosts_restart_required": configured_trusted_hosts != settings.trusted_hosts,
+        "trusted_proxies": settings.trusted_proxies,
+        "configured_trusted_proxies": configured_trusted_proxies,
+        "trusted_proxies_restart_required": configured_trusted_proxies != settings.trusted_proxies,
         "output_ttl_hours": settings.output_ttl_hours,
         "configured_output_ttl_hours": configured_output_ttl_hours,
         "output_ttl_restart_required": configured_output_ttl_hours != settings.output_ttl_hours,
