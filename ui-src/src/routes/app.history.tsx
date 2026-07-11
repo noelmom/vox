@@ -215,15 +215,15 @@ function HistoryPage() {
 
       {/* Retention banner */}
       {expiredCount > 0 && (
-        <div className="flex items-start gap-3 rounded-2xl border border-[oklch(0.9_0.05_85)] bg-[oklch(0.985_0.03_85)] px-4 py-3">
-          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[oklch(0.95_0.07_85)] text-[oklch(0.55_0.15_70)]">
+        <div className="flex items-start gap-3 rounded-2xl border border-[var(--warning)] bg-[var(--warning-soft)] px-4 py-3 text-foreground">
+          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-background/70 text-[var(--warning)]">
             <Clock className="h-4 w-4" />
           </span>
           <div className="min-w-0 flex-1 text-[13px] leading-snug">
             <div className="font-semibold text-foreground">
               Audio from {expiredCount} {expiredCount === 1 ? "clip" : "clips"} has been cleaned up
             </div>
-            <div className="text-muted-foreground">
+            <div className="text-foreground/70">
               We trim audio after 7 days to save space. The scripts are still here — regenerate any time with one click.
             </div>
           </div>
