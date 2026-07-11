@@ -324,8 +324,11 @@ async def scalar_docs():
 
 
 @app.get("/favicon.png", include_in_schema=False)
+@app.get("/vox-favicon.png", include_in_schema=False)
 async def favicon():
-    f = _UI_DIST / "favicon.png"
+    f = _UI_DIST / "vox-favicon.png"
+    if not f.exists():
+        f = _UI_DIST / "favicon.png"
     if f.exists():
         return FileResponse(str(f), media_type="image/png")
     return _spa()
