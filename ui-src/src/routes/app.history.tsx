@@ -366,7 +366,7 @@ function FilterChip({
               key={o}
               onClick={() => { onChange(o); setOpen(false); }}
               className={`w-full px-3 py-1.5 text-left text-[12.5px] hover:bg-muted ${
-                value === o ? "font-semibold text-[oklch(0.45_0.22_260)]" : "text-foreground/80"
+                value === o ? "font-semibold text-[var(--brand)]" : "text-foreground/80"
               }`}
             >
               {o}
@@ -473,7 +473,7 @@ function ClipCard({
         (failed
           ? "border-[oklch(0.9_0.05_25)]"
           : noAudio
-            ? "border-dashed border-[oklch(0.88_0.02_260)]"
+            ? "border-dashed border-[color-mix(in_oklch,var(--brand)_35%,var(--border))]"
             : "border-border")
       }
     >
@@ -624,7 +624,7 @@ function ClipCard({
 
         {/* Script */}
         <div className="relative rounded-xl border border-border bg-muted p-3.5 pl-10">
-          <Quote className="absolute left-3 top-3 h-4 w-4 text-[oklch(0.7_0.12_260)]" />
+          <Quote className="absolute left-3 top-3 h-4 w-4 text-[var(--brand)]" />
           <p
             className={
               "text-[13.5px] leading-relaxed text-foreground/85 " +

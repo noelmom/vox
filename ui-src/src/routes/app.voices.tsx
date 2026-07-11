@@ -269,7 +269,7 @@ function PresetSelect({ value, onChange }: { value: string; onChange: (name: str
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="mt-1.5 w-full rounded-lg border border-border bg-white px-3 py-2.5 text-[14px] text-foreground outline-none focus:border-[oklch(0.55_0.22_260)] capitalize"
+        className="mt-1.5 w-full rounded-lg border border-border bg-white px-3 py-2.5 text-[14px] text-foreground outline-none focus:border-[var(--brand)] capitalize"
       >
         <option value="">— Use model defaults —</option>
         {names.map((name) => (
@@ -390,9 +390,9 @@ function UploadPane({
         grad.addColorStop(0, BRAND);
         grad.addColorStop(0.55, BRAND_SECONDARY);
         grad.addColorStop(1, BRAND_WARM);
-        ctx.fillStyle = "oklch(0.98 0.01 260)";
+        ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue("--muted").trim();
         ctx.fillRect(0, 0, w, h);
-        ctx.fillStyle = "oklch(0.55 0.04 240 / 0.08)";
+        ctx.fillStyle = "color-mix(in oklch, var(--muted-foreground) 12%, transparent)";
         ctx.fillRect(0, 0, trimStartX, h);
         ctx.fillRect(trimEndX, 0, Math.max(0, w - trimEndX), h);
         for (let i = 0; i < count; i++) {
@@ -403,7 +403,7 @@ function UploadPane({
           const isPlayed = x < playedX;
           const inTrim = x >= trimStartX && x <= trimEndX;
           const inHover = hoverX != null && x >= playedX && x < hoverX;
-          ctx.fillStyle = inTrim ? (isPlayed ? grad : inHover ? BRAND : "oklch(0.55 0.04 240 / 0.3)") : "oklch(0.55 0.04 240 / 0.14)";
+          ctx.fillStyle = inTrim ? (isPlayed ? grad : inHover ? BRAND : "color-mix(in oklch, var(--muted-foreground) 35%, transparent)") : "color-mix(in oklch, var(--muted-foreground) 18%, transparent)";
           ctx.beginPath();
           ctx.moveTo(x + 1, y);
           ctx.arcTo(x + barW, y, x + barW, y + bh, 1);
@@ -489,7 +489,7 @@ function UploadPane({
           onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
           onDragLeave={() => setDragOver(false)}
           onDrop={(e) => { e.preventDefault(); setDragOver(false); const f = e.dataTransfer.files?.[0]; if (f) void pickFile(f); }}
-          className={"flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed px-6 py-10 text-center transition-colors " + (dragOver ? "border-[var(--brand)] bg-[var(--brand-soft)]" : file ? "border-[var(--brand-secondary)] bg-[color-mix(in oklch, var(--brand-soft) 55%, white)]" : "border-border bg-[oklch(0.985_0.005_260)] hover:bg-muted/40")}
+          className={"flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed px-6 py-10 text-center transition-colors " + (dragOver ? "border-[var(--brand)] bg-[var(--brand-soft)]" : file ? "border-[var(--brand-secondary)] bg-[color-mix(in_oklch,var(--brand-soft)_55%,var(--card))]" : "border-border bg-muted hover:bg-muted/70")}
         >
           <input ref={fileRef} type="file" accept=".wav,.m4a,.mp3,.aiff,.flac,.ogg,audio/*" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) void pickFile(f); }} />
           {file ? (
@@ -531,7 +531,7 @@ function UploadPane({
             <div className="relative min-w-0 flex-1 overflow-hidden rounded-md bg-muted">
               <div
                 className="pointer-events-none absolute inset-0 opacity-60"
-                style={{ background: "radial-gradient(120% 100% at 0% 50%, oklch(0.95 0.04 260 / 0.5), transparent 60%), radial-gradient(120% 100% at 100% 50%, oklch(0.95 0.04 25 / 0.45), transparent 60%)" }}
+                style={{ background: "radial-gradient(120% 100% at 0% 50%, color-mix(in oklch, var(--brand) 20%, transparent), transparent 60%), radial-gradient(120% 100% at 100% 50%, color-mix(in oklch, var(--brand-warm) 18%, transparent), transparent 60%)" }}
               />
               <canvas
                 ref={uploadCanvasRef}
@@ -762,7 +762,7 @@ function RecordPane({
       ctx.clearRect(0, 0, w, h);
 
       // centre line
-      ctx.strokeStyle = "oklch(0.55 0.03 260 / 0.35)";
+      ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue("--border").trim();
       ctx.lineWidth = 1;
       ctx.beginPath(); ctx.moveTo(0, h / 2); ctx.lineTo(w, h / 2); ctx.stroke();
 
@@ -813,7 +813,7 @@ function RecordPane({
           const amp = p[Math.floor((i / count) * p.length)] ?? 0;
           const bh  = Math.max(2, amp * h * 0.9);
           const x   = i * slot;
-          ctx.fillStyle = x < playedX ? brandGradient(ctx, w) : "oklch(0.75 0.04 260 / 0.35)";
+          ctx.fillStyle = x < playedX ? brandGradient(ctx, w) : getComputedStyle(document.documentElement).getPropertyValue("--muted-foreground").trim();
           roundedRect(ctx, x, (h - bh) / 2, barW, bh, 1);
           ctx.fill();
         }
@@ -1093,7 +1093,7 @@ function RecordPane({
       <div className="relative mt-5 overflow-hidden rounded-xl border border-border bg-muted">
         <div
           className="pointer-events-none absolute inset-0 opacity-60"
-          style={{ background: "radial-gradient(120% 100% at 0% 50%, oklch(0.95 0.04 260 / 0.55), transparent 60%), radial-gradient(120% 100% at 100% 50%, oklch(0.95 0.04 25 / 0.5), transparent 60%)" }}
+          style={{ background: "radial-gradient(120% 100% at 0% 50%, color-mix(in oklch, var(--brand) 20%, transparent), transparent 60%), radial-gradient(120% 100% at 100% 50%, color-mix(in oklch, var(--brand-warm) 18%, transparent), transparent 60%)" }}
         />
         <canvas
           ref={canvasRef}
@@ -1133,7 +1133,7 @@ function RecordPane({
                 background: recordingState === "recording"
                   ? "linear-gradient(135deg, var(--brand-warm), oklch(0.5 0.22 15))"
                   : "linear-gradient(135deg, var(--brand), var(--brand-secondary), oklch(0.6 0.22 25))",
-                boxShadow: "0 16px 36px -14px oklch(0.55 0.22 280 / 0.55), inset 0 1px 0 oklch(1 0 0 / 0.25)",
+                boxShadow: "0 16px 36px -14px color-mix(in oklch, var(--brand) 45%, transparent), inset 0 1px 0 color-mix(in oklch, var(--foreground) 10%, transparent)",
               }}
             >
               <span className="relative flex h-10 w-10 items-center justify-center rounded-full bg-white/15 backdrop-blur">
@@ -1173,7 +1173,7 @@ function RecordPane({
               disabled={!recordedBlob}
               className="inline-flex h-11 items-center gap-2 rounded-full border border-border bg-white px-4 text-[13px] font-semibold text-foreground/80 hover:bg-muted disabled:opacity-50"
             >
-              <Check className="h-3.5 w-3.5 text-[oklch(0.55_0.22_260)]" /> Save as Profile
+              <Check className="h-3.5 w-3.5 text-[var(--brand)]" /> Save as Profile
             </button>
 
             {/* Discard */}
@@ -1201,11 +1201,11 @@ function RecordPane({
         <div className="mt-5 grid grid-cols-1 gap-3 rounded-xl border border-border bg-white/60 p-4 backdrop-blur sm:grid-cols-2">
           <div>
             <label className="text-[13px] font-semibold text-foreground">Voice name <span className="text-[oklch(0.55_0.22_25)]">*</span></label>
-            <input value={voiceName} onChange={(e) => setVoiceName(e.target.value)} placeholder="e.g. My Narrator" className="mt-1.5 w-full rounded-lg border border-border bg-white px-3 py-2.5 text-[14px] outline-none placeholder:text-muted-foreground focus:border-[oklch(0.55_0.22_260)]" />
+            <input value={voiceName} onChange={(e) => setVoiceName(e.target.value)} placeholder="e.g. My Narrator" className="mt-1.5 w-full rounded-lg border border-border bg-white px-3 py-2.5 text-[14px] outline-none placeholder:text-muted-foreground focus:border-[var(--brand)]" />
           </div>
           <div>
             <label className="text-[13px] font-semibold text-foreground">Tags <span className="font-normal text-muted-foreground">(optional)</span></label>
-            <input value={tags} onChange={(e) => setTags(e.target.value)} placeholder="narration, calm, male" className="mt-1.5 w-full rounded-lg border border-border bg-white px-3 py-2.5 text-[14px] outline-none placeholder:text-muted-foreground focus:border-[oklch(0.55_0.22_260)]" />
+            <input value={tags} onChange={(e) => setTags(e.target.value)} placeholder="narration, calm, male" className="mt-1.5 w-full rounded-lg border border-border bg-white px-3 py-2.5 text-[14px] outline-none placeholder:text-muted-foreground focus:border-[var(--brand)]" />
           </div>
           <div className="col-span-full">
             <PresetSelect value={selectedPreset} onChange={setSelectedPreset} />
@@ -1247,7 +1247,7 @@ function RecordModeSwitch({ mode, hasRecording, onChange }: { mode: "record" | "
           background: mode === "record"
             ? "linear-gradient(135deg, var(--brand-warm), oklch(0.5 0.22 15))"
             : "linear-gradient(135deg, var(--brand), var(--brand-secondary))",
-          boxShadow: "0 6px 16px -8px oklch(0.5 0.2 280 / 0.6)",
+          boxShadow: "0 6px 16px -8px color-mix(in oklch, var(--brand) 50%, transparent)",
         }}
       />
       <button role="tab" aria-selected={mode === "record"} onClick={() => onChange("record")}
@@ -1460,7 +1460,7 @@ function ProfileCard({
           const isPlayed = audioStatus === "ready" && x < playedX;
           const inHover = audioStatus === "ready" && hoverX != null && x >= playedX && x < hoverX;
           ctx.globalAlpha = audioStatus === "loading" ? 0.22 : 1;
-          ctx.fillStyle = isPlayed ? grad : inHover ? BRAND : "oklch(0.55 0.04 240 / 0.3)";
+          ctx.fillStyle = isPlayed ? grad : inHover ? BRAND : getComputedStyle(document.documentElement).getPropertyValue("--muted-foreground").trim();
           ctx.globalAlpha = 1;
           ctx.beginPath();
           ctx.moveTo(x + 1, y); ctx.arcTo(x + barW, y, x + barW, y + bh, 1);
@@ -1620,10 +1620,10 @@ function ProfileCard({
           className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-white transition-transform hover:scale-105 active:scale-95"
           style={{
             background: "linear-gradient(135deg, var(--brand), var(--brand-secondary), oklch(0.6 0.22 25))",
-            boxShadow: "0 8px 18px -10px oklch(0.55 0.22 280 / 0.6), inset 0 1px 0 oklch(1 0 0 / 0.3)",
+            boxShadow: "0 8px 18px -10px color-mix(in oklch, var(--brand) 48%, transparent), inset 0 1px 0 color-mix(in oklch, var(--foreground) 10%, transparent)",
           }}
         >
-          {playing && <span className="absolute inset-0 -m-0.5 animate-ping rounded-full border-2 border-[oklch(0.6_0.22_280)]/30" />}
+          {playing && <span className="absolute inset-0 -m-0.5 animate-ping rounded-full border-2 border-[var(--brand)]/30" />}
           {audioStatus === "loading" ? (
             <Loader2 className="h-3.5 w-3.5 animate-spin" />
           ) : playing ? (
@@ -1640,7 +1640,7 @@ function ProfileCard({
         <div className="relative min-w-0 flex-1 overflow-hidden rounded-md bg-muted">
           <div
             className="pointer-events-none absolute inset-0 opacity-60"
-            style={{ background: "radial-gradient(120% 100% at 0% 50%, oklch(0.95 0.04 260 / 0.5), transparent 60%), radial-gradient(120% 100% at 100% 50%, oklch(0.95 0.04 25 / 0.45), transparent 60%)" }}
+            style={{ background: "radial-gradient(120% 100% at 0% 50%, color-mix(in oklch, var(--brand) 20%, transparent), transparent 60%), radial-gradient(120% 100% at 100% 50%, color-mix(in oklch, var(--brand-warm) 18%, transparent), transparent 60%)" }}
           />
           <canvas
             ref={canvasRef}
@@ -1780,24 +1780,24 @@ function EditForm({
   };
 
   return (
-    <div className="mt-4 rounded-xl border border-[oklch(0.88_0.06_260)] bg-[oklch(0.98_0.015_260)] p-4">
+    <div className="mt-4 rounded-xl border border-[color-mix(in_oklch,var(--brand)_35%,var(--border))] bg-[var(--brand-soft)] p-4">
       <div className="mb-3 flex items-center justify-between">
-        <span className="text-[12.5px] font-bold uppercase tracking-wide text-[oklch(0.55_0.22_260)]">Edit Profile</span>
+        <span className="text-[12.5px] font-bold uppercase tracking-wide text-[var(--brand)]">Edit Profile</span>
         <button onClick={onCancel} className="text-foreground/40 hover:text-foreground"><X className="h-4 w-4" /></button>
       </div>
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <div>
           <label className="text-[12px] font-semibold text-foreground">Display name</label>
-          <input value={label} onChange={(e) => setLabel(e.target.value)} className="mt-1 w-full rounded-lg border border-border bg-white px-3 py-2 text-[13.5px] outline-none focus:border-[oklch(0.55_0.22_260)]" />
+          <input value={label} onChange={(e) => setLabel(e.target.value)} className="mt-1 w-full rounded-lg border border-border bg-white px-3 py-2 text-[13.5px] outline-none focus:border-[var(--brand)]" />
         </div>
         <div>
           <label className="text-[12px] font-semibold text-foreground">Tags <span className="font-normal text-muted-foreground">(comma-separated)</span></label>
-          <input value={tags} onChange={(e) => setTags(e.target.value)} placeholder="narration, calm, male" className="mt-1 w-full rounded-lg border border-border bg-white px-3 py-2 text-[13.5px] outline-none focus:border-[oklch(0.55_0.22_260)]" />
+          <input value={tags} onChange={(e) => setTags(e.target.value)} placeholder="narration, calm, male" className="mt-1 w-full rounded-lg border border-border bg-white px-3 py-2 text-[13.5px] outline-none focus:border-[var(--brand)]" />
         </div>
         <div className="sm:col-span-2">
           <label className="text-[12px] font-semibold text-foreground">Description</label>
-          <input value={description} onChange={(e) => setDescription(e.target.value)} placeholder="e.g. Calm narrator for long-form content" className="mt-1 w-full rounded-lg border border-border bg-white px-3 py-2 text-[13.5px] outline-none focus:border-[oklch(0.55_0.22_260)]" />
+          <input value={description} onChange={(e) => setDescription(e.target.value)} placeholder="e.g. Calm narrator for long-form content" className="mt-1 w-full rounded-lg border border-border bg-white px-3 py-2 text-[13.5px] outline-none focus:border-[var(--brand)]" />
         </div>
 
         <div className="sm:col-span-2">
@@ -1812,7 +1812,7 @@ function EditForm({
           <select
             value={selectedPreset}
             onChange={(e) => setSelectedPreset(e.target.value)}
-            className="mt-1 w-full rounded-lg border border-border bg-white px-3 py-2 text-[13.5px] text-foreground capitalize outline-none focus:border-[oklch(0.55_0.22_260)]"
+            className="mt-1 w-full rounded-lg border border-border bg-white px-3 py-2 text-[13.5px] text-foreground capitalize outline-none focus:border-[var(--brand)]"
           >
             <option value="">— No change —</option>
             {Object.keys(presets).map((name) => (
@@ -1830,7 +1830,7 @@ function EditForm({
           <div className="mt-1 flex items-center gap-3">
             {iconPreview ? (
               <div
-                className="group relative h-12 w-12 shrink-0 cursor-pointer overflow-hidden rounded-full border border-border focus:outline-none focus:ring-2 focus:ring-[oklch(0.55_0.22_260)] focus:ring-offset-1"
+                className="group relative h-12 w-12 shrink-0 cursor-pointer overflow-hidden rounded-full border border-border focus:outline-none focus:ring-2 focus:ring-[var(--brand)] focus:ring-offset-1"
                 tabIndex={0}
                 onPaste={handleIconPaste}
                 onContextMenu={(e) => e.currentTarget.focus()}
@@ -1847,7 +1847,7 @@ function EditForm({
               </div>
             ) : (
               <div
-                className="flex h-12 w-12 shrink-0 cursor-pointer flex-col items-center justify-center rounded-full border border-dashed border-border bg-white text-foreground/30 transition-colors hover:border-[oklch(0.55_0.22_260)] hover:text-[oklch(0.55_0.22_260)] focus:outline-none focus:ring-2 focus:ring-[oklch(0.55_0.22_260)] focus:ring-offset-1"
+                className="flex h-12 w-12 shrink-0 cursor-pointer flex-col items-center justify-center rounded-full border border-dashed border-border bg-white text-foreground/30 transition-colors hover:border-[var(--brand)] hover:text-[var(--brand)] focus:outline-none focus:ring-2 focus:ring-[var(--brand)] focus:ring-offset-1"
                 tabIndex={0}
                 onPaste={handleIconPaste}
                 onContextMenu={(e) => e.currentTarget.focus()}

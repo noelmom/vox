@@ -289,7 +289,7 @@ function QuickPlayerWaveform({
     >
       <div
         className="pointer-events-none absolute inset-0 opacity-60"
-        style={{ background: "radial-gradient(120% 100% at 0% 50%, oklch(0.95 0.04 260 / 0.5), transparent 60%), radial-gradient(120% 100% at 100% 50%, oklch(0.95 0.04 25 / 0.45), transparent 60%)" }}
+        style={{ background: "radial-gradient(120% 100% at 0% 50%, color-mix(in oklch, var(--brand) 20%, transparent), transparent 60%), radial-gradient(120% 100% at 100% 50%, color-mix(in oklch, var(--brand-warm) 18%, transparent), transparent 60%)" }}
       />
       <svg
         aria-hidden="true"
@@ -322,7 +322,7 @@ function QuickPlayerWaveform({
               width={barWidth}
               height={height}
               rx="1"
-              fill={(index + 1) / peaks.length <= progressRatio ? "url(#quick-player-wave-gradient)" : "oklch(0.55 0.04 240 / 0.3)"}
+              fill={(index + 1) / peaks.length <= progressRatio ? "url(#quick-player-wave-gradient)" : "color-mix(in oklch, var(--muted-foreground) 35%, transparent)"}
             />
           );
         })}

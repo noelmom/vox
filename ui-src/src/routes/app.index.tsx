@@ -121,7 +121,7 @@ const ACCENT_BG: Record<Voice["accent"], string> = {
   amber: "oklch(0.72 0.16 70)",
   rose: "oklch(0.62 0.20 15)",
   violet: "oklch(0.55 0.20 300)",
-  slate: "oklch(0.16 0.02 240)",
+  slate: "var(--muted)",
 };
 
 const VOICE_FILTERS: ("All" | VoiceCategory)[] = ["All", "Default", "Demo", "Narration", "Conversational", "Character", "Custom"];
@@ -1156,7 +1156,7 @@ function GeneratePage() {
                 {filteredJobs.length > visibleCount && (
                   <button
                     onClick={() => setVisibleCount((n) => n + 3)}
-                    className="w-full rounded-xl border border-dashed border-border py-3 text-[13px] font-medium text-foreground/50 transition-colors hover:border-[oklch(0.55_0.22_260/0.4)] hover:bg-[oklch(0.98_0.01_260)] hover:text-[oklch(0.45_0.22_260)]"
+                    className="w-full rounded-xl border border-dashed border-border py-3 text-[13px] font-medium text-foreground/50 transition-colors hover:border-[var(--brand)] hover:bg-[var(--brand-soft)] hover:text-[var(--brand)]"
                   >
                     Load {Math.min(3, filteredJobs.length - visibleCount)} more
                     <span className="ml-1.5 text-foreground/35">({filteredJobs.length - visibleCount} remaining)</span>
@@ -1168,7 +1168,7 @@ function GeneratePage() {
 
           <div className="mt-5 flex items-center justify-between border-t border-border pt-4 text-[12px] text-foreground/65">
             <span>{filteredJobs.length} recording{filteredJobs.length !== 1 ? "s" : ""}</span>
-            <Link className="inline-flex items-center gap-1 font-semibold text-[oklch(0.55_0.22_260)] hover:underline" to="/app/history">
+            <Link className="inline-flex items-center gap-1 font-semibold text-[var(--brand)] hover:underline" to="/app/history">
               View all history <ChevronRight className="h-3.5 w-3.5" />
             </Link>
           </div>
@@ -1249,7 +1249,7 @@ function GeneratePage() {
                     </span>
                   </span>
                   {isDirty && (
-                    <span className="shrink-0 rounded-full bg-[oklch(0.55_0.22_260)] px-1.5 py-0.5 text-[10px] font-bold text-white">
+                    <span className="shrink-0 rounded-full bg-[var(--brand)] px-1.5 py-0.5 text-[10px] font-bold text-white">
                       Modified
                     </span>
                   )}
@@ -1266,9 +1266,9 @@ function GeneratePage() {
                     onSelect={() => handleToneSelect(t)}
                     className="flex cursor-pointer items-center gap-2 rounded-lg px-2.5 py-2 text-[13px]"
                   >
-                    <AudioLines className="h-3.5 w-3.5 text-[oklch(0.55_0.22_260)]" />
+                    <AudioLines className="h-3.5 w-3.5 text-[var(--brand)]" />
                     <span className="min-w-0 flex-1 truncate font-medium">{t}</span>
-                    {tone === t && <Check className="h-3.5 w-3.5 text-[oklch(0.55_0.22_260)]" />}
+                    {tone === t && <Check className="h-3.5 w-3.5 text-[var(--brand)]" />}
                   </DropdownMenuItem>
                 ))}
 
@@ -1284,9 +1284,9 @@ function GeneratePage() {
                         onSelect={() => handleToneSelect(t)}
                         className="flex cursor-pointer items-center gap-2 rounded-lg px-2.5 py-2 text-[13px]"
                       >
-                        <Sparkles className="h-3.5 w-3.5 text-[oklch(0.55_0.22_260)]" />
+                        <Sparkles className="h-3.5 w-3.5 text-[var(--brand)]" />
                         <span className="min-w-0 flex-1 truncate font-medium">{t}</span>
-                        {tone === t && <Check className="h-3.5 w-3.5 text-[oklch(0.55_0.22_260)]" />}
+                        {tone === t && <Check className="h-3.5 w-3.5 text-[var(--brand)]" />}
                       </DropdownMenuItem>
                     ))}
                   </>
@@ -1295,7 +1295,7 @@ function GeneratePage() {
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
                   onSelect={() => handleToneSelect("Custom")}
-                  className="flex cursor-pointer items-center gap-2 rounded-lg px-2.5 py-2 text-[13px] text-[oklch(0.55_0.22_260)]"
+                  className="flex cursor-pointer items-center gap-2 rounded-lg px-2.5 py-2 text-[13px] text-[var(--brand)]"
                 >
                   <Plus className="h-3.5 w-3.5" />
                   <span className="min-w-0 flex-1 font-semibold">Create custom tone</span>
@@ -1321,7 +1321,7 @@ function GeneratePage() {
             <span className="inline-flex items-center gap-2">
               Advanced Settings
               {isDirty && (
-                <span className="rounded-full bg-[oklch(0.55_0.22_260)] px-1.5 py-0.5 text-[10px] font-bold text-white">
+                <span className="rounded-full bg-[var(--brand)] px-1.5 py-0.5 text-[10px] font-bold text-white">
                   Modified
                 </span>
               )}
@@ -1339,7 +1339,7 @@ function GeneratePage() {
               className="mt-3 rounded-xl border border-border bg-[var(--background)] p-4"
               style={{
                 boxShadow:
-                  "inset 0 1px 0 oklch(1 0 0 / 0.6), 0 1px 2px oklch(0.16 0.02 260 / 0.04)",
+                  "inset 0 1px 0 color-mix(in oklch, var(--foreground) 8%, transparent), 0 1px 2px rgb(0 0 0 / 0.08)",
               }}
             >
               <div className="mb-4 border-b border-border pb-4">
@@ -1366,7 +1366,7 @@ function GeneratePage() {
                         className={
                           "flex flex-col items-start rounded-lg border px-2.5 py-1.5 text-left transition-all " +
                           (active
-                            ? "border-[oklch(0.55_0.22_260)] bg-[oklch(0.96_0.04_260)] text-[oklch(0.45_0.22_260)] shadow-[inset_0_0_0_1px_oklch(0.55_0.22_260/0.25)]"
+                            ? "border-[var(--brand)] bg-[var(--brand-soft)] text-[var(--brand)] shadow-[inset_0_0_0_1px_color-mix(in_oklch,var(--brand)_25%,transparent)]"
                             : "border-border bg-white text-foreground/75 hover:bg-muted")
                         }
                       >
@@ -1404,7 +1404,7 @@ function GeneratePage() {
                           <button
                             onClick={handleUpdatePreset}
                             disabled={editingPreset || !activeToneKey}
-                            className="inline-flex w-full items-center justify-center gap-1.5 whitespace-nowrap rounded-lg bg-[oklch(0.55_0.22_260)] px-3 py-2 text-[12px] font-bold text-white transition-all hover:brightness-110 disabled:opacity-60"
+                            className="inline-flex w-full items-center justify-center gap-1.5 whitespace-nowrap rounded-lg bg-[var(--brand)] px-3 py-2 text-[12px] font-bold text-white transition-all hover:brightness-110 disabled:opacity-60"
                           >
                             {editingPreset ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
                             Update
@@ -1420,7 +1420,7 @@ function GeneratePage() {
                       ) : null}
                       <button
                         onClick={handleEditPresetOpen}
-                        className="group inline-flex w-full items-center justify-center gap-1.5 whitespace-nowrap rounded-lg border border-border bg-white px-3 py-2 text-[12px] font-semibold text-foreground/70 transition-all hover:border-[oklch(0.55_0.22_260/0.4)] hover:bg-[oklch(0.98_0.02_260)] hover:text-[oklch(0.45_0.22_260)]"
+                        className="group inline-flex w-full items-center justify-center gap-1.5 whitespace-nowrap rounded-lg border border-border bg-white px-3 py-2 text-[12px] font-semibold text-foreground/70 transition-all hover:border-[var(--brand)] hover:bg-[var(--brand-soft)] hover:text-[var(--brand)]"
                       >
                         <Pencil className="h-3.5 w-3.5 transition-transform group-hover:-rotate-6" />
                         Edit
@@ -1452,7 +1452,7 @@ function GeneratePage() {
                   {tone === "Custom" && (
                     <button
                       onClick={() => { setSavePresetOpen((v) => !v); setSavePresetError(""); }}
-                      className="inline-flex w-full items-center justify-center gap-1.5 rounded-lg bg-[oklch(0.55_0.22_260)] px-3 py-2 text-[12px] font-bold text-white transition-all hover:brightness-110 sm:col-span-2"
+                      className="inline-flex w-full items-center justify-center gap-1.5 rounded-lg bg-[var(--brand)] px-3 py-2 text-[12px] font-bold text-white transition-all hover:brightness-110 sm:col-span-2"
                       style={{ boxShadow: "var(--shadow-btn)" }}
                     >
                       <Sparkles className="h-3.5 w-3.5" />
@@ -1463,7 +1463,7 @@ function GeneratePage() {
 
                 {/* Edit panel for user presets */}
                 {isUserPreset && editPresetOpen && (
-                  <div className="mt-3 rounded-xl border border-[oklch(0.55_0.22_260/0.25)] bg-[var(--brand-soft)] p-3">
+                  <div className="mt-3 rounded-xl border border-[color-mix(in_oklch,var(--brand)_35%,var(--border))] bg-[var(--brand-soft)] p-3">
                     <div className="mb-2 flex items-start justify-between gap-2">
                       <p className="text-[11.5px] font-semibold text-foreground/70">
                         Rename or update settings — current slider values will be saved.
@@ -1484,12 +1484,12 @@ function GeneratePage() {
                         onKeyDown={(e) => { if (e.key === "Enter") handleEditPreset(); if (e.key === "Escape") setEditPresetOpen(false); }}
                         placeholder="Preset name"
                         maxLength={40}
-                        className="flex-1 rounded-lg border border-border bg-white px-3 py-2 text-[12px] outline-none focus:border-[oklch(0.55_0.22_260)] focus:ring-2 focus:ring-[oklch(0.55_0.22_260/0.12)]"
+                        className="flex-1 rounded-lg border border-border bg-white px-3 py-2 text-[12px] outline-none focus:border-[var(--brand)] focus:ring-2 focus:ring-[color-mix(in_oklch,var(--brand)_18%,transparent)]"
                       />
                       <button
                         onClick={handleEditPreset}
                         disabled={editingPreset || !editPresetNameInput.trim()}
-                        className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-[oklch(0.55_0.22_260)] px-3 py-2 text-[12px] font-bold text-white transition-all hover:brightness-110 disabled:opacity-60"
+                        className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-[var(--brand)] px-3 py-2 text-[12px] font-bold text-white transition-all hover:brightness-110 disabled:opacity-60"
                       >
                         {editingPreset ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
                         Update
@@ -1502,7 +1502,7 @@ function GeneratePage() {
                 )}
 
                 {tone === "Custom" && savePresetOpen && (
-                  <div className="mt-3 rounded-xl border border-[oklch(0.55_0.22_260/0.25)] bg-[var(--brand-soft)] p-3">
+                  <div className="mt-3 rounded-xl border border-[color-mix(in_oklch,var(--brand)_35%,var(--border))] bg-[var(--brand-soft)] p-3">
                     <p className="mb-2 text-[11.5px] font-semibold text-foreground/70">
                       Name this preset — it will appear in the Tone chips above.
                     </p>
@@ -1520,16 +1520,16 @@ function GeneratePage() {
                             onKeyDown={(e) => { if (e.key === "Enter") handleSavePreset(); if (e.key === "Escape") setSavePresetOpen(false); }}
                             placeholder="e.g. My Deep Voice"
                             maxLength={40}
-                            className="w-full rounded-lg border border-border bg-white px-3 py-2 text-[12px] outline-none focus:border-[oklch(0.55_0.22_260)] focus:ring-2 focus:ring-[oklch(0.55_0.22_260/0.12)]"
+                            className="w-full rounded-lg border border-border bg-white px-3 py-2 text-[12px] outline-none focus:border-[var(--brand)] focus:ring-2 focus:ring-[color-mix(in_oklch,var(--brand)_18%,transparent)]"
                           />
                           {nameError && (
-                            <p className="text-[11px] text-[oklch(0.5_0.15_260)]">{nameError}</p>
+                            <p className="text-[11px] text-[var(--brand)]">{nameError}</p>
                           )}
                           <div className="flex gap-2">
                             <button
                               onClick={handleSavePreset}
                               disabled={savingPreset || !trimmed}
-                              className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-[oklch(0.55_0.22_260)] px-3 py-2 text-[12px] font-bold text-white transition-all hover:brightness-110 disabled:opacity-60"
+                              className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-[var(--brand)] px-3 py-2 text-[12px] font-bold text-white transition-all hover:brightness-110 disabled:opacity-60"
                             >
                               {savingPreset ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
                               Save
@@ -1590,7 +1590,7 @@ function InfoTip({ text }: { text: string }) {
       <span
         role="tooltip"
         className="pointer-events-none absolute left-1/2 top-full z-50 mt-1.5 w-60 -translate-x-1/2 rounded-lg border border-border bg-white px-3 py-2 text-[11px] font-medium leading-snug text-foreground/80 opacity-0 shadow-lg transition-opacity duration-150 group-hover/tip:opacity-100"
-        style={{ boxShadow: "0 6px 24px oklch(0.16 0.02 260 / 0.12)" }}
+        style={{ boxShadow: "0 6px 24px rgb(0 0 0 / 0.22)" }}
       >
         {text}
       </span>
@@ -1685,11 +1685,11 @@ function VoicePicker({
       className="absolute left-0 right-0 top-[calc(100%+8px)] z-30 overflow-hidden rounded-2xl border border-border bg-white"
       style={{
         boxShadow:
-          "0 24px 48px -16px oklch(0.16 0.02 260 / 0.18), 0 4px 12px -4px oklch(0.16 0.02 260 / 0.08)",
+          "0 24px 48px -16px rgb(0 0 0 / 0.34), 0 4px 12px -4px rgb(0 0 0 / 0.16)",
       }}
     >
       <div className="border-b border-border p-3">
-        <div className="flex items-center rounded-lg border border-border bg-[var(--background)] px-3 py-2 focus-within:border-[oklch(0.55_0.22_260)] focus-within:ring-4 focus-within:ring-[oklch(0.55_0.22_260/0.08)]">
+        <div className="flex items-center rounded-lg border border-border bg-[var(--background)] px-3 py-2 focus-within:border-[var(--brand)] focus-within:ring-4 focus-within:ring-[color-mix(in_oklch,var(--brand)_12%,transparent)]">
           <Search className="h-3.5 w-3.5 text-foreground/40" />
           <input
             ref={inputRef}
@@ -1718,7 +1718,7 @@ function VoicePicker({
                 onClick={() => setFilter(f)}
                 className={
                   active
-                    ? "rounded-md bg-[oklch(0.55_0.22_260)] px-2 py-1 text-[11px] font-bold text-white"
+                    ? "rounded-md bg-[var(--brand)] px-2 py-1 text-[11px] font-bold text-white"
                     : "rounded-md border border-border bg-white px-2 py-1 text-[11px] font-semibold text-foreground/70 transition-colors hover:bg-muted"
                 }
               >
@@ -1757,7 +1757,7 @@ function VoicePicker({
                         className={
                           "truncate text-[13px] " +
                           (isSelected
-                            ? "font-bold text-[oklch(0.55_0.22_260)]"
+                            ? "font-bold text-[var(--brand)]"
                             : "font-semibold text-foreground")
                         }
                       >
@@ -1792,7 +1792,7 @@ function VoicePicker({
                   <Star className={"h-4 w-4 " + (isFav ? "fill-current" : "")} />
                 </button>
                 {isSelected && (
-                  <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[oklch(0.55_0.22_260)] text-white">
+                  <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[var(--brand)] text-white">
                     <Check className="h-3 w-3" strokeWidth={3} />
                   </span>
                 )}
@@ -1804,7 +1804,7 @@ function VoicePicker({
 
       <Link
         to="/app/voices"
-        className="flex items-center justify-between border-t border-border bg-[var(--background)] px-4 py-3 text-[12px] font-semibold text-[oklch(0.55_0.22_260)] transition-colors hover:bg-[var(--brand-soft)]"
+        className="flex items-center justify-between border-t border-border bg-[var(--background)] px-4 py-3 text-[12px] font-semibold text-[var(--brand)] transition-colors hover:bg-[var(--brand-soft)]"
       >
         <span className="inline-flex items-center gap-1.5">
           <Plus className="h-3.5 w-3.5" />
@@ -1836,7 +1836,7 @@ function FormatTile({
         "group relative flex items-center gap-3 overflow-hidden rounded-xl px-3 py-2.5 text-left transition-all " +
         (active
           ? "text-white"
-          : "border border-border bg-white text-foreground hover:-translate-y-0.5 hover:border-[oklch(0.55_0.22_260/0.35)] hover:shadow-[0_8px_18px_-12px_oklch(0.55_0.22_260/0.35)]")
+          : "border border-border bg-white text-foreground hover:border-[var(--brand)]")
       }
       style={
         active
@@ -1854,7 +1854,7 @@ function FormatTile({
           "flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition-colors " +
           (active
             ? "bg-white/15 text-white ring-1 ring-inset ring-white/25"
-            : "bg-[oklch(0.96_0.02_260)] text-[oklch(0.55_0.22_260)] group-hover:bg-[oklch(0.94_0.04_260)]")
+            : "bg-[var(--brand-soft)] text-[var(--brand)] group-hover:bg-[var(--brand-soft)]")
         }
       >
         {isMp3 ? <AudioLines className="h-4 w-4" /> : <Disc3 className="h-4 w-4" />}
@@ -1915,7 +1915,7 @@ function AdvancedSlider({
       <div className="relative flex h-6 items-center">
         <div className="relative h-1 w-full rounded-full bg-muted">
           <div
-            className="absolute left-0 top-0 h-full rounded-full bg-[oklch(0.55_0.22_260)]"
+            className="absolute left-0 top-0 h-full rounded-full bg-[var(--brand)]"
             style={{ width: `${pct}%` }}
           />
         </div>
@@ -1926,7 +1926,7 @@ function AdvancedSlider({
           step={step}
           value={value}
           onChange={(e) => onChange(Number(e.target.value))}
-          className="absolute inset-0 h-6 w-full cursor-pointer appearance-none bg-transparent [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-[oklch(0.55_0.22_260)] [&::-webkit-slider-thumb]:bg-white [&::-webkit-slider-thumb]:shadow [&::-moz-range-thumb]:h-4 [&::-moz-range-thumb]:w-4 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-2 [&::-moz-range-thumb]:border-[oklch(0.55_0.22_260)] [&::-moz-range-thumb]:bg-white"
+          className="absolute inset-0 h-6 w-full cursor-pointer appearance-none bg-transparent [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-[var(--brand)] [&::-webkit-slider-thumb]:bg-card [&::-webkit-slider-thumb]:shadow [&::-moz-range-thumb]:h-4 [&::-moz-range-thumb]:w-4 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-2 [&::-moz-range-thumb]:border-[var(--brand)] [&::-moz-range-thumb]:bg-card"
         />
       </div>
       <div className="rounded-md border border-border bg-white px-2 py-1 text-center text-[12px] font-semibold tabular-nums text-foreground">
@@ -2184,7 +2184,7 @@ function GenerationErrorState({
             <button
               type="button"
               onClick={onRetry}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-[oklch(0.55_0.22_260)] px-3 py-2 text-[12px] font-bold text-white transition-all hover:brightness-110"
+              className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--brand)] px-3 py-2 text-[12px] font-bold text-white transition-all hover:brightness-110"
             >
               <RefreshCw className="h-3.5 w-3.5" />
               Retry
@@ -2304,7 +2304,7 @@ function JobRow({
           className="group relative flex h-12 w-12 shrink-0 items-center justify-center rounded-full text-white transition-transform hover:scale-105 active:scale-95 disabled:cursor-not-allowed disabled:opacity-35"
           style={{ background: BRAND_GRADIENT, boxShadow: "var(--shadow-btn)" }}
         >
-          {playing && <span className="absolute inset-0 -m-1 animate-ping rounded-full border-2 border-[oklch(0.6_0.22_280)]/30" />}
+          {playing && <span className="absolute inset-0 -m-1 animate-ping rounded-full border-2 border-[var(--brand)]/30" />}
           {fetchStatus === "loading" ? <Loader2 className="h-4 w-4 animate-spin" />
             : playing ? <Pause className="h-4 w-4" fill="currentColor" />
             : <Play className="ml-0.5 h-4 w-4" fill="currentColor" />}
@@ -2312,7 +2312,7 @@ function JobRow({
 
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-1.5">
-            <Disc3 className="h-3.5 w-3.5 shrink-0 text-[oklch(0.55_0.22_260)]" />
+            <Disc3 className="h-3.5 w-3.5 shrink-0 text-[var(--brand)]" />
             <div className={`truncate text-[14px] font-bold ${fetchStatus === "expired" ? "text-foreground/45" : "text-foreground"}`}>{titlePreview}</div>
             {isLatest && (
               <span className="rounded-full bg-[var(--brand-soft)] px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-[var(--brand)]">
@@ -2536,7 +2536,7 @@ function VoicePreviewPlayer({ voiceId }: { voiceId: string }) {
           const isPlayed = !isGeneric && x < playedX;
           const inHover = !isGeneric && hoverX != null && x >= playedX && x < hoverX;
           ctx.globalAlpha = isGeneric ? 0.35 : 1;
-          ctx.fillStyle = isPlayed ? grad : inHover ? BRAND : "oklch(0.55 0.04 260 / 0.3)";
+          ctx.fillStyle = isPlayed ? grad : inHover ? BRAND : getComputedStyle(document.documentElement).getPropertyValue("--muted-foreground").trim();
           ctx.globalAlpha = 1;
           ctx.beginPath();
           ctx.moveTo(x + 1, y);
@@ -2584,10 +2584,10 @@ function VoicePreviewPlayer({ voiceId }: { voiceId: string }) {
           className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-white transition-transform hover:scale-105 active:scale-95 disabled:cursor-default disabled:opacity-70"
           style={{
             background: "linear-gradient(135deg, var(--brand), var(--brand-secondary), oklch(0.6 0.22 25))",
-            boxShadow: "0 8px 18px -10px oklch(0.55 0.22 280 / 0.6), inset 0 1px 0 oklch(1 0 0 / 0.3)",
+            boxShadow: "0 8px 18px -10px color-mix(in oklch, var(--brand) 48%, transparent), inset 0 1px 0 color-mix(in oklch, var(--foreground) 10%, transparent)",
           }}
         >
-          {playing && <span className="absolute inset-0 -m-0.5 animate-ping rounded-full border-2 border-[oklch(0.6_0.22_280)]/30" />}
+          {playing && <span className="absolute inset-0 -m-0.5 animate-ping rounded-full border-2 border-[var(--brand)]/30" />}
           {playing ? <Pause className="h-3.5 w-3.5" fill="currentColor" /> : <Play className="ml-0.5 h-3.5 w-3.5" fill="currentColor" />}
         </button>
 
@@ -2598,7 +2598,7 @@ function VoicePreviewPlayer({ voiceId }: { voiceId: string }) {
         <div className="relative min-w-0 flex-1 overflow-hidden rounded-md bg-muted">
           <div
             className="pointer-events-none absolute inset-0 opacity-60"
-            style={{ background: "radial-gradient(120% 100% at 0% 50%, oklch(0.95 0.04 260 / 0.5), transparent 60%), radial-gradient(120% 100% at 100% 50%, oklch(0.95 0.04 25 / 0.45), transparent 60%)" }}
+            style={{ background: "radial-gradient(120% 100% at 0% 50%, color-mix(in oklch, var(--brand) 20%, transparent), transparent 60%), radial-gradient(120% 100% at 100% 50%, color-mix(in oklch, var(--brand-warm) 18%, transparent), transparent 60%)" }}
           />
           <canvas
             ref={canvasRef}

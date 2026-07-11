@@ -107,10 +107,10 @@ export default function TrimWaveform({
       grad.addColorStop(0.55, BRAND_SECONDARY);
       grad.addColorStop(1, BRAND_WARM);
 
-      ctx.fillStyle = "oklch(0.98 0.01 260)";
+      ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue("--muted").trim();
       ctx.fillRect(0, 0, w, h);
 
-      ctx.fillStyle = "oklch(0.56 0.04 240 / 0.12)";
+      ctx.fillStyle = "color-mix(in oklch, var(--muted-foreground) 12%, transparent)";
       ctx.fillRect(0, 0, Math.max(0, startX), h);
       ctx.fillRect(Math.min(w, endX), 0, Math.max(0, w - endX), h);
 
@@ -120,7 +120,7 @@ export default function TrimWaveform({
         const x = i * slot;
         const y = (h - bh) / 2;
         const within = x >= startX && x <= endX;
-        ctx.fillStyle = within ? grad : "oklch(0.55 0.04 240 / 0.3)";
+        ctx.fillStyle = within ? grad : "color-mix(in oklch, var(--muted-foreground) 35%, transparent)";
         ctx.beginPath();
         ctx.moveTo(x + 1, y);
         ctx.arcTo(x + barW, y, x + barW, y + bh, 1);
@@ -196,7 +196,7 @@ export default function TrimWaveform({
       </div>
       <div
         ref={wrapRef}
-        className="relative overflow-hidden rounded-xl border border-border bg-[oklch(0.99_0.005_280)]"
+        className="relative overflow-hidden rounded-xl border border-border bg-muted"
         style={{ touchAction: "none" }}
         onPointerDown={(e) => {
           if (!duration) return;
@@ -209,7 +209,7 @@ export default function TrimWaveform({
       >
         <div
           className="pointer-events-none absolute inset-0 opacity-60"
-          style={{ background: "radial-gradient(120% 100% at 0% 50%, oklch(0.95 0.04 260 / 0.55), transparent 60%), radial-gradient(120% 100% at 100% 50%, oklch(0.95 0.04 25 / 0.5), transparent 60%)" }}
+          style={{ background: "radial-gradient(120% 100% at 0% 50%, color-mix(in oklch, var(--brand) 20%, transparent), transparent 60%), radial-gradient(120% 100% at 100% 50%, color-mix(in oklch, var(--brand-warm) 18%, transparent), transparent 60%)" }}
         />
         <canvas ref={canvasRef} className="block h-24 w-full" />
 
