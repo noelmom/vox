@@ -334,6 +334,14 @@ async def favicon():
     return _spa()
 
 
+@app.get("/vox-vwave.ico", include_in_schema=False)
+async def favicon_ico():
+    f = _UI_DIST / "vox-vwave.ico"
+    if f.exists():
+        return FileResponse(str(f), media_type="image/x-icon")
+    return _spa()
+
+
 @app.get("/")
 async def landing():
     if _SPA_INDEX.exists():
