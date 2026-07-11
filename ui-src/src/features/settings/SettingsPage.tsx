@@ -481,6 +481,7 @@ export function SettingsPage() {
                     type="button"
                     onClick={() => createTokenMutation.mutate()}
                     disabled={!tokenName.trim() || createTokenMutation.isPending}
+                    aria-describedby={!tokenName.trim() ? "token-name-required" : undefined}
                     className="rounded-lg bg-foreground px-3 py-2 text-[12px] font-bold text-white disabled:bg-muted disabled:text-muted-foreground disabled:opacity-100"
                   >
                     Create token
@@ -494,6 +495,7 @@ export function SettingsPage() {
                     Revoke all devices &amp; tokens
                   </button>
                 </div>
+                {!tokenName.trim() && <p id="token-name-required" className="text-[11.5px] text-muted-foreground">Enter a token name to enable creation.</p>}
                 {issuedToken && (
                   <div className="border-l-2 border-[var(--brand-secondary)] py-1 pl-3">
                     <p className="text-[12px] font-semibold">Copy this token now. Vox stores only its hash.</p>
