@@ -1,6 +1,20 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<rss version="2.0">
+<?xml version='1.0' encoding='utf-8'?>
+<rss xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" version="2.0">
   <channel>
     <title>Vox updates</title>
+    <item>
+      <title>Vox 1.0.2</title>
+      <sparkle:version>202607110644</sparkle:version>
+      <sparkle:shortVersionString>1.0.2</sparkle:shortVersionString>
+      <pubDate>Sat, 11 Jul 2026 06:45:00 +0000</pubDate>
+      <description sparkle:format="markdown"># Vox 1.0.2
+
+- Introduces the dark-first Vox Studio redesign across Create, Voices, History, and Settings.
+- Adds the V-wave brand system across Studio, the public site, native app icons, favicon, and the menu-bar Helper.
+- Simplifies Vox Helper around server state, primary lifecycle actions, pairing, files, diagnostics, and updates.
+- Improves Now Playing completion handling, generation progress contrast, and consistent dark controls, menus, and feedback.
+- Refreshes installation and Helper guidance for the signed package installer.</description>
+      <enclosure url="https://github.com/noelmom/vox/releases/download/v1.0.2/Vox-1.0.2.pkg" length="9246965" type="application/octet-stream" sparkle:edSignature="BWD5UYPXX09UOSHoVaKqPYhQ03bvdQKovjbQ3TcXxbes5KiC/22wypj6xu/lXnscFSwXF1aFFKDQ/vmo55IHCA==" />
+    </item>
   </channel>
 </rss>
