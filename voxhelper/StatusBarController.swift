@@ -179,7 +179,13 @@ class StatusBarController: NSObject {
     }
 
     @objc private func startServer() {
-        monitor.launchctl("kickstart", "gui/\(getuid())/com.noelmom.vox")
+        primaryServerItem.action = nil
+        statusItem.title = "Vox is starting…"
+        applyMenuBarIcon(running: false)
+        monitor.startServer { [weak self] succeeded in
+            guard let self else { return }
+            if !succeeded { self.showServerActionError(action: "start") }
+        }
     }
 
     @objc private func stopServer() {
@@ -190,7 +196,24 @@ class StatusBarController: NSObject {
         restartUntil = Date().addingTimeInterval(15)
         statusItem.title = "Restarting…"
         applyMenuBarIcon(running: false)
-        monitor.launchctl("kickstart", "-k", "gui/\(getuid())/com.noelmom.vox")
+        primaryServerItem.action = nil
+        monitor.restartServer { [weak self] succeeded in
+            guard let self else { return }
+            if !succeeded {
+                self.restartUntil = nil
+                self.showServerActionError(action: "restart")
+            }
+        }
+    }
+
+    private func showServerActionError(action: String) {
+        statusItem.title = "Unable to \(action) Vox"
+        let alert = NSAlert()
+        alert.messageText = "Unable to \(action) Vox Server"
+        alert.informativeText = "Open Files → View Logs to inspect the server log, then try again."
+        alert.alertStyle = .warning
+        alert.addButton(withTitle: "OK")
+        alert.runModal()
     }
 
     @objc private func createPairingCode() {

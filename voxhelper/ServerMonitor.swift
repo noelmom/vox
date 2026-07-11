@@ -330,17 +330,32 @@ class ServerMonitor {
     }
 
     // ── launchctl ──────────────────────────────────────────────────────────
-    func launchctl(_ args: String...) {
-        let proc = Process()
-        proc.executableURL = URL(fileURLWithPath: "/bin/launchctl")
-        proc.arguments = args
-        try? proc.run()
+    func startServer(completion: @escaping (Bool) -> Void) {
+        runLaunchctl(["kickstart", "gui/\(getuid())/com.noelmom.vox"], completion: completion)
+    }
+
+    func restartServer(completion: @escaping (Bool) -> Void) {
+        runLaunchctl(["kickstart", "-k", "gui/\(getuid())/com.noelmom.vox"], completion: completion)
+    }
+
+    private func runLaunchctl(_ arguments: [String], completion: @escaping (Bool) -> Void) {
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            guard let self else { return }
+            let succeeded = self.runQuiet("/bin/launchctl", arguments)
+            self.poll()
+            DispatchQueue.main.async { completion(succeeded) }
+        }
+    }
+
+    @discardableResult
+    func launchctl(_ args: String...) -> Bool {
+        runQuiet("/bin/launchctl", args)
     }
 
     func stopServer() {
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             guard let self else { return }
-            self.launchctl("stop", "gui/\(getuid())/com.noelmom.vox")
+            _ = self.launchctl("stop", "gui/\(getuid())/com.noelmom.vox")
             self.waitForServerStop(seconds: 3)
 
             guard self.checkServer() || self.hasUvicornProcess() else {
