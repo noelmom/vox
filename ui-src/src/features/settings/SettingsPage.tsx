@@ -465,7 +465,7 @@ export function SettingsPage() {
                     placeholder="Token name"
                     aria-label="API token name"
                     maxLength={80}
-                    className="h-9 min-w-44 flex-1 rounded-lg border border-border bg-white px-3 text-[12.5px]"
+                    className="h-9 min-w-44 flex-1 rounded-lg border border-border bg-[oklch(0.12_0.012_250)] px-3 text-[12.5px] text-[oklch(0.93_0.012_250)] outline-none focus:border-[oklch(0.66_0.22_35)] focus:ring-2 focus:ring-[oklch(0.66_0.22_35/0.28)]"
                   />
                   <select
                     value={tokenScope}
@@ -482,7 +482,7 @@ export function SettingsPage() {
                     onClick={() => createTokenMutation.mutate()}
                     disabled={!tokenName.trim() || createTokenMutation.isPending}
                     aria-describedby={!tokenName.trim() ? "token-name-required" : undefined}
-                    className="rounded-lg bg-foreground px-3 py-2 text-[12px] font-bold text-white disabled:bg-muted disabled:text-muted-foreground disabled:opacity-100"
+                    className="rounded-lg bg-[oklch(0.66_0.22_35)] px-3 py-2 text-[12px] font-bold text-white disabled:border disabled:border-[oklch(0.26_0.02_250)] disabled:bg-[oklch(0.22_0.02_250)] disabled:text-[oklch(0.68_0.02_250)] disabled:opacity-100"
                   >
                     Create token
                   </button>
