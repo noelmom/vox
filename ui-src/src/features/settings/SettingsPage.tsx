@@ -983,6 +983,7 @@ function EditableServerNumber({
   onChange: (value: string) => void;
   onSave: () => void;
 }) {
+  const [saved, setSaved] = useState(false);
   return (
     <div className="flex flex-col gap-2">
       <div className="flex flex-wrap items-center gap-2">
@@ -1003,11 +1004,15 @@ function EditableServerNumber({
         </div>
         <button
           type="button"
-          onClick={onSave}
+          onClick={() => {
+            onSave();
+            setSaved(true);
+            window.setTimeout(() => setSaved(false), 1400);
+          }}
           disabled={saving}
           className="inline-flex h-10 items-center rounded-lg border border-border bg-white px-3 text-[12.5px] font-bold text-foreground/80 transition-colors hover:bg-muted disabled:cursor-not-allowed disabled:opacity-60"
         >
-          {saving ? "Saving..." : "Save"}
+          {saving ? "Saving..." : saved ? "Saved" : "Save"}
         </button>
         <span className="rounded-lg border border-border bg-muted px-2.5 py-1.5 text-[11.5px] font-semibold text-muted-foreground">
           {activeValue}
