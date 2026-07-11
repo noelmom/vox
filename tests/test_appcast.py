@@ -43,6 +43,21 @@ def test_renders_beta_channel_and_rejects_version_regression(tmp_path: Path) -> 
     assert "not newer" in failed.stderr
 
 
+def test_render_rejects_reused_stable_short_version(tmp_path: Path) -> None:
+    stable = render(tmp_path, build="10", version="1.2.3")
+    package = tmp_path / "Vox-1.2.3.pkg"
+    notes = tmp_path / "notes.md"
+    failed = subprocess.run([
+        sys.executable, str(TOOL), "render", "--version", "1.2.3", "--build", "11",
+        "--channel", "stable", "--previous-build", "10", "--published-at", "2026-07-10T13:00:00Z",
+        "--package", str(package), "--url", "https://updates.example.test/vox/releases/Vox-1.2.3.pkg",
+        "--notes", str(notes), "--output", str(tmp_path / "duplicate.xml"), "--fixture",
+        "--signature", "fixture-signature", "--existing-appcast", str(stable),
+    ], capture_output=True, text=True)
+    assert failed.returncode != 0
+    assert "already contains this short version" in failed.stderr
+
+
 def test_fixture_rendering_is_deterministic_and_missing_package_is_controlled(tmp_path: Path) -> None:
     first = render(tmp_path)
     first_bytes = first.read_bytes()
