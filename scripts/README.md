@@ -26,6 +26,17 @@ tail -f ~/Library/Logs/Vox/vox-error.log                     # error logs
 
 ---
 
+## After install: V-wave Helper
+
+The V-wave icon appears in the macOS menu bar after the Helper starts.
+
+- A full-strength icon means Studio is reachable; click it and choose **Open Vox Studio**.
+- A dim icon means the server is stopped or restarting. Use the primary **Start Vox Server** or **Restart Vox Server** action.
+- **Server Controls** contains the stop action. **Files**, **Diagnostics**, and **Updates & Support** keep the remaining actions grouped and easy to scan.
+- **Pair a Device** becomes available only after Vox is running and LAN access is enabled in Studio Settings.
+
+---
+
 ## Manual start (troubleshooting / development)
 
 Use `scripts/run.sh` to start the server directly in your terminal — no LaunchAgent involved. Useful when:
@@ -57,8 +68,8 @@ The server prints its address and API docs URL on startup. Logs stream directly 
 | `uninstall.sh` | Shared uninstall implementation used by `vox.sh uninstall` and the helper menu. Removes LaunchAgents and apps; preserves user data unless `--purge` is passed. |
 | `install-agent.sh` | Register the **server** LaunchAgent with macOS launchd. Syncs `api/` and `ui/` to Application Support. |
 | `uninstall-agent.sh` | Stop and remove the server LaunchAgent. |
-| `install-helper.sh` | Install the **menu bar helper** LaunchAgent. Stops the running helper, copies VoxHelper.app from the DMG with `ditto`, and registers the LaunchAgent. |
-| `uninstall-helper.sh` | Stop and remove the helper LaunchAgent. Icon disappears from menu bar. |
+| `install-helper.sh` | Install the **V-wave menu bar helper** LaunchAgent. Stops the running helper, copies VoxHelper.app from the DMG with `ditto`, and registers the LaunchAgent. |
+| `uninstall-helper.sh` | Stop and remove the helper LaunchAgent. The V-wave icon disappears from the menu bar. |
 | `run.sh` | Start the server manually in the foreground. Bypasses launchd entirely. |
 | `update.sh` | Pull latest changes + sync deps + re-register agents only when installed build differs. Supports `--force`, `--no-restart`, `--agent-only`, and `--helper-only`. |
 | `release.sh` | Release finalizer: after a candidate package and appcast have passed hosted verification, it can tag, push, and create the GitHub release only with explicit approval. It never builds, signs, uploads, or changes an appcast. |

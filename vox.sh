@@ -236,9 +236,10 @@ do_install() {
     echo ""
     echo "  First run may continue downloading/loading the Chatterbox model in the background."
     echo "  If the app is not ready immediately, wait a few minutes and check:"
-    echo "    Vox menu bar icon → View Logs"
+    echo "    V-wave menu bar icon → Files → View Logs"
     echo ""
-    echo "  Start the server from the Vox icon in your menu bar."
+    echo "  The V-wave is bright when Vox is ready and dims while stopped or restarting."
+    echo "  Open its menu to start Vox, restart it, or open Vox Studio."
     echo "  Open the app at: http://localhost:8000/app"
     echo ""
 }
