@@ -1366,7 +1366,7 @@ function GeneratePage() {
                         className={
                           "flex flex-col items-start rounded-lg border px-2.5 py-1.5 text-left transition-all " +
                           (active
-                            ? "border-[var(--brand)] bg-[var(--brand-soft)] text-[var(--brand)] shadow-[inset_0_0_0_1px_color-mix(in_oklch,var(--brand)_25%,transparent)]"
+                            ? "border-[oklch(0.66_0.22_35)] bg-[oklch(0.28_0.05_35)] text-[oklch(0.82_0.15_42)] shadow-[inset_0_0_0_1px_oklch(0.66_0.22_35/0.35)]"
                             : "border-border bg-white text-foreground/75 hover:bg-muted")
                         }
                       >
@@ -1926,7 +1926,7 @@ function AdvancedSlider({
           step={step}
           value={value}
           onChange={(e) => onChange(Number(e.target.value))}
-          className="absolute inset-0 h-6 w-full cursor-pointer appearance-none bg-transparent [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-[var(--brand)] [&::-webkit-slider-thumb]:bg-card [&::-webkit-slider-thumb]:shadow [&::-moz-range-thumb]:h-4 [&::-moz-range-thumb]:w-4 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-2 [&::-moz-range-thumb]:border-[var(--brand)] [&::-moz-range-thumb]:bg-card"
+          className="absolute inset-0 h-6 w-full cursor-pointer appearance-none bg-transparent accent-[oklch(0.66_0.22_35)] [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-[oklch(0.66_0.22_35)] [&::-webkit-slider-thumb]:bg-card [&::-webkit-slider-thumb]:shadow [&::-moz-range-thumb]:h-4 [&::-moz-range-thumb]:w-4 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-2 [&::-moz-range-thumb]:border-[oklch(0.66_0.22_35)] [&::-moz-range-thumb]:bg-card"
         />
       </div>
       <div className="rounded-md border border-border bg-white px-2 py-1 text-center text-[12px] font-semibold tabular-nums text-foreground">

@@ -146,6 +146,10 @@
   color: var(--muted-foreground) !important;
 }
 
+.dark input[type="range"] {
+  accent-color: oklch(0.66 0.22 35);
+}
+
 .dark button:disabled {
   border-color: var(--border) !important;
   background: var(--muted) !important;
