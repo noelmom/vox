@@ -66,7 +66,7 @@ function AppWorkspace() {
         <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-border/70 bg-background/90 px-4 backdrop-blur-xl md:px-8">
           <div className="flex items-center gap-3">
             <img src={voxIcon} alt="" className="h-9 w-9 md:hidden" />
-            <span className="text-base font-bold md:text-sm md:font-semibold md:text-foreground/70">{routeLabel}</span>
+            <span className="text-base font-bold md:hidden">{routeLabel}</span>
           </div>
           <span className="text-xs font-medium text-foreground/45">On-device voice studio</span>
         </header>
