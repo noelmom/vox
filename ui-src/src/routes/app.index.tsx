@@ -1156,7 +1156,7 @@ function GeneratePage() {
                 {filteredJobs.length > visibleCount && (
                   <button
                     onClick={() => setVisibleCount((n) => n + 3)}
-                    className="w-full rounded-xl border border-dashed border-border py-3 text-[13px] font-medium text-foreground/50 transition-colors hover:border-[var(--brand)] hover:bg-[var(--brand-soft)] hover:text-[var(--brand)]"
+                    className="w-full rounded-xl border border-dashed border-border bg-[oklch(0.17_0.018_250)] py-3 text-[13px] font-medium text-foreground/65 transition-colors hover:border-[oklch(0.66_0.22_35)] hover:bg-[oklch(0.28_0.05_35)] hover:text-[oklch(0.82_0.15_42)]"
                   >
                     Load {Math.min(3, filteredJobs.length - visibleCount)} more
                     <span className="ml-1.5 text-foreground/35">({filteredJobs.length - visibleCount} remaining)</span>
@@ -1168,7 +1168,7 @@ function GeneratePage() {
 
           <div className="mt-5 flex items-center justify-between border-t border-border pt-4 text-[12px] text-foreground/65">
             <span>{filteredJobs.length} recording{filteredJobs.length !== 1 ? "s" : ""}</span>
-            <Link className="inline-flex items-center gap-1 font-semibold text-[var(--brand)] hover:underline" to="/app/history">
+            <Link className="inline-flex items-center gap-1 font-semibold text-[oklch(0.76_0.18_42)] hover:underline" to="/app/history">
               View all history <ChevronRight className="h-3.5 w-3.5" />
             </Link>
           </div>
