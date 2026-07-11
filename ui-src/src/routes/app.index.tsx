@@ -2008,10 +2008,10 @@ function GeneratingRow({
         : `${activeStatus.detail} · ${fmtTime(elapsed)} elapsed`;
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-[color-mix(in_oklch,var(--brand)_16%,white)] bg-[linear-gradient(180deg,var(--brand-soft)_0%,white_30%,var(--background)_100%)] shadow-[0_18px_36px_-28px_oklch(0.16_0.02_260/0.28)]">
+    <div className="overflow-hidden rounded-2xl border border-[color-mix(in_oklch,var(--brand)_38%,var(--border))] bg-[var(--card)] shadow-[0_18px_36px_-28px_rgb(0_0_0_/_0.55)]">
       <div className="flex items-start justify-between gap-3 p-4 sm:p-5">
         <div className="flex min-w-0 items-start gap-4">
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[radial-gradient(circle_at_30%_30%,white_0%,var(--brand-soft)_58%,color-mix(in_oklch,var(--brand)_20%,white)_100%)] text-[var(--brand)] shadow-sm">
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[var(--brand-soft)] text-[var(--brand)] ring-1 ring-[color-mix(in_oklch,var(--brand)_35%,transparent)]">
             <Loader2 className="h-5 w-5 animate-spin" />
           </div>
           <div className="min-w-0">
@@ -2019,7 +2019,7 @@ function GeneratingRow({
               <div className="text-[15px] font-bold tracking-tight text-foreground">
                 {headline}
               </div>
-              <span className="rounded-full border border-[color-mix(in_oklch,var(--brand)_20%,white)] bg-white/90 px-2.5 py-0.5 text-[11px] font-semibold text-[var(--brand)] shadow-sm">
+              <span className="rounded-full border border-[color-mix(in_oklch,var(--brand)_35%,var(--border))] bg-[var(--brand-soft)] px-2.5 py-0.5 text-[11px] font-semibold text-[var(--brand)]">
                 {current === "cancelling" ? "Stopping" : current === "recovering" ? "Recovering" : queued ? "Queued" : activeStatus.label}
               </span>
             </div>
@@ -2032,14 +2032,14 @@ function GeneratingRow({
           type="button"
           onClick={onCancel}
           disabled={stopping}
-          className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-[oklch(0.78_0.12_25)] bg-white px-3 py-1.5 text-[12px] font-semibold text-[oklch(0.55_0.2_25)] transition-colors hover:bg-[oklch(0.98_0.02_25)] disabled:opacity-50"
+          className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-[oklch(0.55_0.14_25)] bg-[oklch(0.21_0.035_25)] px-3 py-1.5 text-[12px] font-semibold text-[oklch(0.82_0.13_25)] transition-colors hover:bg-[oklch(0.26_0.05_25)] disabled:opacity-50"
         >
           <X className="h-3.5 w-3.5" />
           Cancel
         </button>
       </div>
 
-      <div className="border-t border-[color-mix(in_oklch,var(--brand)_10%,white)] px-4 py-4 sm:px-5">
+      <div className="border-t border-border px-4 py-4 sm:px-5">
         <div className="grid gap-3 md:grid-cols-3">
           {GENERATION_STEPS.map((step, idx) => {
             const stepNumber = idx + 1;
@@ -2051,10 +2051,10 @@ function GeneratingRow({
                 key={step.label}
                 className={`rounded-xl border px-3 py-3 transition-colors ${
                   isActive
-                    ? "border-[color-mix(in_oklch,var(--brand)_22%,white)] bg-white shadow-sm"
+                    ? "border-[color-mix(in_oklch,var(--brand)_45%,var(--border))] bg-[color-mix(in_oklch,var(--brand)_12%,var(--card))]"
                     : isDone
-                      ? "border-[color-mix(in_oklch,var(--brand-secondary)_22%,white)] bg-[var(--brand-soft)]/40"
-                      : "border-border bg-white/70"
+                      ? "border-[color-mix(in_oklch,var(--brand-secondary)_35%,var(--border))] bg-[color-mix(in_oklch,var(--brand-secondary)_10%,var(--card))]"
+                      : "border-border bg-[var(--background)]"
                 }`}
               >
                 <div className="flex items-start gap-2.5">
@@ -2080,7 +2080,7 @@ function GeneratingRow({
             );
           })}
         </div>
-        <div className="mt-4 h-1.5 overflow-hidden rounded-full bg-white/80">
+        <div className="mt-4 h-1.5 overflow-hidden rounded-full bg-muted">
           <div className="h-full w-1/3 animate-pulse rounded-full bg-[linear-gradient(90deg,var(--brand),var(--brand-secondary),var(--brand-warm))]" />
         </div>
       </div>
