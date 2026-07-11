@@ -481,7 +481,7 @@ export function SettingsPage() {
                     type="button"
                     onClick={() => createTokenMutation.mutate()}
                     disabled={!tokenName.trim() || createTokenMutation.isPending}
-                    className="rounded-lg bg-foreground px-3 py-2 text-[12px] font-bold text-white disabled:opacity-40"
+                    className="rounded-lg bg-foreground px-3 py-2 text-[12px] font-bold text-white disabled:bg-muted disabled:text-muted-foreground disabled:opacity-100"
                   >
                     Create token
                   </button>
