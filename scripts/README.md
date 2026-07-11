@@ -26,6 +26,17 @@ tail -f ~/Library/Logs/Vox/vox-error.log                     # error logs
 
 ---
 
+## After install: V-wave Helper
+
+The V-wave icon appears in the macOS menu bar after the Helper starts.
+
+- A full-strength icon means Studio is reachable; click it and choose **Open Vox Studio**.
+- A dim icon means the server is stopped or restarting. Use the primary **Start Vox Server** or **Restart Vox Server** action.
+- **Server Controls** contains the stop action. **Files**, **Diagnostics**, and **Updates & Support** keep the remaining actions grouped and easy to scan.
+- **Pair a Device** becomes available only after Vox is running and LAN access is enabled in Studio Settings.
+
+---
+
 ## Manual start (troubleshooting / development)
 
 Use `scripts/run.sh` to start the server directly in your terminal — no LaunchAgent involved. Useful when:
@@ -57,27 +68,82 @@ The server prints its address and API docs URL on startup. Logs stream directly 
 | `uninstall.sh` | Shared uninstall implementation used by `vox.sh uninstall` and the helper menu. Removes LaunchAgents and apps; preserves user data unless `--purge` is passed. |
 | `install-agent.sh` | Register the **server** LaunchAgent with macOS launchd. Syncs `api/` and `ui/` to Application Support. |
 | `uninstall-agent.sh` | Stop and remove the server LaunchAgent. |
-| `install-helper.sh` | Install the **menu bar helper** LaunchAgent. Stops the running helper, copies VoxHelper.app from the DMG with `ditto`, and registers the LaunchAgent. |
-| `uninstall-helper.sh` | Stop and remove the helper LaunchAgent. Icon disappears from menu bar. |
+| `install-helper.sh` | Install the **V-wave menu bar helper** LaunchAgent. Stops the running helper, copies VoxHelper.app from the DMG with `ditto`, and registers the LaunchAgent. |
+| `uninstall-helper.sh` | Stop and remove the helper LaunchAgent. The V-wave icon disappears from the menu bar. |
 | `run.sh` | Start the server manually in the foreground. Bypasses launchd entirely. |
 | `update.sh` | Pull latest changes + sync deps + re-register agents only when installed build differs. Supports `--force`, `--no-restart`, `--agent-only`, and `--helper-only`. |
-| `release.sh` | Unified release helper: stamps build info, builds/signs/notarizes DMG and PKG, updates landing metadata, tags, pushes, and uploads the PKG GitHub release asset. |
+| `release.sh` | Release finalizer: after a candidate package and appcast have passed hosted verification, it can tag, push, and create the GitHub release only with explicit approval. It never builds, signs, uploads, or changes an appcast. |
+| `appcast.py` | Renders and verifies local Sparkle stable/beta package appcast candidates. It cannot publish; it signs only a staged local package through the Keychain-backed Sparkle tool. |
+| `verify-package-candidate.sh` | Read-only package smoke check: verifies signature, Gatekeeper, stapling, required payload paths, and absence of protected runtime data. It never installs the package. |
+| `verify-published-candidate.sh` | Read-only HTTPS probe: binds a hosted appcast/package to immutable local candidate provenance, then verifies SHA-256, Sparkle signature, package signature, Gatekeeper, and stapling. |
+
+### Sparkle appcast candidates
+
+Prepare packages and release notes first, then render the candidate locally. The package URL must already be the final immutable HTTPS location; this command never uploads or publishes anything.
+
+```bash
+python3 scripts/appcast.py render \
+  --version 1.2.3 --build 2026071001 --channel stable \
+  --package /staging/Vox-1.2.3.pkg \
+  --url https://updates.example.com/vox/releases/Vox-1.2.3.pkg \
+  --notes /staging/1.2.3.md --output /staging/appcast.xml
+python3 scripts/appcast.py verify --appcast /staging/appcast.xml --package /staging/Vox-1.2.3.pkg \
+  --channel stable --verify-signature
+```
+
+`--verify-signature` asks Sparkle's Keychain-backed signing tool to cryptographically validate the staged package; `prepare-release-candidate.sh` always performs this check. The private EdDSA key remains in the release operator's Keychain. Do not add it to an environment variable, command line, appcast, or repository.
+
+Before an installer smoke test, inspect the final staged package without installing it:
+
+```bash
+bash scripts/verify-package-candidate.sh /staging/Vox-1.2.3.pkg
+```
+
+After the separately approved package upload—but before publishing the
+appcast—verify the exact hosted bytes. This probe only downloads and checks the
+candidate; it never uploads, tags, or publishes.
+
+```bash
+bash scripts/verify-published-candidate.sh \
+  .release-candidates/1.2.3-2026071001
+```
+
+The probe takes the exact package URL, version, build, channel, and SHA-256
+from the candidate's provenance record and archives a uniquely named successful
+probe alongside that record. Once the package probe passes, publish the
+appcast as the final update-host mutation, then repeat the command with the
+appcast URL to validate the complete live pair:
+
+```bash
+bash scripts/verify-published-candidate.sh \
+  .release-candidates/1.2.3-2026071001 \
+  https://updates.example.com/vox/appcast.xml
+```
+
+Candidate evidence cannot be overwritten.
 
 ### Release repository target
 
 `release.sh` creates GitHub releases against `noelmom/vox` by default. Versions with a suffix such as `-rc11` are marked as prereleases; plain versions such as `1.0.0` are public releases:
 
 ```bash
-bash scripts/release.sh 1.0.0-rc9
+bash scripts/prepare-release-candidate.sh 1.0.0-rc9 2026071001 2026070001 \
+  /staging/Vox-1.0.0-rc9.pkg https://updates.example.com/vox/releases/Vox-1.0.0-rc9.pkg \
+  /staging/1.0.0-rc9.md beta 2026-07-10T14:00:00Z
 ```
+
+That prepares local evidence only. Build/sign/notarize the package first, upload it to its immutable URL, run the package-only hosted probe, publish the appcast, and run the full hosted probe before finalization.
 
 The target is explicit because GitHub CLI repo inference can be unreliable after repo renames or redirects. To test releases against a fork, override it:
 
 ```bash
-RELEASE_REPO=owner/repo bash scripts/release.sh 1.0.0-rc9
+RELEASE_REPO=owner/repo VOX_RELEASE_PUBLISH=1 \
+VOX_RELEASE_EVIDENCE=.release-candidates/1.0.0-rc9-2026071001 \
+VOX_RELEASE_APPCAST_URL=https://updates.example.com/vox/appcast.xml \
+bash scripts/release.sh 1.0.0-rc9 --publish
 ```
 
-GitHub Releases intentionally publish only `Vox-<version>.pkg`. `assets/Vox.dmg` is built and committed for the manual/script install path, but it is not uploaded as a release asset because it only contains the two app bundles and can confuse testers.
+GitHub Releases intentionally publish only `Vox-<version>.pkg`. `assets/Vox.dmg` is built for the manual/script install path, but it is not uploaded as a release asset because it only contains the two app bundles and can confuse testers.
 
 The script checks `gh auth status` again right before creating the GitHub release. If the signing/notarization flow waited on a keychain prompt for a while and GitHub upload fails, run `gh auth login -h github.com` and retry the release upload or rerun the release with a new version.
 

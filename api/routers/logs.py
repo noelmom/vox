@@ -19,15 +19,15 @@ _LOG_FILES = {
     description="Returns structured generation/job history with optional filters. This is backed by SQLite job rows, not raw log-file text.",
 )
 async def list_logs(
-    request_id: str | None = None,
-    status: str | None = None,
-    preset: str | None = None,
-    voice: str | None = None,
-    user_agent: str | None = None,
-    date_from: str | None = Query(None, description="Inclusive lower bound for jobs.created_at, e.g. 2026-06-28 or 2026-06-28T12:00:00"),
-    date_to: str | None = Query(None, description="Inclusive upper bound for jobs.created_at, e.g. 2026-06-28 or 2026-06-28T23:59:59"),
+    request_id: str | None = Query(None, max_length=100),
+    status: str | None = Query(None, max_length=40),
+    preset: str | None = Query(None, max_length=80),
+    voice: str | None = Query(None, max_length=64),
+    user_agent: str | None = Query(None, max_length=200),
+    date_from: str | None = Query(None, max_length=40, description="Inclusive lower bound for jobs.created_at, e.g. 2026-06-28 or 2026-06-28T12:00:00"),
+    date_to: str | None = Query(None, max_length=40, description="Inclusive upper bound for jobs.created_at, e.g. 2026-06-28 or 2026-06-28T23:59:59"),
     limit: int = Query(100, ge=1, le=500),
-    offset: int = Query(0, ge=0),
+    offset: int = Query(0, ge=0, le=1_000_000),
 ):
     db = await get_db()
     clauses = []

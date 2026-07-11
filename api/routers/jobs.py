@@ -1,15 +1,20 @@
 import asyncio
 import json
-from pathlib import Path
+import uuid
 from typing import Any
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import FileResponse, StreamingResponse
 
 from api.core.db import get_db
 from api.models.job import JobOut
+from api.core.security import Scope
+from api.core.config import settings
+from api.core.data_safety import stored_managed_path
+from api.core.logger import get_logger
 
 router = APIRouter(prefix="/jobs", tags=["jobs"])
+log = get_logger(__name__)
 
 
 _JOB_SELECT = """
@@ -22,8 +27,31 @@ _JOB_SELECT = """
 def _annotate(row: Any) -> dict:
     d = dict(row)
     p = d.get("output_path")
-    d["file_available"] = bool(p and Path(p).exists())
+    try:
+        output_path = stored_managed_path(settings.output_dir, p) if p else None
+    except HTTPException:
+        output_path = None
+    d["file_available"] = bool(output_path and output_path.exists())
     return d
+
+
+def _redact_private_fields(job: dict, request: Request) -> dict:
+    credential = getattr(request.state, "credential", None)
+    if credential is None or credential.scopes & {Scope.GENERATE, Scope.ADMIN}:
+        return job
+    visible = dict(job)
+    visible.update(
+        {
+            "text": "[private]",
+            "output_path": None,
+            "error": "Generation failed." if job.get("error") else None,
+            "device": None,
+            "user_agent": None,
+            "file_available": False,
+            "private_fields_redacted": True,
+        }
+    )
+    return visible
 
 
 async def _get_job_row(request_id: str) -> dict | None:
@@ -40,14 +68,18 @@ async def _get_job_row(request_id: str) -> dict | None:
     description="Returns recent TTS jobs in descending creation order. Supports cursor-style pagination via `limit` and `offset`. Each job includes timing metrics (`generation_s`, `audio_duration_s`, `rtf`) once completed.",
     response_description="Array of job objects",
 )
-async def list_jobs(request: Request, limit: int = 50, offset: int = 0):
+async def list_jobs(
+    request: Request,
+    limit: int = Query(50, ge=1, le=200),
+    offset: int = Query(0, ge=0, le=1_000_000),
+):
     db = await get_db()
     async with db.execute(
         f"{_JOB_SELECT} ORDER BY j.created_at DESC LIMIT ? OFFSET ?",
         (limit, offset),
     ) as cur:
         rows = await cur.fetchall()
-    return [_annotate(r) for r in rows]
+    return [_redact_private_fields(_annotate(r), request) for r in rows]
 
 
 @router.get(
@@ -70,12 +102,12 @@ async def stream_job_events(request_id: str, request: Request):
                 yield "event: deleted\ndata: {}\n\n"
                 return
 
-            payload = json.dumps(job, default=str)
+            payload = json.dumps(_redact_private_fields(job, request), default=str)
             if payload != last_payload:
                 yield f"event: job\ndata: {payload}\n\n"
                 last_payload = payload
 
-            if job["status"] in {"completed", "failed", "cancelled"}:
+            if job["status"] in {"completed", "failed", "cancelled", "interrupted"}:
                 return
 
             await asyncio.sleep(0.75)
@@ -95,9 +127,13 @@ async def stream_job_events(request_id: str, request: Request):
 |---|---|
 | `queued` | Job is waiting — another generation may be in progress |
 | `processing` | Model is actively generating audio |
+| `cancelling` | Vox is stopping and reaping the active model worker |
+| `encoding` | Audio generation finished and the final file is being encoded |
+| `recovering` | Vox is restarting the isolated model worker after a fault |
 | `completed` | Audio is ready — download via `GET /api/v1/jobs/{request_id}/audio` |
 | `failed` | Generation failed — see the `error` field for the reason |
 | `cancelled` | Generation was stopped by the user |
+| `interrupted` | Vox restarted before generation could finish |
 
 Typical generation time on Apple Silicon is 1–5× real-time depending on text length and voice complexity.
 """,
@@ -108,7 +144,7 @@ async def get_job(request_id: str, request: Request):
     job = await _get_job_row(request_id)
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
-    return job
+    return _redact_private_fields(job, request)
 
 
 @router.delete(
@@ -125,12 +161,27 @@ async def delete_job(request_id: str, request: Request):
         row = await cur.fetchone()
     if not row:
         raise HTTPException(status_code=404, detail="Job not found")
-    await db.execute("DELETE FROM jobs WHERE request_id = ?", (request_id,))
-    await db.commit()
-    if row["output_path"]:
-        p = Path(row["output_path"])
-        if p.exists():
-            p.unlink(missing_ok=True)
+    output_path = stored_managed_path(settings.output_dir, row["output_path"]) if row["output_path"] else None
+    staged_delete = None
+    try:
+        if output_path and output_path.exists():
+            staged_delete = stored_managed_path(
+                settings.output_dir,
+                str(output_path.with_name(f".deleting-{uuid.uuid4()}--{output_path.name}")),
+            )
+            output_path.replace(staged_delete)
+        await db.execute("DELETE FROM jobs WHERE request_id = ?", (request_id,))
+        await db.commit()
+    except Exception:
+        await db.rollback()
+        if staged_delete and staged_delete.exists() and output_path:
+            staged_delete.replace(output_path)
+        raise
+    if staged_delete:
+        try:
+            staged_delete.unlink(missing_ok=True)
+        except OSError as exc:
+            log.warning("Job deleted but staged audio cleanup will need retry: %s", exc, extra={"request_id": request_id})
 
 
 @router.get(
@@ -155,7 +206,9 @@ async def get_job_audio(request_id: str, request: Request):
         raise HTTPException(status_code=404, detail="Job not found")
     if row["status"] != "completed":
         raise HTTPException(status_code=409, detail=f"Job is {row['status']}")
-    output_path = Path(row["output_path"])
+    if not row["output_path"]:
+        raise HTTPException(status_code=410, detail="Audio file no longer exists (expired or deleted)")
+    output_path = stored_managed_path(settings.output_dir, row["output_path"])
     if not output_path.exists():
         raise HTTPException(status_code=410, detail="Audio file no longer exists (expired or deleted)")
     media_type = "audio/mpeg" if row["output_format"] == "mp3" else "audio/wav"

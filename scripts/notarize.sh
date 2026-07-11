@@ -1,5 +1,5 @@
 #!/bin/bash
-# Notarize and staple assets/Vox.dmg, then commit and push.
+# Notarize and staple assets/Vox.dmg.
 #
 # Requires:
 #   APP_SIGN_PASSWORD — Apple app-specific password for notarytool
@@ -49,18 +49,8 @@ info "Verifying…"
 spctl --assess --type open --context context:primary-signature --verbose "$DMG"
 success "Gatekeeper check passed"
 
-# ── Commit and push ───────────────────────────────────────────────────────────
-info "Committing Vox.dmg…"
-cd "$ROOT"
-git add assets/Vox.dmg
-git commit -m "build: update signed and notarized Vox.dmg
-
-Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>"
-git push
-success "Pushed to $(git branch --show-current)"
-
 echo ""
-echo -e "${GREEN}${BOLD}Vox.dmg is signed, notarized, and pushed.${RESET}"
+echo -e "${GREEN}${BOLD}Vox.dmg is signed and notarized locally.${RESET}"
 echo ""
 echo "  Install:  bash vox.sh install"
 echo "  Update:   bash vox.sh update"

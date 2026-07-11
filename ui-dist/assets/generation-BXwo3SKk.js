@@ -1,0 +1,1 @@
+const n="vox:generation-change";let i={phase:"idle"};function a(){return i}function r(e){i=e,typeof window<"u"&&window.dispatchEvent(new CustomEvent(n,{detail:e}))}function s(e){const t=o=>{e(o.detail)};return window.addEventListener(n,t),()=>window.removeEventListener(n,t)}export{r as a,a as g,s};

@@ -147,25 +147,7 @@ Until v1.0 ships, avoid adding new product features. Pre-v1 work should be limit
 
   **Longer term:** FAQ entry and/or handle it inside the `.pkg` installer flow.
 
-- [x] **[BLOCKER — v1.0.0] Finish real audio waveform visualisation across every audio-bearing surface**
-
-  Verified in `ui-src/src/routes/app.index.tsx`, `ui-src/src/routes/app.library.tsx`, `ui-src/src/routes/app.recordings.tsx`, `ui-src/src/components/TrimWaveform.tsx`, and `ui-src/src/lib/audio-trim.ts`. Audio-bearing players decode fetched/recorded/uploaded audio into real amplitude buckets, live recording uses `AnalyserNode`, and trim controls render decoded peaks. Deterministic bars remain only as loading/prefetch skeletons before audio is available, disabled generic preview decoration, and landing-page decoration.
-
-  **Affected components (all in `ui-src/src/routes/`):**
-  - `app.library.tsx` — `Waveform` (animated flag, used in RecordPane and UploadPane preview) and `MiniWave` (decorative bar in ProfileCard footer)
-  - `app.index.tsx` — waveform / playback visualiser in the Result/output area
-
-  **Recommended approach — Web Audio API + canvas/SVG:**
-  1. For **static previews** (uploaded file, generated clip at rest): decode the audio buffer once with `AudioContext.decodeAudioData`, downsample the PCM into ~120 amplitude buckets, render as an SVG bar chart. This gives a true "fingerprint" of the audio.
-  2. For **live recording** (RecordPane): use `AnalyserNode` fed from the `MediaStream`, `requestAnimationFrame` polling `getByteFrequencyData`, render to a `<canvas>` for smooth real-time animation.
-  3. For **playback scrubbing** (ProfileCard, Result): overlay a progress indicator that advances with `timeupdate` on the `<audio>` element so the static fingerprint doubles as a seek bar.
-
-  **Constraints:**
-  - Keep decode/render off the main thread where possible — use `OfflineAudioContext` for the static decode step.
-  - Waveform colour should follow the existing oklch palette (accent `oklch(0.55 0.22 260)` at ~55% opacity for bars, brighter for the played-through portion).
-  - `MiniWave` in ProfileCard footer can stay decorative but should at least use the real amplitude data from the voice sample if it has already been fetched; fall back to the current fake bars only while the audio hasn't loaded yet.
-
-  **Why a blocker:** fake waves actively undermine trust in the output quality. Users expect to see their voice reflected in the waveform before committing to "Use" a profile or downloading a clip.
+- [x] **Canonical generated-recording player** — Create and History expose recording actions and hand playback to the persistent Now Playing dock. Full playback controls, seeking, speed, volume, and the generated-recording waveform exist in exactly one place. Compact waveform controls remain for voice audition, recording, and trimming.
 
 - [x] **[LOW] Migrate existing user preset names to lowercase in DB**
   - Implemented via one-time `meta` migration `normalize_user_presets_lowercase` in `api/core/db.py`.
@@ -589,7 +571,7 @@ Until v1.0 ships, avoid adding new product features. Pre-v1 work should be limit
 
 - [x] **Decide where to surface settings editing — web UI or menu bar helper**
 
-  Implemented in the web app Settings tab for runtime/network access, generation defaults, appearance, widgets, storage paths, and backup/restore. The native helper remains focused on server lifecycle, login toggles, update/uninstall flows, logs, resource stats, and support links.
+  Implemented in the web app Settings tab for runtime/network access, generation defaults, appearance, storage paths, and backup/restore. The native helper remains focused on server lifecycle, login toggles, update/uninstall flows, logs, resource stats, and support links.
 
 ---
 
@@ -599,7 +581,7 @@ Until v1.0 ships, avoid adding new product features. Pre-v1 work should be limit
 
   Dark mode is wired but not v1-ready. `ui-src/src/styles.css` has dark theme tokens and semantic surface classes, and key Create/Library/Settings surfaces have started moving to reusable `vox-*` theme primitives.
 
-  **Current state:** functional plumbing exists, but the visual treatment still needs minor tweaks before release-quality support. For v1.0, light mode is forced and Settings shows Light as the only available theme. Existing `dark`/`system` saved preferences are normalized back to `light` on app load.
+  **Current state:** the Studio is dark-first; a future pass can add a fully supported light or system preference without compromising the dark workspace.
 
   **Follow-up pass:** verify all app tabs in dark mode, tune player/waveform contrast, replace remaining hard-coded light surfaces/arbitrary colors with semantic theme classes, and confirm landing-page behavior separately from the app shell.
 
@@ -651,7 +633,6 @@ Product decision: after v1.0.
   - `mp3Quality` — selected MP3 bitrate
   - `wavQuality` — selected WAV bit depth
   - `advanced` — all 6 slider values
-  - `widget.requests` and `widget.minutes` — sidebar widget visibility
 
   Voice favorites are already persisted on voice records via `voices.is_favorite`, so they are intentionally not duplicated in `user_preferences`.
 
@@ -826,7 +807,7 @@ Product decision: after v1.0.
 
   **Pass 2 completed:** added shared frontend preference helpers, added DB-backed preference endpoints, kept API error compatibility while adding structured `error` and `request_id` fields, tightened the main manual run/update shell scripts, and re-audited the remaining shell entry points for quoting/destructive operations.
 
-  **Deferred by decision:** optional post-v1 worker-queue architecture.
+  **Generation isolation completed:** Chatterbox now runs in one supervised spawned process. The API coordinator owns FIFO scheduling, durable state transitions, cancellation/reaping, recovery, encoding, and publication reconciliation.
 
 ---
 
@@ -838,17 +819,16 @@ Product decision: after v1.0.
 
 - [ ] **Post-v1: streaming audio response** — chunked transfer encoding for playback-before-complete if the model/output pipeline can support it cleanly.
 - [ ] **Post-v1: review SDK support** — revisit Python and JavaScript SDKs after the local REST API surface stabilizes. Keep the landing page focused on the curl example for v1.
-- [ ] **Post-v1: proper worker queue architecture** — replace single `asyncio.Lock` with an explicit worker queue only if real-world testing shows the current serialized lock is not enough.
+- [x] **[DONE] Supervised worker queue architecture** — replace the in-process model lock with an explicit FIFO coordinator and isolated model-owner process.
   - Backend: queue incoming requests when a generation is already in progress instead of letting overlapping jobs stack up; return a job ID immediately with `202 Accepted` and expose `GET /jobs/{id}/status` for polling or SSE.
-  - Current state: requests are accepted immediately, serialized by a single local model lock, and the UI shows simple queued/running states plus elapsed time in both the global top bar and Create result panel.
+  - Current state: requests are accepted immediately, serialized through one supervised subprocess, and the UI renders durable queued/processing/cancelling/encoding/recovering states without simulated progress.
   - Future UI: consider a compact queue-status widget that shows `Queued`, `Running`, and `Next up` states across multiple pending jobs.
   - Pair with the sidebar stats item below so queue depth can live alongside session metrics.
-  - Recovery: if the app restarts while a job is in flight, reconcile the persisted job state on startup so the UI does not show duplicate or orphaned runs.
+  - Recovery: startup reconciles publishing markers, interrupts unfinished jobs, and removes job-scoped private partial data.
 - [x] **Kill switch for in-flight jobs** — add an explicit way to stop work that is already running.
-  Implemented with `POST /api/v1/tts/{request_id}/cancel`, active-task tracking, cancelled job status, Create-page cancel control, and global cancel control. Stale queued/processing jobs from agent restarts are marked failed on startup so the UI does not show orphaned runs.
-- [x] **Sidebar stats panel** — implemented in `ui-src/src/routes/app.tsx`.
-  - The left sidebar now includes Requests, Audio Generated, and Library & Storage widgets using `/api/v1/stats`.
-  - Widgets are user-toggleable from Settings and persist via localStorage.
+  Implemented with `POST /api/v1/tts/{request_id}/cancel`, coordinator-owned cancellation, Create/global controls, and kill/reap-before-terminal ordering. Restarted nonterminal jobs become `interrupted`; the recovery smoke script verifies cancellation followed by a successful render.
+- [ ] **Post-v1: sidebar stats panel** — defer the Requests, Audio Generated, and Library & Storage widgets until there is a complete sidebar experience to surface them in.
+  - There is intentionally no Settings toggle while the widgets are unavailable.
 
   Future optional work: add queue depth if a dedicated queue architecture is reintroduced after v1.
 

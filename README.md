@@ -14,7 +14,7 @@
 
 A local, privacy-first text-to-speech (TTS) platform powered by [Chatterbox](https://github.com/resemble-ai/chatterbox) and optimised for Apple Silicon. Vox runs entirely on your machine — no cloud, no subscriptions, no data leaving your device.
 
-It exposes a clean REST API and a web UI for generating high-quality audio from named voice profiles. The long-term goal is a one-click macOS app with a native menu bar helper.
+It exposes a clean REST API and a dark-first Studio for generating high-quality audio from named voice profiles, with a signed macOS installer and native menu bar helper.
 
 ---
 
@@ -22,6 +22,7 @@ It exposes a clean REST API and a web UI for generating high-quality audio from 
 
 - **Apple Silicon MPS acceleration** — Chatterbox runs on the Metal Performance Shaders backend for fast on-device inference
 - **Voice profiles** — store named voices with reference audio and per-voice TTS defaults
+- **Safe local data handling** — canonical voice slugs, bounded streaming uploads, contained managed paths, validated backups, and rollback-safe restore
 - **Smart presets** — built-in tones like `confident`, `calm`, `newsreader`, and `storyteller` with full per-request parameter overrides
 - **Flexible audio ingest** — upload `.wav`, `.m4a`, `.mp3`, `.aiff`, `.flac`, `.ogg`, or `.webm`; all converted to WAV automatically
 - **Input folder watcher** — drop a voice recording into `input/` and it registers itself automatically
@@ -30,16 +31,17 @@ It exposes a clean REST API and a web UI for generating high-quality audio from 
 - **Configurable cleanup** — generated output files are pruned on a TTL schedule
 - **Zero cloud dependency** — fully self-hosted
 - **Web UI** — single-page app for generating audio, managing voices, viewing history, and configuring settings
+- **Persistent creative workspace** — Create, Voices, History, and Settings share one global paused-on-reload Now Playing dock; completed-render autoplay is off by default and can be enabled in Settings (restored recordings always remain paused)
 - **In-browser voice recording** — capture microphone audio directly in the browser with live waveform visualisation
-- **Audio player with synchronized waveform** — generated audio plays inline with a waveform display that fills as playback progresses and stays synchronized when seeking
+- **One persistent Now Playing dock** — Create and History hand recordings to the same seekable player, while voice samples keep compact inline audition controls
 - **Voice profile editing** — update description, tags, and TTS defaults without re-uploading audio
 - **Tag system** — tag voices (`uploaded`, `auto-import`, or custom) with filter pills on the Voices screen
 - **Custom tone** — "✦ Custom" pill opens a parameter panel with sliders for all 6 TTS params; persists via `localStorage`
-- **Generation status** — global and Create-page indicators for queued/running jobs, with elapsed time, SSE updates, polling fallback, and cancel controls
+- **Crash-safe generation** — one supervised model subprocess, FIFO jobs, truthful cancellation/recovery states, SSE updates, and atomic audio publication
 - **Backup & restore** — export/import SQLite history and voice assets from Settings
-- **Theme preference** — v1 uses light mode only; dark-mode plumbing is deferred for post-v1 polish
+- **Dark-first Studio** — deep-ink surfaces and signal-orange actions are the default Vox workspace theme
 - **Real upload progress** — live byte-count progress bar during voice file uploads
-- **macOS menu bar helper** — monochrome VOX status icon, CPU %, RAM, Start/Stop/Restart, Open in Browser, Copy Address — auto-starts on login
+- **macOS menu bar helper** — V-wave template icon, clear ready/stopped state, primary Open/Start-or-Restart/Pair actions, and grouped Server Controls, Files, Diagnostics, and Updates & Support menus; the icon dims while the server is unavailable or restarting
 - **LaunchAgent management** — server and helper managed by macOS launchd; crash-restart, structured logs to `~/Library/Logs/Vox/`
 
 ---
@@ -50,9 +52,9 @@ It exposes a clean REST API and a web UI for generating high-quality audio from 
 | --- | --- |
 | ![Vox Studio Create tab with script editor and Voice Studio controls](docs/screenshots/create.jpg) | ![Vox Studio Library tab with microphone status and voice profile cards](docs/screenshots/library.jpg) |
 
-| Recordings | Settings |
-| --- | --- |
-| ![Vox Studio Recordings tab with waveform playback and regeneration controls](docs/screenshots/recordings.jpg) | ![Vox Studio Settings tab with runtime, stability mode, and network access controls](docs/screenshots/settings.jpg) |
+| Settings |
+| --- |
+| ![Vox Studio Settings tab with runtime, stability mode, and network access controls](docs/screenshots/settings.jpg) |
 
 ---
 
@@ -63,11 +65,17 @@ vox/
 ├── api/
 │   ├── main.py                  # FastAPI app, lifespan, SPA routing, settings endpoint
 │   ├── middleware/
-│   │   └── request_id.py        # Attaches X-Request-ID to every req/res
+│   │   ├── request_id.py        # Attaches X-Request-ID to every req/res
+│   │   └── security.py          # Host/origin checks, LAN auth, scope enforcement
 │   ├── core/
 │   │   ├── config.py            # All settings via VOX_ env vars or .env file
 │   │   ├── db.py                # aiosqlite connection, schema migrations
-│   │   ├── engine.py            # Chatterbox model loader, MPS/CPU auto-detect
+│   │   ├── security.py          # Pairing codes and hashed credential store
+│   │   ├── engine.py            # Lightweight model-worker status facade
+│   │   ├── generation.py        # FIFO coordinator, lifecycle, encoding, atomic publication
+│   │   ├── generation_worker.py # Spawned Chatterbox/MPS model owner
+│   │   ├── generation_encoder.py # Killable final WAV/MP3 encoding process
+│   │   ├── generation_protocol.py # Versioned coordinator/worker IPC messages
 │   │   ├── presets.py           # Built-in TTS preset definitions
 │   │   ├── chunker.py           # Long-text sentence splitting logic
 │   │   ├── audio.py             # ffmpeg helpers: WAV conversion + MP3 export
@@ -80,6 +88,7 @@ vox/
 │   │   ├── jobs.py              # GET /api/v1/jobs — history, status, audio download
 │   │   ├── logs.py              # GET /api/v1/logs — structured job diagnostics + bounded log tails
 │   │   ├── alerts.py            # GET /api/v1/alerts — install/runtime warning banners
+│   │   ├── auth.py              # Pairing, devices, scoped tokens, revocation
 │   │   └── presets.py           # GET /api/v1/presets — built-in + custom tone definitions
 │   └── models/
 │       ├── voice.py             # VoiceOut, VoiceParams, VoiceCreate schemas
@@ -92,8 +101,8 @@ vox/
 │   │   │   ├── index.tsx        # Local installed welcome page
 │   │   │   ├── app.tsx          # Shell layout — sidebar, header, footer
 │   │   │   ├── app.index.tsx    # Create page (TTS generation)
-│   │   │   ├── app.library.tsx  # Library page (voice profile management)
-│   │   │   ├── app.recordings.tsx # Recordings page (job history)
+│   │   │   ├── app.voices.tsx   # Voices workspace (profile management)
+│   │   │   ├── app.history.tsx  # History workspace (generation jobs)
 │   │   │   └── app.settings.tsx # Settings page
 │   │   ├── lib/
 │   │   │   └── api.ts           # Typed fetch wrappers for every API endpoint
@@ -124,7 +133,7 @@ vox/
 │   ├── run.sh                   # Manual foreground start (troubleshooting / dev)
 │   ├── build-apps.sh            # Build, sign, and package VoxHelper + VoxServer DMG
 │   ├── build-pkg.sh             # Build, sign, notarize, and staple the one-click installer package
-│   ├── release.sh               # Unified release: version, build, notarize, tag, upload
+│   ├── release.sh               # Verified-candidate finalizer; guarded tag/push/upload only with explicit publish flag
 │   ├── write-build-info.sh      # Stamp VERSION + git commit + UTC build time
 │   ├── install-agent.sh         # Register server LaunchAgent with macOS launchd
 │   ├── uninstall-agent.sh       # Unload and remove the server LaunchAgent
@@ -181,7 +190,7 @@ The installer handles:
 | LaunchAgents | Registers the server agent and menu bar helper |
 | First-run welcome | Opens the local Welcome page when setup is ready |
 
-The **VOX icon** appears in your menu bar within a few seconds. Use it to start, stop, and restart the server, open the web UI, monitor CPU/RAM/GPU, and confirm the installed Studio/helper build versions.
+The **V-wave icon** appears in your menu bar within a few seconds. Its full-strength state means the server is reachable; it dims while stopped or restarting. Open the menu for **Open Vox Studio**, the primary **Start/Restart Vox Server** action, and **Pair a Device…** when LAN access is enabled. Files, diagnostics, and update actions are grouped into submenus.
 
 ### Method 2 — Manual install from git
 
@@ -216,7 +225,7 @@ bash vox.sh install --yes --token hf_xxx         # also set HF token
 
 Vox starts the server automatically on login by default. You can disable that from the Vox Helper menu if you prefer to start it manually.
 
-**Via the menu bar:** click the Vox icon → **Start Server**.
+**Via the menu bar:** click the V-wave icon → **Start Vox Server**.
 
 **Via terminal:**
 
@@ -227,7 +236,7 @@ launchctl kickstart -k gui/$(id -u)/com.noelmom.vox       # restart
 tail -f ~/Library/Logs/Vox/vox.log                        # live logs
 ```
 
-The menu bar helper shows `localhost:8000 · local only` when `VOX_HOST=127.0.0.1` (default), or `192.168.x.x:8000 · network accessible` when `VOX_HOST=0.0.0.0` — so you always know at a glance who can reach the server.
+The menu bar helper shows `localhost:8000 · local only` when `VOX_HOST=127.0.0.1` (default), or `192.168.x.x:8000 · network accessible` when `VOX_HOST=0.0.0.0` — so you always know at a glance who can reach the server. **Pair a Device…** becomes available only when the server is running and network access is enabled.
 
 ### Updating
 
@@ -274,7 +283,11 @@ See [`scripts/README.md`](scripts/README.md) for a full reference of all scripts
 
 The server starts on `http://127.0.0.1:8000` by default — local to the Mac running Vox. Open `http://localhost:8000/app` for the web UI or `http://localhost:8000/docs` for the interactive API docs.
 
-To allow phones, tablets, or other machines on your LAN to reach Vox, open Settings → Runtime → Network access and switch to **Network accessible**. Restart the local server for the host change to take effect.
+To allow phones, tablets, or other machines on your LAN to reach Vox, open Settings → Runtime → Network access and switch to **Network accessible**. Restart the local server for the host change to take effect. Then choose **Pair a Device…** from Vox Helper and enter its single-use five-minute code on the remote device.
+
+Loopback Studio and API clients remain token-free. Until paired, remote devices can access only `GET /health` and the minimal pairing page/API. Browser sessions are `HttpOnly` and `SameSite=Strict`; API clients use explicit bearer tokens with `read`, `generate`, or `admin` scope. Pairing codes and raw tokens are never stored—only credential hashes are written under the installed Vox `data/security/` directory with owner-only permissions. Disabling LAN access revokes remote credentials.
+
+Vox serves plain HTTP on the LAN unless you place it behind trusted TLS. Pair only on a trusted network and do not reuse Vox credentials elsewhere.
 
 ---
 
@@ -300,7 +313,7 @@ curl http://localhost:8000/health
 
 ### TTS — Generate Audio
 
-Generation is **asynchronous**. `POST /api/v1/tts` returns `202 Accepted` immediately with a `request_id`. Poll `GET /api/v1/jobs/{request_id}` until `status` is `completed`, `failed`, or `cancelled`, then download completed audio from `GET /api/v1/jobs/{request_id}/audio`.
+Generation is **asynchronous**. `POST /api/v1/tts` returns `202 Accepted` immediately with a `request_id`. Poll `GET /api/v1/jobs/{request_id}` until `status` is `completed`, `failed`, `cancelled`, or `interrupted`, then download completed audio from `GET /api/v1/jobs/{request_id}/audio`.
 
 ```
 POST /api/v1/tts
@@ -332,7 +345,9 @@ Content-Type: multipart/form-data
 { "request_id": "abc123-..." }
 ```
 
-Listen to `GET /api/v1/jobs/{request_id}/events` for server-sent job updates, or poll `GET /api/v1/jobs/{request_id}` as a fallback. Once `status` is `completed`, fetch `GET /api/v1/jobs/{request_id}/audio` to download the file. Jobs are serialized through a single local model lock; if another generation is active, new jobs remain `queued` until the engine is free.
+Listen to `GET /api/v1/jobs/{request_id}/events` for server-sent job updates, or poll `GET /api/v1/jobs/{request_id}` as a fallback. Durable states are `queued`, `processing`, `cancelling`, `encoding`, `recovering`, `completed`, `failed`, `cancelled`, and `interrupted`. A coordinator serializes jobs through one spawned model owner; cancellation is terminal only after that worker exits, and a replacement never starts while the old worker is alive.
+
+For an installed Apple Silicon build, run `python3 scripts/smoke-generation-recovery.py` while Vox is open. It cancels an active render, confirms the original worker PID is gone, waits for a distinct replacement, and verifies a second render completes. Set `VOX_SMOKE_BASE_URL` or `VOX_SMOKE_TOKEN` when testing a non-default or paired endpoint.
 
 **Response headers (on the 202):**
 
@@ -497,6 +512,12 @@ All settings are controlled via environment variables with a `VOX_` prefix, or b
 | `VOX_WATCHER_INTERVAL_S` | `10` | How often (seconds) the input folder is polled |
 | `VOX_CLEANUP_INTERVAL_S` | `3600` | How often (seconds) the cleanup task runs |
 | `VOX_DEFAULT_MAX_CHARS` | `450` | Default hard maximum characters per generation chunk when an API request does not pass `max_chars`. Editable in Settings as **Default per-chunk max**. |
+| `VOX_MAX_SCRIPT_CHARS` | `100000` | Maximum total script length accepted by one generation request. |
+| `VOX_MAX_VOICE_UPLOAD_MB` | `50` | Maximum stored or inline voice upload size; uploads stream to bounded temporary files. |
+| `VOX_VOICE_ICON_MAX_KB` | `100` | Maximum decoded PNG icon size; dimensions are also limited to 1024×1024. |
+| `VOX_MAX_BACKUP_UPLOAD_MB` | `2048` | Maximum compressed restore archive size. |
+| `VOX_MAX_BACKUP_EXPANDED_MB` | `4096` | Maximum total expanded restore size. |
+| `VOX_MAX_BACKUP_ENTRIES` | `10000` | Maximum number of entries accepted in a restore archive. |
 | `VOX_MIN_MAX_CHARS` | `100` | Minimum allowed per-request `max_chars` value |
 | `VOX_MAX_MAX_CHARS` | `3000` | Maximum allowed per-request `max_chars` value |
 | `VOX_CHUNK_HEADROOM_CHARS` | `40` | Buffer subtracted from the per-chunk max when Vox packs sentences. Example: `450 - 40 = ~410` character soft packing target. Invalid or empty values fall back to 40. |
@@ -556,7 +577,7 @@ sqlite3 ~/Library/Application\ Support/Vox/data/vox.db
 | Web UI | React 19 + TypeScript, Vite 6, Tailwind CSS v4, TanStack Router + Query |
 | Menu bar helper | Native Swift (AppKit `NSStatusItem`) — arm64 macOS only |
 | Process management | macOS launchd via LaunchAgent plists |
-| Packaging | Signed/notarized macOS `.dmg` and `.pkg` via `scripts/build-apps.sh`, `scripts/build-pkg.sh`, and `scripts/release.sh` |
+| Packaging | Signed/notarized macOS `.dmg` and `.pkg` via `scripts/build-apps.sh` and `scripts/build-pkg.sh`; `scripts/release.sh` finalizes a verified candidate |
 | CI | GitHub Actions: Ruff, codespell, pytest, TypeScript typecheck, Vite build, shell syntax |
 
 ---
@@ -587,10 +608,9 @@ Vox is now in a v1.0 scope freeze: only bug fixes, product polish, and true bloc
 - [x] Voice profile audio preview player with seek and volume
 - [x] Custom tone panel — per-request TTS parameter sliders, named presets saved to DB
 - [x] Custom tone update/save-as flow for saved user presets
-- [x] Sidebar widgets — lifetime and daily request/audio-minutes stats with sparklines
 - [x] Generation status — queued/running state, elapsed timer, SSE updates, polling fallback, global status bar, and cancel controls
 - [x] Backup & restore — export/import SQLite history and voice assets from Settings
-- [x] Theme preference plumbing — light mode enforced for v1; dark/system plumbing deferred for post-v1 polish
+- [x] Dark-first Studio theme — deep-ink surfaces and signal-orange actions are the default workspace treatment
 - [x] Result download with format and quality controls
 - [x] Recent recordings with inline play, download, and delete
 - [x] Persistent generation error UI with retry/dismiss and request ID copy
@@ -598,11 +618,11 @@ Vox is now in a v1.0 scope freeze: only bug fixes, product polish, and true bloc
 - [x] LaunchAgent for server (manual start, crash-restart, structured logs)
 - [x] LaunchAgent for helper (auto-starts on login)
 - [x] Swift menu bar rewrite — native AppKit, eliminates Python/PyObjC issues on macOS Sequoia
-- [x] Real waveform coverage across audio-bearing surfaces (decoded peaks for fetched/recorded/uploaded audio; placeholders only for loading/decorative states)
+- [x] One persistent Now Playing dock for generated recordings; compact waveform controls remain only for voice audition, recording, and trimming
 - [x] Microphone error classification — distinct UI for no-device / access-denied / insecure context
 - [ ] Post-v1: manual pause insertion in the Create script editor
 - [ ] Post-v1: pronunciation dictionary / word replacement controls
-- [ ] Post-v1: finish dark theme visual polish; the toggle and theme tokens are wired, but dark mode still needs minor contrast/surface tweaks before it is release-ready
+- [ ] Post-v1: offer a supported light/system appearance preference without compromising the dark-first Studio contract
 - [ ] Post-v1: streaming audio response (chunked transfer)
 - [ ] Post-v1: review Python and JavaScript SDK support after the local REST API stabilizes
 - [ ] Post-v1: single self-contained `.app` packaging, separate from the current signed/notarized `.pkg` + `.dmg` release flow

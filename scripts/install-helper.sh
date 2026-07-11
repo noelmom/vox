@@ -9,7 +9,6 @@ setup_install_log "scripts/install-helper.sh"
 
 APP_SUPPORT="$HOME/Library/Application Support/Vox"
 APP_DIR="/Applications/Vox"
-VENV="$APP_SUPPORT/venv"
 AGENTS_DIR="$HOME/Library/LaunchAgents"
 PLIST_DST="$AGENTS_DIR/com.noelmom.vox-helper.plist"
 LOG_DIR="$HOME/Library/Logs/Vox"

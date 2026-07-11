@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -29,7 +29,6 @@ import {
   Pencil,
   ArrowUpDown,
   CheckCircle2,
-  Gauge,
   History,
 } from "lucide-react";
 import {
@@ -50,8 +49,9 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { type ApiVoice, type Job, listVoices, listPresets, listJobs, submitTTS, getJob, getJobAudio, savePreset, deletePreset, deleteJob, cancelJob, patchVoice, parseServerDate } from "@/lib/api";
-import { setGenerationState } from "@/lib/generation";
+import { type ApiVoice, type Job, getRuntimeStatus, listVoices, listPresets, listJobs, submitTTS, getJob, savePreset, deletePreset, deleteJob, cancelJob, patchVoice, parseServerDate } from "@/lib/api";
+import { setGenerationState, type DurableGenerationState } from "@/lib/generation";
+import { notifyJobDeleted, notifyJobDeleteFailed, notifyJobDeleting, requestPlayback, usePlayback } from "@/features/playback/PlaybackProvider";
 import { hydrateCachedPreferences, savePreferences, writeCachedPreference } from "@/lib/preferences";
 import { tagStyle } from "@/lib/utils";
 import { BRAND, BRAND_GRADIENT, BRAND_SECONDARY, BRAND_WARM } from "@/lib/theme";
@@ -121,7 +121,7 @@ const ACCENT_BG: Record<Voice["accent"], string> = {
   amber: "oklch(0.72 0.16 70)",
   rose: "oklch(0.62 0.20 15)",
   violet: "oklch(0.55 0.20 300)",
-  slate: "oklch(0.16 0.02 240)",
+  slate: "var(--muted)",
 };
 
 const VOICE_FILTERS: ("All" | VoiceCategory)[] = ["All", "Default", "Demo", "Narration", "Conversational", "Character", "Custom"];
@@ -226,12 +226,12 @@ function presetToAdvanced(p: Record<string, number>): typeof ADVANCED_DEFAULTS {
   };
 }
 
-type GenResult = { job: Job; blob: Blob; url: string };
+type GenResult = { job: Job };
 
 type GenState =
   | { phase: "idle" }
   | { phase: "submitting" }
-  | { phase: "polling"; requestId: string; startedAt: number; status?: "queued" | "processing" }
+  | { phase: "polling"; requestId: string; startedAt: number; status?: DurableGenerationState }
   | { phase: "done"; result: GenResult }
   | { phase: "error"; message: string; requestId?: string };
 
@@ -297,13 +297,14 @@ function GeneratePage() {
   const [advancedOpen, setAdvancedOpen] = useLocalStorage("vox:advancedOpen", false);
   const [advanced, setAdvanced] = useLocalStorage("vox:advanced", ADVANCED_DEFAULTS);
   const [voiceId, setVoiceId] = useLocalStorage("vox:voiceId", "");
+  const [autoplayCompleted, setAutoplayCompleted] = useLocalStorage("vox:autoplay-completed", false);
+  const [preferencesHydrated, setPreferencesHydrated] = useState(false);
   const [optimisticFavorites, setOptimisticFavorites] = useState<Record<string, boolean>>({});
   const [pickerOpen, setPickerOpen] = useState(false);
   const [outputSort, setOutputSort] = useState<"desc" | "asc">("desc");
   const [filterOpen, setFilterOpen] = useState(false);
   const [filterQuery, setFilterQuery] = useState("");
-  const [activePlayerId, setActivePlayerId] = useState<string | null>(null);
-  const [visibleCount, setVisibleCount] = useState(5);
+  const [visibleCount, setVisibleCount] = useState(3);
   const [genState, setGenState] = useState<GenState>({ phase: "idle" });
   const [elapsed, setElapsed] = useState(0);
   const abortRef = useRef(false);
@@ -320,6 +321,7 @@ function GeneratePage() {
   const [editingPreset, setEditingPreset] = useState(false);
   const [editPresetError, setEditPresetError] = useState("");
   const queryClient = useQueryClient();
+  const { data: runtime, isError: runtimeError } = useQuery({ queryKey: ["runtime-status"], queryFn: getRuntimeStatus, refetchInterval: 5_000, retry: 1 });
 
   const { data: voicesData } = useQuery({ queryKey: ["voices"], queryFn: listVoices });
   const { data: presetsData } = useQuery({ queryKey: ["presets"], queryFn: listPresets });
@@ -335,17 +337,22 @@ function GeneratePage() {
         if (typeof prefs["vox:mp3Quality"] === "string") setMp3Quality(prefs["vox:mp3Quality"]);
         if (typeof prefs["vox:wavQuality"] === "string") setWavQuality(prefs["vox:wavQuality"]);
         if (typeof prefs["vox:voiceId"] === "string") setVoiceId(prefs["vox:voiceId"]);
+        if (typeof prefs["vox:autoplay-completed"] === "boolean") setAutoplayCompleted(prefs["vox:autoplay-completed"]);
         if (prefs["vox:advanced"] && typeof prefs["vox:advanced"] === "object") {
           setAdvanced({ ...ADVANCED_DEFAULTS, ...(prefs["vox:advanced"] as Partial<typeof ADVANCED_DEFAULTS>) });
         }
       })
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => {
+        if (!cancelled) setPreferencesHydrated(true);
+      });
     return () => {
       cancelled = true;
     };
-  }, [setAdvanced, setFormat, setMp3Quality, setTone, setVoiceId, setWavQuality]);
+  }, [setAdvanced, setAutoplayCompleted, setFormat, setMp3Quality, setTone, setVoiceId, setWavQuality]);
 
   useEffect(() => {
+    if (!preferencesHydrated) return;
     const timeout = window.setTimeout(() => {
       savePreferences({
         "vox:tone": tone,
@@ -354,10 +361,11 @@ function GeneratePage() {
         "vox:wavQuality": wavQuality,
         "vox:advanced": advanced,
         "vox:voiceId": voiceId,
+        "vox:autoplay-completed": autoplayCompleted,
       }).catch(() => {});
     }, 600);
     return () => window.clearTimeout(timeout);
-  }, [advanced, format, mp3Quality, tone, voiceId, wavQuality]);
+  }, [advanced, autoplayCompleted, format, mp3Quality, preferencesHydrated, tone, voiceId, wavQuality]);
 
   useEffect(() => {
     const timeout = window.setTimeout(() => {
@@ -503,6 +511,7 @@ function GeneratePage() {
   };
 
   const isGenerating = genState.phase === "submitting" || genState.phase === "polling";
+  const generationReady = runtime?.model.ready === true;
 
   // Elapsed timer during generation
   useEffect(() => {
@@ -546,22 +555,19 @@ function GeneratePage() {
         if (cancelled) return;
 
         if (job.status === "completed") {
-          const blob = await getJobAudio(savedRequestId);
-          if (cancelled) return;
-          const url = URL.createObjectURL(blob);
-          setGenState({ phase: "done", result: { job, blob, url } });
+          setGenState({ phase: "done", result: { job } });
           setGenerationState({ phase: "done", requestId: savedRequestId });
           return;
         }
 
-        if (job.status === "queued" || job.status === "processing") {
+        if (["queued", "processing", "cancelling", "encoding", "recovering"].includes(job.status)) {
           generationStartedAtRef.current = parseServerDate(job.created_at).getTime() || Date.now();
-          setGenState({ phase: "polling", requestId: savedRequestId, startedAt: generationStartedAtRef.current, status: job.status });
+          setGenState({ phase: "polling", requestId: savedRequestId, startedAt: generationStartedAtRef.current, status: job.status as DurableGenerationState });
           setGenerationState({
             phase: "polling",
             requestId: savedRequestId,
             startedAt: generationStartedAtRef.current,
-            status: job.status,
+            status: job.status as DurableGenerationState,
           });
           return;
         }
@@ -572,7 +578,7 @@ function GeneratePage() {
           return;
         }
 
-        if (job.status === "failed") {
+        if (job.status === "failed" || job.status === "interrupted") {
           localStorage.removeItem(LAST_REQUEST_KEY);
           setGenState({ phase: "error", message: job.error ?? "Generation failed", requestId: savedRequestId });
           setGenerationState({ phase: "error", requestId: savedRequestId, message: job.error ?? "Generation failed" });
@@ -597,20 +603,18 @@ function GeneratePage() {
     const applyJobUpdate = async (job: Job) => {
       if (stopped) return;
 
-      if (job.status === "queued" || job.status === "processing") {
+      if (["queued", "processing", "cancelling", "encoding", "recovering"].includes(job.status)) {
         const startedAt = genState.startedAt || generationStartedAtRef.current || parseServerDate(job.created_at).getTime() || Date.now();
         generationStartedAtRef.current = startedAt;
-        const next: GenState = { phase: "polling", requestId, startedAt, status: job.status };
+        const next: GenState = { phase: "polling", requestId, startedAt, status: job.status as DurableGenerationState };
         setGenState(next);
         setGenerationState(next);
         return;
       }
 
       if (job.status === "completed") {
-        const blob = await getJobAudio(requestId);
-        if (stopped) return;
-        const url = URL.createObjectURL(blob);
-        setGenState({ phase: "done", result: { job, blob, url } });
+        setGenState({ phase: "done", result: { job } });
+        if (autoplayCompleted) requestPlayback(job);
         setGenerationState({ phase: "done", requestId });
         localStorage.setItem(LAST_REQUEST_KEY, requestId);
         queryClient.invalidateQueries({ queryKey: ["jobs"] });
@@ -625,7 +629,7 @@ function GeneratePage() {
         return;
       }
 
-      if (job.status === "failed") {
+      if (job.status === "failed" || job.status === "interrupted") {
         setGenState({ phase: "error", message: job.error ?? "Generation failed", requestId });
         setGenerationState({ phase: "error", message: job.error ?? "Generation failed", requestId });
         queryClient.invalidateQueries({ queryKey: ["jobs"] });
@@ -661,16 +665,13 @@ function GeneratePage() {
       source.close();
       window.clearInterval(id);
     };
-  }, [genState.phase === "polling" ? genState.requestId : null, queryClient]);
+  }, [autoplayCompleted, genState.phase === "polling" ? genState.requestId : null, queryClient]);
 
   const handleGenerate = async () => {
-    if (!script.trim() || isGenerating) return;
+    if (!script.trim() || isGenerating || !generationReady) return;
     abortRef.current = false;
     activeRequestRef.current = null;
     setStopping(false);
-
-    // Revoke previous blob URL
-    if (genState.phase === "done") URL.revokeObjectURL(genState.result.url);
 
     generationStartedAtRef.current = Date.now();
     setElapsed(0);
@@ -718,10 +719,17 @@ function GeneratePage() {
     setStopping(true);
     abortRef.current = true;
     try {
-      await cancelJob(requestId);
-      setGenState({ phase: "idle" });
-      setGenerationState({ phase: "cancelled", requestId });
-      localStorage.removeItem(LAST_REQUEST_KEY);
+      const result = await cancelJob(requestId);
+      if (result.status === "cancelled") {
+        setGenState({ phase: "idle" });
+        setGenerationState({ phase: "cancelled", requestId });
+        localStorage.removeItem(LAST_REQUEST_KEY);
+      } else {
+        const startedAt = generationStartedAtRef.current || Date.now();
+        const next: GenState = { phase: "polling", requestId, startedAt, status: "cancelling" };
+        setGenState(next);
+        setGenerationState(next);
+      }
       queryClient.invalidateQueries({ queryKey: ["jobs"] });
     } catch (err) {
       const message = err instanceof Error ? err.message : "Cancellation failed.";
@@ -734,8 +742,14 @@ function GeneratePage() {
 
   const handleDeleteCurrentResult = async () => {
     if (!genResult) return;
-    await deleteJob(genResult.job.request_id).catch(() => {});
-    if (genResult.url.startsWith("blob:")) URL.revokeObjectURL(genResult.url);
+    notifyJobDeleting(genResult.job.request_id);
+    try {
+      await deleteJob(genResult.job.request_id);
+    } catch {
+      notifyJobDeleteFailed(genResult.job.request_id);
+      return;
+    }
+    notifyJobDeleted(genResult.job.request_id);
     setGenState({ phase: "idle" });
     setGenerationState({ phase: "idle" });
     localStorage.removeItem(LAST_REQUEST_KEY);
@@ -752,7 +766,7 @@ function GeneratePage() {
   const filteredJobs = useMemo(() => {
     // Exclude the job currently shown in the Output card — it lives there, not here
     const currentId = genResult?.job.request_id;
-    let jobs = currentId ? sortedJobs.filter((j) => j.request_id !== currentId) : sortedJobs;
+    const jobs = currentId ? sortedJobs.filter((j) => j.request_id !== currentId) : sortedJobs;
     if (!filterQuery.trim()) return jobs;
     const q = filterQuery.toLowerCase();
     return jobs.filter(
@@ -1005,7 +1019,7 @@ function GeneratePage() {
 
           <button
             onClick={handleGenerate}
-            disabled={isGenerating || !script.trim()}
+            disabled={isGenerating || !script.trim() || !generationReady}
             className="group mt-5 flex w-full items-center justify-center gap-3 rounded-xl px-6 py-4 text-[15px] font-bold text-white transition-all hover:-translate-y-0.5 hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-70 disabled:hover:translate-y-0 disabled:hover:brightness-100"
             style={{ background: BRAND_GRADIENT, boxShadow: "var(--shadow-btn)" }}
           >
@@ -1020,7 +1034,7 @@ function GeneratePage() {
             ) : (
               <>
                 <AudioLines className="h-5 w-5" />
-                Generate Voice
+                {runtimeError ? "Server unavailable" : generationReady ? "Generate Voice" : "Model loading…"}
                 <Sparkles className="h-4 w-4 opacity-80" />
               </>
             )}
@@ -1042,8 +1056,8 @@ function GeneratePage() {
             {isGenerating ? (
               <GeneratingRow
                 elapsed={elapsed}
-                queued={genState.phase === "polling" && genState.status === "queued"}
-                stopping={stopping}
+                status={genState.phase === "polling" ? genState.status : undefined}
+                stopping={stopping || (genState.phase === "polling" && genState.status === "cancelling")}
                 onCancel={handleCancelGeneration}
               />
             ) : genState.phase === "error" ? (
@@ -1056,9 +1070,6 @@ function GeneratePage() {
             ) : genResult ? (
               <JobRow
                 job={genResult.job}
-                preloadedUrl={genResult.url}
-                activePlayerId={activePlayerId}
-                onActivate={setActivePlayerId}
                 onRegenerate={handleGenerate}
                 onDelete={handleDeleteCurrentResult}
               />
@@ -1126,14 +1137,18 @@ function GeneratePage() {
                   <JobRow
                     key={job.request_id}
                     job={job}
-                    preloadedUrl={genResult?.job.request_id === job.request_id ? genResult.url : undefined}
-                    activePlayerId={activePlayerId}
-                    onActivate={setActivePlayerId}
                     timelineStyle
                     isLatest={idx === 0 && outputSort === "desc"}
                     onRegenerate={() => setScript(job.text)}
                     onDelete={async () => {
-                      await deleteJob(job.request_id).catch(() => {});
+                      notifyJobDeleting(job.request_id);
+                      try {
+                        await deleteJob(job.request_id);
+                      } catch {
+                        notifyJobDeleteFailed(job.request_id);
+                        return;
+                      }
+                      notifyJobDeleted(job.request_id);
                       queryClient.invalidateQueries({ queryKey: ["jobs"] });
                     }}
                   />
@@ -1141,7 +1156,7 @@ function GeneratePage() {
                 {filteredJobs.length > visibleCount && (
                   <button
                     onClick={() => setVisibleCount((n) => n + 3)}
-                    className="w-full rounded-xl border border-dashed border-border py-3 text-[13px] font-medium text-foreground/50 transition-colors hover:border-[oklch(0.55_0.22_260/0.4)] hover:bg-[oklch(0.98_0.01_260)] hover:text-[oklch(0.45_0.22_260)]"
+                    className="w-full rounded-xl border border-dashed border-border bg-[oklch(0.17_0.018_250)] py-3 text-[13px] font-medium text-foreground/65 transition-colors hover:border-[oklch(0.66_0.22_35)] hover:bg-[oklch(0.28_0.05_35)] hover:text-[oklch(0.82_0.15_42)]"
                   >
                     Load {Math.min(3, filteredJobs.length - visibleCount)} more
                     <span className="ml-1.5 text-foreground/35">({filteredJobs.length - visibleCount} remaining)</span>
@@ -1153,9 +1168,9 @@ function GeneratePage() {
 
           <div className="mt-5 flex items-center justify-between border-t border-border pt-4 text-[12px] text-foreground/65">
             <span>{filteredJobs.length} recording{filteredJobs.length !== 1 ? "s" : ""}</span>
-            <a className="inline-flex items-center gap-1 font-semibold text-[oklch(0.55_0.22_260)] hover:underline" href="/app/recordings">
-              View All Recordings <ChevronRight className="h-3.5 w-3.5" />
-            </a>
+            <Link className="inline-flex items-center gap-1 font-semibold text-[oklch(0.76_0.18_42)] hover:underline" to="/app/history">
+              View all history <ChevronRight className="h-3.5 w-3.5" />
+            </Link>
           </div>
         </section>
         </div>
@@ -1234,7 +1249,7 @@ function GeneratePage() {
                     </span>
                   </span>
                   {isDirty && (
-                    <span className="shrink-0 rounded-full bg-[oklch(0.55_0.22_260)] px-1.5 py-0.5 text-[10px] font-bold text-white">
+                    <span className="shrink-0 rounded-full bg-[var(--brand)] px-1.5 py-0.5 text-[10px] font-bold text-white">
                       Modified
                     </span>
                   )}
@@ -1251,9 +1266,9 @@ function GeneratePage() {
                     onSelect={() => handleToneSelect(t)}
                     className="flex cursor-pointer items-center gap-2 rounded-lg px-2.5 py-2 text-[13px]"
                   >
-                    <AudioLines className="h-3.5 w-3.5 text-[oklch(0.55_0.22_260)]" />
+                    <AudioLines className="h-3.5 w-3.5 text-[var(--brand)]" />
                     <span className="min-w-0 flex-1 truncate font-medium">{t}</span>
-                    {tone === t && <Check className="h-3.5 w-3.5 text-[oklch(0.55_0.22_260)]" />}
+                    {tone === t && <Check className="h-3.5 w-3.5 text-[var(--brand)]" />}
                   </DropdownMenuItem>
                 ))}
 
@@ -1269,9 +1284,9 @@ function GeneratePage() {
                         onSelect={() => handleToneSelect(t)}
                         className="flex cursor-pointer items-center gap-2 rounded-lg px-2.5 py-2 text-[13px]"
                       >
-                        <Sparkles className="h-3.5 w-3.5 text-[oklch(0.55_0.22_260)]" />
+                        <Sparkles className="h-3.5 w-3.5 text-[var(--brand)]" />
                         <span className="min-w-0 flex-1 truncate font-medium">{t}</span>
-                        {tone === t && <Check className="h-3.5 w-3.5 text-[oklch(0.55_0.22_260)]" />}
+                        {tone === t && <Check className="h-3.5 w-3.5 text-[var(--brand)]" />}
                       </DropdownMenuItem>
                     ))}
                   </>
@@ -1280,7 +1295,7 @@ function GeneratePage() {
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
                   onSelect={() => handleToneSelect("Custom")}
-                  className="flex cursor-pointer items-center gap-2 rounded-lg px-2.5 py-2 text-[13px] text-[oklch(0.55_0.22_260)]"
+                  className="flex cursor-pointer items-center gap-2 rounded-lg px-2.5 py-2 text-[13px] text-[var(--brand)]"
                 >
                   <Plus className="h-3.5 w-3.5" />
                   <span className="min-w-0 flex-1 font-semibold">Create custom tone</span>
@@ -1306,7 +1321,7 @@ function GeneratePage() {
             <span className="inline-flex items-center gap-2">
               Advanced Settings
               {isDirty && (
-                <span className="rounded-full bg-[oklch(0.55_0.22_260)] px-1.5 py-0.5 text-[10px] font-bold text-white">
+                <span className="rounded-full bg-[var(--brand)] px-1.5 py-0.5 text-[10px] font-bold text-white">
                   Modified
                 </span>
               )}
@@ -1324,7 +1339,7 @@ function GeneratePage() {
               className="mt-3 rounded-xl border border-border bg-[var(--background)] p-4"
               style={{
                 boxShadow:
-                  "inset 0 1px 0 oklch(1 0 0 / 0.6), 0 1px 2px oklch(0.16 0.02 260 / 0.04)",
+                  "inset 0 1px 0 color-mix(in oklch, var(--foreground) 8%, transparent), 0 1px 2px rgb(0 0 0 / 0.08)",
               }}
             >
               <div className="mb-4 border-b border-border pb-4">
@@ -1351,7 +1366,7 @@ function GeneratePage() {
                         className={
                           "flex flex-col items-start rounded-lg border px-2.5 py-1.5 text-left transition-all " +
                           (active
-                            ? "border-[oklch(0.55_0.22_260)] bg-[oklch(0.96_0.04_260)] text-[oklch(0.45_0.22_260)] shadow-[inset_0_0_0_1px_oklch(0.55_0.22_260/0.25)]"
+                            ? "border-[oklch(0.66_0.22_35)] bg-[oklch(0.28_0.05_35)] text-[oklch(0.82_0.15_42)] shadow-[inset_0_0_0_1px_oklch(0.66_0.22_35/0.35)]"
                             : "border-border bg-white text-foreground/75 hover:bg-muted")
                         }
                       >
@@ -1389,7 +1404,7 @@ function GeneratePage() {
                           <button
                             onClick={handleUpdatePreset}
                             disabled={editingPreset || !activeToneKey}
-                            className="inline-flex w-full items-center justify-center gap-1.5 whitespace-nowrap rounded-lg bg-[oklch(0.55_0.22_260)] px-3 py-2 text-[12px] font-bold text-white transition-all hover:brightness-110 disabled:opacity-60"
+                            className="inline-flex w-full items-center justify-center gap-1.5 whitespace-nowrap rounded-lg bg-[var(--brand)] px-3 py-2 text-[12px] font-bold text-white transition-all hover:brightness-110 disabled:opacity-60"
                           >
                             {editingPreset ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
                             Update
@@ -1405,7 +1420,7 @@ function GeneratePage() {
                       ) : null}
                       <button
                         onClick={handleEditPresetOpen}
-                        className="group inline-flex w-full items-center justify-center gap-1.5 whitespace-nowrap rounded-lg border border-border bg-white px-3 py-2 text-[12px] font-semibold text-foreground/70 transition-all hover:border-[oklch(0.55_0.22_260/0.4)] hover:bg-[oklch(0.98_0.02_260)] hover:text-[oklch(0.45_0.22_260)]"
+                        className="group inline-flex w-full items-center justify-center gap-1.5 whitespace-nowrap rounded-lg border border-border bg-white px-3 py-2 text-[12px] font-semibold text-foreground/70 transition-all hover:border-[var(--brand)] hover:bg-[var(--brand-soft)] hover:text-[var(--brand)]"
                       >
                         <Pencil className="h-3.5 w-3.5 transition-transform group-hover:-rotate-6" />
                         Edit
@@ -1437,7 +1452,7 @@ function GeneratePage() {
                   {tone === "Custom" && (
                     <button
                       onClick={() => { setSavePresetOpen((v) => !v); setSavePresetError(""); }}
-                      className="inline-flex w-full items-center justify-center gap-1.5 rounded-lg bg-[oklch(0.55_0.22_260)] px-3 py-2 text-[12px] font-bold text-white transition-all hover:brightness-110 sm:col-span-2"
+                      className="inline-flex w-full items-center justify-center gap-1.5 rounded-lg bg-[var(--brand)] px-3 py-2 text-[12px] font-bold text-white transition-all hover:brightness-110 sm:col-span-2"
                       style={{ boxShadow: "var(--shadow-btn)" }}
                     >
                       <Sparkles className="h-3.5 w-3.5" />
@@ -1448,7 +1463,7 @@ function GeneratePage() {
 
                 {/* Edit panel for user presets */}
                 {isUserPreset && editPresetOpen && (
-                  <div className="mt-3 rounded-xl border border-[oklch(0.55_0.22_260/0.25)] bg-[var(--brand-soft)] p-3">
+                  <div className="mt-3 rounded-xl border border-[color-mix(in_oklch,var(--brand)_35%,var(--border))] bg-[var(--brand-soft)] p-3">
                     <div className="mb-2 flex items-start justify-between gap-2">
                       <p className="text-[11.5px] font-semibold text-foreground/70">
                         Rename or update settings — current slider values will be saved.
@@ -1469,12 +1484,12 @@ function GeneratePage() {
                         onKeyDown={(e) => { if (e.key === "Enter") handleEditPreset(); if (e.key === "Escape") setEditPresetOpen(false); }}
                         placeholder="Preset name"
                         maxLength={40}
-                        className="flex-1 rounded-lg border border-border bg-white px-3 py-2 text-[12px] outline-none focus:border-[oklch(0.55_0.22_260)] focus:ring-2 focus:ring-[oklch(0.55_0.22_260/0.12)]"
+                        className="flex-1 rounded-lg border border-border bg-white px-3 py-2 text-[12px] outline-none focus:border-[var(--brand)] focus:ring-2 focus:ring-[color-mix(in_oklch,var(--brand)_18%,transparent)]"
                       />
                       <button
                         onClick={handleEditPreset}
                         disabled={editingPreset || !editPresetNameInput.trim()}
-                        className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-[oklch(0.55_0.22_260)] px-3 py-2 text-[12px] font-bold text-white transition-all hover:brightness-110 disabled:opacity-60"
+                        className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-[var(--brand)] px-3 py-2 text-[12px] font-bold text-white transition-all hover:brightness-110 disabled:opacity-60"
                       >
                         {editingPreset ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
                         Update
@@ -1487,7 +1502,7 @@ function GeneratePage() {
                 )}
 
                 {tone === "Custom" && savePresetOpen && (
-                  <div className="mt-3 rounded-xl border border-[oklch(0.55_0.22_260/0.25)] bg-[var(--brand-soft)] p-3">
+                  <div className="mt-3 rounded-xl border border-[color-mix(in_oklch,var(--brand)_35%,var(--border))] bg-[var(--brand-soft)] p-3">
                     <p className="mb-2 text-[11.5px] font-semibold text-foreground/70">
                       Name this preset — it will appear in the Tone chips above.
                     </p>
@@ -1505,16 +1520,16 @@ function GeneratePage() {
                             onKeyDown={(e) => { if (e.key === "Enter") handleSavePreset(); if (e.key === "Escape") setSavePresetOpen(false); }}
                             placeholder="e.g. My Deep Voice"
                             maxLength={40}
-                            className="w-full rounded-lg border border-border bg-white px-3 py-2 text-[12px] outline-none focus:border-[oklch(0.55_0.22_260)] focus:ring-2 focus:ring-[oklch(0.55_0.22_260/0.12)]"
+                            className="w-full rounded-lg border border-border bg-white px-3 py-2 text-[12px] outline-none focus:border-[var(--brand)] focus:ring-2 focus:ring-[color-mix(in_oklch,var(--brand)_18%,transparent)]"
                           />
                           {nameError && (
-                            <p className="text-[11px] text-[oklch(0.5_0.15_260)]">{nameError}</p>
+                            <p className="text-[11px] text-[var(--brand)]">{nameError}</p>
                           )}
                           <div className="flex gap-2">
                             <button
                               onClick={handleSavePreset}
                               disabled={savingPreset || !trimmed}
-                              className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-[oklch(0.55_0.22_260)] px-3 py-2 text-[12px] font-bold text-white transition-all hover:brightness-110 disabled:opacity-60"
+                              className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-[var(--brand)] px-3 py-2 text-[12px] font-bold text-white transition-all hover:brightness-110 disabled:opacity-60"
                             >
                               {savingPreset ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
                               Save
@@ -1575,7 +1590,7 @@ function InfoTip({ text }: { text: string }) {
       <span
         role="tooltip"
         className="pointer-events-none absolute left-1/2 top-full z-50 mt-1.5 w-60 -translate-x-1/2 rounded-lg border border-border bg-white px-3 py-2 text-[11px] font-medium leading-snug text-foreground/80 opacity-0 shadow-lg transition-opacity duration-150 group-hover/tip:opacity-100"
-        style={{ boxShadow: "0 6px 24px oklch(0.16 0.02 260 / 0.12)" }}
+        style={{ boxShadow: "0 6px 24px rgb(0 0 0 / 0.22)" }}
       >
         {text}
       </span>
@@ -1670,11 +1685,11 @@ function VoicePicker({
       className="absolute left-0 right-0 top-[calc(100%+8px)] z-30 overflow-hidden rounded-2xl border border-border bg-white"
       style={{
         boxShadow:
-          "0 24px 48px -16px oklch(0.16 0.02 260 / 0.18), 0 4px 12px -4px oklch(0.16 0.02 260 / 0.08)",
+          "0 24px 48px -16px rgb(0 0 0 / 0.34), 0 4px 12px -4px rgb(0 0 0 / 0.16)",
       }}
     >
       <div className="border-b border-border p-3">
-        <div className="flex items-center rounded-lg border border-border bg-[var(--background)] px-3 py-2 focus-within:border-[oklch(0.55_0.22_260)] focus-within:ring-4 focus-within:ring-[oklch(0.55_0.22_260/0.08)]">
+        <div className="flex items-center rounded-lg border border-border bg-[var(--background)] px-3 py-2 focus-within:border-[var(--brand)] focus-within:ring-4 focus-within:ring-[color-mix(in_oklch,var(--brand)_12%,transparent)]">
           <Search className="h-3.5 w-3.5 text-foreground/40" />
           <input
             ref={inputRef}
@@ -1703,7 +1718,7 @@ function VoicePicker({
                 onClick={() => setFilter(f)}
                 className={
                   active
-                    ? "rounded-md bg-[oklch(0.55_0.22_260)] px-2 py-1 text-[11px] font-bold text-white"
+                    ? "rounded-md bg-[var(--brand)] px-2 py-1 text-[11px] font-bold text-white"
                     : "rounded-md border border-border bg-white px-2 py-1 text-[11px] font-semibold text-foreground/70 transition-colors hover:bg-muted"
                 }
               >
@@ -1742,7 +1757,7 @@ function VoicePicker({
                         className={
                           "truncate text-[13px] " +
                           (isSelected
-                            ? "font-bold text-[oklch(0.55_0.22_260)]"
+                            ? "font-bold text-[var(--brand)]"
                             : "font-semibold text-foreground")
                         }
                       >
@@ -1777,7 +1792,7 @@ function VoicePicker({
                   <Star className={"h-4 w-4 " + (isFav ? "fill-current" : "")} />
                 </button>
                 {isSelected && (
-                  <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[oklch(0.55_0.22_260)] text-white">
+                  <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[var(--brand)] text-white">
                     <Check className="h-3 w-3" strokeWidth={3} />
                   </span>
                 )}
@@ -1787,16 +1802,16 @@ function VoicePicker({
         )}
       </div>
 
-      <a
-        href="/app/library"
-        className="flex items-center justify-between border-t border-border bg-[var(--background)] px-4 py-3 text-[12px] font-semibold text-[oklch(0.55_0.22_260)] transition-colors hover:bg-[var(--brand-soft)]"
+      <Link
+        to="/app/voices"
+        className="flex items-center justify-between border-t border-border bg-[var(--background)] px-4 py-3 text-[12px] font-semibold text-[var(--brand)] transition-colors hover:bg-[var(--brand-soft)]"
       >
         <span className="inline-flex items-center gap-1.5">
           <Plus className="h-3.5 w-3.5" />
           Record or import a new voice
         </span>
         <ChevronRight className="h-3.5 w-3.5" />
-      </a>
+      </Link>
     </div>
   );
 }
@@ -1821,7 +1836,7 @@ function FormatTile({
         "group relative flex items-center gap-3 overflow-hidden rounded-xl px-3 py-2.5 text-left transition-all " +
         (active
           ? "text-white"
-          : "border border-border bg-white text-foreground hover:-translate-y-0.5 hover:border-[oklch(0.55_0.22_260/0.35)] hover:shadow-[0_8px_18px_-12px_oklch(0.55_0.22_260/0.35)]")
+          : "border border-border bg-white text-foreground hover:border-[var(--brand)]")
       }
       style={
         active
@@ -1839,7 +1854,7 @@ function FormatTile({
           "flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition-colors " +
           (active
             ? "bg-white/15 text-white ring-1 ring-inset ring-white/25"
-            : "bg-[oklch(0.96_0.02_260)] text-[oklch(0.55_0.22_260)] group-hover:bg-[oklch(0.94_0.04_260)]")
+            : "bg-[var(--brand-soft)] text-[var(--brand)] group-hover:bg-[var(--brand-soft)]")
         }
       >
         {isMp3 ? <AudioLines className="h-4 w-4" /> : <Disc3 className="h-4 w-4" />}
@@ -1900,7 +1915,7 @@ function AdvancedSlider({
       <div className="relative flex h-6 items-center">
         <div className="relative h-1 w-full rounded-full bg-muted">
           <div
-            className="absolute left-0 top-0 h-full rounded-full bg-[oklch(0.55_0.22_260)]"
+            className="absolute left-0 top-0 h-full rounded-full bg-[var(--brand)]"
             style={{ width: `${pct}%` }}
           />
         </div>
@@ -1911,7 +1926,7 @@ function AdvancedSlider({
           step={step}
           value={value}
           onChange={(e) => onChange(Number(e.target.value))}
-          className="absolute inset-0 h-6 w-full cursor-pointer appearance-none bg-transparent [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-[oklch(0.55_0.22_260)] [&::-webkit-slider-thumb]:bg-white [&::-webkit-slider-thumb]:shadow [&::-moz-range-thumb]:h-4 [&::-moz-range-thumb]:w-4 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-2 [&::-moz-range-thumb]:border-[oklch(0.55_0.22_260)] [&::-moz-range-thumb]:bg-white"
+          className="absolute inset-0 h-6 w-full cursor-pointer appearance-none bg-transparent accent-[oklch(0.66_0.22_35)] [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-[oklch(0.66_0.22_35)] [&::-webkit-slider-thumb]:bg-card [&::-webkit-slider-thumb]:shadow [&::-moz-range-thumb]:h-4 [&::-moz-range-thumb]:w-4 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-2 [&::-moz-range-thumb]:border-[oklch(0.66_0.22_35)] [&::-moz-range-thumb]:bg-card"
         />
       </div>
       <div className="rounded-md border border-border bg-white px-2 py-1 text-center text-[12px] font-semibold tabular-nums text-foreground">
@@ -1927,6 +1942,10 @@ function fmtTime(s: number) {
   const m = Math.floor(s / 60);
   const r = Math.floor(s % 60);
   return `${m}:${r.toString().padStart(2, "0")}`;
+}
+
+function formatElapsedTime(seconds: number) {
+  return seconds < 60 ? `${seconds.toFixed(1)}s` : fmtTime(seconds);
 }
 
 function formatEstimateDuration(seconds: number) {
@@ -1956,51 +1975,56 @@ const GENERATION_STEPS = [
   },
 ] as const;
 
-function getGenerationStep(elapsed: number, queued = false) {
-  if (queued) return 1;
-  if (elapsed < 6) return 1;
-  if (elapsed < 45) return 2;
-  return 3;
-}
-
-function getGenerationStatus(elapsed: number, queued = false) {
-  const step = getGenerationStep(elapsed, queued);
-  return GENERATION_STEPS[step - 1];
-}
-
 function GeneratingRow({
   elapsed,
-  queued,
+  status,
   stopping,
   onCancel,
 }: {
   elapsed: number;
-  queued: boolean;
+  status?: DurableGenerationState;
   stopping: boolean;
   onCancel: () => void;
 }) {
-  const activeStep = getGenerationStep(elapsed, queued);
-  const activeStatus = getGenerationStatus(elapsed, queued);
-  const progressPct = queued ? 16 : Math.min(92, 24 + elapsed / 3);
+  const current = status ?? "queued";
+  const queued = current === "queued";
+  const activeStep = current === "encoding" ? 3 : current === "queued" ? 1 : 2;
+  const activeStatus = GENERATION_STEPS[activeStep - 1];
+  const headline = current === "cancelling"
+    ? "Stopping generation…"
+    : current === "recovering"
+      ? "Recovering the model…"
+      : current === "encoding"
+        ? "Encoding audio…"
+        : queued
+          ? "Waiting in queue…"
+          : "Generating audio…";
+  const detail = current === "cancelling"
+    ? "Waiting for the model worker to stop safely."
+    : current === "recovering"
+      ? "Vox is restarting its isolated model worker."
+      : queued
+        ? "Another render is using the engine right now."
+        : `${activeStatus.detail} · ${fmtTime(elapsed)} elapsed`;
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-[color-mix(in_oklch,var(--brand)_16%,white)] bg-[linear-gradient(180deg,var(--brand-soft)_0%,white_30%,var(--background)_100%)] shadow-[0_18px_36px_-28px_oklch(0.16_0.02_260/0.28)]">
+    <div className="overflow-hidden rounded-2xl border border-[color-mix(in_oklch,var(--brand)_38%,var(--border))] bg-[var(--card)] shadow-[0_18px_36px_-28px_rgb(0_0_0_/_0.55)]">
       <div className="flex items-start justify-between gap-3 p-4 sm:p-5">
         <div className="flex min-w-0 items-start gap-4">
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[radial-gradient(circle_at_30%_30%,white_0%,var(--brand-soft)_58%,color-mix(in_oklch,var(--brand)_20%,white)_100%)] text-[var(--brand)] shadow-sm">
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[var(--brand-soft)] text-[var(--brand)] ring-1 ring-[color-mix(in_oklch,var(--brand)_35%,transparent)]">
             <Loader2 className="h-5 w-5 animate-spin" />
           </div>
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
               <div className="text-[15px] font-bold tracking-tight text-foreground">
-                {queued ? "Waiting in queue…" : "Generating audio…"}
+                {headline}
               </div>
-              <span className="rounded-full border border-[color-mix(in_oklch,var(--brand)_20%,white)] bg-white/90 px-2.5 py-0.5 text-[11px] font-semibold text-[var(--brand)] shadow-sm">
-                {queued ? "Queued" : activeStatus.label}
+              <span className="rounded-full border border-[color-mix(in_oklch,var(--brand)_35%,var(--border))] bg-[var(--brand-soft)] px-2.5 py-0.5 text-[11px] font-semibold text-[var(--brand)]">
+                {current === "cancelling" ? "Stopping" : current === "recovering" ? "Recovering" : queued ? "Queued" : activeStatus.label}
               </span>
             </div>
             <div className="mt-1 text-[12.5px] text-foreground/60">
-              {queued ? "Another render is using the engine right now." : `${activeStatus.detail} · ${fmtTime(elapsed)} elapsed`}
+              {detail}
             </div>
           </div>
         </div>
@@ -2008,14 +2032,14 @@ function GeneratingRow({
           type="button"
           onClick={onCancel}
           disabled={stopping}
-          className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-[oklch(0.78_0.12_25)] bg-white px-3 py-1.5 text-[12px] font-semibold text-[oklch(0.55_0.2_25)] transition-colors hover:bg-[oklch(0.98_0.02_25)] disabled:opacity-50"
+          className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-[oklch(0.55_0.14_25)] bg-[oklch(0.21_0.035_25)] px-3 py-1.5 text-[12px] font-semibold text-[oklch(0.82_0.13_25)] transition-colors hover:bg-[oklch(0.26_0.05_25)] disabled:opacity-50"
         >
           <X className="h-3.5 w-3.5" />
           Cancel
         </button>
       </div>
 
-      <div className="border-t border-[color-mix(in_oklch,var(--brand)_10%,white)] px-4 py-4 sm:px-5">
+      <div className="border-t border-border px-4 py-4 sm:px-5">
         <div className="grid gap-3 md:grid-cols-3">
           {GENERATION_STEPS.map((step, idx) => {
             const stepNumber = idx + 1;
@@ -2027,10 +2051,10 @@ function GeneratingRow({
                 key={step.label}
                 className={`rounded-xl border px-3 py-3 transition-colors ${
                   isActive
-                    ? "border-[color-mix(in_oklch,var(--brand)_22%,white)] bg-white shadow-sm"
+                    ? "border-[color-mix(in_oklch,var(--brand)_45%,var(--border))] bg-[color-mix(in_oklch,var(--brand)_12%,var(--card))]"
                     : isDone
-                      ? "border-[color-mix(in_oklch,var(--brand-secondary)_22%,white)] bg-[var(--brand-soft)]/40"
-                      : "border-border bg-white/70"
+                      ? "border-[color-mix(in_oklch,var(--brand-secondary)_35%,var(--border))] bg-[color-mix(in_oklch,var(--brand-secondary)_10%,var(--card))]"
+                      : "border-border bg-[var(--background)]"
                 }`}
               >
                 <div className="flex items-start gap-2.5">
@@ -2056,11 +2080,8 @@ function GeneratingRow({
             );
           })}
         </div>
-        <div className="mt-4 h-1.5 overflow-hidden rounded-full bg-white/80">
-          <div
-            className="h-full rounded-full bg-[linear-gradient(90deg,var(--brand),var(--brand-secondary),var(--brand-warm))] transition-[width] duration-700"
-            style={{ width: `${progressPct}%` }}
-          />
+        <div className="mt-4 h-1.5 overflow-hidden rounded-full bg-muted">
+          <div className="h-full w-1/3 animate-pulse rounded-full bg-[linear-gradient(90deg,var(--brand),var(--brand-secondary),var(--brand-warm))]" />
         </div>
       </div>
     </div>
@@ -2163,7 +2184,7 @@ function GenerationErrorState({
             <button
               type="button"
               onClick={onRetry}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-[oklch(0.55_0.22_260)] px-3 py-2 text-[12px] font-bold text-white transition-all hover:brightness-110"
+              className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--brand)] px-3 py-2 text-[12px] font-bold text-white transition-all hover:brightness-110"
             >
               <RefreshCw className="h-3.5 w-3.5" />
               Retry
@@ -2184,39 +2205,25 @@ function GenerationErrorState({
 
 function JobRow({
   job,
-  preloadedUrl,
-  activePlayerId,
-  onActivate,
   onRegenerate,
   onDelete,
   timelineStyle = false,
   isLatest = false,
 }: {
   job: Job;
-  preloadedUrl?: string;
-  activePlayerId: string | null;
-  onActivate: (id: string | null) => void;
   onRegenerate?: () => void;
   onDelete?: () => void;
   timelineStyle?: boolean;
   isLatest?: boolean;
 }) {
-  const audioRef = useRef<HTMLAudioElement>(null);
-  const onActivateRef = useRef(onActivate);
-  onActivateRef.current = onActivate;
-
-  const initialStatus = preloadedUrl ? "ready" : job.file_available === false ? "expired" : "idle";
-  const [fetchStatus, setFetchStatus] = useState<"idle" | "loading" | "ready" | "expired">(initialStatus);
-  const [blobUrl, setBlobUrl] = useState<string | undefined>(preloadedUrl);
-  const [playing, setPlaying] = useState(false);
-  const [progress, setProgress] = useState(0);
-  const [duration, setDuration] = useState(0);
-  const [volume, setVolume] = useState(0.8);
-  const [speed, setSpeed] = useState<number>(1);
+  const playback = usePlayback();
+  const active = playback.current?.request_id === job.request_id;
+  const unavailable = (active ? playback.current?.file_available : job.file_available) === false;
+  const fetchStatus = unavailable ? "expired" : playback.pendingRequestId === job.request_id ? "loading" : "ready";
+  const playing = active && playback.playing;
+  const progress = active ? playback.position : 0;
   const [menuOpen, setMenuOpen] = useState(false);
-  const [hover, setHover]     = useState<number | null>(null);
   const menuRef  = useRef<HTMLDivElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -2226,179 +2233,19 @@ function JobRow({
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, [menuOpen]);
-  const [muted, setMuted] = useState(false);
   const [copied, setCopied] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
-  const [waveformBars, setWaveformBars] = useState<number[] | null>(null);
+  const audioDuration = job.audio_duration_s ?? 0;
 
-  useEffect(() => {
-    if (preloadedUrl && fetchStatus !== "ready") {
-      setBlobUrl(preloadedUrl);
-      setFetchStatus("ready");
-    }
-  }, [preloadedUrl]);
-
-  // Decode audio into amplitude buckets whenever a blob URL becomes available
-  useEffect(() => {
-    if (!blobUrl) return;
-    let cancelled = false;
-    (async () => {
-      try {
-        const response = await fetch(blobUrl);
-        const arrayBuffer = await response.arrayBuffer();
-        const ctx = new AudioContext();
-        const audioBuffer = await ctx.decodeAudioData(arrayBuffer);
-        await ctx.close();
-        if (cancelled) return;
-
-        const BAR_COUNT = 48;
-        const data = audioBuffer.getChannelData(0);
-        const blockSize = Math.floor(data.length / BAR_COUNT);
-        const bars: number[] = [];
-        for (let i = 0; i < BAR_COUNT; i++) {
-          let peak = 0;
-          const start = i * blockSize;
-          for (let j = start; j < start + blockSize; j++) {
-            const abs = Math.abs(data[j]);
-            if (abs > peak) peak = abs;
-          }
-          bars.push(peak);
-        }
-        // Normalise to [0.08, 1] so bars are never invisible
-        const max = Math.max(...bars, 0.001);
-        setWaveformBars(bars.map((v) => Math.max(0.08, v / max)));
-      } catch {
-        // decode failure — stay on fallback sine bars
-      }
-    })();
-    return () => { cancelled = true; };
-  }, [blobUrl]);
-
-  // Pause when another player becomes active
-  useEffect(() => {
-    if (activePlayerId !== job.request_id && playing) {
-      setPlaying(false);
-    }
-  }, [activePlayerId, job.request_id]);
-
-  useEffect(() => {
-    const a = audioRef.current;
-    if (!a || !blobUrl) return;
-    const onTime = () => setProgress(a.currentTime);
-    const onDur = () => { if (isFinite(a.duration)) setDuration(a.duration); };
-    const onEnded = () => { setPlaying(false); setProgress(0); onActivateRef.current(null); };
-    a.addEventListener("timeupdate", onTime);
-    a.addEventListener("durationchange", onDur);
-    a.addEventListener("loadedmetadata", onDur);
-    a.addEventListener("ended", onEnded);
-    return () => {
-      a.removeEventListener("timeupdate", onTime);
-      a.removeEventListener("durationchange", onDur);
-      a.removeEventListener("loadedmetadata", onDur);
-      a.removeEventListener("ended", onEnded);
-    };
-  }, [blobUrl]);
-
-  useEffect(() => {
-    const a = audioRef.current;
-    if (!a) return;
-    if (playing) a.play().catch(() => setPlaying(false));
-    else a.pause();
-  }, [playing]);
-
-  useEffect(() => {
-    if (audioRef.current) audioRef.current.volume = muted ? 0 : volume;
-  }, [volume, muted]);
-
-  useEffect(() => {
-    if (audioRef.current) audioRef.current.playbackRate = speed;
-  }, [speed]);
-
-  // Derived values needed by both the draw loop and JSX — declared before the draw loop
-  const audioDuration = duration || (job.audio_duration_s ?? 0);
-  const jobPeaks = useMemo(() => jobSpeechPeaks(300, job.request_id), [job.request_id]);
-  const peaks = waveformBars ?? jobPeaks;
-  useEffect(() => {
-    const progressRatio = audioDuration > 0 ? progress / audioDuration : 0;
-    const draw = () => {
-      const canvas = canvasRef.current;
-      const ctx = canvas?.getContext("2d");
-      if (canvas && ctx) {
-        const dpr = window.devicePixelRatio || 1;
-        const w = canvas.clientWidth;
-        const h = canvas.clientHeight;
-        if (canvas.width !== w * dpr || canvas.height !== h * dpr) {
-          canvas.width = w * dpr; canvas.height = h * dpr;
-        }
-        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-        ctx.clearRect(0, 0, w, h);
-
-        ctx.strokeStyle = "oklch(0.92 0.01 260)";
-        ctx.lineWidth = 1;
-        ctx.beginPath(); ctx.moveTo(0, h / 2); ctx.lineTo(w, h / 2); ctx.stroke();
-
-        const barW = 2, gap = 2, slot = barW + gap;
-        const count = Math.floor(w / slot);
-        const playedX = progressRatio * w;
-        const hoverX = hover != null ? hover * w : null;
-        const grad = ctx.createLinearGradient(0, 0, w, 0);
-        grad.addColorStop(0, BRAND);
-        grad.addColorStop(0.55, BRAND_SECONDARY);
-        grad.addColorStop(1, BRAND_WARM);
-
-        const dim = fetchStatus !== "ready";
-        for (let i = 0; i < count; i++) {
-          const p = peaks[Math.floor((i / count) * peaks.length)] ?? 0;
-          const bh = Math.max(2, p * (h * 0.9));
-          const x = i * slot;
-          const isPlayed = x < playedX;
-          const inHover = hoverX != null && x >= playedX && x < hoverX;
-          ctx.globalAlpha = dim ? 0.22 : 1;
-          if (isPlayed && !dim)      ctx.fillStyle = grad;
-          else if (inHover && !dim)  ctx.fillStyle = BRAND;
-          else                       ctx.fillStyle = "oklch(0.55 0.04 260 / 0.32)";
-          jobRoundedRect(ctx, x, (h - bh) / 2, barW, bh, 1);
-          ctx.fill();
-          ctx.globalAlpha = 1;
-        }
-
-        if (!dim) {
-          ctx.strokeStyle = BRAND_WARM;
-          ctx.lineWidth = 2;
-          ctx.beginPath(); ctx.moveTo(playedX, 4); ctx.lineTo(playedX, h - 4); ctx.stroke();
-          ctx.fillStyle = BRAND_WARM;
-          ctx.beginPath(); ctx.arc(playedX, h / 2, 3.5, 0, Math.PI * 2); ctx.fill();
-        }
-      }
-    };
-    draw();
-    const onResize = () => draw();
-    window.addEventListener("resize", onResize);
-    return () => window.removeEventListener("resize", onResize);
-  }, [peaks, progress, audioDuration, hover, fetchStatus]);
-
-  const handlePlayClick = async () => {
-    if (fetchStatus === "loading") return;
-    if (fetchStatus === "idle") {
-      onActivate(job.request_id);
-      setFetchStatus("loading");
-      try {
-        const blob = await getJobAudio(job.request_id);
-        const url = URL.createObjectURL(blob);
-        setBlobUrl(url);
-        setFetchStatus("ready");
-        setTimeout(() => setPlaying(true), 50);
-      } catch {
-        setFetchStatus("expired");
-        onActivate(null);
-      }
-      return;
-    }
-    if (fetchStatus === "ready") {
-      const next = !playing;
-      setPlaying(next);
-      onActivate(next ? job.request_id : null);
+  const handlePlayClick = () => {
+    if (fetchStatus === "expired") return;
+    if (active && playing) {
+      playback.pause();
+    } else if (active) {
+      void playback.resume();
+    } else {
+      requestPlayback(job);
     }
   };
 
@@ -2419,7 +2266,6 @@ function JobRow({
     }
   };
 
-  const progressPct = audioDuration > 0 ? (progress / audioDuration) * 100 : 0;
   const titlePreview = job.text.slice(0, 60) + (job.text.length > 60 ? "…" : "");
   const voiceLabel = job.voice_name ?? "Generic";
   const presetLabel = job.preset.charAt(0).toUpperCase() + job.preset.slice(1);
@@ -2449,8 +2295,6 @@ function JobRow({
           : "border-border"
       }`}
     >
-      {blobUrl && <audio ref={audioRef} src={blobUrl} preload="auto" />}
-
       {/* ── Header ── */}
       <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-3 px-4 pb-3 pt-4 sm:gap-4">
         <button
@@ -2460,7 +2304,7 @@ function JobRow({
           className="group relative flex h-12 w-12 shrink-0 items-center justify-center rounded-full text-white transition-transform hover:scale-105 active:scale-95 disabled:cursor-not-allowed disabled:opacity-35"
           style={{ background: BRAND_GRADIENT, boxShadow: "var(--shadow-btn)" }}
         >
-          {playing && <span className="absolute inset-0 -m-1 animate-ping rounded-full border-2 border-[oklch(0.6_0.22_280)]/30" />}
+          {playing && <span className="absolute inset-0 -m-1 animate-ping rounded-full border-2 border-[var(--brand)]/30" />}
           {fetchStatus === "loading" ? <Loader2 className="h-4 w-4 animate-spin" />
             : playing ? <Pause className="h-4 w-4" fill="currentColor" />
             : <Play className="ml-0.5 h-4 w-4" fill="currentColor" />}
@@ -2468,7 +2312,7 @@ function JobRow({
 
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-1.5">
-            <Disc3 className="h-3.5 w-3.5 shrink-0 text-[oklch(0.55_0.22_260)]" />
+            <Disc3 className="h-3.5 w-3.5 shrink-0 text-[var(--brand)]" />
             <div className={`truncate text-[14px] font-bold ${fetchStatus === "expired" ? "text-foreground/45" : "text-foreground"}`}>{titlePreview}</div>
             {isLatest && (
               <span className="rounded-full bg-[var(--brand-soft)] px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-[var(--brand)]">
@@ -2494,11 +2338,10 @@ function JobRow({
               ))}
             </div>
           )}
-          {(job.generation_s != null || job.device != null) && (
+          {(job.total_s != null || job.generation_s != null || job.device != null) && (
             <div className="mt-1 flex flex-wrap gap-x-2.5 gap-y-0.5 text-[11px] text-foreground/35">
               <span>{job.text.split(/\s+/).filter(Boolean).length.toLocaleString()} words</span>
-              {job.generation_s != null && <span>gen {job.generation_s.toFixed(1)}s</span>}
-              {job.total_s != null && <span>total {job.total_s.toFixed(1)}s</span>}
+              {(job.total_s ?? job.generation_s) != null && <span>total {formatElapsedTime(job.total_s ?? job.generation_s ?? 0)}</span>}
               {job.device != null && <span className="uppercase">{job.device}</span>}
             </div>
           )}
@@ -2536,49 +2379,16 @@ function JobRow({
         </div>
       </div>
 
-      {/* ── Waveform canvas ── */}
-      <div className="relative mx-4 overflow-hidden rounded-lg border border-border bg-[oklch(0.99_0.005_280)]">
-        <div className="pointer-events-none absolute inset-0 opacity-60"
-          style={{ background: "radial-gradient(120% 100% at 0% 50%, oklch(0.95 0.04 260 / 0.5), transparent 60%), radial-gradient(120% 100% at 100% 50%, oklch(0.95 0.04 25 / 0.45), transparent 60%)" }} />
-        <canvas
-          ref={canvasRef}
-          onMouseMove={(e) => { const r = e.currentTarget.getBoundingClientRect(); setHover(Math.min(1, Math.max(0, (e.clientX - r.left) / r.width))); }}
-          onMouseLeave={() => setHover(null)}
-          onClick={(e) => {
-            if (fetchStatus !== "ready") { handlePlayClick(); return; }
-            const r = e.currentTarget.getBoundingClientRect();
-            const ratio = Math.min(1, Math.max(0, (e.clientX - r.left) / r.width));
-            const t = ratio * audioDuration;
-            setProgress(t);
-            if (audioRef.current) audioRef.current.currentTime = t;
-          }}
-          className={"relative block h-[88px] w-full " + (fetchStatus === "ready" ? "cursor-pointer" : fetchStatus !== "expired" ? "cursor-pointer" : "")}
-        />
-        {hover != null && fetchStatus === "ready" && (
-          <div className="pointer-events-none absolute -top-1 z-10 -translate-x-1/2 -translate-y-full rounded-md bg-foreground px-1.5 py-0.5 font-mono text-[10px] tabular-nums text-background shadow"
-            style={{ left: `${hover * 100}%` }}>
-            {fmtTime(hover * audioDuration)}
-          </div>
-        )}
-      </div>
-
-      {/* ── Transport bar ── */}
       {fetchStatus !== "expired" && (
-        <div className="flex flex-col gap-2 px-4 pb-3 pt-3 sm:flex-row sm:items-center sm:gap-3 sm:py-3">
-          <div className="flex items-center gap-3">
-            <JobVolumeControl value={volume} muted={muted} onChange={(v) => { setVolume(v); setMuted(false); }} onToggleMute={() => setMuted((m) => !m)} />
-            <SpeedControl value={speed} onChange={setSpeed} />
-          </div>
-          <div className="flex items-center gap-1 sm:ml-auto">
-            <span className="mr-auto font-mono text-[11px] tabular-nums text-foreground/60 sm:mr-0">
-              {fmtTime(progress)} <span className="text-foreground/35">/ {fmtTime(audioDuration)}</span>
-            </span>
+        <div className="flex flex-wrap items-center gap-2 border-t border-border px-4 py-3">
+          <span className="mr-auto text-[11.5px] text-foreground/50">{active ? (playing ? "Playing in Now Playing" : "Ready in Now Playing") : "Play opens Now Playing"}</span>
+          <div className="flex items-center gap-1">
             <a href={`/api/v1/jobs/${encodeURIComponent(job.request_id)}/audio`} download={`vox-${job.request_id.slice(0, 8)}.${job.output_format}`}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-white px-2.5 py-1.5 text-[12px] font-semibold text-foreground/75 hover:bg-muted">
+              className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-white px-2.5 py-1.5 text-[12px] font-semibold text-foreground/75 transition-colors hover:border-[oklch(0.66_0.22_35)] hover:bg-[oklch(0.28_0.05_35)] hover:text-[oklch(0.93_0.012_250)]">
               <Download className="h-3.5 w-3.5" /> Download
             </a>
             {onRegenerate && (
-              <button onClick={onRegenerate} className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-white px-2.5 py-1.5 text-[12px] font-semibold text-foreground/75 hover:bg-muted">
+              <button onClick={onRegenerate} className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-white px-2.5 py-1.5 text-[12px] font-semibold text-foreground/75 transition-colors hover:border-[oklch(0.66_0.22_35)] hover:bg-[oklch(0.28_0.05_35)] hover:text-[oklch(0.93_0.012_250)]">
                 <RefreshCw className="h-3.5 w-3.5" /> Reuse Script
               </button>
             )}
@@ -2628,16 +2438,6 @@ function JobRow({
 
 // ─── JobRow helpers ───────────────────────────────────────────────────────────
 
-function jobRoundedRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {
-  ctx.beginPath();
-  ctx.moveTo(x + r, y);
-  ctx.arcTo(x + w, y, x + w, y + h, r);
-  ctx.arcTo(x + w, y + h, x, y + h, r);
-  ctx.arcTo(x, y + h, x, y, r);
-  ctx.arcTo(x, y, x + w, y, r);
-  ctx.closePath();
-}
-
 function jobSpeechPeaks(n: number, seed: string): number[] {
   let h = 2166136261;
   for (let i = 0; i < seed.length; i++) { h ^= seed.charCodeAt(i); h = Math.imul(h, 16777619); }
@@ -2653,23 +2453,6 @@ function jobSpeechPeaks(n: number, seed: string): number[] {
     }
   }
   return out;
-}
-
-function JobVolumeControl({ value, muted, onChange, onToggleMute }: { value: number; muted: boolean; onChange: (v: number) => void; onToggleMute: () => void }) {
-  return (
-    <div className="flex items-center gap-2 rounded-full border border-border bg-white px-2 py-1">
-      <button onClick={onToggleMute} className="text-foreground/60 hover:text-foreground" aria-label={muted ? "Unmute" : "Mute"}>
-        {muted ? <VolumeX className="h-3.5 w-3.5" /> : <Volume2 className="h-3.5 w-3.5" />}
-      </button>
-      <div className="relative h-1 w-20 rounded-full bg-muted">
-        <div className="absolute left-0 top-0 h-full rounded-full" style={{ width: `${(muted ? 0 : value) * 100}%`, background: "linear-gradient(90deg, var(--brand), var(--brand-warm))" }} />
-        <input type="range" min={0} max={1} step={0.01} value={muted ? 0 : value} onChange={(e) => onChange(Number(e.target.value))}
-          className="absolute inset-0 h-full w-full cursor-pointer appearance-none bg-transparent opacity-0" aria-label="Volume" />
-        <span className="pointer-events-none absolute top-1/2 h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full border border-white bg-[oklch(0.6_0.2_265)] shadow"
-          style={{ left: `${(muted ? 0 : value) * 100}%` }} />
-      </div>
-    </div>
-  );
 }
 
 function VoicePreviewPlayer({ voiceId }: { voiceId: string }) {
@@ -2753,7 +2536,7 @@ function VoicePreviewPlayer({ voiceId }: { voiceId: string }) {
           const isPlayed = !isGeneric && x < playedX;
           const inHover = !isGeneric && hoverX != null && x >= playedX && x < hoverX;
           ctx.globalAlpha = isGeneric ? 0.35 : 1;
-          ctx.fillStyle = isPlayed ? grad : inHover ? BRAND : "oklch(0.55 0.04 260 / 0.3)";
+          ctx.fillStyle = isPlayed ? grad : inHover ? BRAND : getComputedStyle(document.documentElement).getPropertyValue("--muted-foreground").trim();
           ctx.globalAlpha = 1;
           ctx.beginPath();
           ctx.moveTo(x + 1, y);
@@ -2801,10 +2584,10 @@ function VoicePreviewPlayer({ voiceId }: { voiceId: string }) {
           className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-white transition-transform hover:scale-105 active:scale-95 disabled:cursor-default disabled:opacity-70"
           style={{
             background: "linear-gradient(135deg, var(--brand), var(--brand-secondary), oklch(0.6 0.22 25))",
-            boxShadow: "0 8px 18px -10px oklch(0.55 0.22 280 / 0.6), inset 0 1px 0 oklch(1 0 0 / 0.3)",
+            boxShadow: "0 8px 18px -10px color-mix(in oklch, var(--brand) 48%, transparent), inset 0 1px 0 color-mix(in oklch, var(--foreground) 10%, transparent)",
           }}
         >
-          {playing && <span className="absolute inset-0 -m-0.5 animate-ping rounded-full border-2 border-[oklch(0.6_0.22_280)]/30" />}
+          {playing && <span className="absolute inset-0 -m-0.5 animate-ping rounded-full border-2 border-[var(--brand)]/30" />}
           {playing ? <Pause className="h-3.5 w-3.5" fill="currentColor" /> : <Play className="ml-0.5 h-3.5 w-3.5" fill="currentColor" />}
         </button>
 
@@ -2812,10 +2595,10 @@ function VoicePreviewPlayer({ voiceId }: { voiceId: string }) {
         <span className="shrink-0 font-mono text-[11px] tabular-nums text-foreground/55">{fmt(progress)}</span>
 
         {/* Waveform canvas */}
-        <div className="relative min-w-0 flex-1 overflow-hidden rounded-md bg-[oklch(0.99_0.005_280)]">
+        <div className="relative min-w-0 flex-1 overflow-hidden rounded-md bg-muted">
           <div
             className="pointer-events-none absolute inset-0 opacity-60"
-            style={{ background: "radial-gradient(120% 100% at 0% 50%, oklch(0.95 0.04 260 / 0.5), transparent 60%), radial-gradient(120% 100% at 100% 50%, oklch(0.95 0.04 25 / 0.45), transparent 60%)" }}
+            style={{ background: "radial-gradient(120% 100% at 0% 50%, color-mix(in oklch, var(--brand) 20%, transparent), transparent 60%), radial-gradient(120% 100% at 100% 50%, color-mix(in oklch, var(--brand-warm) 18%, transparent), transparent 60%)" }}
           />
           <canvas
             ref={canvasRef}
@@ -2874,63 +2657,6 @@ function VoicePreviewPlayer({ voiceId }: { voiceId: string }) {
           </div>
         </div>
       </div>
-    </div>
-  );
-}
-
-function SpeedControl({ value, onChange }: { value: number; onChange: (v: number) => void }) {
-  const [open, setOpen] = useState(false);
-  const wrapRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    const onDown = (e: MouseEvent) => {
-      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) setOpen(false);
-    };
-    document.addEventListener("mousedown", onDown);
-    return () => document.removeEventListener("mousedown", onDown);
-  }, [open]);
-
-  const label = `${value}x`;
-
-  return (
-    <div ref={wrapRef} className="relative">
-      <button
-        onClick={() => setOpen((v) => !v)}
-        aria-label={`Playback speed ${label}`}
-        className={
-          "inline-flex h-6 min-w-[2.5rem] items-center justify-center rounded-md border px-1.5 text-[11px] font-bold tabular-nums transition-colors " +
-          (value === 1
-            ? "border-border bg-white text-foreground/70 hover:bg-muted"
-            : "border-[oklch(0.85_0.08_260)] bg-[oklch(0.96_0.04_260)] text-[oklch(0.45_0.22_260)] hover:bg-[oklch(0.93_0.05_260)]")
-        }
-      >
-        {label}
-      </button>
-      {open && (
-        <div
-          className="absolute bottom-full right-0 z-50 mb-2 flex w-16 flex-col overflow-hidden rounded-lg border border-border bg-white py-1 shadow-lg"
-          style={{ boxShadow: "0 6px 24px oklch(0.16 0.02 260 / 0.12)" }}
-        >
-          {SPEEDS.map((s) => (
-            <button
-              key={s}
-              onClick={() => {
-                onChange(s);
-                setOpen(false);
-              }}
-              className={
-                "px-2 py-1 text-center text-[11.5px] font-semibold tabular-nums transition-colors " +
-                (s === value
-                  ? "bg-[oklch(0.96_0.04_260)] text-[oklch(0.45_0.22_260)]"
-                  : "text-foreground/75 hover:bg-muted")
-              }
-            >
-              {s}x
-            </button>
-          ))}
-        </div>
-      )}
     </div>
   );
 }

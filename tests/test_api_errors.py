@@ -30,7 +30,8 @@ def test_http_errors_keep_detail_and_add_structured_shape(monkeypatch):
 
     from api.main import app
 
-    response = TestClient(app).patch("/api/v1/settings", json={"host": "example.com"})
+    client = TestClient(app, client=("127.0.0.1", 50000), headers={"Host": "localhost:8000"})
+    response = client.patch("/api/v1/settings", json={"host": "example.com"})
 
     assert response.status_code == 422
     body = response.json()
@@ -38,3 +39,40 @@ def test_http_errors_keep_detail_and_add_structured_shape(monkeypatch):
     assert body["error"]["code"] == 422
     assert body["error"]["message"] == body["detail"]
     assert body["request_id"]
+
+
+def test_loopback_startup_revokes_credentials_created_in_an_earlier_lan_session(monkeypatch, tmp_path):
+    _install_model_stubs(monkeypatch)
+
+    from api.core.security import SecurityStore
+    from api.main import _enforce_lan_credential_state, app, settings
+
+    store = SecurityStore(tmp_path / "security.db")
+    token = store.create_api_token("Old LAN token", scopes={"read"})
+    monkeypatch.setattr(app.state, "security_store", store)
+    monkeypatch.setattr(settings, "host", "127.0.0.1")
+
+    _enforce_lan_credential_state(app)
+
+    assert store.authenticate(token.secret) is None
+
+
+def test_validation_errors_are_bounded_and_include_request_id(monkeypatch):
+    _install_model_stubs(monkeypatch)
+
+    from api.main import app
+
+    client = TestClient(app, client=("127.0.0.1", 50000), headers={"Host": "localhost:8000"})
+    response = client.get("/api/v1/jobs?limit=999999", headers={"X-Request-ID": "validation-test"})
+
+    assert response.status_code == 422
+    assert response.json() == {
+        "detail": "Request validation failed.",
+        "error": {"code": 422, "message": "Request validation failed."},
+        "request_id": "validation-test",
+        "fields": [{
+            "location": ["query", "limit"],
+            "message": "Input should be less than or equal to 200",
+            "type": "less_than_equal",
+        }],
+    }

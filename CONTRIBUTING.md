@@ -24,17 +24,21 @@ Only the maintainer merges to `main`. Direct commits to `main` are not part of t
 
 ## Required Checks
 
-Run the checks that match your change:
+Run the complete local quality loop before pushing:
 
 ```bash
-ruff check api tests
-pytest
-npm --prefix ui-src run typecheck
-npm --prefix ui-src run build
-bash -n vox.sh setup.sh scripts/*.sh pkg-scripts/*
+bash scripts/ci-local.sh
 ```
 
-The GitHub Actions CI runs backend lint/tests, spellcheck, frontend typecheck/build, and shell syntax checks for pushes and pull requests.
+Use a clean-cache run before handing off a release-sized change:
+
+```bash
+bash scripts/ci-local.sh --clean
+```
+
+The script creates an isolated Python environment, installs the locked Python and frontend dependencies, and runs backend lint/tests, spellcheck, frontend lint/typecheck/unit/accessibility/browser tests, the production UI build and generated-output check, shell validation, and a native helper compile. Human-readable logs and a machine-readable `summary.json` are written under `.ci/results/`.
+
+GitHub Actions keeps the existing hosted checks for `main` and pull requests. Pushes and same-repository pull requests to `redesign` also run the same local quality loop on the repository's labeled self-hosted macOS runner, so redesign work does not consume hosted runner minutes. Fork pull requests never execute on the trusted local runner.
 
 ## Product Scope
 

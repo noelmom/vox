@@ -103,21 +103,21 @@ function Welcome() {
 
   return (
     <main className="min-h-screen bg-[var(--page-bg)] text-foreground">
-      <header className="sticky top-0 z-30 border-b border-border/75 bg-white/86 backdrop-blur-xl">
-        <div className="mx-auto flex min-h-[74px] max-w-[1600px] items-center justify-between gap-5 px-7 xl:px-10">
-          <div className="flex min-w-0 items-center gap-6">
+      <header className="sticky top-0 z-30 border-b border-[oklch(0.26_0.02_250)] bg-[oklch(0.12_0.012_250/0.94)] backdrop-blur-xl">
+        <div className="mx-auto flex min-h-16 max-w-[1600px] items-center justify-between gap-5 px-7 xl:px-10">
+          <div className="flex min-w-0 items-center gap-4">
             <div className="flex shrink-0 items-center gap-2">
-              <img src={voxLogoV2} alt="VOX studio" className="h-14 w-auto" />
+              <img src={voxLogoV2} alt="VOX studio" className="h-10 w-auto" />
             </div>
             <StatusBadge
               tone={serverOk ? "ok" : health.isError ? "bad" : "wait"}
-              label={serverOk ? "Local server running" : health.isError ? "Server unavailable" : "Checking server"}
+              label={serverOk ? "Ready on this Mac" : health.isError ? "Server unavailable" : "Checking server"}
             />
-            <span className="hidden h-10 items-center rounded-xl border border-[oklch(0.88_0.05_245)] bg-[oklch(0.97_0.025_245)] px-4 text-sm font-black text-[var(--brand)] shadow-sm md:inline-flex">
-              v{version} <span className="mx-3 text-muted-foreground/55">·</span> build {shortCommit}
+            <span title={`build ${shortCommit}`} className="hidden items-center text-xs font-semibold text-muted-foreground md:inline-flex">
+              v{version}
             </span>
           </div>
-          <nav className="hidden shrink-0 items-center gap-7 text-sm font-black text-foreground/68 md:flex" aria-label="Welcome navigation">
+          <nav className="hidden shrink-0 items-center gap-6 text-sm font-semibold text-muted-foreground md:flex" aria-label="Welcome navigation">
             <a className="inline-flex items-center gap-2 transition-colors hover:text-[var(--brand)]" href="/docs">
               <BookOpen className="h-4 w-4" /> Docs
             </a>
@@ -319,14 +319,14 @@ function Welcome() {
 
 function StatusBadge({ tone, label }: { tone: "ok" | "bad" | "wait"; label: string }) {
   const color = {
-    ok: "border-[oklch(0.86_0.08_150)] bg-[oklch(0.97_0.05_150)] text-[oklch(0.42_0.16_150)]",
-    bad: "border-[oklch(0.86_0.08_25)] bg-[oklch(0.98_0.035_25)] text-[oklch(0.5_0.18_25)]",
-    wait: "border-[oklch(0.88_0.07_80)] bg-[oklch(0.98_0.045_80)] text-[oklch(0.5_0.13_80)]",
+    ok: "border-[oklch(0.42_0.08_155)] bg-[oklch(0.22_0.04_155)] text-[oklch(0.82_0.12_155)]",
+    bad: "border-[oklch(0.5_0.12_25)] bg-[oklch(0.24_0.05_25)] text-[oklch(0.82_0.13_25)]",
+    wait: "border-[oklch(0.48_0.1_80)] bg-[oklch(0.25_0.04_80)] text-[oklch(0.86_0.12_80)]",
   }[tone];
 
   return (
-    <span className={`hidden h-10 items-center gap-2 rounded-xl border px-4 text-sm font-black shadow-sm sm:inline-flex ${color}`}>
-      <span className="h-3 w-3 rounded-full bg-current" />
+    <span className={`hidden h-8 items-center gap-2 rounded-full border px-3 text-xs font-bold sm:inline-flex ${color}`}>
+      <span className="h-2 w-2 rounded-full bg-current" />
       {label}
     </span>
   );

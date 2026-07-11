@@ -236,9 +236,10 @@ do_install() {
     echo ""
     echo "  First run may continue downloading/loading the Chatterbox model in the background."
     echo "  If the app is not ready immediately, wait a few minutes and check:"
-    echo "    Vox menu bar icon → View Logs"
+    echo "    V-wave menu bar icon → Files → View Logs"
     echo ""
-    echo "  Start the server from the Vox icon in your menu bar."
+    echo "  The V-wave is bright when Vox is ready and dims while stopped or restarting."
+    echo "  Open its menu to start Vox, restart it, or open Vox Studio."
     echo "  Open the app at: http://localhost:8000/app"
     echo ""
 }
@@ -287,7 +288,8 @@ _source_id() {
 }
 
 _write_installed_version() {
-    local source_commit="$(_source_id)"
+    local source_commit
+    source_commit="$(_source_id)"
     local version="unknown"
     [[ -f "$ROOT/VERSION" ]] && version="$(tr -d '[:space:]' < "$ROOT/VERSION")"
     [[ -f "$VENV/bin/python3" ]] || return 0
@@ -318,6 +320,7 @@ do_update() {
     update_args=()
     [[ -n "$OPT_ZIP" ]] && update_args+=("$OPT_ZIP")
     $OPT_FORCE && update_args+=("--force")
+    $OPT_PKG_MODE && update_args+=("--pkg-mode")
     $OPT_AGENT_ONLY && update_args+=("--agent-only")
     $OPT_HELPER_ONLY && update_args+=("--helper-only")
     if [[ ${#update_args[@]} -gt 0 ]]; then

@@ -5,6 +5,23 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [1.0.2] — 2026-07-11
+
+### Added
+- **V-wave brand system** — refreshed Studio/public logos, favicon, Server and Helper app icons, and a macOS template menu-bar mark.
+- **Unified Studio menus** — dropdowns, selects, submenus, and context menus share the same dark elevated panel, warm hover, and selected-state treatment.
+- **Refreshed public site** — the public landing page now uses the deep-ink/signal-orange system and a current Studio screenshot.
+
+### Changed
+- **Dark-first visual polish** — controls, waveform surfaces, settings fields, upload states, generation progress, and landing status surfaces now use the same deep-ink/signal-orange palette.
+- **Simplified Vox Helper menu** — the top level now prioritizes Open Studio, Start/Restart, and pairing; lifecycle, files, diagnostics, and updates are grouped into focused submenus.
+
+### Fixed
+- **Playback completion** — Now Playing snaps its seek state to the exact audio duration at completion.
+- **Favicon delivery** — a versioned V-wave PNG/ICO pair is explicitly served by the local app to avoid stale browser favicon fallbacks.
+
+## [Unreleased]
+
 ## [1.0.0] — 2026-07-04
 
 ### Added
@@ -49,7 +66,19 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## Unreleased
 
+## [1.0.1] — 2026-07-10
+
+### Added
+- **Creative workspace redesign** — Create, Voices, History, and Settings now use a responsive, focused `/app` workspace with persistent playback and resilient runtime states.
+- **Sparkle update path** — Vox Helper includes pinned Sparkle 2, transactional package-update handling, and a GitHub-hosted appcast feed with stable/beta channels.
+- **Release evidence gates** — package payload, linkage, signing, stapling, appcast, provenance, and hosted-artifact verification are enforced before a release can be finalized.
+
+### Fixed
+- **Installer candidate safety** — package verification rejects protected runtime data, secrets, developer artifacts, invalid Sparkle framework links, and unexpected payload paths.
+
 ### Changed
+- Vox Helper now builds against a pinned Sparkle 2 dependency and exposes its native update controller; package updates distinguish fresh setup from transactional in-place updates while preserving local data.
+- Create and History recordings now use one persistent player, so playback, position, speed, and volume survive navigation.
 - Release automation now passes an explicit `--repo noelmom/vox` target to GitHub CLI while publishing only the signed PKG, avoiding repo-inference failures after the project rename without exposing the internal/manual-install DMG as a public release download.
 - Project identity cleanup: public repository/download references now target `noelmom/vox`, and LaunchAgent/bundle/package identifiers now use the `com.noelmom.vox*` namespace.
 

@@ -32,11 +32,16 @@ export type Job = {
   total_s: number | null;
   rtf: number | null;
   error: string | null;
+  error_code: string | null;
+  state_detail: string | null;
+  progress_current: number | null;
+  progress_total: number | null;
   voice_name: string | null;
   device: string | null;
   created_at: string;
   completed_at: string | null;
   file_available: boolean;
+  private_fields_redacted?: boolean;
 };
 
 export type LogFileName = "server" | "server-error" | "helper" | "helper-error" | "install";
@@ -56,18 +61,30 @@ export function parseServerDate(value: string): Date {
 async function apiFetch(path: string, init?: RequestInit): Promise<Response> {
   const r = await fetch(path, init);
   if (!r.ok) {
+    if (r.status === 401 && typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("vox:auth-expired", { detail: { reason: "Your paired session expired." } }));
+    }
     const err = await r.json().catch(() => ({ detail: r.statusText }));
     const data = err as { detail?: unknown; error?: { message?: string }; request_id?: string };
     const detail = typeof data.detail === "string" ? data.detail : undefined;
     const message = data.error?.message ?? detail ?? r.statusText;
     const suffix = data.request_id ? ` (${data.request_id})` : "";
-    throw new Error(`${message}${suffix}`);
+    const error = new Error(`${message}${suffix}`) as Error & { status?: number };
+    error.status = r.status;
+    throw error;
   }
   return r;
 }
 
 export async function healthCheck() {
   return apiFetch("/health").then((r) => r.json());
+}
+
+export async function getRuntimeStatus() {
+  return apiFetch("/api/v1/status").then((r) => r.json()) as Promise<{
+    status: string;
+    model: { state: string; ready: boolean; detail?: string | null; device?: string | null };
+  }>;
 }
 
 export async function getLogFile(name: LogFileName, lines = 200): Promise<LogFileTail> {
@@ -183,9 +200,14 @@ export type ServerSettings = {
   configured_chunk_headroom_chars: number;
   chunk_headroom_restart_required: boolean;
   max_voice_clip_duration_s: number;
+  max_voice_upload_mb: number;
+  max_script_chars: number;
   configured_max_voice_clip_duration_s: number;
   max_voice_clip_duration_restart_required: boolean;
   voice_icon_max_kb: number;
+  max_backup_upload_mb: number;
+  max_backup_expanded_mb: number;
+  max_backup_entries: number;
   ffmpeg_available: boolean;
   ffmpeg_path: string;
   model_name: string;
@@ -282,12 +304,50 @@ export async function patchServerSettings(patch: ServerSettingsPatch): Promise<{
   return r.json();
 }
 
+export type RemoteCredential = {
+  id: string;
+  kind: "session" | "token";
+  name: string;
+  scopes: Array<"read" | "generate" | "admin">;
+  created_at: string;
+  expires_at: string | null;
+  last_used_at: string | null;
+};
+
+export async function listRemoteCredentials(): Promise<RemoteCredential[]> {
+  return apiFetch("/api/v1/auth/credentials").then((r) => r.json());
+}
+
+export async function createPairingCode(): Promise<{ code: string; expires_at: string }> {
+  return apiFetch("/api/v1/auth/pairing-codes", { method: "POST" }).then((r) => r.json());
+}
+
+export async function createApiToken(payload: {
+  name: string;
+  scopes: Array<"read" | "generate" | "admin">;
+}): Promise<{ id: string; token: string; name: string; scopes: string[]; expires_at: string | null; notice: string }> {
+  return apiFetch("/api/v1/auth/tokens", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  }).then((r) => r.json());
+}
+
+export async function revokeRemoteCredential(id: string): Promise<void> {
+  await apiFetch(`/api/v1/auth/credentials/${encodeURIComponent(id)}`, { method: "DELETE" });
+}
+
+export async function revokeAllRemoteCredentials(): Promise<number> {
+  const result = await apiFetch("/api/v1/auth/revoke-all", { method: "POST" }).then((r) => r.json());
+  return result.revoked as number;
+}
+
 export async function deleteJob(requestId: string): Promise<void> {
   await apiFetch(`/api/v1/jobs/${encodeURIComponent(requestId)}`, { method: "DELETE" });
 }
 
-export async function cancelJob(requestId: string): Promise<void> {
-  await apiFetch(`/api/v1/tts/${encodeURIComponent(requestId)}/cancel`, { method: "POST" });
+export async function cancelJob(requestId: string): Promise<{ request_id: string; status: string }> {
+  return apiFetch(`/api/v1/tts/${encodeURIComponent(requestId)}/cancel`, { method: "POST" }).then((r) => r.json());
 }
 
 export async function exportBackup(): Promise<Blob> {

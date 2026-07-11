@@ -1,0 +1,22 @@
+name: Redesign local CI
+
+on:
+  push:
+    branches: [redesign]
+  pull_request:
+    branches: [redesign]
+  workflow_dispatch:
+
+jobs:
+  local-ci:
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    name: Apple Silicon local runner
+    runs-on: [self-hosted, macOS, ARM64, vox-ci]
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          clean: true
+
+      - name: Run clean local CI
+        run: bash scripts/ci-local.sh --clean

@@ -1,10 +1,17 @@
 export type GenerationStatus =
   | { phase: "idle" }
   | { phase: "submitting" }
-  | { phase: "polling"; requestId: string; startedAt: number; status?: "queued" | "processing" }
+  | { phase: "polling"; requestId: string; startedAt: number; status?: DurableGenerationState }
   | { phase: "done"; requestId?: string }
   | { phase: "error"; requestId?: string; message: string }
   | { phase: "cancelled"; requestId?: string };
+
+export type DurableGenerationState =
+  | "queued"
+  | "processing"
+  | "cancelling"
+  | "encoding"
+  | "recovering";
 
 const GENERATION_EVENT = "vox:generation-change";
 

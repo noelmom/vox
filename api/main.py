@@ -4,7 +4,8 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import APIRouter, FastAPI, HTTPException, Request
-from fastapi.exception_handlers import http_exception_handler
+from fastapi.exception_handlers import http_exception_handler, request_validation_exception_handler
+from fastapi.exceptions import RequestValidationError
 from pydantic import BaseModel, Field
 from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
@@ -13,19 +14,21 @@ from api.core.cleanup import run_cleanup_loop
 from api.core.config import settings
 from api.core.build_info import get_build_info
 from api.core.db import connect, disconnect
-from api.core.engine import get_device, get_model_status, load_model_async
+from api.core.engine import get_device, get_model_status
+from api.core.generation import GenerationCoordinator, set_generation_coordinator
 from api.core.logger import setup_logging
 from api.core.presets import PRESETS
 from api.core.watcher import watch_input_folder
+from api.core.security import SecurityStore
 from api.middleware.request_id import RequestIDMiddleware
-from api.routers import alerts, backups, jobs, logs, preferences, presets, tts, voices
+from api.middleware.security import SecurityMiddleware
+from api.routers import alerts, auth, backups, jobs, logs, preferences, presets, tts, voices
 
 _UI_DIST = Path(__file__).parent.parent / "ui-dist"
 _ENV_PATH = Path(".env")
 _VALID_HOSTS = {"127.0.0.1", "0.0.0.0"}
 
 _background_tasks: list[asyncio.Task] = []
-_model_task: asyncio.Task | None = None
 
 
 class SettingsPatch(BaseModel):
@@ -80,23 +83,30 @@ def _read_env_int(key: str, default: int) -> int:
         return default
 
 
+def _enforce_lan_credential_state(application: FastAPI) -> None:
+    if settings.host != "0.0.0.0":
+        application.state.security_store.revoke_all_remote_credentials()
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    global _model_task
     setup_logging()
+    _enforce_lan_credential_state(app)
     await connect()
-    _model_task = asyncio.create_task(load_model_async())
+    coordinator = GenerationCoordinator()
+    set_generation_coordinator(coordinator)
+    await coordinator.start()
 
     _background_tasks.append(asyncio.create_task(watch_input_folder()))
     _background_tasks.append(asyncio.create_task(run_cleanup_loop()))
 
     yield
 
-    if _model_task:
-        _model_task.cancel()
     for task in _background_tasks:
         task.cancel()
-    await asyncio.gather(*_background_tasks, _model_task, return_exceptions=True)
+    await asyncio.gather(*_background_tasks, return_exceptions=True)
+    await coordinator.shutdown()
+    set_generation_coordinator(None)
     await disconnect()
 
 
@@ -161,8 +171,10 @@ Every TTS response includes timing telemetry:
 ## Async job lifecycle
 
 ```
-POST /api/v1/tts → queued → processing → completed → audio available
-                                └→ failed   → error field set
+POST /api/v1/tts → queued → processing → encoding → completed → audio available
+                                ├→ cancelling → cancelled
+                                ├→ recovering → failed
+                                └→ interrupted (after restart)
 ```
 
 Audio files are automatically cleaned up after `VOX_OUTPUT_TTL_HOURS` (default 24 h).
@@ -179,7 +191,7 @@ _TAGS = [
     },
     {
         "name": "jobs",
-        "description": "Track generation jobs and download completed audio. Jobs move through `queued → processing → completed` (or `failed`).",
+        "description": "Track generation jobs and download completed audio. Durable states include queued, processing, cancelling, encoding, recovering, completed, failed, cancelled, and interrupted.",
     },
     {
         "name": "backups",
@@ -209,6 +221,8 @@ app = FastAPI(
     redoc_url=None,
 )
 
+app.state.security_store = SecurityStore(settings.security_dir / "credentials.db")
+app.add_middleware(SecurityMiddleware, lan_enabled=lambda: settings.host == "0.0.0.0")
 app.add_middleware(RequestIDMiddleware)
 
 
@@ -232,6 +246,25 @@ async def vox_http_exception_handler(request: Request, exc: HTTPException):
     response.headers["content-length"] = str(len(response.body))
     return response
 
+
+@app.exception_handler(RequestValidationError)
+async def vox_validation_exception_handler(request: Request, exc: RequestValidationError):
+    response = await request_validation_exception_handler(request, exc)
+    response.body = json.dumps(
+        {
+            "detail": "Request validation failed.",
+            "error": {"code": 422, "message": "Request validation failed."},
+            "request_id": getattr(request.state, "request_id", None),
+            "fields": [
+                {"location": list(error["loc"]), "message": error["msg"], "type": error["type"]}
+                for error in exc.errors()
+            ],
+        },
+        default=str,
+    ).encode("utf-8")
+    response.headers["content-length"] = str(len(response.body))
+    return response
+
 v1 = APIRouter(prefix="/api/v1")
 v1.include_router(tts.router)
 v1.include_router(voices.router)
@@ -241,6 +274,7 @@ v1.include_router(presets.router)
 v1.include_router(logs.router)
 v1.include_router(alerts.router)
 v1.include_router(preferences.router)
+v1.include_router(auth.router)
 
 # Serve React SPA built assets
 if _UI_DIST.exists():
@@ -290,10 +324,21 @@ async def scalar_docs():
 
 
 @app.get("/favicon.png", include_in_schema=False)
+@app.get("/vox-favicon.png", include_in_schema=False)
 async def favicon():
-    f = _UI_DIST / "favicon.png"
+    f = _UI_DIST / "vox-favicon.png"
+    if not f.exists():
+        f = _UI_DIST / "favicon.png"
     if f.exists():
         return FileResponse(str(f), media_type="image/png")
+    return _spa()
+
+
+@app.get("/vox-vwave.ico", include_in_schema=False)
+async def favicon_ico():
+    f = _UI_DIST / "vox-vwave.ico"
+    if f.exists():
+        return FileResponse(str(f), media_type="image/x-icon")
     return _spa()
 
 
@@ -304,14 +349,22 @@ async def landing():
     return {"status": "ok", "device": get_device(), "presets": list(PRESETS.keys())}
 
 
+@app.get("/pair", include_in_schema=False)
+async def pair():
+    return auth.pairing_page()
+
+
 # Client-side routes — all must return index.html so TanStack Router handles them
 @app.get("/app")
 @app.get("/app/")
 @app.get("/app/library")
 @app.get("/app/recordings")
+@app.get("/app/voices")
+@app.get("/app/history")
 @app.get("/app/settings")
+@app.get("/app/settings/{tab}")
 @app.get("/logs")
-async def spa_routes():
+async def spa_routes(tab: str | None = None):
     if _SPA_INDEX.exists():
         return _spa()
     return {"error": "UI not found"}
@@ -489,9 +542,14 @@ async def get_settings():
         "configured_default_max_chars": configured_default_max_chars,
         "default_max_chars_restart_required": configured_default_max_chars != settings.default_max_chars,
         "max_voice_clip_duration_s": settings.max_voice_clip_duration_s,
+        "max_voice_upload_mb": settings.max_voice_upload_mb,
+        "max_script_chars": settings.max_script_chars,
         "configured_max_voice_clip_duration_s": configured_max_voice_clip_duration_s,
         "max_voice_clip_duration_restart_required": configured_max_voice_clip_duration_s != settings.max_voice_clip_duration_s,
         "voice_icon_max_kb": settings.voice_icon_max_kb,
+        "max_backup_upload_mb": settings.max_backup_upload_mb,
+        "max_backup_expanded_mb": settings.max_backup_expanded_mb,
+        "max_backup_entries": settings.max_backup_entries,
         "macos_version": mac_ver,
         "chip": chip,
         "vox_version": build_info["version"],
@@ -515,6 +573,8 @@ async def patch_settings(patch: SettingsPatch):
             raise HTTPException(status_code=422, detail="host must be either 127.0.0.1 or 0.0.0.0")
         _write_env_value("VOX_HOST", host)
         changed["host"] = host
+        if host == "127.0.0.1":
+            app.state.security_store.revoke_all_remote_credentials()
 
     if patch.output_ttl_hours is not None:
         if patch.output_ttl_hours < 0 or patch.output_ttl_hours > 8760:

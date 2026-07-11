@@ -4,6 +4,7 @@ import IOKit
 
 struct ServerState {
     var running   = false
+    var networkAccessible = false
     var addrLabel = "—"
     var modelLabel = "Model —"
     var studioBuildLabel = "Studio vunknown · unknown"
@@ -66,6 +67,7 @@ class ServerMonitor {
             self.readEnv()
             var s       = ServerState()
             s.running   = self.checkServer()
+            s.networkAccessible = self.host != "127.0.0.1" && self.host != "localhost"
             s.addrLabel = self.addrLabel()
             s.modelLabel = self.modelLabel(running: s.running)
             s.studioBuildLabel = self.studioBuildLabel()
@@ -103,6 +105,10 @@ class ServerMonitor {
     func baseURL() -> String {
         let h = (host == "0.0.0.0" || host.isEmpty) ? lanIP() : host
         return "http://\(h):\(port)"
+    }
+
+    func loopbackURL() -> String {
+        return "http://127.0.0.1:\(port)"
     }
 
     private func addrLabel() -> String {

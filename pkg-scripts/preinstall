@@ -5,6 +5,7 @@ export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/usr/bin:/bin:/
 
 LOG_DIR="/Library/Logs/Vox"
 LOG_FILE="$LOG_DIR/pkg-install.log"
+MODE_FILE="/var/db/com.noelmom.vox-install-mode"
 
 mkdir -p "$LOG_DIR"
 exec >> "$LOG_FILE" 2>&1
@@ -34,6 +35,25 @@ pkg_step 2 6 "Checking logged-in macOS user"
 CONSOLE_USER="$(stat -f %Su /dev/console)"
 [[ -n "$CONSOLE_USER" && "$CONSOLE_USER" != "root" && "$CONSOLE_USER" != "loginwindow" ]] \
   || fail "No logged-in macOS user found. Log in to the desktop, then run the installer again."
+
+USER_HOME="$(dscl . -read "/Users/$CONSOLE_USER" NFSHomeDirectory 2>/dev/null | awk '{print $2}')"
+INSTALLED_MARKER="$USER_HOME/Library/Application Support/Vox/installed_version.json"
+INSTALLED_BOOTSTRAP="/Library/Application Support/Vox/Bootstrap/vox.sh"
+INSTALLED_HELPER="/Applications/Vox/VoxHelper.app"
+INSTALL_MODE="fresh"
+if pkgutil --pkg-info "com.noelmom.vox.pkg" >/dev/null 2>&1 || { [[ -f "$INSTALLED_BOOTSTRAP" && -d "$INSTALLED_HELPER" ]]; }; then
+  INSTALL_MODE="update"
+fi
+mkdir -p "$(dirname "$MODE_FILE")"
+printf '%s\n' "$INSTALL_MODE" > "$MODE_FILE"
+chmod 600 "$MODE_FILE"
+echo "[vox-pkg] Install mode: $INSTALL_MODE (receipt/bootstrap/app invariant; legacy marker present: $([[ -f "$INSTALLED_MARKER" ]] && echo yes || echo no))"
+
+if [[ "$INSTALL_MODE" == "update" ]]; then
+  echo "[vox-pkg] Existing installation detected; skipping first-install network and Homebrew checks."
+  echo "[vox-pkg] Preinstall checks passed."
+  exit 0
+fi
 
 pkg_step 3 6 "Checking curl"
 command -v curl >/dev/null 2>&1 || fail "curl is required but was not found."

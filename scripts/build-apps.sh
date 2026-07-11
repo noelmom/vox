@@ -28,8 +28,6 @@ BUILD_INFO="$ROOT/build_info.json"
 APP_SUPPORT="$HOME/Library/Application Support/Vox"
 VENV="$APP_SUPPORT/venv"
 SIGN_IDENTITY="Developer ID Application: Noelmo Melo (S65X5KY399)"
-APPLE_ID="noelmomelo@mac.com"
-TEAM_ID="S65X5KY399"
 BUILD_TMP="/tmp/vox-build-$$"
 DMG_STAGING="/tmp/vox-dmg-$$"
 OUTPUT_DMG="$ROOT/assets/Vox.dmg"
@@ -40,8 +38,8 @@ OUTPUT_DMG="$ROOT/assets/Vox.dmg"
 [[ -n "$APP_SIGN_PASSWORD" ]]  || fail "APP_SIGN_PASSWORD is not set."
 [[ -f "$ROOT/assets/VoxHelper.icns" ]] || fail "assets/VoxHelper.icns not found."
 [[ -f "$ROOT/assets/VoxServer.icns" ]] || fail "assets/VoxServer.icns not found."
-[[ -f "$ROOT/assets/MenuBarRunning.png" ]] || fail "assets/MenuBarRunning.png not found."
-[[ -f "$ROOT/assets/MenuBarStopped.png" ]] || fail "assets/MenuBarStopped.png not found."
+[[ -f "$ROOT/assets/VoxMenuBarTemplate.png" ]] || fail "assets/VoxMenuBarTemplate.png not found."
+[[ -f "$ROOT/assets/VoxMenuBarTemplate@2x.png" ]] || fail "assets/VoxMenuBarTemplate@2x.png not found."
 [[ -f "$VENV/bin/python3" ]]   || fail "Venv not found at $VENV — run bash vox.sh install first."
 command -v xcrun &>/dev/null   || fail "xcrun not found — install Xcode."
 xcrun --find notarytool &>/dev/null || fail "notarytool not found — requires Xcode 13+."
@@ -50,6 +48,8 @@ xcrun --find notarytool &>/dev/null || fail "notarytool not found — requires X
 BUILD_COMMIT="$("$VENV/bin/python3" -c 'import json,sys; print(json.load(open(sys.argv[1]))["commit"])' "$BUILD_INFO")"
 BUILD_DATE="$("$VENV/bin/python3" -c 'import json,sys; print(json.load(open(sys.argv[1]))["built_at"])' "$BUILD_INFO")"
 BUILD_NUMBER="$(date -u +"%Y%m%d%H%M")"
+SPARKLE_PUBLIC_KEY="$(tr -d '[:space:]' < "$ROOT/config/sparkle-public-key.txt")"
+[[ "$SPARKLE_PUBLIC_KEY" =~ ^[A-Za-z0-9+/]{43}=$ ]] || fail "config/sparkle-public-key.txt must contain a Sparkle EdDSA public key."
 
 mkdir -p "$BUILD_TMP" "$DMG_STAGING"
 
@@ -67,22 +67,20 @@ HELPER_APP="$BUILD_TMP/VoxHelper.app"
 mkdir -p "$HELPER_APP/Contents/MacOS" "$HELPER_APP/Contents/Resources"
 
 cp "$ROOT/assets/VoxHelper.icns" "$HELPER_APP/Contents/Resources/VoxHelper.icns"
-cp "$ROOT/assets/MenuBarRunning.png" "$HELPER_APP/Contents/Resources/MenuBarRunning.png"
-cp "$ROOT/assets/MenuBarStopped.png" "$HELPER_APP/Contents/Resources/MenuBarStopped.png"
+cp "$ROOT/assets/VoxMenuBarTemplate.png" "$HELPER_APP/Contents/Resources/VoxMenuBarTemplate.png"
+cp "$ROOT/assets/VoxMenuBarTemplate@2x.png" "$HELPER_APP/Contents/Resources/VoxMenuBarTemplate@2x.png"
 cp "$BUILD_INFO" "$HELPER_APP/Contents/Resources/build_info.json"
 
-info "Compiling Swift VoxHelper…"
-swiftc \
-    -target arm64-apple-macos13.0 \
-    -framework AppKit \
-    -framework Foundation \
-    -framework IOKit \
-    "$ROOT/voxhelper/main.swift" \
-    "$ROOT/voxhelper/AppDelegate.swift" \
-    "$ROOT/voxhelper/StatusBarController.swift" \
-    "$ROOT/voxhelper/ServerMonitor.swift" \
-    -o "$HELPER_APP/Contents/MacOS/VoxHelper" \
-    || fail "Failed to compile VoxHelper"
+info "Building Swift VoxHelper with pinned Sparkle…"
+swift build --package-path "$ROOT" --configuration release --arch arm64 || fail "Failed to compile VoxHelper"
+HELPER_BIN="$(swift build --package-path "$ROOT" --show-bin-path --configuration release --arch arm64)/VoxHelper"
+SPARKLE_FRAMEWORK="$(swift build --package-path "$ROOT" --show-bin-path --configuration release --arch arm64)/Sparkle.framework"
+[[ -f "$HELPER_BIN" ]] || fail "SwiftPM did not produce VoxHelper."
+[[ -d "$SPARKLE_FRAMEWORK" ]] || fail "SwiftPM did not produce Sparkle.framework."
+ditto --norsrc "$HELPER_BIN" "$HELPER_APP/Contents/MacOS/VoxHelper"
+mkdir -p "$HELPER_APP/Contents/Frameworks"
+ditto --norsrc "$SPARKLE_FRAMEWORK" "$HELPER_APP/Contents/Frameworks/Sparkle.framework"
+install_name_tool -add_rpath "@executable_path/../Frameworks" "$HELPER_APP/Contents/MacOS/VoxHelper"
 
 cat > "$HELPER_APP/Contents/Info.plist" <<EOF
 <?xml version="1.0" encoding="UTF-8"?>
@@ -99,6 +97,10 @@ cat > "$HELPER_APP/Contents/Info.plist" <<EOF
   <key>VoxBuiltAt</key><string>$BUILD_DATE</string>
   <key>LSUIElement</key><true/>
   <key>LSMinimumSystemVersion</key><string>13.0</string>
+  <key>SUFeedURL</key><string>https://raw.githubusercontent.com/noelmom/vox/main/updates/appcast.xml</string>
+  <key>SUPublicEDKey</key><string>$SPARKLE_PUBLIC_KEY</string>
+  <key>SUEnableAutomaticChecks</key><true/>
+  <key>SUAutomaticallyUpdate</key><false/>
 </dict></plist>
 EOF
 success "VoxHelper.app built"
@@ -132,19 +134,24 @@ cat > "$SERVER_APP/Contents/Info.plist" <<EOF
   <key>VoxBuildCommit</key><string>$BUILD_COMMIT</string>
   <key>VoxBuiltAt</key><string>$BUILD_DATE</string>
   <key>LSUIElement</key><true/>
-  <key>LSMinimumSystemVersion</key><string>12.0</string>
+  <key>LSMinimumSystemVersion</key><string>13.0</string>
 </dict></plist>
 EOF
 success "VoxServer.app built"
 
 # ── Sign both apps ────────────────────────────────────────────────────────────
-info "Signing VoxHelper.app…"
-codesign --deep --force --options runtime \
-  --sign "$SIGN_IDENTITY" "$HELPER_APP"
+info "Signing Sparkle framework and VoxHelper.app…"
+SPARKLE_BUNDLE="$HELPER_APP/Contents/Frameworks/Sparkle.framework"
+codesign --force --options runtime --sign "$SIGN_IDENTITY" "$SPARKLE_BUNDLE/Versions/B/Autoupdate"
+codesign --force --options runtime --sign "$SIGN_IDENTITY" "$SPARKLE_BUNDLE/Versions/B/XPCServices/Downloader.xpc"
+codesign --force --options runtime --sign "$SIGN_IDENTITY" "$SPARKLE_BUNDLE/Versions/B/XPCServices/Installer.xpc"
+codesign --force --options runtime --sign "$SIGN_IDENTITY" "$SPARKLE_BUNDLE/Versions/B/Updater.app"
+codesign --force --options runtime --sign "$SIGN_IDENTITY" "$SPARKLE_BUNDLE"
+codesign --force --options runtime --sign "$SIGN_IDENTITY" "$HELPER_APP"
 success "VoxHelper.app signed"
 
 info "Signing VoxServer.app…"
-codesign --deep --force --options runtime \
+codesign --force --options runtime \
   --sign "$SIGN_IDENTITY" "$SERVER_APP"
 success "VoxServer.app signed"
 
@@ -152,6 +159,13 @@ success "VoxServer.app signed"
 info "Verifying signatures…"
 codesign --verify --deep --strict "$HELPER_APP"
 codesign --verify --deep --strict "$SERVER_APP"
+otool -L "$HELPER_APP/Contents/MacOS/VoxHelper" | grep -F "@rpath/Sparkle.framework" >/dev/null || fail "VoxHelper is not linked to Sparkle.framework"
+otool -l "$HELPER_APP/Contents/MacOS/VoxHelper" | awk '
+  $1 == "cmd" && $2 == "LC_RPATH" { in_rpath = 1; next }
+  in_rpath && $1 == "path" { if ($2 == "@executable_path/../Frameworks") found = 1; in_rpath = 0 }
+  END { exit(found ? 0 : 1) }
+' || fail "VoxHelper is missing the bundled Sparkle framework rpath"
+[[ -L "$HELPER_APP/Contents/Frameworks/Sparkle.framework/Versions/Current" ]] || fail "Sparkle framework symlinks were not preserved"
 success "Signatures verified"
 
 # ── Stage DMG contents ────────────────────────────────────────────────────────

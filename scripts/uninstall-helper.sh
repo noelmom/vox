@@ -42,7 +42,7 @@ rm -f "$LEGACY_PLIST"
 # Kill any remaining VoxHelper process and wait for it to exit
 if pgrep -x "VoxHelper" &>/dev/null; then
     pkill -x "VoxHelper" 2>/dev/null || true
-    for i in {1..10}; do
+    for _ in {1..10}; do
         pgrep -x "VoxHelper" &>/dev/null || break
         sleep 0.3
     done

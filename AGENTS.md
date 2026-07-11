@@ -86,22 +86,35 @@ This split matters because web/server changes can ship without rebuilding native
 
 ## Common Development Commands
 
+Complete local CI (preferred before every push):
+
+```bash
+bash scripts/ci-local.sh
+bash scripts/ci-local.sh --clean  # release-sized handoffs / cache-independence check
+```
+
+Results, individual logs, and a machine-readable summary are written below `.ci/results/`. The clean mode removes only project-local CI caches and dependencies; it does not touch installed Vox data.
+
 Backend tests and lint:
 
 ```bash
 "$HOME/Library/Application Support/Vox/venv/bin/python3" -m pip install -r requirements-dev.txt
 "$HOME/Library/Application Support/Vox/venv/bin/python3" -m pytest
 "$HOME/Library/Application Support/Vox/venv/bin/python3" -m ruff check api tests
-"$HOME/Library/Application Support/Vox/venv/bin/codespell" --skip './.git,./assets,./data,./input,./outputs,./ui-dist,./ui-src/bun.lock,./ui-src/node_modules,./voices,./working-poc' .
+"$HOME/Library/Application Support/Vox/venv/bin/codespell" --skip './.git,./assets,./data,./input,./outputs,./ui-dist,./ui-src/bun.lock,./ui-src/package-lock.json,./ui-src/node_modules,./voices,./working-poc' .
 ```
 
-GitHub Actions installs `requirements-ci.txt` plus `requirements-dev.txt` for backend checks so CI does not download Torch/Chatterbox model dependencies just to run unit tests.
+GitHub Actions and `scripts/ci-local.sh` install the fully resolved `requirements-ci-lock.txt` so CI does not download Torch/Chatterbox model dependencies or drift between clean runs. When either source requirements file changes, regenerate and review the lock deliberately.
 
 Frontend checks:
 
 ```bash
+npm ci --prefix ui-src
+npm run lint --prefix ui-src
 npm run typecheck --prefix ui-src
+npm run test --prefix ui-src
 npm run build --prefix ui-src
+npm run test:e2e --prefix ui-src
 ```
 
 Shell syntax:
@@ -131,38 +144,45 @@ bash scripts/run.sh
 
 ## Release Procedure
 
-Preferred release command:
+Prepare local, non-publishing appcast evidence from a staged package:
 
 ```bash
-bash scripts/release.sh 0.5.4-beta
+bash scripts/prepare-release-candidate.sh 0.5.4 2026071001 2026070001 \
+  /staging/Vox-0.5.4.pkg https://updates.example.com/vox/releases/Vox-0.5.4.pkg \
+  /staging/0.5.4.md stable 2026-07-10T14:00:00Z
 ```
 
-The release script:
+The guarded release script finalizes only an already built and verified candidate:
 
-1. Updates `VERSION`.
-2. Stamps `build_info.json`.
-3. Builds `ui-dist`.
-4. Commits release prep.
-5. Builds/signs/notarizes/staples `assets/Vox.dmg`.
-6. Builds/signs/notarizes/staples `assets/Vox-<version>.pkg`.
-7. Computes package size and SHA256.
-8. Updates public landing package metadata in `public-site/index.html`.
-9. Rebuilds `ui-dist`.
-10. Commits final release metadata.
-11. Pushes branch and tag.
-12. Creates the GitHub release on `noelmom/vox` and uploads only the PKG. Versions with a suffix such as `-rc11` are marked as prereleases; plain versions such as `1.0.0` are public releases.
+1. Requires immutable candidate provenance for the current source commit.
+2. Re-probes the hosted package and live appcast against that provenance.
+3. Only then pushes the source branch, tags it, and creates the GitHub release when a maintainer explicitly supplies both `--publish` and `VOX_RELEASE_PUBLISH=1`.
+
+Build/sign/notarize/staple the DMG and package separately, prepare candidate evidence, upload and probe the package, then publish/probe the appcast before calling this finalizer. This ordering prevents a tag or release from being created before the live update path is valid.
+
+Publishing requires separate explicit authorization and uses:
+
+```bash
+VOX_RELEASE_PUBLISH=1 \
+VOX_RELEASE_EVIDENCE=.release-candidates/1.0.0-rc9-2026071001 \
+VOX_RELEASE_APPCAST_URL=https://updates.example.com/vox/appcast.xml \
+bash scripts/release.sh 1.0.0-rc9 --publish
+```
 
 `scripts/release.sh` intentionally sets `RELEASE_REPO="${RELEASE_REPO:-noelmom/vox}"` and passes `--repo "$RELEASE_REPO"` to `gh release create`. Keep that explicit. After the project moved from `MeloLabDev/codename-vox` to `noelmom/vox`, relying on GitHub CLI repo inference caused intermittent `401 Unauthorized` failures during release creation even though `gh auth status` was valid. If testing a fork, override it explicitly:
 
 ```bash
-RELEASE_REPO=owner/repo bash scripts/release.sh 1.0.0-rc9
+RELEASE_REPO=owner/repo VOX_RELEASE_PUBLISH=1 \
+VOX_RELEASE_EVIDENCE=.release-candidates/1.0.0-rc9-2026071001 \
+VOX_RELEASE_APPCAST_URL=https://updates.example.com/vox/appcast.xml \
+bash scripts/release.sh 1.0.0-rc9 --publish
 ```
 
 GitHub Releases should publish `Vox-<version>.pkg` only. `assets/Vox.dmg` is still built, signed, notarized, stapled, committed, and used by `vox.sh install` / manual local install flows, but do not upload it to public releases because it only contains the two app bundles and can confuse testers who need the one-click installer.
 
 The script re-runs `gh auth status` immediately before creating the GitHub release. This catches cases where the signing/notarization flow sat at a keychain prompt long enough for the final release upload to hit a stale/invalid GitHub CLI auth path.
 
-Required environment:
+Build/sign/notarize scripts require:
 
 ```bash
 KEYCHAIN_PASSWORD=...
@@ -178,7 +198,7 @@ Required tools/certs:
 
 Important:
 
-- `scripts/build-apps.sh` calls `scripts/notarize.sh`, which commits and pushes `assets/Vox.dmg`.
+- `scripts/build-apps.sh` calls `scripts/notarize.sh`, which verifies the DMG locally but never commits, pushes, tags, uploads, or changes an appcast.
 - `.pkg` files are ignored and should be uploaded to GitHub Releases, not committed.
 - After building a `.pkg`, landing page checksum/size must match that exact file.
 
@@ -196,13 +216,16 @@ Do not spend time chasing sandbox-only codesign behavior unless the real build/i
 
 ## Update/Install Behavior
 
+- Signed Vox Helper builds use pinned Sparkle 2 for normal native update checks. `scripts/update.sh` remains a recovery/source-update path and must not replace the normal Sparkle action.
+- The Sparkle EdDSA public key is committed at `config/sparkle-public-key.txt`; its private counterpart is held in the release operator's Keychain and must never be committed or passed on a command line.
+- Package scripts detect an installed marker. Fresh installs may perform prerequisite/bootstrap work and open Welcome; updates skip first-install network checks, record a transaction under `/Library/Logs/Vox/`, preserve user data, validate server health, and never open Welcome.
 - `vox.sh install` runs setup and installs LaunchAgents/helper.
 - `vox.sh update` delegates to `scripts/update.sh`.
 - Updates compare desired source build to `~/Library/Application Support/Vox/installed_version.json`.
 - If already current, update exits cleanly without dependency sync or agent restarts.
 - Use `--force` to bypass the skip.
 - `scripts/update.sh` also supports `--no-restart`, `--agent-only`, and `--helper-only`.
-- Helper menu `Check for Updates...` opens the update flow in Terminal so output and prompts are visible.
+- Helper menu `Check for Updates...` uses native Sparkle UI. Keep the Terminal/source updater available only as an explicit Recovery / source update path for repair and development installs.
 
 ## Backend Model Readiness
 
@@ -210,6 +233,29 @@ Do not spend time chasing sandbox-only codesign behavior unless the real build/i
 - `GET /api/v1/status` reports model state: `not_loaded`, `loading`, `ready`, or `error`.
 - Vox Helper displays model readiness in the menu.
 - `POST /api/v1/tts` returns `503` while the model is not ready.
+- Only `api/core/generation_worker.py` may import Torch/Chatterbox or own MPS. A replacement worker must never start until the previous process is confirmed dead and reaped.
+- Final WAV/MP3 encoding also runs in a supervised subprocess; do not move blocking encoding back to an unkillable executor thread.
+- Generation cancellation remains `cancelling` until worker exit; a worker that survives terminate/kill is quarantined and requires a Vox restart.
+- Final audio crosses `outputs/.publishing-*` markers. Startup must reconcile markers and job-scoped `.partial/` data before interrupting other nonterminal jobs.
+
+## Network Trust And Pairing
+
+- Loopback requests remain token-free, but every request still passes Host validation and unsafe browser methods pass Origin/Fetch Metadata checks.
+- LAN mode is opt-in (`VOX_HOST=0.0.0.0`). Unauthenticated remote clients may access only minimal `GET /health` and the pairing flow.
+- Vox Helper creates single-use five-minute pairing codes through the loopback-only trusted path. Never put pairing codes, bearer tokens, or cookies in logs or URLs.
+- Remote sessions and API tokens are stored only as SHA-256 hashes in `data/security/credentials.db`; its directory and file must remain owner-only.
+- Scope boundaries live centrally in `api/middleware/security.py`: read for metadata, generate for synthesis/private audio, and admin for settings, logs, backups, mutation, deletion, and credential management.
+- Disabling LAN mode revokes all remote credentials immediately. Do not weaken this behavior to preserve a remote session.
+- The LAN browser cookie cannot be `Secure` on Vox's default HTTP transport. Keep it `HttpOnly` and `SameSite=Strict`, show the trusted-LAN warning, and use `Secure` only when a future trusted-TLS mode can enforce HTTPS end to end.
+
+## Managed Data Safety
+
+- Voice slugs are lowercase ASCII letters/numbers separated by single hyphens, at most 64 characters. Always use `canonical_voice_slug`; never construct a voice filename from raw user input.
+- Resolve runtime paths through `managed_path` or `stored_managed_path` before reading, replacing, or deleting. Restored database values are untrusted even though the database is local.
+- Voice and inline prompt uploads must use `stream_upload` and `VOX_MAX_VOICE_UPLOAD_MB`; never call `await UploadFile.read()` without a bound.
+- Voice icons must remain bounded PNG data URLs and pass decoded byte, signature, and dimension validation.
+- Restore archives accept only the manifest, Vox database, and voice tree. Preserve entry/count/expanded-size/compression-ratio, duplicate, traversal, symlink, manifest, schema, integrity, and managed-path checks.
+- Database and voice restore is one rollback transaction. Keep the prior database and voice tree until the restored database reconnects successfully; never touch `.env`, outputs, input, or unrelated preferences/files.
 
 ## UI Build Rules
 
@@ -243,3 +289,17 @@ When behavior changes, update the relevant docs in the same commit:
 - Keep commits focused and descriptive.
 - Before pushing, run relevant verification for the files touched.
 - Before tagging, ensure `git status --short` is clean.
+
+## Agent skills
+
+### Issue tracker
+
+Issues and planning maps live in GitHub Issues; external pull requests are not a triage surface. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+The standard five-role triage vocabulary is used. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+This is a single-context repository. See `docs/agents/domain.md`.

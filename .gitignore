@@ -2,6 +2,7 @@ __pycache__/
 *.pyc
 *.pyo
 .DS_Store
+.release-candidates/
 .claude/
 
 # Symlinks created by setup.sh pointing into ~/Library/Application Support/Vox/
@@ -24,3 +25,8 @@ sketches/
 # React SPA source dependencies (build output ui-dist/ IS committed — needed for vox.sh update)
 ui-src/node_modules/
 ui-src/bun.lock
+ui-src/coverage/
+ui-src/playwright-report/
+ui-src/test-results/
+.ci/
+.build/
