@@ -138,6 +138,8 @@
 
 @layer base {
   * { border-color: var(--color-border); }
+  button:not(:disabled):hover { transform: none !important; }
+  button:not(:disabled):active { transform: translateY(1px) !important; filter: brightness(0.92); }
   body {
     background: var(--page-bg);
     color: var(--color-foreground);

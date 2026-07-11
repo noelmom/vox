@@ -1417,18 +1417,18 @@ function Toggle({
         disabled={disabled}
         onClick={() => !disabled && onChange(!checked)}
         className={
-          "relative h-6 w-11 rounded-full transition-colors " +
+          "relative h-7 w-12 rounded-full border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand)] focus-visible:ring-offset-2 focus-visible:ring-offset-background " +
           (disabled
-            ? "cursor-not-allowed bg-muted opacity-60"
+            ? "cursor-not-allowed border-border bg-muted opacity-60"
             : checked
-              ? "bg-gradient-to-br from-[oklch(0.6_0.2_260)] to-[oklch(0.5_0.22_270)] shadow-[inset_0_0_0_1px_oklch(0.5_0.22_270/0.3)]"
-              : "bg-muted")
+              ? "border-[var(--brand)] bg-[var(--brand)] shadow-[inset_0_0_0_1px_oklch(1_0_0/0.16)]"
+              : "border-border bg-background")
         }
       >
         <span
           className={
-            "absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all " +
-            (checked ? "left-[22px]" : "left-0.5")
+            "absolute top-0.5 h-5 w-5 rounded-full bg-card shadow transition-all " +
+            (checked ? "left-[25px]" : "left-0.5")
           }
         />
       </button>
