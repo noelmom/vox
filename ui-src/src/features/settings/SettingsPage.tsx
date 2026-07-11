@@ -40,6 +40,13 @@ import {
 import { hydrateCachedPreferences, readCachedPreference, savePreferences, writeCachedPreference } from "@/lib/preferences";
 import { formatDuration } from "@/lib/audio-trim";
 import { BRAND, BRAND_GRADIENT, BRAND_SECONDARY, BRAND_WARM } from "@/lib/theme";
+import {
+  Select as StudioSelect,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
 
@@ -1336,21 +1343,18 @@ function Select({
   const normalised = (options as (string | { value: string; label: string })[]).map((o) =>
     typeof o === "string" ? { value: o, label: o } : o,
   );
+  const selected = normalised.find((option) => option.value === value);
   return (
-    <div className="relative">
-      <select
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="w-full appearance-none rounded-lg border border-border bg-white px-3 py-2 pr-9 text-[13.5px] font-medium text-foreground outline-none focus:border-[var(--brand)]"
-      >
-        {normalised.map((o) => (
-          <option key={o.value} value={o.value}>
-            {o.label}
-          </option>
+    <StudioSelect value={value} onValueChange={onChange}>
+      <SelectTrigger className="h-auto w-full rounded-lg border border-border bg-[oklch(0.12_0.012_250)] px-3 py-2 text-[13.5px] font-medium text-[oklch(0.93_0.012_250)] focus:ring-2 focus:ring-[oklch(0.66_0.22_35/0.28)]">
+        <SelectValue>{selected?.label}</SelectValue>
+      </SelectTrigger>
+      <SelectContent>
+        {normalised.map((option) => (
+          <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
         ))}
-      </select>
-      <ChevronDown className="pointer-events-none absolute inset-y-0 right-2.5 my-auto h-3.5 w-3.5 text-foreground/50" />
-    </div>
+      </SelectContent>
+    </StudioSelect>
   );
 }
 
