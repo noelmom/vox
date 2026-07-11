@@ -1293,7 +1293,7 @@ function SegmentToggle<T extends string>({
   options: { value: T; label: string; icon?: typeof Monitor }[];
 }) {
   return (
-    <div className="inline-flex rounded-lg border border-border bg-[oklch(0.98_0.003_260)] p-1 shadow-sm">
+    <div className="inline-flex rounded-lg border border-border bg-muted p-1 shadow-sm">
       {options.map((o) => {
         const active = o.value === value;
         const Icon = o.icon;
