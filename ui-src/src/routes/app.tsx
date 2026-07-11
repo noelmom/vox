@@ -31,6 +31,10 @@ function AppWorkspace() {
   const { data: alerts = [] } = useQuery<SystemAlert[]>({ queryKey: ["alerts"], queryFn: getAlerts, refetchInterval: 5 * 60_000, retry: 1 });
   const [authExpired, setAuthExpired] = useState<string | null>(null);
   useEffect(() => {
+    document.documentElement.classList.add("dark");
+    return () => document.documentElement.classList.remove("dark");
+  }, []);
+  useEffect(() => {
     const handler = (event: Event) => setAuthExpired((event as CustomEvent<{ reason?: string }>).detail?.reason ?? "Pairing is required.");
     window.addEventListener("vox:auth-expired", handler);
     return () => window.removeEventListener("vox:auth-expired", handler);
@@ -41,7 +45,7 @@ function AppWorkspace() {
   if (authExpired) return <PairingGate reason={authExpired} />;
 
   return (
-    <div className="min-h-screen bg-[oklch(0.985_0.006_255)] text-foreground">
+    <div className="min-h-screen bg-background text-foreground">
       <a href="#workspace-main" className="fixed left-4 top-3 z-[100] -translate-y-20 rounded-lg bg-foreground px-4 py-2 text-sm font-semibold text-background focus:translate-y-0">Skip to content</a>
       <div id="pairing-gate-slot" hidden />
       <aside className="fixed inset-y-0 left-0 z-40 hidden w-[68px] border-r border-border/70 bg-white/90 px-2 py-5 backdrop-blur-xl md:flex md:flex-col xl:w-[216px] xl:px-4">
@@ -51,7 +55,7 @@ function AppWorkspace() {
         </Link>
         <PrimaryNavigation pathname={pathname} />
         <div className="mt-auto px-1 pb-2">
-          <div className={`flex items-center justify-center gap-2 rounded-xl border px-2 py-2.5 text-xs font-semibold xl:justify-start xl:px-3 ${isError ? "border-red-200 bg-red-50 text-red-700" : "border-border bg-white text-foreground/70"}`}>
+          <div className={`flex items-center justify-center gap-2 rounded-xl border px-2 py-2.5 text-xs font-semibold xl:justify-start xl:px-3 ${isError ? "border-red-500/40 bg-red-950/30 text-red-300" : "border-border bg-card text-foreground/70"}`}>
             <span className={`h-2.5 w-2.5 rounded-full ${isLoading || runtimeError || !modelReady ? "bg-amber-400" : isError ? "bg-red-500" : "bg-emerald-500"}`} />
             <span className="hidden xl:inline">{isLoading ? "Connecting" : isError || runtimeError ? "Unavailable" : !modelReady ? modelStatusLabel(runtime?.model.state) : "Ready"}</span>
           </div>
@@ -59,7 +63,7 @@ function AppWorkspace() {
       </aside>
 
       <div className="min-h-screen md:pl-[68px] xl:pl-[216px]">
-        <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-border/70 bg-white/90 px-4 backdrop-blur-xl md:px-8">
+        <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-border/70 bg-background/90 px-4 backdrop-blur-xl md:px-8">
           <div className="flex items-center gap-3">
             <img src={voxIcon} alt="" className="h-9 w-9 md:hidden" />
             <span className="text-base font-bold md:text-sm md:font-semibold md:text-foreground/70">{routeLabel}</span>
@@ -76,7 +80,7 @@ function AppWorkspace() {
         </main>
       </div>
 
-      <nav aria-label="Primary" className="fixed inset-x-0 bottom-0 z-40 grid h-16 grid-cols-4 border-t border-border bg-white/95 px-1 backdrop-blur-xl md:hidden">
+      <nav aria-label="Primary" className="fixed inset-x-0 bottom-0 z-40 grid h-16 grid-cols-4 border-t border-border bg-background/95 px-1 backdrop-blur-xl md:hidden">
         {NAV.map(({ label, to, Icon }) => {
           const active = to === "/app" ? pathname === "/app" : pathname.startsWith(to);
           return <Link key={to} to={to} aria-current={active ? "page" : undefined} className={`flex min-h-11 flex-col items-center justify-center gap-1 rounded-lg text-[10px] font-semibold ${active ? "text-[var(--brand)]" : "text-foreground/55"}`}><Icon className="h-5 w-5" /><span>{label}</span></Link>;
@@ -87,7 +91,7 @@ function AppWorkspace() {
 }
 
 function PairingGate({ reason }: { reason: string }) {
-  return <main className="flex min-h-screen items-center justify-center bg-[oklch(0.985_0.006_255)] px-5"><section className="w-full max-w-md rounded-2xl border border-border bg-white p-7 text-center shadow-xl"><img src={voxLogo} alt="Vox Studio" className="mx-auto h-12 w-auto" /><h1 className="mt-6 text-2xl font-bold">Pair this device</h1><p className="mt-2 text-sm leading-6 text-foreground/60">{reason} Open Vox Helper on the host Mac to create a new one-time pairing code.</p><a href="/pair" className="mt-6 inline-flex min-h-11 items-center justify-center rounded-xl bg-[var(--brand)] px-5 text-sm font-semibold text-white">Open pairing</a></section></main>;
+  return <main className="flex min-h-screen items-center justify-center bg-background px-5"><section className="w-full max-w-md rounded-2xl border border-border bg-card p-7 text-center shadow-xl"><img src={voxLogo} alt="Vox Studio" className="mx-auto h-12 w-auto" /><h1 className="mt-6 text-2xl font-bold">Pair this device</h1><p className="mt-2 text-sm leading-6 text-foreground/60">{reason} Open Vox Helper on the host Mac to create a new one-time pairing code.</p><a href="/pair" className="mt-6 inline-flex min-h-11 items-center justify-center rounded-xl bg-[var(--brand)] px-5 text-sm font-semibold text-white">Open pairing</a></section></main>;
 }
 
 function modelStatusLabel(state?: string) {
@@ -99,7 +103,7 @@ function modelStatusLabel(state?: string) {
 function PrimaryNavigation({ pathname }: { pathname: string }) {
   return <nav aria-label="Primary" className="flex flex-col gap-1">{NAV.map(({ label, to, Icon }) => {
     const active = to === "/app" ? pathname === "/app" : pathname.startsWith(to);
-    return <Link key={to} to={to} aria-current={active ? "page" : undefined} title={label} className={`flex h-11 items-center justify-center gap-3 rounded-xl px-3 text-sm font-medium xl:justify-start ${active ? "bg-blue-50 text-blue-700" : "text-foreground/65 hover:bg-muted hover:text-foreground"}`}><Icon className="h-5 w-5 shrink-0" /><span className="hidden xl:inline">{label}</span></Link>;
+    return <Link key={to} to={to} aria-current={active ? "page" : undefined} title={label} className={`flex h-11 items-center justify-center gap-3 rounded-xl px-3 text-sm font-medium xl:justify-start ${active ? "bg-[var(--brand-soft)] text-[var(--brand)]" : "text-foreground/65 hover:bg-muted hover:text-foreground"}`}><Icon className="h-5 w-5 shrink-0" /><span className="hidden xl:inline">{label}</span></Link>;
   })}</nav>;
 }
 

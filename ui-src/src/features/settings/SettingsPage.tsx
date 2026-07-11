@@ -59,7 +59,7 @@ function loadPrefs() {
     advanced: lsGet("vox:advanced", ADVANCED_DEFAULTS),
     voiceId: lsGet("vox:voiceId", ""),
     tone: lsGet("vox:tone", "Default"),
-    theme: "light" as const,
+    theme: "dark" as const,
     autoplayCompleted: lsGet("vox:autoplay-completed", false),
   };
 }
@@ -71,7 +71,7 @@ function savePrefs(p: ReturnType<typeof loadPrefs>) {
   writeCachedPreference("vox:advanced", p.advanced);
   writeCachedPreference("vox:voiceId", p.voiceId);
   writeCachedPreference("vox:tone", p.tone);
-  writeCachedPreference("vox:theme", "light");
+  writeCachedPreference("vox:theme", "dark");
   writeCachedPreference("vox:autoplay-completed", p.autoplayCompleted);
   window.dispatchEvent(new CustomEvent("vox:prefschanged"));
 }
@@ -268,7 +268,7 @@ export function SettingsPage() {
       "vox:advanced": prefs.advanced,
       "vox:voiceId": prefs.voiceId,
       "vox:tone": prefs.tone,
-      "vox:theme": "light",
+      "vox:theme": "dark",
       "vox:autoplay-completed": prefs.autoplayCompleted,
     }).catch(() => {});
     setSavedSnapshot(JSON.stringify(prefs));
@@ -278,7 +278,7 @@ export function SettingsPage() {
   };
 
   const handleReset = () => {
-    const defaults = { format: "mp3" as const, mp3Quality: "128", wavQuality: "16", advanced: ADVANCED_DEFAULTS, voiceId: "", tone: "Default", theme: "light" as const, autoplayCompleted: false };
+    const defaults = { format: "mp3" as const, mp3Quality: "128", wavQuality: "16", advanced: ADVANCED_DEFAULTS, voiceId: "", tone: "Default", theme: "dark" as const, autoplayCompleted: false };
     setPrefs(defaults);
   };
 
@@ -682,11 +682,11 @@ export function SettingsPage() {
       </Section>
 
       {/* APPEARANCE */}
-      <Section id="appearance" title="Appearance" Icon={Monitor} subtitle="Display preferences for Vox Studio.">
+      <Section id="appearance" title="Appearance" Icon={Monitor} subtitle="Dark is the default Studio theme. Light controls are coming in a later pass.">
         <Row label="Theme" hint="Dark mode is wired internally and deferred until after v1.0 polish.">
           <span className="inline-flex items-center gap-2 rounded-xl border border-border bg-muted px-3 py-2 text-[13px] font-semibold text-foreground/80">
             <Sun className="h-3.5 w-3.5 text-[var(--brand)]" />
-            Light
+            Dark
           </span>
         </Row>
       </Section>
