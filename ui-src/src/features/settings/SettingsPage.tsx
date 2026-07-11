@@ -1043,8 +1043,8 @@ function RestartNotice() {
 
 function ExpertBadge() {
   return (
-    <span className="rounded-full border border-[oklch(0.82_0.08_265)] bg-[oklch(0.96_0.035_265)] px-2 py-1 text-[10.5px] font-black uppercase tracking-wide text-[var(--brand)]">
-      Expert
+    <span className="inline-flex items-center gap-1 rounded-full border border-[var(--warning)] bg-[var(--warning-soft)] px-2 py-1 text-[10.5px] font-black uppercase tracking-wide text-[var(--warning)]">
+      <AlertTriangle className="h-3 w-3" /> Expert
     </span>
   );
 }
