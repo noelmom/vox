@@ -14,7 +14,7 @@
 
 A local, privacy-first text-to-speech (TTS) platform powered by [Chatterbox](https://github.com/resemble-ai/chatterbox) and optimised for Apple Silicon. Vox runs entirely on your machine — no cloud, no subscriptions, no data leaving your device.
 
-It exposes a clean REST API and a web UI for generating high-quality audio from named voice profiles. The long-term goal is a one-click macOS app with a native menu bar helper.
+It exposes a clean REST API and a dark-first Studio for generating high-quality audio from named voice profiles, with a signed macOS installer and native menu bar helper.
 
 ---
 
@@ -31,7 +31,7 @@ It exposes a clean REST API and a web UI for generating high-quality audio from 
 - **Configurable cleanup** — generated output files are pruned on a TTL schedule
 - **Zero cloud dependency** — fully self-hosted
 - **Web UI** — single-page app for generating audio, managing voices, viewing history, and configuring settings
-- **Persistent creative workspace** — canonical Create, Voices, History, and sectioned Settings routes with one global paused-on-reload audio dock; completed-render autoplay is off by default and can be enabled in Settings (restored recordings always remain paused)
+- **Persistent creative workspace** — Create, Voices, History, and Settings share one global paused-on-reload Now Playing dock; completed-render autoplay is off by default and can be enabled in Settings (restored recordings always remain paused)
 - **In-browser voice recording** — capture microphone audio directly in the browser with live waveform visualisation
 - **One persistent Now Playing dock** — Create and History hand recordings to the same seekable player, while voice samples keep compact inline audition controls
 - **Voice profile editing** — update description, tags, and TTS defaults without re-uploading audio
@@ -41,7 +41,7 @@ It exposes a clean REST API and a web UI for generating high-quality audio from 
 - **Backup & restore** — export/import SQLite history and voice assets from Settings
 - **Dark-first Studio** — deep-ink surfaces and signal-orange actions are the default Vox workspace theme
 - **Real upload progress** — live byte-count progress bar during voice file uploads
-- **macOS menu bar helper** — monochrome VOX status icon, CPU %, RAM, Start/Stop/Restart, Open in Browser, Copy Address — auto-starts on login
+- **macOS menu bar helper** — V-wave template icon, clear ready/stopped state, primary Open/Start-or-Restart/Pair actions, and grouped Server Controls, Files, Diagnostics, and Updates & Support menus; the icon dims while the server is unavailable or restarting
 - **LaunchAgent management** — server and helper managed by macOS launchd; crash-restart, structured logs to `~/Library/Logs/Vox/`
 
 ---
@@ -190,7 +190,7 @@ The installer handles:
 | LaunchAgents | Registers the server agent and menu bar helper |
 | First-run welcome | Opens the local Welcome page when setup is ready |
 
-The **VOX icon** appears in your menu bar within a few seconds. Use it to start, stop, and restart the server, open the web UI, monitor CPU/RAM/GPU, and confirm the installed Studio/helper build versions.
+The **V-wave icon** appears in your menu bar within a few seconds. Its full-strength state means the server is reachable; it dims while stopped or restarting. Open the menu for **Open Vox Studio**, the primary **Start/Restart Vox Server** action, and **Pair a Device…** when LAN access is enabled. Files, diagnostics, and update actions are grouped into submenus.
 
 ### Method 2 — Manual install from git
 
@@ -225,7 +225,7 @@ bash vox.sh install --yes --token hf_xxx         # also set HF token
 
 Vox starts the server automatically on login by default. You can disable that from the Vox Helper menu if you prefer to start it manually.
 
-**Via the menu bar:** click the Vox icon → **Start Server**.
+**Via the menu bar:** click the V-wave icon → **Start Vox Server**.
 
 **Via terminal:**
 
@@ -236,7 +236,7 @@ launchctl kickstart -k gui/$(id -u)/com.noelmom.vox       # restart
 tail -f ~/Library/Logs/Vox/vox.log                        # live logs
 ```
 
-The menu bar helper shows `localhost:8000 · local only` when `VOX_HOST=127.0.0.1` (default), or `192.168.x.x:8000 · network accessible` when `VOX_HOST=0.0.0.0` — so you always know at a glance who can reach the server.
+The menu bar helper shows `localhost:8000 · local only` when `VOX_HOST=127.0.0.1` (default), or `192.168.x.x:8000 · network accessible` when `VOX_HOST=0.0.0.0` — so you always know at a glance who can reach the server. **Pair a Device…** becomes available only when the server is running and network access is enabled.
 
 ### Updating
 
@@ -622,7 +622,7 @@ Vox is now in a v1.0 scope freeze: only bug fixes, product polish, and true bloc
 - [x] Microphone error classification — distinct UI for no-device / access-denied / insecure context
 - [ ] Post-v1: manual pause insertion in the Create script editor
 - [ ] Post-v1: pronunciation dictionary / word replacement controls
-- [ ] Post-v1: finish dark theme visual polish; the toggle and theme tokens are wired, but dark mode still needs minor contrast/surface tweaks before it is release-ready
+- [ ] Post-v1: offer a supported light/system appearance preference without compromising the dark-first Studio contract
 - [ ] Post-v1: streaming audio response (chunked transfer)
 - [ ] Post-v1: review Python and JavaScript SDK support after the local REST API stabilizes
 - [ ] Post-v1: single self-contained `.app` packaging, separate from the current signed/notarized `.pkg` + `.dmg` release flow

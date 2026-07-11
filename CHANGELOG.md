@@ -5,6 +5,21 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [Unreleased]
+
+### Added
+- **V-wave brand system** — refreshed Studio/public logos, favicon, Server and Helper app icons, and a macOS template menu-bar mark.
+- **Unified Studio menus** — dropdowns, selects, submenus, and context menus share the same dark elevated panel, warm hover, and selected-state treatment.
+- **Refreshed public site** — the public landing page now uses the deep-ink/signal-orange system and a current Studio screenshot.
+
+### Changed
+- **Dark-first visual polish** — controls, waveform surfaces, settings fields, upload states, generation progress, and landing status surfaces now use the same deep-ink/signal-orange palette.
+- **Simplified Vox Helper menu** — the top level now prioritizes Open Studio, Start/Restart, and pairing; lifecycle, files, diagnostics, and updates are grouped into focused submenus.
+
+### Fixed
+- **Playback completion** — Now Playing snaps its seek state to the exact audio duration at completion.
+- **Favicon delivery** — a versioned V-wave PNG/ICO pair is explicitly served by the local app to avoid stale browser favicon fallbacks.
+
 ## [1.0.0] — 2026-07-04
 
 ### Added
