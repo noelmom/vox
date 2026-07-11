@@ -73,7 +73,7 @@ class StatusBarController: NSObject {
         quitItem.action    = #selector(quitApp)
 
         let controlsMenu = NSMenu(title: "Server controls")
-        [startItem, stopItem, restartItem].forEach(controlsMenu.addItem)
+        controlsMenu.addItem(stopItem)
 
         let filesMenu = NSMenu(title: "Files")
         [copyItem, inputItem, logsItem].forEach(filesMenu.addItem)
@@ -114,7 +114,7 @@ class StatusBarController: NSObject {
             updater.refreshPreferences(from: URL(string: monitor.loopbackURL() + "/api/v1/preferences")!)
         }
         let restarting = isRestarting(state: state)
-        applyMenuBarIcon(running: state.running || restarting)
+        applyMenuBarIcon(running: state.running && !restarting)
         statusItem.title    = restarting ? "Vox is restarting…" : (state.running ? "Vox is ready" : "Vox is stopped")
         addrItem.title      = state.addrLabel
         copyItem.action     = state.running ? #selector(copyAddress)   : nil
@@ -189,7 +189,7 @@ class StatusBarController: NSObject {
     @objc private func restartServer() {
         restartUntil = Date().addingTimeInterval(15)
         statusItem.title = "Restarting…"
-        applyMenuBarIcon(running: true)
+        applyMenuBarIcon(running: false)
         monitor.launchctl("kickstart", "-k", "gui/\(getuid())/com.noelmom.vox")
     }
 
@@ -395,6 +395,7 @@ class StatusBarController: NSObject {
         guard let button = item.button else { return }
         button.title = ""
         button.imagePosition = .imageOnly
+        button.alphaValue = running ? 1 : 0.38
         button.image = makeMenuBarIcon(running: running)
     }
 
