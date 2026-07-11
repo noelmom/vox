@@ -3,6 +3,18 @@
   <channel>
     <title>Vox updates</title>
     <item>
+      <title>Vox 1.0.3</title>
+      <sparkle:version>202607110703</sparkle:version>
+      <sparkle:shortVersionString>1.0.3</sparkle:shortVersionString>
+      <pubDate>Sat, 11 Jul 2026 07:05:00 +0000</pubDate>
+      <description sparkle:format="markdown"># Vox 1.0.3
+
+- Adds **Settings → Runtime → Trusted hostnames** for exact DNS allowlisting behind a trusted HTTPS proxy or Cloudflare Tunnel.
+- Keeps the local/LAN default intact: ports, schemes, IP ranges, and wildcards are rejected.
+- Supports an authenticated test deployment at `vox.melolab.dev` while Cloudflare Access remains the only public entry point.</description>
+      <enclosure url="https://github.com/noelmom/vox/releases/download/v1.0.3/Vox-1.0.3.pkg" length="9247126" type="application/octet-stream" sparkle:edSignature="LbZ0iYgRP0l/FmFrXzjdK5OSIzDab0Hb20pSbdGr6Qu3HcwwMfibgpgIrxB8xCrkTn3ZMSwvOHLfHLmH8640Ag==" />
+    </item>
+    <item>
       <title>Vox 1.0.2</title>
       <sparkle:version>202607110644</sparkle:version>
       <sparkle:shortVersionString>1.0.2</sparkle:shortVersionString>

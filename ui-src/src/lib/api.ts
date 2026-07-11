@@ -187,6 +187,9 @@ export type ServerSettings = {
   host: string;
   configured_host: string;
   host_restart_required: boolean;
+  trusted_hosts: string;
+  configured_trusted_hosts: string;
+  trusted_hosts_restart_required: boolean;
   port: number;
   output_dir: string;
   voice_dir: string;
@@ -272,6 +275,7 @@ export async function getServerSettings(): Promise<ServerSettings> {
 
 export type ServerSettingsPatch = {
   host?: "127.0.0.1" | "0.0.0.0";
+  trusted_hosts?: string;
   output_ttl_hours?: number;
   max_voice_clip_duration_s?: number;
   default_max_chars?: number;
@@ -283,6 +287,9 @@ export async function patchServerSettings(patch: ServerSettingsPatch): Promise<{
   host: string;
   configured_host: string;
   host_restart_required: boolean;
+  trusted_hosts: string;
+  configured_trusted_hosts: string;
+  trusted_hosts_restart_required: boolean;
   output_ttl_hours: number;
   configured_output_ttl_hours: number;
   output_ttl_restart_required: boolean;

@@ -21,7 +21,7 @@ from api.core.presets import PRESETS
 from api.core.watcher import watch_input_folder
 from api.core.security import SecurityStore
 from api.middleware.request_id import RequestIDMiddleware
-from api.middleware.security import SecurityMiddleware
+from api.middleware.security import SecurityMiddleware, normalize_configured_hosts
 from api.routers import alerts, auth, backups, jobs, logs, preferences, presets, tts, voices
 
 _UI_DIST = Path(__file__).parent.parent / "ui-dist"
@@ -33,6 +33,7 @@ _background_tasks: list[asyncio.Task] = []
 
 class SettingsPatch(BaseModel):
     host: str | None = None
+    trusted_hosts: str | None = Field(None, max_length=2048)
     output_ttl_hours: int | None = Field(None, ge=0, le=8760)
     max_voice_clip_duration_s: int | None = Field(None, ge=5, le=600)
     default_max_chars: int | None = Field(None, ge=100, le=3000)
@@ -222,7 +223,11 @@ app = FastAPI(
 )
 
 app.state.security_store = SecurityStore(settings.security_dir / "credentials.db")
-app.add_middleware(SecurityMiddleware, lan_enabled=lambda: settings.host == "0.0.0.0")
+app.add_middleware(
+    SecurityMiddleware,
+    lan_enabled=lambda: settings.host == "0.0.0.0",
+    trusted_hosts=lambda: settings.trusted_hosts,
+)
 app.add_middleware(RequestIDMiddleware)
 
 
@@ -505,6 +510,7 @@ async def get_settings():
     ffmpeg = settings.ffmpeg_path
     ffmpeg_ok = bool(shutil.which(ffmpeg) or shutil.which("ffmpeg"))
     configured_host = _read_env_value("VOX_HOST", settings.host) or settings.host
+    configured_trusted_hosts = _read_env_value("VOX_TRUSTED_HOSTS", settings.trusted_hosts) or ""
     configured_output_ttl_hours = _read_env_int("VOX_OUTPUT_TTL_HOURS", settings.output_ttl_hours)
     configured_max_voice_clip_duration_s = _read_env_int("VOX_MAX_VOICE_CLIP_DURATION_S", settings.max_voice_clip_duration_s)
     configured_default_max_chars = _read_env_int("VOX_DEFAULT_MAX_CHARS", settings.default_max_chars)
@@ -521,6 +527,9 @@ async def get_settings():
         "host": settings.host,
         "configured_host": configured_host,
         "host_restart_required": configured_host != settings.host,
+        "trusted_hosts": settings.trusted_hosts,
+        "configured_trusted_hosts": configured_trusted_hosts,
+        "trusted_hosts_restart_required": configured_trusted_hosts != settings.trusted_hosts,
         "port": settings.port,
         "output_dir": str(settings.output_dir.resolve()),
         "voice_dir": str(settings.voice_dir.resolve()),
@@ -576,6 +585,14 @@ async def patch_settings(patch: SettingsPatch):
         if host == "127.0.0.1":
             app.state.security_store.revoke_all_remote_credentials()
 
+    if patch.trusted_hosts is not None:
+        try:
+            trusted_hosts = normalize_configured_hosts(patch.trusted_hosts)
+        except ValueError as error:
+            raise HTTPException(status_code=422, detail=str(error)) from error
+        _write_env_value("VOX_TRUSTED_HOSTS", trusted_hosts)
+        changed["trusted_hosts"] = trusted_hosts
+
     if patch.output_ttl_hours is not None:
         if patch.output_ttl_hours < 0 or patch.output_ttl_hours > 8760:
             raise HTTPException(status_code=422, detail="output_ttl_hours must be between 0 and 8760")
@@ -604,6 +621,7 @@ async def patch_settings(patch: SettingsPatch):
         changed["chunk_headroom_chars"] = str(patch.chunk_headroom_chars)
 
     configured_host = _read_env_value("VOX_HOST", settings.host) or settings.host
+    configured_trusted_hosts = _read_env_value("VOX_TRUSTED_HOSTS", settings.trusted_hosts) or ""
     configured_output_ttl_hours = _read_env_int("VOX_OUTPUT_TTL_HOURS", settings.output_ttl_hours)
     configured_max_voice_clip_duration_s = _read_env_int("VOX_MAX_VOICE_CLIP_DURATION_S", settings.max_voice_clip_duration_s)
     configured_default_max_chars = _read_env_int("VOX_DEFAULT_MAX_CHARS", settings.default_max_chars)
@@ -613,6 +631,9 @@ async def patch_settings(patch: SettingsPatch):
         "host": settings.host,
         "configured_host": configured_host,
         "host_restart_required": configured_host != settings.host,
+        "trusted_hosts": settings.trusted_hosts,
+        "configured_trusted_hosts": configured_trusted_hosts,
+        "trusted_hosts_restart_required": configured_trusted_hosts != settings.trusted_hosts,
         "output_ttl_hours": settings.output_ttl_hours,
         "configured_output_ttl_hours": configured_output_ttl_hours,
         "output_ttl_restart_required": configured_output_ttl_hours != settings.output_ttl_hours,

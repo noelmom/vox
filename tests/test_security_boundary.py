@@ -7,11 +7,15 @@ from api.routers import auth
 from api.routers.jobs import _redact_private_fields
 
 
-def _app(tmp_path, *, lan_enabled: bool = True) -> tuple[FastAPI, SecurityStore]:
+def _app(tmp_path, *, lan_enabled: bool = True, trusted_hosts: str = "") -> tuple[FastAPI, SecurityStore]:
     app = FastAPI()
     store = SecurityStore(tmp_path / "security.db")
     app.state.security_store = store
-    app.add_middleware(SecurityMiddleware, lan_enabled=lambda: lan_enabled)
+    app.add_middleware(
+        SecurityMiddleware,
+        lan_enabled=lambda: lan_enabled,
+        trusted_hosts=lambda: trusted_hosts,
+    )
     app.include_router(auth.router, prefix="/api/v1")
 
     @app.get("/health")
@@ -82,6 +86,19 @@ def test_host_and_cross_site_mutations_are_rejected(tmp_path):
         "/api/v1/tts",
         headers={"Host": "localhost:8000", "Origin": "http://["},
     ).status_code == 403
+
+
+def test_explicit_trusted_dns_host_allows_same_origin_requests_only(tmp_path):
+    app, _ = _app(tmp_path, trusted_hosts="vox.melolab.dev, test.vox.melolab.dev")
+    client = TestClient(app, client=("127.0.0.1", 50000))
+
+    allowed = client.post(
+        "/api/v1/tts",
+        headers={"Host": "vox.melolab.dev", "Origin": "https://vox.melolab.dev"},
+    )
+    assert allowed.status_code == 200
+    assert client.get("/api/v1/status", headers={"Host": "evil.melolab.dev"}).status_code == 400
+    assert client.get("/api/v1/status", headers={"Host": "vox.melolab.dev.evil.example"}).status_code == 400
 
 
 def test_pairing_code_is_single_use_and_scopes_are_enforced(tmp_path):

@@ -176,6 +176,8 @@ export function SettingsPage() {
     chunkHeadroomChars: "",
   });
   const [serverDraftErrors, setServerDraftErrors] = useState<Record<string, string>>({});
+  const [trustedHostsDraft, setTrustedHostsDraft] = useState("");
+  const [trustedHostsError, setTrustedHostsError] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -300,6 +302,8 @@ export function SettingsPage() {
       chunkHeadroomChars: String(server.configured_chunk_headroom_chars ?? server.chunk_headroom_chars),
     });
     setServerDraftErrors({});
+    setTrustedHostsDraft(server.configured_trusted_hosts ?? server.trusted_hosts ?? "");
+    setTrustedHostsError("");
   }, [
     server?.configured_output_ttl_hours,
     server?.output_ttl_hours,
@@ -309,6 +313,8 @@ export function SettingsPage() {
     server?.default_max_chars,
     server?.configured_chunk_headroom_chars,
     server?.chunk_headroom_chars,
+    server?.configured_trusted_hosts,
+    server?.trusted_hosts,
   ]);
 
   const saveServerNumber = (
@@ -334,8 +340,10 @@ export function SettingsPage() {
     : "—";
   const configuredHost = server?.configured_host || server?.host || "127.0.0.1";
   const hostRestartRequired = Boolean(server?.host_restart_required);
+  const trustedHostsRestartRequired = Boolean(server?.trusted_hosts_restart_required);
   const anyServerRestartRequired = Boolean(
     server?.host_restart_required ||
+    server?.trusted_hosts_restart_required ||
     server?.output_ttl_restart_required ||
     server?.max_voice_clip_duration_restart_required ||
     server?.default_max_chars_restart_required ||
@@ -434,6 +442,32 @@ export function SettingsPage() {
                 {networkMutation.isError && (
                   <p className="text-[12px] font-medium text-[var(--brand-warm)]">Could not save network access setting.</p>
                 )}
+              </div>
+            </InfoRow>
+            <InfoRow label="Trusted hostnames" hint="Exact DNS names allowed in Host headers when a trusted HTTPS proxy or Cloudflare Tunnel fronts Vox.">
+              <div className="flex w-full max-w-2xl flex-col gap-2">
+                <div className="flex flex-wrap gap-2">
+                  <input
+                    value={trustedHostsDraft}
+                    onChange={(event) => { setTrustedHostsDraft(event.target.value); setTrustedHostsError(""); }}
+                    placeholder="vox.melolab.dev"
+                    className="vox-control min-w-0 flex-1 px-3 py-2 text-[13px]"
+                    aria-label="Trusted hostnames"
+                  />
+                  <button
+                    type="button"
+                    className="vox-control px-3 py-2 text-[12px] font-bold"
+                    disabled={serverSettingsMutation.isPending}
+                    onClick={() => serverSettingsMutation.mutate({ trusted_hosts: trustedHostsDraft.trim() }, {
+                      onError: (error) => setTrustedHostsError(error instanceof Error ? error.message : "Could not save trusted hostnames."),
+                    })}
+                  >
+                    Save
+                  </button>
+                </div>
+                <p className="text-[12px] leading-relaxed text-muted-foreground">Comma-separated names only. No ports, schemes, IP ranges, or wildcards. Leave empty unless a trusted proxy or tunnel is the only path to Vox.</p>
+                {trustedHostsRestartRequired && <p className="text-[12px] font-semibold text-[var(--brand-warm)]">Restart the local server to apply hostname changes.</p>}
+                {trustedHostsError && <p className="text-[12px] font-medium text-[var(--brand-warm)]">{trustedHostsError}</p>}
               </div>
             </InfoRow>
             <InfoRow label="Paired devices & API tokens" hint="Pair browsers from Vox Helper. Create scoped tokens for trusted local automation.">

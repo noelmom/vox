@@ -22,6 +22,9 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+- **Trusted proxy hostname controls** — Settings → Runtime can now persist exact trusted DNS hostnames for a TLS proxy or Cloudflare Tunnel while retaining Vox's strict local/LAN defaults.
+
 ## [1.0.0] — 2026-07-04
 
 ### Added

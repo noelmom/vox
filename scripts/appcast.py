@@ -62,7 +62,7 @@ def verify_signature(package: Path, signature: str, tool: Path, account: str) ->
         fail(f"Sparkle signature verification failed: {result.stderr.strip() or result.stdout.strip()}")
 
 
-def existing_items(appcast: Path | None, build: str) -> list[ET.Element]:
+def existing_items(appcast: Path | None, build: str, channel: str, short_version: str) -> list[ET.Element]:
     if appcast is None:
         return []
     try:
@@ -77,8 +77,12 @@ def existing_items(appcast: Path | None, build: str) -> list[ET.Element]:
     highest_build = 0
     for item in items:
         existing_build = item.findtext(f"{{{SPARKLE}}}version")
+        existing_version = item.findtext(f"{{{SPARKLE}}}shortVersionString")
+        existing_channel = item.findtext(f"{{{SPARKLE}}}channel") or "stable"
         if not existing_build or not existing_build.isdecimal() or int(existing_build) <= 0:
             fail("--existing-appcast contains an invalid sparkle build number")
+        if channel == "stable" and existing_channel == "stable" and existing_version == short_version:
+            fail("stable appcast already contains this short version; bump the release version before publishing")
         highest_build = max(highest_build, int(existing_build))
     if int(build) <= highest_build:
         fail("--build must be greater than every build in --existing-appcast")
@@ -135,7 +139,7 @@ def render(args: argparse.Namespace) -> None:
     if length != package.stat().st_size:
         fail("Sparkle-reported package length does not match the staged package")
 
-    prior_items = existing_items(args.existing_appcast, args.build)
+    prior_items = existing_items(args.existing_appcast, args.build, args.channel, args.version)
     rss = ET.Element("rss", {"version": "2.0"})
     channel = ET.SubElement(rss, "channel")
     ET.SubElement(channel, "title").text = "Vox updates"
