@@ -528,7 +528,7 @@ function UploadPane({
               {(() => { const t = Math.max(0, Math.floor(uploadProgress)); return `${Math.floor(t/60)}:${String(t%60).padStart(2,"0")}`; })()}
             </span>
             {/* Waveform canvas */}
-            <div className="relative min-w-0 flex-1 overflow-hidden rounded-md bg-[oklch(0.99_0.005_280)]">
+            <div className="relative min-w-0 flex-1 overflow-hidden rounded-md bg-muted">
               <div
                 className="pointer-events-none absolute inset-0 opacity-60"
                 style={{ background: "radial-gradient(120% 100% at 0% 50%, oklch(0.95 0.04 260 / 0.5), transparent 60%), radial-gradient(120% 100% at 100% 50%, oklch(0.95 0.04 25 / 0.45), transparent 60%)" }}
@@ -1090,7 +1090,7 @@ function RecordPane({
       </div>
 
       {/* ── Waveform canvas ────────────────────────────────────── */}
-      <div className="relative mt-5 overflow-hidden rounded-xl border border-border bg-[oklch(0.99_0.005_280)]">
+      <div className="relative mt-5 overflow-hidden rounded-xl border border-border bg-muted">
         <div
           className="pointer-events-none absolute inset-0 opacity-60"
           style={{ background: "radial-gradient(120% 100% at 0% 50%, oklch(0.95 0.04 260 / 0.55), transparent 60%), radial-gradient(120% 100% at 100% 50%, oklch(0.95 0.04 25 / 0.5), transparent 60%)" }}
@@ -1637,7 +1637,7 @@ function ProfileCard({
         <span className="shrink-0 font-mono text-[11px] tabular-nums text-foreground/55">{fmt(progress)}</span>
 
         {/* Waveform canvas */}
-        <div className="relative min-w-0 flex-1 overflow-hidden rounded-md bg-[oklch(0.99_0.005_280)]">
+        <div className="relative min-w-0 flex-1 overflow-hidden rounded-md bg-muted">
           <div
             className="pointer-events-none absolute inset-0 opacity-60"
             style={{ background: "radial-gradient(120% 100% at 0% 50%, oklch(0.95 0.04 260 / 0.5), transparent 60%), radial-gradient(120% 100% at 100% 50%, oklch(0.95 0.04 25 / 0.45), transparent 60%)" }}

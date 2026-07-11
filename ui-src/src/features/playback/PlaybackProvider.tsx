@@ -285,7 +285,7 @@ function QuickPlayerWaveform({
   return (
     <div
       data-testid="quick-player-waveform"
-      className="relative mb-1 hidden h-7 overflow-hidden rounded-md border border-border bg-[oklch(0.99_0.005_280)] sm:block"
+      className="relative mb-1 hidden h-7 overflow-hidden rounded-md border border-border bg-muted sm:block"
     >
       <div
         className="pointer-events-none absolute inset-0 opacity-60"
