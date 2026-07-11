@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import ipaddress
+import re
 from collections.abc import Callable
 from urllib.parse import urlsplit
 
@@ -12,6 +13,7 @@ from api.core.security import Credential, Scope
 
 SAFE_METHODS = {"GET", "HEAD", "OPTIONS"}
 PUBLIC_REMOTE_PATHS = {"/health", "/pair", "/api/v1/auth/pair"}
+_DNS_HOST = re.compile(r"^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9-]{2,63}$")
 
 
 def _error(status: int, code: str, message: str) -> JSONResponse:
@@ -35,14 +37,40 @@ def _host_name(host_header: str) -> str:
         return ""
 
 
-def _trusted_host(host_header: str) -> bool:
+def _configured_hosts(value: str) -> frozenset[str]:
+    """Return explicit DNS names from VOX_TRUSTED_HOSTS.
+
+    Configuration deliberately accepts only exact DNS names—never schemes,
+    ports, IP ranges, or wildcards—so an accidental broad allowlist cannot
+    turn the local host check into an internet-facing one.
+    """
+    hosts: set[str] = set()
+    for item in value.split(","):
+        hostname = item.strip().lower().rstrip(".")
+        if _DNS_HOST.fullmatch(hostname):
+            hosts.add(hostname)
+    return frozenset(hosts)
+
+
+def normalize_configured_hosts(value: str) -> str:
+    entries = [item.strip().lower().rstrip(".") for item in value.split(",") if item.strip()]
+    invalid = [entry for entry in entries if not _DNS_HOST.fullmatch(entry)]
+    if invalid:
+        raise ValueError("trusted hosts must be exact DNS names without ports, schemes, or wildcards")
+    return ",".join(dict.fromkeys(entries))
+
+
+def _trusted_host(host_header: str, configured_hosts: str = "") -> bool:
     hostname = _host_name(host_header)
     if not hostname:
         return False
-    if hostname.lower() == "localhost" or hostname.lower().endswith(".local"):
+    normalized = hostname.lower().rstrip(".")
+    if normalized in _configured_hosts(configured_hosts):
+        return True
+    if normalized == "localhost" or normalized.endswith(".local"):
         return True
     try:
-        address = ipaddress.ip_address(hostname)
+        address = ipaddress.ip_address(normalized)
         return address.is_loopback or address.is_private or address.is_link_local
     except ValueError:
         return False
@@ -83,13 +111,14 @@ def _has_scope(credential: Credential, required: Scope) -> bool:
 
 
 class SecurityMiddleware(BaseHTTPMiddleware):
-    def __init__(self, app, lan_enabled: Callable[[], bool]):
+    def __init__(self, app, lan_enabled: Callable[[], bool], trusted_hosts: Callable[[], str] = lambda: ""):
         super().__init__(app)
         self.lan_enabled = lan_enabled
+        self.trusted_hosts = trusted_hosts
 
     async def dispatch(self, request: Request, call_next):
         host_header = request.headers.get("host", "")
-        if not _trusted_host(host_header):
+        if not _trusted_host(host_header, self.trusted_hosts()):
             return _error(400, "untrusted_host", "The request Host is not trusted.")
 
         if request.method not in SAFE_METHODS:

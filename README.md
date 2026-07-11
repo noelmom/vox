@@ -285,6 +285,10 @@ The server starts on `http://127.0.0.1:8000` by default — local to the Mac run
 
 To allow phones, tablets, or other machines on your LAN to reach Vox, open Settings → Runtime → Network access and switch to **Network accessible**. Restart the local server for the host change to take effect. Then choose **Pair a Device…** from Vox Helper and enter its single-use five-minute code on the remote device.
 
+### Trusted HTTPS proxy or Cloudflare Tunnel
+
+For an Access-protected test deployment, keep Vox bound to loopback and use **Settings → Runtime → Trusted hostnames** to add the exact public hostname, such as `vox.melolab.dev`. Restart Vox after saving. Configure the tunnel/proxy to forward only to `http://127.0.0.1:8000`; do not expose port 8000 directly. The field accepts comma-separated exact DNS names only—no ports, schemes, IP ranges, or wildcards.
+
 Loopback Studio and API clients remain token-free. Until paired, remote devices can access only `GET /health` and the minimal pairing page/API. Browser sessions are `HttpOnly` and `SameSite=Strict`; API clients use explicit bearer tokens with `read`, `generate`, or `admin` scope. Pairing codes and raw tokens are never stored—only credential hashes are written under the installed Vox `data/security/` directory with owner-only permissions. Disabling LAN access revokes remote credentials.
 
 Vox serves plain HTTP on the LAN unless you place it behind trusted TLS. Pair only on a trusted network and do not reuse Vox credentials elsewhere.
@@ -505,6 +509,7 @@ All settings are controlled via environment variables with a `VOX_` prefix, or b
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `VOX_HOST` | `127.0.0.1` | Bind address. Use `127.0.0.1` for local-only access or `0.0.0.0` for LAN access. Host changes require restarting the local server. |
+| `VOX_TRUSTED_HOSTS` | _(empty)_ | Exact comma-separated DNS names accepted in `Host` headers when Vox is behind a trusted TLS proxy or tunnel. Wildcards, ports, schemes, and IP ranges are ignored. |
 | `VOX_PORT` | `8000` | Port to listen on |
 | `VOX_DEVICE` | `auto` | `auto` \| `mps` \| `cpu` |
 | `VOX_FFMPEG_PATH` | `/opt/homebrew/bin/ffmpeg` | Path to ffmpeg binary |

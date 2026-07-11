@@ -9,6 +9,10 @@ class Settings(BaseSettings):
     app_name: str = "Vox"
     # Local-only by default. Set VOX_HOST=0.0.0.0 to allow LAN access.
     host: str = "127.0.0.1"
+    # Exact comma-separated DNS names accepted in Host headers when Vox is
+    # placed behind a trusted TLS proxy or tunnel. Empty preserves local-only
+    # host validation.
+    trusted_hosts: str = ""
     port: int = 8000
     device: str = "auto"  # auto | mps | cpu
 
