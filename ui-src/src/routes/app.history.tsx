@@ -542,12 +542,12 @@ function ClipCard({
 
         {/* Player or no-audio placeholder */}
         {noAudio ? (
-          <div className="flex items-center gap-3 rounded-xl border border-dashed border-[oklch(0.9_0.02_260)] bg-[oklch(0.985_0.005_260)] p-4">
+          <div className="flex items-center gap-3 rounded-xl border border-dashed border-border bg-muted p-4">
             <span
               className={
                 "flex h-11 w-11 shrink-0 items-center justify-center rounded-full " +
                 (failed
-                  ? "bg-[oklch(0.96_0.04_25)] text-[oklch(0.6_0.22_25)]"
+                  ? "bg-[var(--danger-soft)] text-[var(--danger)]"
                   : "bg-muted text-muted-foreground")
               }
             >
@@ -623,7 +623,7 @@ function ClipCard({
         )}
 
         {/* Script */}
-        <div className="relative rounded-xl border border-[oklch(0.94_0.02_260)] bg-gradient-to-br from-[oklch(0.985_0.01_260)] to-[oklch(0.97_0.02_260)] p-3.5 pl-10">
+        <div className="relative rounded-xl border border-border bg-muted p-3.5 pl-10">
           <Quote className="absolute left-3 top-3 h-4 w-4 text-[oklch(0.7_0.12_260)]" />
           <p
             className={
