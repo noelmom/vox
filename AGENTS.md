@@ -289,3 +289,17 @@ When behavior changes, update the relevant docs in the same commit:
 - Keep commits focused and descriptive.
 - Before pushing, run relevant verification for the files touched.
 - Before tagging, ensure `git status --short` is clean.
+
+## Agent skills
+
+### Issue tracker
+
+Issues and planning maps live in GitHub Issues; external pull requests are not a triage surface. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+The standard five-role triage vocabulary is used. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+This is a single-context repository. See `docs/agents/domain.md`.
