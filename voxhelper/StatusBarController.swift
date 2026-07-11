@@ -381,7 +381,7 @@ class StatusBarController: NSObject {
     }
 
     private func makeMenuBarIcon(running: Bool, copied: Bool = false) -> NSImage {
-        if !copied, let image = bundledMenuBarIcon(named: running ? "MenuBarRunning" : "MenuBarStopped") {
+        if !copied, let image = bundledMenuBarIcon(named: "VoxMenuBarTemplate") {
             return image
         }
 
@@ -420,8 +420,8 @@ class StatusBarController: NSObject {
               let image = NSImage(contentsOf: url) else {
             return nil
         }
-        image.size = NSSize(width: 44, height: 18)
-        image.isTemplate = false
+        image.size = NSSize(width: 22, height: 22)
+        image.isTemplate = true
         return image
     }
 
