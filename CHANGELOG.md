@@ -5,7 +5,7 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
-## [Unreleased]
+## [1.0.2] — 2026-07-11
 
 ### Added
 - **V-wave brand system** — refreshed Studio/public logos, favicon, Server and Helper app icons, and a macOS template menu-bar mark.
@@ -19,6 +19,8 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Fixed
 - **Playback completion** — Now Playing snaps its seek state to the exact audio duration at completion.
 - **Favicon delivery** — a versioned V-wave PNG/ICO pair is explicitly served by the local app to avoid stale browser favicon fallbacks.
+
+## [Unreleased]
 
 ## [1.0.0] — 2026-07-04
 
