@@ -136,8 +136,33 @@
   color-scheme: dark;
 }
 
+.dark :is(input:not([type="range"]), textarea, select) {
+  border-color: var(--border);
+  background-color: var(--background) !important;
+  color: var(--foreground) !important;
+}
+
+.dark :is(input:not([type="range"]), textarea, select)::placeholder {
+  color: var(--muted-foreground) !important;
+}
+
+.dark button:disabled {
+  border-color: var(--border) !important;
+  background: var(--muted) !important;
+  color: var(--muted-foreground) !important;
+  box-shadow: none !important;
+  opacity: 1 !important;
+}
+
+.dark [data-radix-popper-content-wrapper] :is([role="menu"], [role="listbox"]) {
+  border-color: var(--border);
+  background: var(--popover);
+  color: var(--popover-foreground);
+}
+
 @layer base {
   * { border-color: var(--color-border); }
+  button:not(:disabled) { transition: background-color 150ms ease, border-color 150ms ease, color 150ms ease, filter 150ms ease, transform 100ms ease, box-shadow 150ms ease; }
   button:not(:disabled):hover { transform: none !important; }
   button:not(:disabled):active { transform: translateY(1px) !important; filter: brightness(0.92); }
   body {
