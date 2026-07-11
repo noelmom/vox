@@ -178,7 +178,10 @@ export function PlaybackProvider({ children }: { children: React.ReactNode }) {
         onPause={() => setPlaying(false)}
         onTimeUpdate={(event) => setPosition(event.currentTarget.currentTime)}
         onDurationChange={(event) => setDuration(event.currentTarget.duration || 0)}
-        onEnded={() => setPlaying(false)}
+        onEnded={(event) => {
+          setPosition(event.currentTarget.duration || event.currentTarget.currentTime);
+          setPlaying(false);
+        }}
       />
       {current && (
         <section aria-label="Audio player" className="fixed inset-x-0 bottom-16 z-30 border-t border-border bg-white/95 p-3 shadow-[0_-12px_30px_-24px_rgba(15,23,42,.4)] backdrop-blur-xl md:bottom-0 md:left-[68px] xl:left-[216px]">
