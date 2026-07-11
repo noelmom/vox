@@ -683,7 +683,7 @@ export function SettingsPage() {
 
       {/* APPEARANCE */}
       <Section id="appearance" title="Appearance" Icon={Monitor} subtitle="Dark is the default Studio theme. Light controls are coming in a later pass.">
-        <Row label="Theme" hint="Dark mode is wired internally and deferred until after v1.0 polish.">
+        <Row label="Theme">
           <span className="inline-flex items-center gap-2 rounded-xl border border-border bg-muted px-3 py-2 text-[13px] font-semibold text-foreground/80">
             <Sun className="h-3.5 w-3.5 text-[var(--brand)]" />
             Dark
