@@ -7,27 +7,28 @@ class StatusBarController: NSObject {
     private var lastUpdaterPreferenceRefresh = Date.distantPast
     private var restartUntil: Date?
 
-    private let statusItem  = NSMenuItem(title: "Stopped…",              action: nil, keyEquivalent: "")
-    private let addrItem    = NSMenuItem(title: "—",                     action: nil, keyEquivalent: "")
-    private let copyItem    = NSMenuItem(title: "⎘  Copy Address",       action: nil, keyEquivalent: "")
-    private let openItem    = NSMenuItem(title: "↗  Open in Browser",    action: nil, keyEquivalent: "")
-    private let inputItem   = NSMenuItem(title: "📁  Open Input Folder", action: nil, keyEquivalent: "")
-    private let supportItem = NSMenuItem(title: "↗  Visit Support Page", action: nil, keyEquivalent: "")
-    private let cpuItem     = NSMenuItem(title: "⚡  CPU   —",            action: nil, keyEquivalent: "")
-    private let gpuItem     = NSMenuItem(title: "◈  GPU   —",            action: nil, keyEquivalent: "")
-    private let ramItem     = NSMenuItem(title: "🧠  RAM   —",            action: nil, keyEquivalent: "")
-    private let modelItem   = NSMenuItem(title: "Model —",               action: nil, keyEquivalent: "")
+    private let statusItem  = NSMenuItem(title: "Vox is starting…", action: nil, keyEquivalent: "")
+    private let addrItem    = NSMenuItem(title: "On this Mac", action: nil, keyEquivalent: "")
+    private let copyItem    = NSMenuItem(title: "Copy Studio Address", action: nil, keyEquivalent: "")
+    private let openItem    = NSMenuItem(title: "Open Vox Studio", action: nil, keyEquivalent: "")
+    private let primaryServerItem = NSMenuItem(title: "Start Vox Server", action: nil, keyEquivalent: "")
+    private let inputItem   = NSMenuItem(title: "Open Input Folder", action: nil, keyEquivalent: "")
+    private let supportItem = NSMenuItem(title: "Visit Support Page", action: nil, keyEquivalent: "")
+    private let cpuItem     = NSMenuItem(title: "CPU  —", action: nil, keyEquivalent: "")
+    private let gpuItem     = NSMenuItem(title: "GPU  —", action: nil, keyEquivalent: "")
+    private let ramItem     = NSMenuItem(title: "Memory  —", action: nil, keyEquivalent: "")
+    private let modelItem   = NSMenuItem(title: "Model —", action: nil, keyEquivalent: "")
     private let studioBuildItem = NSMenuItem(title: "Studio vunknown · unknown", action: nil, keyEquivalent: "")
     private let helperBuildItem = NSMenuItem(title: "Helper vunknown · unknown", action: nil, keyEquivalent: "")
-    private let startItem   = NSMenuItem(title: "▶  Start Server",       action: nil, keyEquivalent: "")
-    private let stopItem    = NSMenuItem(title: "■  Stop Server",        action: nil, keyEquivalent: "")
-    private let restartItem = NSMenuItem(title: "↺  Restart Server",     action: nil, keyEquivalent: "")
-    private let pairingItem = NSMenuItem(title: "⌁  Pair a Device…",     action: nil, keyEquivalent: "")
-    private let updateItem  = NSMenuItem(title: "↑  Check for Updates…", action: nil, keyEquivalent: "")
+    private let startItem   = NSMenuItem(title: "Start Server", action: nil, keyEquivalent: "")
+    private let stopItem    = NSMenuItem(title: "Stop Server", action: nil, keyEquivalent: "")
+    private let restartItem = NSMenuItem(title: "Restart Server", action: nil, keyEquivalent: "")
+    private let pairingItem = NSMenuItem(title: "Pair a Device…", action: nil, keyEquivalent: "")
+    private let updateItem  = NSMenuItem(title: "Check for Updates…", action: nil, keyEquivalent: "")
     private let recoveryUpdateItem = NSMenuItem(title: "Recovery / Source Update…", action: nil, keyEquivalent: "")
     private let helperLoginItem = NSMenuItem(title: "Start Helper at Login", action: nil, keyEquivalent: "")
     private let serverLoginItem = NSMenuItem(title: "Start Server at Login", action: nil, keyEquivalent: "")
-    private let logsItem    = NSMenuItem(title: "📋  View Logs",          action: nil, keyEquivalent: "")
+    private let logsItem    = NSMenuItem(title: "View Logs", action: nil, keyEquivalent: "")
     private let uninstallItem = NSMenuItem(title: "Uninstall Vox…",        action: nil, keyEquivalent: "")
     private let quitItem    = NSMenuItem(title: "Quit Helper",            action: nil, keyEquivalent: "")
 
@@ -51,11 +52,12 @@ class StatusBarController: NSObject {
     // ── Menu setup ─────────────────────────────────────────────────────────
     private func setupMenu() {
         [statusItem, addrItem, cpuItem, gpuItem, ramItem, modelItem, studioBuildItem, helperBuildItem].forEach { $0.isEnabled = false }
-        [copyItem, openItem, inputItem, supportItem, startItem, stopItem,
+        [copyItem, openItem, primaryServerItem, inputItem, supportItem, startItem, stopItem,
          restartItem, pairingItem, updateItem, recoveryUpdateItem, helperLoginItem, serverLoginItem, logsItem, uninstallItem, quitItem].forEach { $0.target = self }
 
         copyItem.action    = #selector(copyAddress)
         openItem.action    = #selector(openBrowser)
+        primaryServerItem.action = #selector(startServer)
         inputItem.action   = #selector(openInput)
         supportItem.action = #selector(openSupport)
         startItem.action   = #selector(startServer)
@@ -70,22 +72,36 @@ class StatusBarController: NSObject {
         uninstallItem.action = #selector(confirmUninstall)
         quitItem.action    = #selector(quitApp)
 
+        let controlsMenu = NSMenu(title: "Server controls")
+        [startItem, stopItem, restartItem].forEach(controlsMenu.addItem)
+
+        let filesMenu = NSMenu(title: "Files")
+        [copyItem, inputItem, logsItem].forEach(filesMenu.addItem)
+
+        let diagnosticsMenu = NSMenu(title: "Diagnostics")
+        [modelItem, cpuItem, gpuItem, ramItem, NSMenuItem.separator(), studioBuildItem, helperBuildItem].forEach(diagnosticsMenu.addItem)
+
+        let updatesMenu = NSMenu(title: "Updates & support")
+        [updateItem, recoveryUpdateItem, NSMenuItem.separator(), helperLoginItem, serverLoginItem, NSMenuItem.separator(), supportItem].forEach(updatesMenu.addItem)
+
+        let controlsItem = NSMenuItem(title: "Server Controls", action: nil, keyEquivalent: "")
+        controlsItem.submenu = controlsMenu
+        let filesItem = NSMenuItem(title: "Files", action: nil, keyEquivalent: "")
+        filesItem.submenu = filesMenu
+        let diagnosticsItem = NSMenuItem(title: "Diagnostics", action: nil, keyEquivalent: "")
+        diagnosticsItem.submenu = diagnosticsMenu
+        let updatesItem = NSMenuItem(title: "Updates & Support", action: nil, keyEquivalent: "")
+        updatesItem.submenu = updatesMenu
+
         let menu = NSMenu()
         menu.delegate = self
-        for i in [statusItem, addrItem, copyItem, openItem, inputItem, supportItem,
+        for i in [statusItem, addrItem,
                   NSMenuItem.separator(),
-                  cpuItem, gpuItem, ramItem, modelItem,
+                  openItem, primaryServerItem, pairingItem,
                   NSMenuItem.separator(),
-                  studioBuildItem, helperBuildItem,
+                  controlsItem, filesItem, diagnosticsItem, updatesItem,
                   NSMenuItem.separator(),
-                  startItem, stopItem, restartItem, pairingItem,
-                  NSMenuItem.separator(),
-                  updateItem, recoveryUpdateItem, helperLoginItem, serverLoginItem,
-                  NSMenuItem.separator(),
-                  logsItem,
-                  NSMenuItem.separator(),
-                  uninstallItem,
-                  quitItem] { menu.addItem(i) }
+                  quitItem, uninstallItem] { menu.addItem(i) }
 
         item.menu = menu
         applyMenuBarIcon(running: false)
@@ -99,17 +115,19 @@ class StatusBarController: NSObject {
         }
         let restarting = isRestarting(state: state)
         applyMenuBarIcon(running: state.running || restarting)
-        statusItem.title    = restarting ? "Restarting…" : (state.running ? "Running…" : "Stopped…")
+        statusItem.title    = restarting ? "Vox is restarting…" : (state.running ? "Vox is ready" : "Vox is stopped")
         addrItem.title      = state.addrLabel
         copyItem.action     = state.running ? #selector(copyAddress)   : nil
         openItem.action     = state.running ? #selector(openBrowser)   : nil
+        primaryServerItem.title = state.running ? "Restart Vox Server" : "Start Vox Server"
+        primaryServerItem.action = state.running ? #selector(restartServer) : #selector(startServer)
         startItem.action    = state.running ? nil                      : #selector(startServer)
         stopItem.action     = state.running ? #selector(stopServer)    : nil
         restartItem.action  = state.running ? #selector(restartServer) : nil
         pairingItem.action  = state.running && state.networkAccessible ? #selector(createPairingCode) : nil
-        cpuItem.title       = "⚡  CPU   \(Int(state.cpu.rounded()))%"
-        gpuItem.title       = state.gpu.map { "◈  GPU   \(Int($0.rounded()))%" } ?? "◈  GPU   unavailable"
-        ramItem.title       = "🧠  RAM   \(String(format: "%.1f", state.ramUsed)) / \(Int(state.ramTotal)) GB"
+        cpuItem.title       = "CPU  \(Int(state.cpu.rounded()))%"
+        gpuItem.title       = state.gpu.map { "GPU  \(Int($0.rounded()))%" } ?? "GPU  unavailable"
+        ramItem.title       = "Memory  \(String(format: "%.1f", state.ramUsed)) / \(Int(state.ramTotal)) GB"
         modelItem.title     = state.modelLabel
         studioBuildItem.title = state.studioBuildLabel
         helperBuildItem.title = helperBuildLabel()
