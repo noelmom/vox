@@ -2384,11 +2384,11 @@ function JobRow({
           <span className="mr-auto text-[11.5px] text-foreground/50">{active ? (playing ? "Playing in Now Playing" : "Ready in Now Playing") : "Play opens Now Playing"}</span>
           <div className="flex items-center gap-1">
             <a href={`/api/v1/jobs/${encodeURIComponent(job.request_id)}/audio`} download={`vox-${job.request_id.slice(0, 8)}.${job.output_format}`}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-white px-2.5 py-1.5 text-[12px] font-semibold text-foreground/75 hover:bg-muted">
+              className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-white px-2.5 py-1.5 text-[12px] font-semibold text-foreground/75 transition-colors hover:border-[oklch(0.66_0.22_35)] hover:bg-[oklch(0.28_0.05_35)] hover:text-[oklch(0.93_0.012_250)]">
               <Download className="h-3.5 w-3.5" /> Download
             </a>
             {onRegenerate && (
-              <button onClick={onRegenerate} className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-white px-2.5 py-1.5 text-[12px] font-semibold text-foreground/75 hover:bg-muted">
+              <button onClick={onRegenerate} className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-white px-2.5 py-1.5 text-[12px] font-semibold text-foreground/75 transition-colors hover:border-[oklch(0.66_0.22_35)] hover:bg-[oklch(0.28_0.05_35)] hover:text-[oklch(0.93_0.012_250)]">
                 <RefreshCw className="h-3.5 w-3.5" /> Reuse Script
               </button>
             )}
