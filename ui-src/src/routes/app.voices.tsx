@@ -489,21 +489,21 @@ function UploadPane({
           onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
           onDragLeave={() => setDragOver(false)}
           onDrop={(e) => { e.preventDefault(); setDragOver(false); const f = e.dataTransfer.files?.[0]; if (f) void pickFile(f); }}
-          className={"flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed px-6 py-10 text-center transition-colors " + (dragOver ? "border-[var(--brand)] bg-[var(--brand-soft)]" : file ? "border-[var(--brand-secondary)] bg-[color-mix(in_oklch,var(--brand-soft)_55%,var(--card))]" : "border-border bg-muted hover:bg-muted/70")}
+          className={"flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed px-6 py-10 text-center transition-colors " + (dragOver ? "border-[oklch(0.66_0.22_35)] bg-[oklch(0.28_0.05_35)]" : file ? "border-[oklch(0.72_0.18_42)] bg-[oklch(0.23_0.04_35)]" : "border-[oklch(0.26_0.02_250)] bg-[oklch(0.17_0.018_250)] hover:border-[oklch(0.66_0.22_35)] hover:bg-[oklch(0.2_0.025_250)]")}
         >
           <input ref={fileRef} type="file" accept=".wav,.m4a,.mp3,.aiff,.flac,.ogg,audio/*" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) void pickFile(f); }} />
           {file ? (
             <>
-              <span className="flex h-12 w-12 items-center justify-center rounded-full bg-[var(--brand-soft)]"><Check className="h-5 w-5 text-[var(--brand)]" /></span>
-              <div className="mt-3 text-[15px] font-semibold text-foreground">{file.name}</div>
-              <div className="mt-1 text-[12px] text-muted-foreground">{(file.size / 1024 / 1024).toFixed(1)} MB · Click to change</div>
+              <span className="flex h-12 w-12 items-center justify-center rounded-full bg-[oklch(0.28_0.05_35)]"><Check className="h-5 w-5 text-[oklch(0.76_0.18_42)]" /></span>
+              <div className="mt-3 text-[15px] font-semibold text-[oklch(0.93_0.012_250)]">{file.name}</div>
+              <div className="mt-1 text-[12px] text-[oklch(0.68_0.02_250)]">{(file.size / 1024 / 1024).toFixed(1)} MB · Click to change</div>
             </>
           ) : (
             <>
-              <span className="flex h-12 w-12 items-center justify-center rounded-full bg-[var(--brand-soft)]"><UploadCloud className="h-5 w-5 text-[var(--brand)]" /></span>
-              <div className="mt-4 text-[15px] font-semibold text-foreground">Upload voice sample</div>
-              <div className="mt-1 text-[13px] text-muted-foreground">Drag and drop, or click to browse</div>
-              <div className="mt-3 text-[12px] tracking-wide text-muted-foreground/70">WAV · M4A · MP3 · AIFF · FLAC · OGG</div>
+              <span className="flex h-12 w-12 items-center justify-center rounded-full bg-[oklch(0.28_0.05_35)]"><UploadCloud className="h-5 w-5 text-[oklch(0.76_0.18_42)]" /></span>
+              <div className="mt-4 text-[15px] font-semibold text-[oklch(0.93_0.012_250)]">Upload voice sample</div>
+              <div className="mt-1 text-[13px] text-[oklch(0.68_0.02_250)]">Drag and drop, or click to browse</div>
+              <div className="mt-3 text-[12px] tracking-wide text-[oklch(0.6_0.02_250)]">WAV · M4A · MP3 · AIFF · FLAC · OGG</div>
             </>
           )}
         </label>
