@@ -998,11 +998,11 @@ function RecordPane({
   const canSave = !!recordedBlob && !!voiceName.trim() && saveStatus !== "saving" && selectedDuration > 0 && isTrimDurationWithinLimit(selectedDuration, maxVoiceClipDurationSeconds);
 
   if (permission === "no-device") return (
-    <div className="flex flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-[oklch(0.82_0.08_40)] bg-[oklch(0.985_0.01_40)] py-12 text-center">
-      <Mic className="h-8 w-8 text-[oklch(0.6_0.14_40)]" />
-      <p className="text-[14px] font-semibold text-foreground">No microphone detected</p>
+    <div className="flex flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-[color-mix(in_oklch,var(--brand-warm)_45%,var(--border))] bg-[color-mix(in_oklch,var(--brand-warm)_10%,var(--surface-solid))] py-12 text-center">
+      <Mic className="h-8 w-8 text-[var(--brand-warm)]" />
+      <p className="text-[14px] font-bold text-foreground">No microphone detected</p>
       <p className="max-w-xs text-[12.5px] text-muted-foreground">Connect a microphone and try again, or use the <strong>Upload</strong> tab to add an existing audio file.</p>
-      <button onClick={() => { void runMicPreflight(); }} className="mt-1 inline-flex items-center gap-1.5 rounded-lg border border-border bg-white px-3 py-2 text-[12.5px] font-medium text-foreground/80 hover:bg-muted"><RefreshCw className="h-3.5 w-3.5" />Try again</button>
+      <button onClick={() => { void runMicPreflight(); }} className="vox-control mt-1 inline-flex items-center gap-1.5 px-3 py-2 text-[12.5px] font-semibold"><RefreshCw className="h-3.5 w-3.5" />Try again</button>
     </div>
   );
 
